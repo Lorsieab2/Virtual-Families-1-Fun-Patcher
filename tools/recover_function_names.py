@@ -13,16 +13,22 @@ names. This tool transfers names from those objects to VF1 in three steps:
    string table pairs each id with its key, so a GetTitle named for event X
    must return the id whose key is eEvent<X>Title (or the same without "The").
    Run with --strict to fail when any does not.
-3. Call graph. For a named VF1 function, its direct calls are paired, in
-   order, with the direct calls in VF2's object for the same name when both
-   lists have the same length and every already-known pair agrees. Repeated to
-   a fixpoint; an address that would get two names is dropped.
+3. Call graph (HINTS ONLY). For a named VF1 function, its direct calls are
+   paired, in order, with the direct calls in VF2's object for the same name
+   when both lists have the same length and every already-known pair agrees.
+   Repeated to a fixpoint; an address that would get two names is dropped.
+   These names are NOT reliable: equal-length call lists line up by chance
+   (0x489a30 came out as CMoney::UpdateInterest but counts villagers by
+   career; 0x48ab50 as MakeAllVillagersDoIt at 33 bytes against 230). They are
+   written to a separate file, and each must be confirmed by reading its code
+   before anything depends on it.
 
 Byte-for-byte matching does not work: VF2's object files do not produce the
 same code as either shipped game (only 14 functions match exactly).
 
 usage:
-  recover_function_names.py --vf1-exe PATH --vf2-objs DIR --out names.json
+  recover_function_names.py --vf1-exe PATH --vf2-objs DIR --out vtable_names.json
+                            --hints-out callgraph_hints.json
                             [--strings-out strings.json] [--strict]
 Read-only: nothing is written except the output files.
 """
@@ -191,7 +197,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vf1-exe", required=True, type=Path)
     ap.add_argument("--vf2-objs", required=True, type=Path)
-    ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--out", required=True, type=Path, help="checked names (vtables)")
+    ap.add_argument("--hints-out", required=True, type=Path, help="unverified call-graph names")
     ap.add_argument("--strings-out", type=Path)
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args()
@@ -224,6 +231,7 @@ def main() -> int:
             else:
                 bad.append((name, key))
 
+    checked = dict(names)
     by_name = defaultdict(set)
     for a, n in names.items():
         by_name[n].add(a)
@@ -254,8 +262,8 @@ def main() -> int:
     args.out.write_text(json.dumps({hex(a): n for a, n in sorted(names.items())}, indent=1) + "\n")
     if args.strings_out:
         args.strings_out.write_text(json.dumps({str(k): v for k, v in sorted(table.items())}, indent=1) + "\n")
-    print(f"vtable classes {len(vtables)}; named from vtables {from_vtables}; "
-          f"after call graph {len(names)} (dropped {len(dropped)})")
+    print(f"vtable classes {len(vtables)}; checked names from vtables {from_vtables}; "
+          f"unverified call-graph hints {len(names) - from_vtables} (dropped {len(dropped)})")
     print(f"string table {len(table)} keys; event GetTitle check: {good} ok, {len(bad)} wrong {bad[:5]}")
     return 1 if args.strict and bad else 0
 

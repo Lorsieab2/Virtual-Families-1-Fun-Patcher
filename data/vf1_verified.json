@@ -1,0 +1,114 @@
+{
+ "0x422740": {
+  "name": "?Adjust@CMoney@@QAEXM_N@Z",
+  "evidence": "thiscall(float amount, bool earned), ret 8: fld [this]; fadd amount; fstp [this] (money is the float at this+0); plays sound 0xC4 unless theGameState+0x1B240; when earned and amount > 0, CAchievement(0x5008D8)::IncrementProgress for achievements 0-3. 22 of 31 callers pass ecx = 0x50C60C, the global Money object."
+ },
+ "0x50c60c": {
+  "name": "Money (global CMoney; +0 float money)",
+  "evidence": "ecx at 22 of 31 CMoney::Adjust call sites; theStoreScene::Buy charges the price through it."
+ },
+ "0x449700": {
+  "name": "??0theStoreScene@@QAE@XZ (store constructor)",
+  "evidence": "Writes vtable 0x4B7220 (RTTI theStoreScene). Creates the Done button: GetImageGrid(0x26), ldwButton(1, grid, {10, 0x236}, this, false), SetText(GetString(0x41A eSayDone), colour x3 from 0x4F1740, font *theStringManager::Get()), AddControl; adds 8 tool-tray slots; ends with mov ecx, esi; call 0x448BE0 at 0x4497E4."
+ },
+ "0x4b7220": {
+  "name": "theStoreScene vtable",
+  "evidence": "RTTI. Slot 3 HandleMessage 0x448F20: message 8 with param 1 (the Done button id) plays sound 0x93 and closes the store; returns false."
+ },
+ "0x449a70": {
+  "name": "theStoreScene::Buy (store purchase)",
+  "evidence": "Money.Adjust(-price, false); achievements; for items < 0x42: CInventoryManager(0x8957A0) stock decrement 0x4969A0, remap toys 0x12->0x40 and 0x13->0x41, CToolTray::AddItem(item, GetUseCount(item)); upgrades set theGameState flags and MakeAllVillagersDoIt(0x8E)."
+ },
+ "0x4019f0": {
+  "name": "??0ldwButton@@QAE@HPAVldwImageGrid@@UldwPoint@@PAVldwScene@@_N@Z",
+  "evidence": "Called by the store constructor with (1, grid, {10, 0x236} by value, scene, false) on a 0x14-byte allocation; matches VF2's ldwButton constructor signature."
+ },
+ "0x4015d0": {
+  "name": "ldwButton::SetText(const char*, ldwColor, ldwColor, ldwColor, ldwFont*)",
+  "evidence": "Store constructor: GetString(0x41A) then three ldwColor dwords from 0x4F1740 and the font *theStringManager::Get(); matches VF2's SetText overload."
+ },
+ "0x401430": {
+  "name": "?SetPos@ldwButton@@UAEXHH@Z",
+  "evidence": "ldwButton vtable (RTTI)."
+ },
+ "0x401440": {
+  "name": "?GetWidth@ldwButton@@UAEHXZ",
+  "evidence": "ldwButton vtable (RTTI)."
+ },
+ "0x40c4b0": {
+  "name": "?AddControl@ldwScene@@IAEXPAVldwControl@@@Z",
+  "evidence": "Vtable/call-graph name; the store constructor passes each new control to it."
+ },
+ "0x44f7c0": {
+  "name": "theGraphicsManager::Get",
+  "evidence": "Static singleton getter (global 0x56E824, allocates 8 bytes on first use); the store constructor calls GetImageGrid on its result."
+ },
+ "0x44f5a0": {
+  "name": "theGraphicsManager::GetImageGrid(EImage)",
+  "evidence": "thiscall on theGraphicsManager::Get(), argument 0x26 in the store constructor; result passed to the ldwButton constructor."
+ },
+ "0x450530": {
+  "name": "?Get@theStringManager@@SAPAV1@XZ",
+  "evidence": "Vtable/call-graph name; static singleton (global 0x570218, constructs theStringManager on first use)."
+ },
+ "0x44fd90": {
+  "name": "?GetString@theStringManager@@QAEPADW4StringId@@@Z",
+  "evidence": "Used with string ids throughout; 0x41A is eSayDone (Done button)."
+ },
+ "0x497b14": {
+  "name": "??2@YAPAXI@Z (operator new)",
+  "evidence": "Every game allocation, including the store's ldwButton."
+ },
+ "0x4973e0": {
+  "name": "?AddItem@CToolTray@@QAE_NW4EInventoryItem@@H@Z",
+  "evidence": "GetAvailableSlot; -1 means full and returns false; otherwise stores {item, uses} in 8-byte slot records at the tray (0x8958E8) and updates the hint; returns true."
+ },
+ "0x4968e0": {
+  "name": "?GetUseCount@CInventoryManager@@QAEHW4EInventoryItem@@H@Z",
+  "evidence": "Returns the item table record +8 (0x4FE198 + item*32) for items 1-80."
+ },
+ "0x8958e8": {
+  "name": "ToolTray (global CToolTray)",
+  "evidence": "ecx for every CToolTray::AddItem call."
+ },
+ "0x8957a0": {
+  "name": "Inventory (global CInventoryManager)",
+  "evidence": "ecx for GetUseCount and the stock decrement in theStoreScene::Buy."
+ },
+ "0x4fe1b0": {
+  "name": "store item table, 32-byte records from item 1",
+  "evidence": "{id, ?, uses, price, short description id, long description id, ?, ?} for ids 1-80; short descriptions match the store's item names (eString_...ShortDesc)."
+ },
+ "0x4b4528": {
+  "name": "bank interest rate (float percent, .rdata, 10.0)",
+  "evidence": "CBankingDlg draw formats it after eString_CurrentInterestRateLabel (0x26); also read at 0x491729 and 0x491775."
+ },
+ "0x4b5e14": {
+  "name": "theGame vtable slot 4 (Init)",
+  "evidence": "RTTI theGame vtable 0x4B5E04; slot 4 holds ?Init@theGame@@UAE_NXZ 0x422AE0, which nothing calls directly."
+ },
+ "0x41b170": {
+  "name": "CIslandEvents::Get (singleton)",
+  "evidence": "At 0x44534C the game calls it and passes the result as ecx to FireEvent."
+ },
+ "0x41b360": {
+  "name": "CIslandEvents::FireEvent(ldwScene*)",
+  "evidence": "thiscall, ret 4: achievements 4 and 5 (+1 each), then the private picker 0x41B1F0(scene, false). Called by the game at 0x445353 when the next event is due (next = CGameTime::Seconds() + 3600)."
+ },
+ "0x41b1f0": {
+  "name": "CIslandEvents private event picker",
+  "evidence": "Loops events 1-71 in the list at 0x502090 calling CanFire (vtable +4) and +0x14; picks one with GetRandom; DoModal over the scene; marks fired at 0x502048 + index."
+ },
+ "0x5b8898": {
+  "name": "VillagerManager (global CVillagerManager)",
+  "evidence": "ecx in theStoreScene::Buy's celebration call and the career-count routine 0x489A30, which walks 30 villager records 0x145FC bytes apart."
+ },
+ "0x4221b0": {
+  "name": "CFoodStore::Adjust(int)",
+  "evidence": "thiscall, ret 4: add [this], amount; if amount <= 0 and the result < 0, set 0. ecx = 0x50C550 at 0x4197A8 (negated amount) and others; same shape as VF2's CFoodStore::Adjust."
+ },
+ "0x50c550": {
+  "name": "FoodStore (global; +0 int food)",
+  "evidence": "Compared with 100 before the low-food e-mail (eString_EmailLowFood 0x17F at 0x4162A6); formatted with eSayFoodLevel 0x3E2 at 0x44161C."
+ }
+}
