@@ -1,5 +1,6 @@
 """Tests for the executable patcher. The vanilla executable is not part of the
-repository: set VF1_VANILLA_EXE to your own copy, or these tests skip."""
+repository: set VF1_VANILLA_EXE (or VF1_VANILLA_DIR) to your own copy, or these
+tests skip."""
 import hashlib
 import json
 import os
@@ -13,12 +14,13 @@ sys.path.insert(0, str(ROOT / "patcher"))
 sys.path.insert(0, str(ROOT / "tools"))
 import vf1_patcher  # noqa: E402
 
-VANILLA = os.environ.get("VF1_VANILLA_EXE")
+VANILLA = os.environ.get("VF1_VANILLA_EXE") or (
+    str(Path(os.environ["VF1_VANILLA_DIR"]) / vf1_patcher.VANILLA_EXE) if os.environ.get("VF1_VANILLA_DIR") else None)
 
 
 def vanilla_bytes():
     if not VANILLA or not Path(VANILLA).is_file():
-        raise unittest.SkipTest("set VF1_VANILLA_EXE to the vanilla Virtual Families.exe")
+        raise unittest.SkipTest("set VF1_VANILLA_EXE (or VF1_VANILLA_DIR) to the vanilla Virtual Families game")
     return Path(VANILLA).read_bytes()
 
 
@@ -72,6 +74,15 @@ class PatchExecutable(unittest.TestCase):
     def test_refuses_anything_but_vanilla(self):
         with self.assertRaises(vf1_patcher.PatchError):
             vf1_patcher.patch_executable(self.patched)
+
+    def test_patch_state_tells_vanilla_patched_and_other_apart(self):
+        self.assertEqual(vf1_patcher.executable_patch_state(self.vanilla), "vanilla")
+        self.assertEqual(vf1_patcher.executable_patch_state(self.patched), "current")
+        other = bytearray(self.patched)
+        raw = {s[0]: s for s in self.pe.sections()}[".vf1fun"][3]
+        other[raw + 10] ^= 0xFF  # a different loader
+        self.assertEqual(vf1_patcher.executable_patch_state(bytes(other)), "other_version")
+        self.assertEqual(vf1_patcher.executable_patch_state(b"MZ not a game"), "unknown")
 
 
 if __name__ == "__main__":

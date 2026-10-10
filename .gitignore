@@ -7,3 +7,6 @@ outputs/
 __pycache__/
 *.pyc
 build/
+patcher/patcher_local_settings.json
+patcher/patch_dry_run_log.json
+patcher/patch_error_log.json

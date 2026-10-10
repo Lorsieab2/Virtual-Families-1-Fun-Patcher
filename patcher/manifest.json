@@ -1,0 +1,40 @@
+{
+  "manifest_version": 1,
+  "name": "Virtual Families 1 Patcher",
+  "version": "dev",
+  "description": "Patch settings for the Virtual Families 1 Patcher. Each setting is a switch in \"Virtual Families 1 Patcher Files\\settings.ini\", section [Patches], read by vf1fun.dll when the game starts. To add a setting, add a row here: id (the settings.ini key), label, description, default, category (main or optional), and optionally requires (ids of settings it cannot work without; the patcher states them in bold) and files (payload files installed into the Virtual Families 1 Patcher Files folder only while the setting is on).",
+  "output": {
+    "default_folder_name": "Virtual Families - Modded",
+    "default_exe_name": "Virtual Families - Modded.exe"
+  },
+  "settings": [
+    {
+      "id": "FixVanillaGameBugs",
+      "label": "Fix Vanilla Game Bugs",
+      "description": "Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption).",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "CheatUpgrades",
+      "label": "Cheat Upgrades",
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate and villager cheats.",
+      "default": true,
+      "category": "optional"
+    },
+    {
+      "id": "FleaMarket",
+      "label": "Flea Market",
+      "description": "Every tray item the store sells, to buy or get for free.",
+      "default": true,
+      "category": "optional"
+    },
+    {
+      "id": "RollTheDice",
+      "label": "Roll the Dice",
+      "description": "$500: an island event happens right away.",
+      "default": true,
+      "category": "optional"
+    }
+  ]
+}

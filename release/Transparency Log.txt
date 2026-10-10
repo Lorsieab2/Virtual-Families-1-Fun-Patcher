@@ -1,0 +1,84 @@
+Virtual Families 1 Patcher Transparency Log
+===========================================
+
+Creation disclosure
+-------------------
+Created by Lorsieab2. This is a passion project dedicated to improving the "Virtual Families" experience!
+No copyright infringement intended! Please support the original game creators! :)
+This patcher was created with Claude AI (Claude Code) in collaboration with Lorsieab2.
+
+What this patcher does
+----------------------
+- Verifies the selected vanilla Virtual Families folder. It must hold
+  Virtual Families.exe, Assets, Images, Sounds, fmod.dll, SDL2.dll, SDL2_image.dll,
+  and Virtual Families.exe must be the official version 1.01.00
+  (SHA-256 5db828c3f53c68696c18719aec0eb114be3fd4458ae2cbf185d8d4ef7eca4487).
+- Creates a separate, clearly labeled modded game folder. The vanilla game folder is only read.
+- With a vanilla folder selected, Enable/Disable Patches rebuilds a recognized modded folder from the
+  vanilla folder. With only a modded folder selected, it reconfigures that folder in place.
+- Backs up every file it will replace or delete before writing, and records every file it will create,
+  so Restore Backup can put the folder back exactly.
+- Writes machine-readable success/failure logs.
+- Dry Run (Validate Only) checks the vanilla folder, the executable, the patch and the payload files,
+  then stops before creating backups, creating the modded folder, or writing any game file.
+- Payload files are read-only/copy-only: the patcher never writes into payload/.
+
+What this patcher does not do
+-----------------------------
+- Does not inject code into a running game or edit process memory.
+- Does not use obfuscation, packers, or admin-only install locations.
+- Does not launch the game.
+- Does not alter any save. The modded game keeps its own save folder.
+
+The executable patch
+--------------------
+- The modded executable is the vanilla Virtual Families.exe plus two new sections:
+  .vf1fun (read + execute), a small loader, and .vf1fud (read + write), its state.
+  No page is both writable and executable.
+- Two existing values change so the game enters the loader: the call at 0x4497e6 (end of the
+  store screen's constructor) and theGame's Init vtable slot at 0x4b5e14. The PE checksum is
+  updated. Nothing else in the original image changes.
+- The loader loads "Virtual Families 1 Patcher Files\vf1fun.dll" by full path. If it is missing, the game runs
+  exactly as normal.
+- The modded executable is named "Virtual Families - Modded.exe". Its name never contains "patch": Windows treats
+  such names as installers and asks for administrator rights.
+
+Every file the patcher writes
+-----------------------------
+In the modded game folder (default "Virtual Families - Modded"):
+- Every file of the vanilla folder except Virtual Families.exe, copied unchanged.
+- Virtual Families - Modded.exe: the patched executable.
+- Virtual Families 1 Patcher Files\vf1fun.dll: the patcher's DLL, copied from payload\vf1fun.dll.
+- Virtual Families 1 Patcher Files\settings.ini: section [Patches], one Key=1/0 line per setting below.
+  Other sections (written by the DLL, e.g. [Cheats] InterestRate) are kept as they were.
+- .vf1_patch_backups\<date_time>_manifest\: one folder per run, holding vf1_patch_backup_manifest.json,
+  files\... (copies of every file the run replaced or deleted), patch_log.json (or
+  patch_error_log.json if the run failed) and, after a restore, restore_log.json.
+Next to manifest.json (the patcher's own folder):
+- patch_dry_run_log.json after a Dry Run, and patch_error_log.json when a run fails before its backup
+  exists.
+- patcher_local_settings.json: the folders you chose in the window, so they are filled in next time.
+The patcher writes nothing else, and it never deletes a backup folder.
+
+Written by the modded game itself
+---------------------------------
+- Virtual Families 1 Patcher Files\settings.ini: the DLL saves cheat values it remembers between sessions there.
+- Saves: Documents\LDW\Virtual Families - Modded, separate from the vanilla game's
+  Documents\LDW\Virtual Families.
+
+Settings and defaults
+---------------------
+- Main Patches (green) and Optional Patches (black), as in the patcher window.
+- FixVanillaGameBugs [on] (main): Fix Vanilla Game Bugs
+  Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption).
+- CheatUpgrades [on] (optional): Cheat Upgrades
+  Adds the Upgrades button's cheat pages: money, food, interest rate and villager cheats.
+- FleaMarket [on] (optional): Flea Market
+  Every tray item the store sells, to buy or get for free.
+- RollTheDice [on] (optional): Roll the Dice
+  $500: an island event happens right away.
+
+Restore
+-------
+- Restore Backup puts back the files a backup recorded, into the folder it was taken from, and deletes
+  the files that run had created. It refuses to restore into the vanilla game folder.
