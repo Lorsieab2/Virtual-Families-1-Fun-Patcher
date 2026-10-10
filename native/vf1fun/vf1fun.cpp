@@ -62,7 +62,45 @@ static void *const Money = (void *)0x50C60C;         // +0: float money
 static void *const ToolTray = (void *)0x8958E8;
 static void *const Inventory = (void *)0x8957A0;
 static unsigned *const ButtonTextColour = (unsigned *)0x4F1740;
-static float *const InterestRate = (float *)0x4B4528;  // .rdata constant, percent
+// THE BANK INTEREST RATE.
+// The game pays interest in CMoney's lazy interest routine (0x422830:
+// money * 0.1 * whole game days, earned=true) and shows the projection
+// (0x422810) and the bank dialog (0x415A7E) from the same double 0.1 at
+// 0x4B4520; the dialog's "%" label loads the float 10.0 at 0x4B4528.
+// NEITHER CONSTANT MAY BE WRITTEN: both are shared. 0x4B4528 is also an hour
+// threshold in the day/night code (CNight, 0x491727 and 0x491773); v0.1.0 and
+// v0.1.1 wrote it, which shifted day and night and never changed the interest
+// actually paid. Instead the four instructions' memory operands are pointed at
+// this DLL's own copies, which the cheat changes. With no rate set they hold
+// the stock values, so the game behaves exactly as stock.
+static double gInterestFraction = 0.1;   // replaces [0x4B4520] at three sites
+static float gInterestPercent = 10.0f;   // replaces [0x4B4528] at the label
+struct OperandSite { unsigned address; unsigned expected; void *replacement; };
+static const OperandSite InterestSites[] = {
+    { 0x422815, 0x4B4520, &gInterestFraction },  // projection: fmul qword [0x4B4520]
+    { 0x422869, 0x4B4520, &gInterestFraction },  // payment: fmul qword [0x4B4520]
+    { 0x415A80, 0x4B4520, &gInterestFraction },  // bank dialog: fld qword [0x4B4520]
+    { 0x415887, 0x4B4528, &gInterestPercent },   // bank "%" label: fld dword [0x4B4528]
+};
+
+static void RedirectInterestOperands() {
+    for (const OperandSite &s : InterestSites) {
+        unsigned *operand = (unsigned *)s.address;
+        if (*operand == (unsigned)s.replacement)
+            continue;
+        if (*operand != s.expected)
+            return;  // not the bytes we verified: leave the game as it is
+    }
+    for (const OperandSite &s : InterestSites) {
+        unsigned *operand = (unsigned *)s.address;
+        DWORD old;
+        if (VirtualProtect(operand, 4, PAGE_EXECUTE_READWRITE, &old)) {
+            *operand = (unsigned)s.replacement;
+            VirtualProtect(operand, 4, old, &old);
+            FlushInstructionCache(GetCurrentProcess(), operand, 4);
+        }
+    }
+}
 static const unsigned char *const ItemTable = (const unsigned char *)0x4FE190;  // 32-byte records, item 1 at +0x20
 
 static unsigned *const StoreVtable = (unsigned *)0x4B7220;
@@ -175,7 +213,7 @@ enum { ID_MONEY_NOW = 100, ID_ADD1K, ID_ADD10K, ID_ADD100K, ID_SET_EDIT, ID_SET,
 
 static void RefreshCheats(HWND dlg) {
     wchar_t s[128];
-    swprintf(s, 128, L"Money now: $%.0f        Interest rate now: %.1f%%", CurrentMoney(), *InterestRate);
+    swprintf(s, 128, L"Money now: $%.0f        Interest rate now: %.1f%%", CurrentMoney(), gInterestPercent);
     SetDlgItemTextW(dlg, ID_MONEY_NOW, s);
     swprintf(s, 128, L"Food now: %d", *Food);
     SetDlgItemTextW(dlg, ID_FOOD_NOW, s);
@@ -207,11 +245,9 @@ static void WriteSetting(const wchar_t *key, float value) {
 }
 
 static void ApplyInterestRate(float percent) {
-    DWORD old;
-    if (VirtualProtect(InterestRate, 4, PAGE_READWRITE, &old)) {
-        *InterestRate = percent;
-        VirtualProtect(InterestRate, 4, old, &old);
-    }
+    RedirectInterestOperands();
+    gInterestFraction = percent / 100.0;
+    gInterestPercent = percent;
 }
 
 static void SetInterestRate(float percent) {
