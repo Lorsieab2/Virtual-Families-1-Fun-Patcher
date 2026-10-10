@@ -65,6 +65,23 @@ loader:
 The loader loads `Virtual Families 1 Patcher Files\vf1fun.dll` by full path.
 If that DLL is missing, the game runs exactly as normal.
 
+The patcher program is a port of the Virtual Families 2 patcher's: the same
+window (Patch Input, Patch Settings, Run Log, Dry Run, Enable/Disable Patches,
+Restore Backup), the same `apply` / `settings` / `restore` commands, backups
+under `.vf1_patch_backups` in the modded folder, and JSON patch logs.
+- **Settings** come from [patcher/manifest.json](patcher/manifest.json): one
+  row per patch with its id, label, description, default, category and,
+  optionally, `requires` (stated in bold in the window) and `files` (installed
+  in the Patcher Files folder only while the patch is on). Adding a patch to
+  the window means adding a row there.
+- **Switching patches** writes `Virtual Families 1 Patcher Files\settings.ini`,
+  section `[Patches]`, `Key=1/0`, which the DLL reads. With only a modded
+  folder selected, Enable/Disable Patches changes that file (and the setting
+  files) in place; the executable is never patched again.
+- **[release/Transparency Log.txt](release/Transparency Log.txt)** lists every
+  file the patcher writes. It is generated from the manifest:
+  `python tools/package_release.py --transparency-log`.
+
 VF1 ships no symbols, but Virtual Families 2 is the same engine and a VF2 build
 leaked its object files:
 - **Checked names:** `tools/recover_function_names.py` transfers function names
@@ -86,9 +103,13 @@ copies as arguments.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.
 - **Release zip:** `python tools/package_release.py VERSION` writes
-  `outputs/VF1-Patcher-VERSION.zip`.
-- **Tests:** set `VF1_VANILLA_EXE` to your own vanilla `Virtual Families.exe`,
-  then run `pytest tests`.
+  `outputs/VF1-Patcher-VERSION.zip`, laid out like a VF2 release (Launch_GUI.bat,
+  Apply_VERSION_Patcher.bat, How to Use.txt, README, Transparency Log.txt,
+  manifest.json with the payload's SHA-256, the scripts, payload/vf1fun.dll).
+- **Tests:** set `VF1_VANILLA_DIR` to a copy of your own vanilla Virtual
+  Families folder (or `VF1_VANILLA_EXE` to its executable, for the
+  executable-only tests), then run `pytest tests`. The tests only read that
+  folder.
 
 ## Related projects
 
