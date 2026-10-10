@@ -125,6 +125,46 @@ enum { BUTTON = 0x80, EDIT = 0x81, STATIC = 0x82, LISTBOX = 0x83 };
 
 static HWND GameWindow() { return GetActiveWindow(); }
 
+// While a patcher dialog is open the game leaves fullscreen (VF1's ldw.ini
+// defaults to FullScreen=1), so the dialog cannot end up hidden behind it; the
+// exact fullscreen mode is restored afterwards. Uses the game's own SDL2.dll.
+class LeaveFullscreen {
+    typedef void *(__cdecl *GetWindowFn)();
+    typedef unsigned (__cdecl *GetFlagsFn)(void *);
+    typedef int (__cdecl *SetFullscreenFn)(void *, unsigned);
+    void *window;
+    unsigned mode;
+    SetFullscreenFn setFullscreen;
+public:
+    LeaveFullscreen() : window(0), mode(0), setFullscreen(0) {
+        HMODULE sdl = GetModuleHandleW(L"SDL2.dll");
+        if (!sdl)
+            return;
+        GetWindowFn focus = (GetWindowFn)GetProcAddress(sdl, "SDL_GetKeyboardFocus");
+        GetWindowFn current = (GetWindowFn)GetProcAddress(sdl, "SDL_GL_GetCurrentWindow");
+        GetFlagsFn flags = (GetFlagsFn)GetProcAddress(sdl, "SDL_GetWindowFlags");
+        setFullscreen = (SetFullscreenFn)GetProcAddress(sdl, "SDL_SetWindowFullscreen");
+        if (!flags || !setFullscreen)
+            return;
+        void *w = focus ? focus() : 0;
+        if (!w && current)
+            w = current();
+        if (!w)
+            return;
+        const unsigned SDL_WINDOW_FULLSCREEN_DESKTOP = 0x1001, SDL_WINDOW_FULLSCREEN = 0x1;
+        unsigned f = flags(w);
+        if (f & SDL_WINDOW_FULLSCREEN) {
+            mode = f & SDL_WINDOW_FULLSCREEN_DESKTOP;
+            if (setFullscreen(w, 0) == 0)
+                window = w;
+        }
+    }
+    ~LeaveFullscreen() {
+        if (window)
+            setFullscreen(window, mode);
+    }
+};
+
 static void Message(HWND owner, const wchar_t *text) {
     MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_OK | MB_ICONINFORMATION);
 }
@@ -483,7 +523,10 @@ static void ShowUpgrades() {
 static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int param) {
     if (message == MessageButtonClicked && param == UpgradesButtonId) {
         RollPending = false;
-        ShowUpgrades();
+        {
+            LeaveFullscreen windowed;
+            ShowUpgrades();
+        }
         if (RollPending) {
             RollPending = false;
             MoneyAdjust(Money, (float)-RollTheDicePrice, false);

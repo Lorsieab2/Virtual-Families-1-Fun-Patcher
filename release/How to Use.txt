@@ -30,6 +30,10 @@ game keeps its own saves, separate from your normal game.
 
 Good to know
 ------------
+* PREVIEW: everything was tested in windowed mode. In fullscreen, the patcher
+  takes the game out of fullscreen while its menu is open and puts it back
+  afterwards, but that hasn't been seen working yet. If the Upgrades menu
+  doesn't appear in fullscreen, set Options > Fullscreen to Off.
 * Always quit through the game's menu. Closing the game any other way (for
   example from Task Manager) skips saving; a brand-new family whose game is
   closed like that comes back dead. That is how the original game works.
