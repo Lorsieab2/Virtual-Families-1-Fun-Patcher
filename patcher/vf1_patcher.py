@@ -120,6 +120,10 @@ STUB = Path(__file__).resolve().with_name("stub.json")
 # theGame's vtable slot for Init (slot 4); stock value theGame::Init.
 INIT_SLOT = 0x4B5E14
 INIT_SLOT_EXPECTED = 0x422AE0
+# theGame's vtable slot for GameUpdate (slot 7), called once per frame by
+# ldwGame::Run (0x402CC0); stock value theGame::GameUpdate.
+UPDATE_SLOT = 0x4B5E20
+UPDATE_SLOT_EXPECTED = 0x422D90
 
 
 def patch_executable(vanilla: bytes) -> bytes:
@@ -137,6 +141,9 @@ def patch_executable(vanilla: bytes) -> bytes:
     slot = pe.offset(INIT_SLOT)
     if struct.unpack_from("<I", pe.data, slot)[0] != INIT_SLOT_EXPECTED:
         raise PatchError("unexpected theGame::Init vtable slot")
+    update = pe.offset(UPDATE_SLOT)
+    if struct.unpack_from("<I", pe.data, update)[0] != UPDATE_SLOT_EXPECTED:
+        raise PatchError("unexpected theGame::GameUpdate vtable slot")
     if pe.next_section_va() != code_va:
         raise PatchError("the stub was built for a different section address")
     pe.add_section(".vf1fun", bytes.fromhex(stub["code"]), 0x60000020)  # code | execute | read
@@ -145,6 +152,7 @@ def patch_executable(vanilla: bytes) -> bytes:
     rel = int(stub["store_entry"], 16) - (HOOK_SITE + 5)
     pe.data[site:site + 5] = bytes([0xE8]) + struct.pack("<i", rel)
     struct.pack_into("<I", pe.data, slot, int(stub["init_entry"], 16))
+    struct.pack_into("<I", pe.data, update, int(stub["tick_entry"], 16))
     pe.update_checksum()
     return bytes(pe.data)
 

@@ -122,5 +122,13 @@
  "0x489900": {
   "name": "?GetVillager@CVillagerManager@@QAEAAVCVillager@@H@Z",
   "evidence": "index 0-29: this + 0x14640 + index * 0x145FC."
+ },
+ "0x4238e0": {
+  "name": "?SaveCurrentGame@theGameState@@QAE_NXZ",
+  "evidence": "Disassembly: Save(0) through vtable +0x38 (theGameState::Save, vtable slot at 0x4B5E6C), then Save(current slot at +0x1B188) and Save(slot + 0x14). Callers include CStoryScene::Activate and the nickname/change-player dialogs. Live 2026-10-10: called after Adopt, it wrote the new villager into slots 1 and 21."
+ },
+ "0x423790": {
+  "name": "?Save@theGameState@@UAE_NH@Z",
+  "evidence": "RTTI vtable name (theGameState slot at 0x4B5E6C)."
  }
 }

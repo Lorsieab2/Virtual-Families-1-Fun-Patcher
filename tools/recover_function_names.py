@@ -259,7 +259,11 @@ def main() -> int:
         if not added:
             break
 
-    args.out.write_text(json.dumps({hex(a): n for a, n in sorted(names.items())}, indent=1) + "\n")
+    # Only the vtable names are checked; everything the call graph added is a
+    # hint and goes to its own file.
+    args.out.write_text(json.dumps({hex(a): n for a, n in sorted(checked.items())}, indent=1) + "\n")
+    hints = {hex(a): n for a, n in sorted(names.items()) if a not in checked}
+    args.hints_out.write_text(json.dumps(hints, indent=1) + "\n")
     if args.strings_out:
         args.strings_out.write_text(json.dumps({str(k): v for k, v in sorted(table.items())}, indent=1) + "\n")
     print(f"vtable classes {len(vtables)}; checked names from vtables {from_vtables}; "
