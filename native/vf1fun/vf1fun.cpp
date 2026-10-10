@@ -249,6 +249,110 @@ static void ShowCheats(HWND owner) {
     DialogBoxIndirectParamW(Module, t.Get(), owner, CheatsProc, 0);
 }
 
+// ---- Villager cheats
+// Villager i (0-29) is at VillagerManager + 0x14640 + i * 0x145FC
+// (CVillagerManager::GetVillager 0x489900). Its CVillagerState is at +0x2AD4
+// (every CVillagerState::SetSymptom caller), with VF2's layout, confirmed
+// live against the Detail screen: health +0x0C, energy +0x34 and happiness
+// +0x38 (100 best), and hunger +0x40 (1-100, 100 STARVING: the Detail
+// screen's Fed bar is 100 - hunger; writing 100 emptied it in a live test,
+// 2026-10-10); seven symptom flags at
+// +0x5C and their end times at +0x64. The name is at +0x2A44; a villager who
+// is present has the byte at +0x13574 set and health above 0
+// (CVillagerManager::Population 0x48AC90).
+static unsigned char *const VillagerManager = (unsigned char *)0x5B8898;
+static const int VillagerSlots = 30;
+
+static unsigned char *Villager(int i) { return VillagerManager + 0x14640 + i * 0x145FC; }
+static bool VillagerPresent(int i) {
+    unsigned char *v = Villager(i);
+    return v[0x13574] != 0 && *(int *)(v + 0x2AE0) > 0;
+}
+static int *Stat(int i, int offset) { return (int *)(Villager(i) + 0x2AD4 + offset); }
+
+enum { STAT_HEALTH = 0x0C, STAT_ENERGY = 0x34, STAT_HAPPINESS = 0x38, STAT_HUNGER = 0x40 };
+static int Fed(int i) { return 100 - *Stat(i, STAT_HUNGER); }
+enum { ID_VC_LIST = 400, ID_VC_HEALTH, ID_VC_CURE, ID_VC_HAPPY, ID_VC_ENERGY, ID_VC_FED, ID_VC_ALL };
+
+static void CureVillager(int i) {
+    unsigned char *state = Villager(i) + 0x2AD4;
+    for (int s = 0; s < 7; ++s) {
+        state[0x5C + s] = 0;
+        *(unsigned *)(state + 0x64 + s * 4) = 0;
+    }
+}
+
+static void ApplyVillagerCheat(int i, int id) {
+    if (id == ID_VC_HEALTH || id == ID_VC_ALL) *Stat(i, STAT_HEALTH) = 100;
+    if (id == ID_VC_CURE || id == ID_VC_ALL) CureVillager(i);
+    if (id == ID_VC_HAPPY || id == ID_VC_ALL) *Stat(i, STAT_HAPPINESS) = 100;
+    if (id == ID_VC_ENERGY || id == ID_VC_ALL) *Stat(i, STAT_ENERGY) = 100;
+    if (id == ID_VC_FED || id == ID_VC_ALL) *Stat(i, STAT_HUNGER) = 1;  // fully fed (SetHunger's minimum)
+}
+
+static void FillVillagerList(HWND dlg) {
+    HWND list = GetDlgItem(dlg, ID_VC_LIST);
+    SendMessageW(list, LB_RESETCONTENT, 0, 0);
+    int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)L"Everyone");
+    SendMessageW(list, LB_SETITEMDATA, row, -1);
+    for (int i = 0; i < VillagerSlots; ++i) {
+        if (!VillagerPresent(i))
+            continue;
+        wchar_t line[96];
+        swprintf(line, 96, L"%.40hs\tHealth %d  Happy %d  Fed %d  Energy %d",
+                 (const char *)(Villager(i) + 0x2A44), *Stat(i, STAT_HEALTH), *Stat(i, STAT_HAPPINESS),
+                 Fed(i), *Stat(i, STAT_ENERGY));
+        row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
+        SendMessageW(list, LB_SETITEMDATA, row, i);
+    }
+    SendMessageW(list, LB_SETCURSEL, 0, 0);
+}
+
+static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
+    switch (msg) {
+    case WM_INITDIALOG: {
+        int stop = 90;
+        SendMessageW(GetDlgItem(dlg, ID_VC_LIST), LB_SETTABSTOPS, 1, (LPARAM)&stop);
+        FillVillagerList(dlg);
+        return TRUE;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wp);
+        if (id >= ID_VC_HEALTH && id <= ID_VC_ALL) {
+            HWND list = GetDlgItem(dlg, ID_VC_LIST);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            for (int i = 0; i < VillagerSlots; ++i)
+                if (VillagerPresent(i) && (who < 0 || who == i))
+                    ApplyVillagerCheat(i, id);
+            FillVillagerList(dlg);
+            if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
+        } else if (id == IDOK || id == IDCANCEL) {
+            EndDialog(dlg, 0);
+        }
+        return TRUE;
+    }
+    case WM_CLOSE:
+        EndDialog(dlg, 0);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static void ShowVillagerCheats(HWND owner) {
+    static Template t;
+    t.Begin(L"Villager Cheats", 300, 220, 8);
+    t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 280, 110, ID_VC_LIST, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, L"Max health");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, L"Cure illnesses");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 128, 90, 18, ID_VC_HAPPY, L"Max happiness");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 152, 90, 18, ID_VC_ENERGY, L"Max energy");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 152, 90, 18, ID_VC_FED, L"Fill up (Fed)");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, L"All of these");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 215, 196, 75, 16, IDOK, L"Close");
+    DialogBoxIndirectParamW(Module, t.Get(), owner, VillagerCheatsProc, 0);
+}
+
 // ---- Flea Market
 enum { ID_FM_LIST = 200, ID_FM_BUY, ID_FM_FREE, ID_FM_MONEY };
 
@@ -331,7 +435,7 @@ static void ShowFleaMarket(HWND owner) {
 }
 
 // ---- Upgrades menu
-enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE };
+enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS };
 static const int RollTheDicePrice = 500;
 static bool RollPending;
 
@@ -343,6 +447,7 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         switch (LOWORD(wp)) {
         case ID_UP_CHEATS: ShowCheats(dlg); break;
         case ID_UP_FLEA: ShowFleaMarket(dlg); break;
+        case ID_UP_VILLAGERS: ShowVillagerCheats(dlg); break;
         case ID_UP_DICE:
             if (CurrentMoney() < RollTheDicePrice) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
@@ -364,12 +469,13 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowUpgrades() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 180, 130, 5);
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 160, 20, ID_UP_CHEATS, L"Cheat Upgrades...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 36, 160, 20, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 62, 160, 20, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
-    t.Item(STATIC, SS_LEFT, 10, 88, 160, 12, -1, L"More upgrades are coming.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 95, 108, 75, 16, IDOK, L"Close");
+    t.Begin(L"Upgrades Menu", 200, 156, 6);
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 180, 20, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 36, 180, 20, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 62, 180, 20, ID_UP_FLEA, L"Flea Market...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 88, 180, 20, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
+    t.Item(STATIC, SS_LEFT, 10, 114, 180, 12, -1, L"More upgrades are coming.");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 115, 134, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 

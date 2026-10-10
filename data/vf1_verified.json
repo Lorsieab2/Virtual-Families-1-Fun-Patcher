@@ -110,5 +110,17 @@
  "0x50c550": {
   "name": "FoodStore (global; +0 int food)",
   "evidence": "Compared with 100 before the low-food e-mail (eString_EmailLowFood 0x17F at 0x4162A6); formatted with eSayFoodLevel 0x3E2 at 0x44161C."
+ },
+ "0x2ad4": {
+  "name": "villager +0x2AD4: CVillagerState",
+  "evidence": "Every CVillagerState::SetSymptom caller passes villager + 0x2AD4. Fields as VF2 (health +0x0C, energy +0x34, happiness +0x38, hunger +0x40, symptoms +0x5C/+0x64), confirmed live 2026-10-10 against the Detail screen; hunger 100 = starving (Fed bar = 100 - hunger)."
+ },
+ "0x2a44": {
+  "name": "villager +0x2A44: name",
+  "evidence": "Live: the adopted villager Macro's name at villager 0 + 0x2A44."
+ },
+ "0x489900": {
+  "name": "?GetVillager@CVillagerManager@@QAEAAVCVillager@@H@Z",
+  "evidence": "index 0-29: this + 0x14640 + index * 0x145FC."
  }
 }

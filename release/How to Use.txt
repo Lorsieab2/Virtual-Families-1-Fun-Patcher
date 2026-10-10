@@ -1,0 +1,38 @@
+VIRTUAL FAMILIES 1 PATCHER
+==========================
+
+What it adds
+------------
+A new "Upgrades" button in the game's store (next to Done). It opens a menu:
+
+  Cheat Upgrades   Add or set money and food; change the bank's interest
+                   rate (remembered between sessions).
+  Villager Cheats  Max health, cure illnesses, max happiness, max energy and
+                   fill up (Fed), for one villager or everyone.
+  Flea Market      Every tray item the store sells (drinks, candy, medicine,
+                   magazines, movies, weather bottles, kits, pets...): buy it
+                   or get it for free.
+  Roll the Dice    $500: an island event happens right away.
+
+Money and food cheats do not count toward the money achievements.
+
+How to patch
+------------
+1. You need Python 3 (python.org). Tick "Add python.exe to PATH" when
+   installing.
+2. Double-click "Launch Virtual Families 1 Patcher.bat".
+3. Choose your Virtual Families folder (the one with "Virtual Families.exe",
+   version 1.01.00) and a NEW folder for the patched game. Click Patch.
+4. Play "Virtual Families - Modded.exe" in the new folder.
+
+Your game folder is never changed. With the recommended name, the patched
+game keeps its own saves, separate from your normal game.
+
+Good to know
+------------
+* Always quit through the game's menu. Closing the game any other way (for
+  example from Task Manager) skips saving; a brand-new family whose game is
+  closed like that comes back dead. That is how the original game works.
+* The patcher's files live in the "Virtual Families 1 Patcher Files" folder
+  inside the patched game. Delete that folder and the game runs exactly as
+  normal.
