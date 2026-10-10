@@ -16,11 +16,26 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
   Cheat Upgrades   Add or set money and food; change the bank's interest
                    rate (remembered between sessions).
   Villager Cheats  Max health, cure illnesses, max happiness, max energy and
-                   fill up (Fed), for one villager or everyone.
+                   fill up (Fed), for one villager or everyone. Change
+                   Appearance: pick any of the game's 50 heads (face and
+                   hairstyle) and 50 bodies (clothes), or a random look.
   Flea Market      Every tray item the store sells (drinks, candy, medicine,
                    magazines, movies, weather bottles, kits, pets...): buy it
                    or get it for free.
   Roll the Dice    $500: an island event happens right away.
+  Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
+                   Candidates (Reject shows another one); Force Marriage
+                   Email; Divorce Spouse (WARNING: permanently removes the
+                   spouse from the Family Tree and the house). Next
+                   pregnancy: force success, boys or girls, singleton,
+                   twins or triplets (stays set until a pregnancy
+                   succeeds). Spawn a baby boy or girl; adopt a boy or girl
+                   aged 2-13. Adopt New Person (only after "Your family has
+                   been lost"): keeps your money and the Family Tree. Evict
+                   Family: resets the Family Tree and starts a new family;
+                   you keep the money, the house and everything you own.
+                   Same-sex couples cannot have babies of their own; use
+                   Spawn a Baby or Adopt.
 
 Money and food cheats do not count toward the money achievements.
 

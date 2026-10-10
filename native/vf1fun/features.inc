@@ -46,8 +46,11 @@ struct VillageState {
     int brokerage, foodClub, healthPlan, luckyRock, maid, gardener;
     int priceMultiplier;          // 1, 2, 5 or 100
     unsigned foodClubLast;        // CGameTime::Seconds of the last delivery
+    int sameSex, reroll;          // Enable Same-Sex Marriage, Allow Reroll of Marriage Candidates
+    int armed;                    // pregnancy one-shots (family.inc ARM_*)
 };
-static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0 };
+static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
+static int gAdoptionMode;         // family.inc: an Evict or Adopt New Person in progress
 
 typedef unsigned (__thiscall *SecondsFn)(void *time);
 static const SecondsFn GameSeconds = (SecondsFn)0x422320;  // CGameTime::Seconds
@@ -73,7 +76,7 @@ static bool SidecarPath(int slot, wchar_t *out, int cap) {
 
 static void LoadVillageState(int slot) {
     wchar_t path[1024];
-    VillageState v = { 0, 0, 0, 0, 0, 0, 1, 0 };
+    VillageState v = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
     if (SidecarPath(slot, path, 1024)) {
         v.brokerage = GetPrivateProfileIntW(L"Village", L"BrokerageAccount", 0, path);
         v.foodClub = GetPrivateProfileIntW(L"Village", L"FoodClub", 0, path);
@@ -83,6 +86,9 @@ static void LoadVillageState(int slot) {
         v.gardener = GetPrivateProfileIntW(L"Village", L"Gardener", 0, path);
         v.priceMultiplier = GetPrivateProfileIntW(L"Village", L"PriceMultiplier", 1, path);
         v.foodClubLast = (unsigned)GetPrivateProfileIntW(L"Village", L"FoodClubLastDelivery", 0, path);
+        v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
+        v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
+        v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
@@ -98,6 +104,8 @@ static void SaveVillageState(int slot) {
         { L"HealthPlan", (unsigned)gVillage.healthPlan }, { L"LuckyRock", (unsigned)gVillage.luckyRock },
         { L"Maid", (unsigned)gVillage.maid }, { L"Gardener", (unsigned)gVillage.gardener },
         { L"PriceMultiplier", (unsigned)gVillage.priceMultiplier }, { L"FoodClubLastDelivery", gVillage.foodClubLast },
+        { L"SameSexMarriage", (unsigned)gVillage.sameSex }, { L"RerollMarriageCandidates", (unsigned)gVillage.reroll },
+        { L"NextPregnancy", (unsigned)gVillage.armed },
     };
     for (int i = 0; i < (int)(sizeof rows / sizeof rows[0]); ++i) {
         swprintf(s, 32, L"%u", rows[i].value);
@@ -117,6 +125,7 @@ static unsigned *const GameStateVtable = (unsigned *)0x4B5E50;  // RTTI theGameS
 static bool __fastcall GameStateLoad(void *state, void *, int slot) {
     bool ok = OriginalGameStateLoad(state, slot);
     if (ok && slot >= 1 && slot <= 5) {
+        gAdoptionMode = 0;
         LoadVillageState(slot);
         ApplyVillageEffects();
     }
@@ -139,6 +148,7 @@ static const VoidThisFn GameStateInit = (VoidThisFn)0x424110;
 static void __fastcall GameStateInitWrapper(void *state, void *) {
     gVillage = VillageState();
     gVillage.priceMultiplier = 1;
+    gAdoptionMode = 0;
     ApplyVillageEffects();
     GameStateInit(state);
 }
@@ -306,8 +316,6 @@ static void BuildMortalityTable() {
         gMortalityTable[age] = t > 999999 ? 999999 : t;
     }
 }
-typedef int (__cdecl *RandomFn)(int n);
-static const RandomFn GetRandom = (RandomFn)0x403650;
 extern "C" int __cdecl VF1RollMortality(int tick, int foodGroups) {
     if (tick < 0 || tick % 20 != 0) return 0;
     if (foodGroups < 0) foodGroups = 0;

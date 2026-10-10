@@ -130,5 +130,45 @@
  "0x423790": {
   "name": "?Save@theGameState@@UAE_NH@Z",
   "evidence": "RTTI vtable name (theGameState slot at 0x4B5E6C)."
+ },
+ "0x436510": {
+  "name": "?Ref@CAdoptionScene@@SAPAV1@XZ",
+  "evidence": "Thunk to 0x436490, which creates the 0x88-byte scene once into [0x568C08]. Next Generation (0x43926C) calls it and writes +0x10 = 1 before scene 7; CAdoptionScene Activate (vtable slot 9, 0x436700) reads +0x10: 0 = new family, 1 = next generation."
+ },
+ "0x4368c5": {
+  "name": "call site: CAdoptionScene Adopt -> StartFamilyTree 0x481E00",
+  "evidence": "E8 at 0x4368C5 in the +0x10 == 0 branch of the Adopt handler (cmp byte [ebp+0x10],0 at 0x4368B9)."
+ },
+ "0x4368d6": {
+  "name": "call site: CAdoptionScene Adopt -> CMoney::Set 0x422640",
+  "evidence": "E8 at 0x4368D6 after fild [ebp+0xC] (the starting money), same branch."
+ },
+ "0x48eb8c": {
+  "name": "call site: plan step 0x41 -> ChanceOfPregnancy 0x48FC10",
+  "evidence": "mov ecx,esi(mother state); E8 at 0x48EB8C; test al at 0x48EB91."
+ },
+ "0x48ebb2": {
+  "name": "call site: plan step 0x41 -> CVillager::Impregnate 0x4864D0",
+  "evidence": "push 0,body,head,'Joey',1; mov ecx,edi(matriarch); E8 at 0x48EBB2."
+ },
+ "0x486570": {
+  "name": "call site: Impregnate twin roll -> GetRandom 0x403650",
+  "evidence": "push 0x64; E8; compared with bonus+7 at 0x48657B."
+ },
+ "0x486586": {
+  "name": "call site: Impregnate triplet roll -> GetRandom 0x403650",
+  "evidence": "push 0x64; E8; compared with bonus+0x19 at 0x486591."
+ },
+ "0x486627": {
+  "name": "call site: Impregnate -> SpawnSpecificPeep 0x48B2E0 (first baby)",
+  "evidence": "12 pushes from 0x4865FC; gender from [esp+0x14] (0x48BBF0 or -1)."
+ },
+ "0x43845f": {
+  "name": "call site: CDatingScene::GeneratePeepCandidate -> SpawnSpecificPeep 0x48BC60",
+  "evidence": "push age, push edx (sete dl at 0x43844D: opposite gender), push -1."
+ },
+ "0x424500": {
+  "name": "?QueueMail@theGameState (mail type)",
+  "evidence": "theMainScene 0x445267: mov ecx,[esi+0x14] (gs); push 2; call 0x424500 when a marriage proposal is due; ret 4."
  }
 }

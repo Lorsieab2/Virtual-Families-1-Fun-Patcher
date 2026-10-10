@@ -32,7 +32,7 @@
     {
       "id": "CheatUpgrades",
       "label": "Cheat Upgrades",
-      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, and time controls (pause, speed, time warp).",
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, new babies and adopted children, Adopt New Person after a game over, Evict Family).",
       "default": true,
       "category": "optional"
     },
