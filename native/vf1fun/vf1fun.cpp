@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <shlobj.h>
 
 // ---------------------------------------------------------------- game ABI
 struct ldwPoint { int x, y; };
@@ -250,9 +252,10 @@ static void ApplyInterestRate(float percent) {
     gInterestPercent = percent;
 }
 
+static void CheatInterestChanged(float percent);  // features.inc
 static void SetInterestRate(float percent) {
-    ApplyInterestRate(percent);
     WriteSetting(L"InterestRate", percent);
+    CheatInterestChanged(percent);
 }
 
 static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
@@ -511,7 +514,14 @@ static void ShowFleaMarket(HWND owner) {
 }
 
 // ---- Upgrades menu
-enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS };
+enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE, ID_UP_HOUSE,
+       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS };
+static void ShowStoreCheats(HWND owner);
+static void ShowHouse(HWND owner);
+static void ShowPurchases(HWND owner);
+static void ShowTime(HWND owner);
+static int GenerationNumber();
+static int OldestEverAge();
 static const int RollTheDicePrice = 500;
 static bool RollPending;
 
@@ -526,12 +536,25 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         EnableWindow(GetDlgItem(dlg, ID_UP_VILLAGERS), SettingOn(L"CheatUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_FLEA), SettingOn(L"FleaMarket", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_DICE), SettingOn(L"RollTheDice", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_STORE), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_HOUSE), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_TIME), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_PURCHASES), SettingOn(L"SpecialUpgrades", true));
+        {
+            wchar_t s[96];
+            swprintf(s, 96, L"Generation: %d        Oldest Villager: %d", GenerationNumber(), OldestEverAge());
+            SetDlgItemTextW(dlg, ID_UP_COUNTERS, s);
+        }
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case ID_UP_CHEATS: ShowCheats(dlg); break;
         case ID_UP_FLEA: ShowFleaMarket(dlg); break;
         case ID_UP_VILLAGERS: ShowVillagerCheats(dlg); break;
+        case ID_UP_STORE: ShowStoreCheats(dlg); break;
+        case ID_UP_HOUSE: ShowHouse(dlg); break;
+        case ID_UP_PURCHASES: ShowPurchases(dlg); break;
+        case ID_UP_TIME: ShowTime(dlg); break;
         case ID_UP_DICE:
             if (CurrentMoney() < RollTheDicePrice) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
@@ -553,13 +576,18 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowUpgrades() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 200, 156, 6);
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 180, 20, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 36, 180, 20, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 62, 180, 20, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 88, 180, 20, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
-    t.Item(STATIC, SS_LEFT, 10, 114, 180, 12, -1, L"More upgrades are coming.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 115, 134, 75, 16, IDOK, L"Close");
+    t.Begin(L"Upgrades Menu", 220, 238, 11);
+    t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 68, 200, 18, ID_UP_STORE, L"Store, Achievement and Collection Cheats...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 90, 200, 18, ID_UP_HOUSE, L"House and Yard: trash, weeds, cleaning...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, L"Time Controls: pause, speed, time warp...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FLEA, L"Flea Market...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 214, 75, 16, IDOK, L"Close");
+    t.Item(STATIC, SS_LEFT, 10, 200, 120, 12, -1, L"");
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 
@@ -607,6 +635,9 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
     InitSettingsPath();
     return GetPrivateProfileIntW(L"Patches", key, fallback ? 1 : 0, SettingsPath) != 0;
 }
+
+#include "features.inc"
+#include "pages.inc"
 
 // ---------------------------------------------------------------- hooks
 static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int param) {
@@ -660,6 +691,7 @@ static void AddUpgradesButton(void *scene) {
 // real GameUpdate runs (ldwGame::Run 0x402CC0 calls GameUpdate then GameDraw
 // each pass of its main loop). Periodic features hang off this.
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_Tick() {
+    FeaturesTick();
 }
 
 // Called once at startup, from theGame::Init's vtable slot, before the real
@@ -669,6 +701,10 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     float rate = ReadSetting(L"InterestRate", -1.f);
     if (rate >= 0 && rate <= 100)
         ApplyInterestRate(rate);
+    InstallFeatureHooks();
+    if (rate >= 0 && rate <= 100)
+        gCheatInterestPercent = rate;
+    ApplyEffectiveInterest();
     if (SettingOn(L"FixVanillaGameBugs", true))
         HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
                        (unsigned *)&OriginalAdoptionHandleMessage);
