@@ -9,12 +9,18 @@ import vf1_patcher as vp
 from conftest import MANIFEST, ROOT, write_manifest
 
 SPEC = {
-    "FixVanillaGameBugs": ("Fix Vanilla Game Bugs",
-                           "Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption)."),
-    "CheatUpgrades": ("Cheat Upgrades",
-                      "Adds the Upgrades button's cheat pages: money, food, interest rate and villager cheats."),
-    "FleaMarket": ("Flea Market", "Every tray item the store sells, to buy or get for free."),
-    "RollTheDice": ("Roll the Dice", "$500: an island event happens right away."),
+    'FixVanillaGameBugs': ('Fix Vanilla Game Bugs',
+        'Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption).'),
+    'OlderVillagerMortalityCurve': ('Older Villager Mortality Curve',
+        "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75)."),
+    'SpecialUpgrades': ('Add visible mobile version purchases',
+        'Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.'),
+    'CheatUpgrades': ('Cheat Upgrades',
+        "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, and time controls (pause, speed, time warp)."),
+    'FleaMarket': ('Flea Market',
+        'Every tray item the store sells, to buy or get for free.'),
+    'RollTheDice': ('Roll the Dice',
+        '$500: an island event happens right away.'),
 }
 
 
@@ -32,7 +38,7 @@ def ns(**kw):
 
 # ---------------------------------------------------------------- manifest
 
-def test_shipped_manifest_offers_the_four_settings_all_on():
+def test_shipped_manifest_offers_every_setting_all_on():
     settings = vp.manifest_settings(json.loads(MANIFEST.read_text(encoding="utf-8")))
     assert list(settings) == list(SPEC)
     for setting_id, (label, description) in SPEC.items():
@@ -186,7 +192,8 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0"}
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "SpecialUpgrades": "1",
+        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra:
         assert rel.replace("/", "\\") in text
@@ -209,7 +216,8 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert summary["unchanged_files"] == [vp.DLL_REL]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1"}
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "SpecialUpgrades": "1",
+        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before

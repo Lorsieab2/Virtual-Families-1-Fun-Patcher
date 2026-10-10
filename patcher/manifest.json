@@ -16,9 +16,23 @@
       "category": "main"
     },
     {
+      "id": "OlderVillagerMortalityCurve",
+      "label": "Older Villager Mortality Curve",
+      "description": "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75).",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "SpecialUpgrades",
+      "label": "Add visible mobile version purchases",
+      "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.",
+      "default": true,
+      "category": "main"
+    },
+    {
       "id": "CheatUpgrades",
       "label": "Cheat Upgrades",
-      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate and villager cheats.",
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, and time controls (pause, speed, time warp).",
       "default": true,
       "category": "optional"
     },

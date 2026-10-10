@@ -71,8 +71,12 @@ Settings and defaults
 - Main Patches (green) and Optional Patches (black), as in the patcher window.
 - FixVanillaGameBugs [on] (main): Fix Vanilla Game Bugs
   Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption).
+- OlderVillagerMortalityCurve [on] (main): Older Villager Mortality Curve
+  Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75).
+- SpecialUpgrades [on] (main): Add visible mobile version purchases
+  Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.
 - CheatUpgrades [on] (optional): Cheat Upgrades
-  Adds the Upgrades button's cheat pages: money, food, interest rate and villager cheats.
+  Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, and time controls (pause, speed, time warp).
 - FleaMarket [on] (optional): Flea Market
   Every tray item the store sells, to buy or get for free.
 - RollTheDice [on] (optional): Roll the Dice
