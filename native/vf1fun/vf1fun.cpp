@@ -479,9 +479,17 @@ enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS };
 static const int RollTheDicePrice = 500;
 static bool RollPending;
 
+static bool SettingOn(const wchar_t *key, bool fallback);
+
 static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG:
+        // Each page is a patch setting (Patches section of settings.ini,
+        // written by the patcher); a page that is switched off is greyed out.
+        EnableWindow(GetDlgItem(dlg, ID_UP_CHEATS), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_VILLAGERS), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_FLEA), SettingOn(L"FleaMarket", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_DICE), SettingOn(L"RollTheDice", true));
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
@@ -610,6 +618,12 @@ static void AddUpgradesButton(void *scene) {
     int width = ButtonGetWidth(button);
     ButtonSetPos(button, DoneButtonX + width + 12, DoneButtonY);
     AddControl(scene, button);
+}
+
+// Called once per frame, from theGame::GameUpdate's vtable slot, before the
+// real GameUpdate runs (ldwGame::Run 0x402CC0 calls GameUpdate then GameDraw
+// each pass of its main loop). Periodic features hang off this.
+extern "C" __declspec(dllexport) void __cdecl VF1Fun_Tick() {
 }
 
 // Called once at startup, from theGame::Init's vtable slot, before the real

@@ -9,6 +9,9 @@ The stub has two entry points and one shared loader:
 * init_entry -- theGame's vtable slot for Init (0x4B5E14) points here. It runs
   the loader, calls VF1Fun_Startup() if the DLL loaded, then jumps to the real
   theGame::Init (0x422AE0) with every register as it found them.
+* tick_entry -- theGame's vtable slot for GameUpdate (0x4B5E20), which
+  ldwGame::Run calls once per frame. It calls VF1Fun_Tick() if the DLL
+  exports it, then jumps to the real theGame::GameUpdate (0x422D90).
 * store_entry -- the call at the end of theStoreScene's constructor
   (0x4497E6) points here. It makes the original call (0x448BE0), runs the
   loader, then calls VF1Fun_StoreCreated(store scene).
@@ -34,17 +37,18 @@ PATH_CHARS = 1024
 IAT_GET_MODULE_HANDLE_A = 0x4B21D4
 IAT_GET_PROC_ADDRESS = 0x4B21D8
 THEGAME_INIT = 0x422AE0
+THEGAME_GAMEUPDATE = 0x422D90
 STORE_ORIGINAL_CALL = 0x448BE0
 SUFFIX = "Virtual Families 1 Patcher Files\\vf1fun.dll"
 
-STATE, FN_STARTUP, FN_STORE, PATH = DATA_VA, DATA_VA + 4, DATA_VA + 8, DATA_VA + 16
+STATE, FN_STARTUP, FN_STORE, FN_TICK, PATH = DATA_VA, DATA_VA + 4, DATA_VA + 8, DATA_VA + 12, DATA_VA + 16
 STRINGS = CODE_VA + 0x300
 
 
 def build():
     strings = [("kernel32", b"kernel32.dll\0"), ("gmfnw", b"GetModuleFileNameW\0"),
                ("llw", b"LoadLibraryW\0"), ("startup", b"VF1Fun_Startup\0"),
-               ("store", b"VF1Fun_StoreCreated\0"), ("suffix", SUFFIX.encode("utf-16-le") + b"\0\0")]
+               ("store", b"VF1Fun_StoreCreated\0"), ("tick", b"VF1Fun_Tick\0"), ("suffix", SUFFIX.encode("utf-16-le") + b"\0\0")]
     addr, blob = {}, b""
     for key, raw in strings:
         addr[key] = STRINGS + len(blob)
@@ -77,6 +81,16 @@ def build():
     store_done:
         popad
         ret
+
+    tick_entry:
+        pushad
+        mov eax, dword ptr [{FN_TICK:#x}]
+        test eax, eax
+        jz tick_done
+        call eax
+    tick_done:
+        popad
+        jmp {THEGAME_GAMEUPDATE:#x}
 
     loader:
         cmp dword ptr [{STATE:#x}], 0
@@ -134,6 +148,10 @@ def build():
         push edi
         call dword ptr [{IAT_GET_PROC_ADDRESS:#x}]
         mov dword ptr [{FN_STORE:#x}], eax
+        push {addr['tick']:#x}
+        push edi
+        call dword ptr [{IAT_GET_PROC_ADDRESS:#x}]
+        mov dword ptr [{FN_TICK:#x}], eax
         mov dword ptr [{STATE:#x}], 1
     loader_done:
         ret
@@ -147,10 +165,15 @@ def build():
     store_off = code.find(bytes.fromhex("51 e8"))
     if store_off < 0 or code.find(bytes.fromhex("51 e8"), store_off + 1) >= 0:
         raise SystemExit("cannot locate store_entry uniquely")
+    # tick_entry is `pushad; mov eax, [FN_TICK]`.
+    tick_off = code.find(bytes([0x60, 0xA1]) + FN_TICK.to_bytes(4, "little"))
+    if tick_off < 0:
+        raise SystemExit("cannot locate tick_entry")
     payload = code + b"\xCC" * (STRINGS - CODE_VA - len(code)) + blob
     return {
         "code_va": hex(CODE_VA), "data_va": hex(DATA_VA), "data_size": 16 + PATH_CHARS * 2,
         "init_entry": hex(CODE_VA), "store_entry": hex(CODE_VA + store_off),
+        "tick_entry": hex(CODE_VA + tick_off),
         "code": payload.hex(),
     }
 

@@ -55,11 +55,14 @@ class PatchExecutable(unittest.TestCase):
         self.assertEqual(vf1_patcher.HOOK_SITE + 5 + rel, int(self.stub["store_entry"], 16))
         slot = self.pe.offset(vf1_patcher.INIT_SLOT)
         self.assertEqual(struct.unpack_from("<I", self.patched, slot)[0], int(self.stub["init_entry"], 16))
+        update = self.pe.offset(vf1_patcher.UPDATE_SLOT)
+        self.assertEqual(struct.unpack_from("<I", self.patched, update)[0], int(self.stub["tick_entry"], 16))
 
     def test_nothing_else_changes_in_the_original_image(self):
         changed = [i for i, (a, b) in enumerate(zip(self.vanilla, self.patched)) if a != b]
         allowed = set(range(self.pe.offset(vf1_patcher.HOOK_SITE), self.pe.offset(vf1_patcher.HOOK_SITE) + 5))
         allowed |= set(range(self.pe.offset(vf1_patcher.INIT_SLOT), self.pe.offset(vf1_patcher.INIT_SLOT) + 4))
+        allowed |= set(range(self.pe.offset(vf1_patcher.UPDATE_SLOT), self.pe.offset(vf1_patcher.UPDATE_SLOT) + 4))
         allowed |= set(range(self.pe.pe, self.pe.opt + self.pe.optsz + self.pe.nsec * 40))  # headers
         self.assertEqual([i for i in changed if i not in allowed], [])
 
