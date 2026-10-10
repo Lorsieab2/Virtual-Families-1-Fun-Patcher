@@ -519,6 +519,51 @@ static void ShowUpgrades() {
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 
+// ---------------------------------------------------------------- vanilla bug fixes
+// FIX: A NEW FAMILY IS LOST IF THE GAME IS CLOSED WITHOUT QUITTING.
+// The stock game saves when the intro story starts (CStoryScene::Activate
+// calls theGameState::SaveCurrentGame), which is BEFORE anyone is adopted, and
+// not again until the player quits through the menu. Those saves are an empty
+// game (live 2026-10-10: 108,718 of 111,000 bytes zero, no villager), so a game
+// closed any other way reloads with nobody in it and shows "All of your little
+// family members died". The same gap follows Start Over and Next Generation,
+// which also adopt through CAdoptionScene.
+// The fix saves right after the Adopt button has been handled
+// (CAdoptionScene::HandleMessage, message 8 / button 1: the villager is marked
+// present, named and paid by then), the way the game's own dialogs call
+// SaveCurrentGame from their message handlers.
+typedef void *(__cdecl *GameStateGetFn)();
+typedef bool (__thiscall *SaveCurrentGameFn)(void *state);
+static const GameStateGetFn GameStateGet = (GameStateGetFn)0x423660;
+static const SaveCurrentGameFn SaveCurrentGame = (SaveCurrentGameFn)0x4238E0;
+static unsigned *const AdoptionVtable = (unsigned *)0x4B6BD4;
+static const int AdoptButtonId = 1;
+static HandleMessageFn OriginalAdoptionHandleMessage;
+
+static bool __fastcall AdoptionHandleMessage(void *scene, void *, int message, int param) {
+    bool result = OriginalAdoptionHandleMessage(scene, message, param);
+    if (message == MessageButtonClicked && param == AdoptButtonId)
+        SaveCurrentGame(GameStateGet());
+    return result;
+}
+
+static bool HookVtableSlot(unsigned *slot, void *replacement, unsigned *original) {
+    if (*slot == (unsigned)replacement)
+        return true;
+    *original = *slot;
+    DWORD old;
+    if (!VirtualProtect(slot, 4, PAGE_READWRITE, &old))
+        return false;
+    *slot = (unsigned)replacement;
+    VirtualProtect(slot, 4, old, &old);
+    return true;
+}
+
+static bool SettingOn(const wchar_t *key, bool fallback) {
+    InitSettingsPath();
+    return GetPrivateProfileIntW(L"Patches", key, fallback ? 1 : 0, SettingsPath) != 0;
+}
+
 // ---------------------------------------------------------------- hooks
 static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int param) {
     if (message == MessageButtonClicked && param == UpgradesButtonId) {
@@ -574,6 +619,9 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     float rate = ReadSetting(L"InterestRate", -1.f);
     if (rate >= 0 && rate <= 100)
         ApplyInterestRate(rate);
+    if (SettingOn(L"FixVanillaGameBugs", true))
+        HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
+                       (unsigned *)&OriginalAdoptionHandleMessage);
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
