@@ -13,9 +13,9 @@ patch settings you can switch off):
 - **Cheat Upgrades:**
   - money: No Money, +100, +10,000, Max, or set an exact amount;
   - food: No Food, +100, +10,000, Max, or set an exact amount;
-  - change the bank's interest rate, which is remembered between sessions.
+  - change the bank's interest rate (1% to 11%), which is remembered between sessions.
   - Cheat money doesn't count toward the money achievements. The Clamp Max Money and Food setting keeps both at the VF2 maximums.
-- **Villager Cheats:** for one villager or everyone:
+- **Villager Cheats:** for one villager or everyone (each button asks you to confirm):
   - max health, cure illnesses, max happiness, max energy, fill up (Fed);
   - Instant job promotion, and Career Change (adults with a career);
   - Boarding School: a child leaves the house, as in the game's own "going to
@@ -34,7 +34,9 @@ patch settings you can switch off):
   years).
 - **Special Upgrades:** VF2-style purchases (Brokerage Account, Food Club,
   Health Plan, Lucky Rock) plus a Maid and a Gardener who keep the house and
-  yard clean.
+  yard clean, and the Anti-spam Software (no computer needed). Each asks for
+  confirmation and shows a "Purchased" message; buying one again removes it
+  (no refund), as in VF2. Flea Market purchases and Roll the Dice do the same.
 - **Family:**
   - Enable Same-Sex Marriage, and Allow Reroll of Marriage Candidates;
   - Force Marriage Email, and Divorce Spouse;

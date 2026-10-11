@@ -15,9 +15,9 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
 
   Cheat Upgrades   Money: No Money, +100, +10,000, Max (4,000,000,000) or set an
                    exact amount; food: No Food, +100, +10,000, Max (2,147,483,647)
-                   or set; the bank's interest rate (remembered between
-                   sessions).
-  Villager Cheats  For one villager or everyone: max health, cure illnesses,
+                   or set; the bank's interest rate, 1% to 11% (remembered
+                   between sessions).
+  Villager Cheats  (Every button asks you to confirm.) For one villager or everyone: max health, cure illnesses,
                    max happiness, max energy, fill up (Fed); Instant job
                    promotion and Career Change (adults); Boarding School (a
                    child leaves the house like going to college);
@@ -42,6 +42,10 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    village, on their own page (the game's Trophies screen is
                    fixed). Not included: pets, behaviors, holidays and
                    furniture.
+  Special Upgrades Brokerage Account, Food Club, Health Plan, Lucky Rock, a Maid,
+                   a Gardener and the Anti-spam Software. Buying asks you to
+                   confirm and shows "Purchased"; buying one again removes it
+                   (no refund).
   Roll the Dice    $500: an island event happens right away.
   Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
                    Candidates (Reject shows another one); Force Marriage

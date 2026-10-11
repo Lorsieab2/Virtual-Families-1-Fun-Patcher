@@ -26,16 +26,20 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_SC_X100: gVillage.priceMultiplier = 100; break;
         case ID_SC_RESET_PRICES: gVillage.priceMultiplier = 1; break;
         case ID_SC_ACH_ALL:
-            CompleteAllAchievements();
-            Message(dlg, L"Every achievement is complete.");
+            if (Confirm(dlg, L"Complete every achievement? Reset Achievements is the only way back.")) {
+                CompleteAllAchievements();
+                Message(dlg, L"Every achievement is complete.");
+            }
             break;
         case ID_SC_ACH_RESET:
             if (MessageBoxW(dlg, L"Reset all goals and progress?", L"Reset Achievements", MB_YESNO | MB_ICONQUESTION) == IDYES)
                 ResetAllAchievements(Achievements);
             break;
         case ID_SC_COL_ALL:
-            CompleteCollections();
-            Message(dlg, L"Every collection is complete.");
+            if (Confirm(dlg, L"Complete every collection?")) {
+                CompleteCollections();
+                Message(dlg, L"Every collection is complete.");
+            }
             break;
         case ID_SC_COL_RESET:
             if (MessageBoxW(dlg, L"Remove every collected item and reset collection progress?", L"Reset all collections", MB_YESNO | MB_ICONQUESTION) == IDYES)
@@ -140,7 +144,20 @@ static void ShowHouse(HWND owner) {
 }
 
 // ---- Special Upgrades (VF2's mobile purchases, plus the Maid and Gardener)
-struct Purchase { int id; const wchar_t *name; int price; int VillageState::*owned; const wchar_t *what; };
+// Anti-spam Software (item 47, $125): the game's own record of owning it is the byte at
+// theGameState+0x1CC (set when the software is dropped on a computer, 0x442DA5; the spam
+// events test it, 0x417C35), and the game saves it.
+static bool AntiSpamOwned() { return ((unsigned char *)GameStateGet())[0x1CC] != 0; }
+static void SetAntiSpam(bool on) { ((unsigned char *)GameStateGet())[0x1CC] = on ? 1 : 0; }
+static const int kAntiSpamItem = 47;
+
+struct Purchase {
+    int id; const wchar_t *name; int price;           // price -1: the store price of the Anti-spam Software item
+    int VillageState::*owned;                         // 0: Anti-spam Software, which the game itself keeps
+    const wchar_t *what;
+};
+static bool PurchaseOwned(const Purchase &p) { return p.owned ? gVillage.*p.owned != 0 : AntiSpamOwned(); }
+static int PurchasePrice(const Purchase &p) { return p.price < 0 ? ItemPrice(0, 0, kAntiSpamItem) : p.price; }
 enum { ID_SU_LIST = 540, ID_SU_BUY, ID_SU_DESC };
 static const Purchase kPurchases[] = {
     { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"The bank's interest rate goes up 2 points, to at most 11%." },
@@ -149,6 +166,7 @@ static const Purchase kPurchases[] = {
     { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"Rare and uncommon collectibles turn up twice as often." },
     { 4, L"Maid", 1000, &VillageState::maid, L"Keeps the house clean: socks, wrappers, smudges and cobwebs. Buy again to let her go." },
     { 5, L"Gardener", 1000, &VillageState::gardener, L"Keeps the yard free of weeds. Buy again to let him go." },
+    { 6, L"Anti-spam Software", -1, 0, L"Installs the Anti-spam Software without using a computer: no more spam e-mail events. Buy again to remove it." },
 };
 
 static void FillPurchases(HWND dlg) {
@@ -157,7 +175,7 @@ static void FillPurchases(HWND dlg) {
     SendMessageW(list, LB_RESETCONTENT, 0, 0);
     for (const Purchase &p : kPurchases) {
         wchar_t line[96];
-        swprintf(line, 96, L"%s\t$%d%s", p.name, p.price, gVillage.*p.owned ? L"  (owned)" : L"");
+        swprintf(line, 96, L"%s\t$%d%s", p.name, PurchasePrice(p), PurchaseOwned(p) ? L"  (owned)" : L"");
         SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
     }
     SendMessageW(list, LB_SETCURSEL, sel < 0 ? 0 : sel, 0);
@@ -180,19 +198,28 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             SetDlgItemTextW(dlg, ID_SU_DESC, kPurchases[sel].what);
         } else if (LOWORD(wp) == ID_SU_BUY && sel >= 0) {
             const Purchase &p = kPurchases[sel];
-            int &owned = gVillage.*p.owned;
-            if (owned && (p.owned == &VillageState::maid || p.owned == &VillageState::gardener)) {
-                owned = 0;                         // VF2: buying again fires the worker
-            } else if (owned) {
-                Message(dlg, L"You already have this.");
-            } else if (CurrentMoney() < p.price) {
+            wchar_t text[200];
+            if (PurchaseOwned(p)) {
+                // As in the Virtual Families 2 patcher: buying an upgrade again removes it (no refund).
+                swprintf(text, 200, L"Remove %s? It is not refunded, and you can buy it again later.", p.name);
+                if (Confirm(dlg, text)) {
+                    if (p.owned) gVillage.*p.owned = 0; else SetAntiSpam(false);
+                    swprintf(text, 200, L"%s removed.", p.name);
+                    Message(dlg, text);
+                }
+            } else if (CurrentMoney() < PurchasePrice(p)) {
                 Message(dlg, L"You don't have enough money for that.");
             } else {
-                MoneyAdjust(Money, (float)-p.price, false);
-                owned = 1;
-                if (p.owned == &VillageState::foodClub) {
-                    AddFoodSaturating(kOrganicBagFood);
-                    gVillage.foodClubLast = GameSeconds(GameTime);
+                swprintf(text, 200, L"Buy %s for $%d?", p.name, PurchasePrice(p));
+                if (Confirm(dlg, text)) {
+                    MoneyAdjust(Money, (float)-PurchasePrice(p), false);
+                    if (p.owned) gVillage.*p.owned = 1; else SetAntiSpam(true);
+                    if (p.owned == &VillageState::foodClub) {
+                        AddFoodSaturating(kOrganicBagFood);
+                        gVillage.foodClubLast = GameSeconds(GameTime);
+                    }
+                    swprintf(text, 200, L"Purchased: %s.", p.name);
+                    Message(dlg, text);
                 }
             }
             ApplyVillageEffects();

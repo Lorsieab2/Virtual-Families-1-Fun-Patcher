@@ -209,6 +209,9 @@ public:
 static void Message(HWND owner, const wchar_t *text) {
     MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_OK | MB_ICONINFORMATION);
 }
+static bool Confirm(HWND owner, const wchar_t *text) {
+    return MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
+}
 
 // ---- Cheats
 enum { ID_MONEY_NOW = 100, ID_ADD1K, ID_ADD10K, ID_ADD100K, ID_SET_EDIT, ID_SET, ID_RATE_EDIT, ID_RATE,
@@ -280,6 +283,9 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     case WM_COMMAND: {
         int id = LOWORD(wp);
         float add = id == ID_ADD100 ? 100.f : id == ID_ADD10K ? 10000.f : 0.f;
+        if ((id == ID_MONEY0 && !Confirm(dlg, L"Set your money to $0?")) ||
+            (id == ID_FOOD0 && !Confirm(dlg, L"Set your food to 0?")))
+            return TRUE;
         if (id == ID_MONEY0 || id == ID_ADDMAX) {
             MoneyAdjust(Money, (id == ID_ADDMAX ? kMaxMoney : 0.f) - CurrentMoney(), false);
             RefreshCheats(dlg);
@@ -303,7 +309,7 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_RATE_EDIT, s, 64);
             float rate = (float)_wtof(s);
-            if (rate < 0 || rate > 100) { Message(dlg, L"Enter a rate from 0 to 100 percent."); break; }
+            if (rate < 1 || rate > 11) { Message(dlg, L"Enter a rate from 1 to 11 percent."); break; }
             SetInterestRate(rate);
             RefreshCheats(dlg);
         } else if (id == ID_FOOD_SET) {
@@ -437,6 +443,40 @@ static void FillVillagerList(HWND dlg) {
     SendMessageW(list, LB_SETCURSEL, 0, 0);
 }
 
+// The confirmation text for a Villager Cheats button: what it does and to whom.
+static const wchar_t *VillagerCheatAction(int id) {
+    switch (id) {
+    case ID_VC_HEALTH: return L"Max health";
+    case ID_VC_CURE: return L"Cure all illnesses";
+    case ID_VC_HAPPY: return L"Max happiness";
+    case ID_VC_ENERGY: return L"Max energy";
+    case ID_VC_FED: return L"Fill up (Fed)";
+    case ID_VC_ALL: return L"Max health, cure illnesses, max happiness, energy and fed";
+    case ID_VC_PROMOTE: return L"Instant job promotion";
+    case ID_VC_CAREER: return L"Career Change (a new career at level 1)";
+    case ID_VC_BOARD: return L"Boarding School (the child leaves the house)";
+    case ID_VC_DESENS: return L"Systematic Desensitization (removes a dislike)";
+    case ID_VC_LEARN: return L"Higher Learning Classes (a new like)";
+    case ID_VC_PSYCHO: return L"Psychotherapy (overcomes depression)";
+    case ID_VC_RUNNING: return L"Add Running Like";
+    case ID_VC_AGE18: return L"Set Age to 18";
+    case ID_VC_LOOKS: return L"Change Appearance";
+    case ID_VC_RANDOM_LOOKS: return L"Give a random look";
+    }
+    return 0;
+}
+static bool ConfirmVillagerCheat(HWND dlg, int id) {
+    const wchar_t *action = VillagerCheatAction(id);
+    if (!action) return true;
+    HWND list = GetDlgItem(dlg, ID_VC_LIST);
+    int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+    int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+    wchar_t text[256];
+    if (who < 0) swprintf(text, 256, L"%s for EVERYONE in the house?", action);
+    else swprintf(text, 256, L"%s for %.40hs?", action, (const char *)(Villager(who) + 0x2A44));
+    return Confirm(dlg, text);
+}
+
 static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG: {
@@ -447,6 +487,8 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
     }
     case WM_COMMAND: {
         int id = LOWORD(wp);
+        if (id != ID_VC_LIST && HIWORD(wp) == BN_CLICKED && !ConfirmVillagerCheat(dlg, id))
+            return TRUE;
         if (id == ID_VC_LIST && HIWORD(wp) == LBN_SELCHANGE) {
             HWND list = GetDlgItem(dlg, ID_VC_LIST);
             int who = (int)SendMessageW(list, LB_GETITEMDATA, SendMessageW(list, LB_GETCURSEL, 0, 0), 0);
@@ -582,14 +624,23 @@ static void BuyItem(HWND dlg, bool free) {
     int id = (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
     int price = Item(id)->price;
     if (!free && CurrentMoney() < price) { Message(dlg, L"You don't have enough money for that."); return; }
+    const char *itemName = GetString(StringsGet(), Item(id)->shortDesc);
+    wchar_t text[200];
+    if (!free) {
+        swprintf(text, 200, L"Buy %.60hs for $%d?", itemName ? itemName : "this item", price);
+        if (!Confirm(dlg, text)) return;
+    }
     // Same calls the store makes when you buy (theStoreScene::Buy 0x449A70),
     // except the store's limited stock is not used up.
     if (!TrayAddItem(ToolTray, id, GetUseCount(Inventory, id))) {
         Message(dlg, L"Your item tray is full. Use or sell something first.");
         return;
     }
-    if (!free)
+    if (!free) {
         MoneyAdjust(Money, (float)-price, false);
+        swprintf(text, 200, L"Purchased: %.60hs.", itemName ? itemName : "item");
+        Message(dlg, text);
+    }
     RefreshFleaMoney(dlg);
 }
 
@@ -698,6 +749,9 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
                 break;
             }
+            if (!Confirm(dlg, L"Roll the Dice for $500? An island event happens right away."))
+                break;
+            Message(dlg, L"Purchased: Roll the Dice ($500).");
             // The event shows the game's own dialog, so this one closes first.
             RollPending = true;
             EndDialog(dlg, 0);
@@ -848,7 +902,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Tick() {
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     InitSettingsPath();
     float rate = ReadSetting(L"InterestRate", -1.f);
-    if (rate >= 0 && rate <= 100)
+    if (rate >= 1 && rate <= 11)
         ApplyInterestRate(rate);
     InstallFeatureHooks();
     if (SettingOn(L"VF2Songs", true))
@@ -861,7 +915,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallChanceHook();
     if (SettingOn(L"OlderVillagerMortalityCurve", true))
         InstallNextGenerationGate();
-    if (rate >= 0 && rate <= 100)
+    if (rate >= 1 && rate <= 11)
         gCheatInterestPercent = rate;
     ApplyEffectiveInterest();
     if (SettingOn(L"FixVanillaGameBugs", true)) {
