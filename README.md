@@ -43,9 +43,11 @@ patch settings you can switch off):
     your money and the Family Tree;
   - Evict Family: resets the Family Tree and starts a new family, keeping the
     money and the house.
-- **Patcher Achievements:** ten milestones (longevity, generations, a full
-  house, and the family features), kept per village in the patcher's own
-  files. They have their own page; the game's Trophies screen is unchanged.
+- **Patcher Achievements:** the Virtual Families 2 patcher's achievements that
+  fit this game, with the same names (Lucky 70's, Great 80's, Mighty 90's,
+  Centenarian, Oldest Person in History, Return of the Rainbow, Spiky!,
+  Achiever Extraordinaire), kept per village on their own page. The game's
+  Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
 - **Roll the Dice:** costs $500, and an island event happens right away,
   through the game's own event system.

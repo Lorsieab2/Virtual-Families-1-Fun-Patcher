@@ -52,7 +52,6 @@ struct VillageState {
 };
 static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
 static int gAdoptionMode;         // family.inc: an Evict or Adopt New Person in progress
-static void UnlockAchievement(int bit);   // patcher_achievements.inc
 
 typedef unsigned (__thiscall *SecondsFn)(void *time);
 static const SecondsFn GameSeconds = (SecondsFn)0x422320;  // CGameTime::Seconds
@@ -91,7 +90,7 @@ static void LoadVillageState(int slot) {
         v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
-        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0x3FF;
+        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFF;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
