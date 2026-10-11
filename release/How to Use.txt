@@ -47,13 +47,13 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    spouse from the Family Tree and the house). Next
                    pregnancy: force success, boys or girls, singleton,
                    twins or triplets (stays set until a pregnancy
-                   succeeds). Spawn a baby boy or girl; adopt a boy or girl
-                   aged 2-13. Adopt New Person (only after "Your family has
+                   succeeds). Spawn Male Child / Spawn Female Child
+                   (age 2-13, optional name). Adopt New Person (only after "Your family has
                    been lost"): keeps your money and the Family Tree. Evict
                    Family: resets the Family Tree and starts a new family;
                    you keep the money, the house and everything you own.
                    Same-sex couples cannot have babies of their own; use
-                   Spawn a Baby or Adopt.
+                   Spawn Child.
 
 Money and food cheats do not count toward the money achievements.
 

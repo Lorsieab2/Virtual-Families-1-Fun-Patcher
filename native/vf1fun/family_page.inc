@@ -2,7 +2,7 @@
 
 enum { ID_FA_STATUS = 700, ID_FA_SAMESEX, ID_FA_REROLL, ID_FA_EMAIL, ID_FA_DIVORCE,
        ID_FA_FORCE, ID_FA_ANYGENDER, ID_FA_MALE, ID_FA_FEMALE, ID_FA_ANYCOUNT, ID_FA_SINGLE, ID_FA_TWINS,
-       ID_FA_TRIPLETS, ID_FA_NAME, ID_FA_AGE, ID_FA_BABY_BOY, ID_FA_BABY_GIRL, ID_FA_ADOPT_BOY, ID_FA_ADOPT_GIRL,
+       ID_FA_TRIPLETS, ID_FA_NAME, ID_FA_AGE, ID_FA_CHILD_BOY, ID_FA_CHILD_GIRL,
        ID_FA_NEWPERSON, ID_FA_EVICT };
 // gFamilyAction (vf1fun.cpp): ADOPT_EVICT or ADOPT_NEW_PERSON, carried out by the store once the dialogs close.
 
@@ -69,14 +69,10 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                             MB_OKCANCEL | MB_ICONWARNING) == IDOK)
                 Report(dlg, DivorceSpouse(), 0);  // the spouse simply goes away: no popup, no life event
             break;
-        case ID_FA_BABY_BOY: case ID_FA_BABY_GIRL:
-            Report(dlg, SpawnBaby(id == ID_FA_BABY_GIRL ? 1 : 0, name), L"A baby has joined the family.");
-            break;
-        case ID_FA_ADOPT_BOY: case ID_FA_ADOPT_GIRL: {
+        case ID_FA_CHILD_BOY: case ID_FA_CHILD_GIRL: {
             wchar_t age[8];
             GetDlgItemTextW(dlg, ID_FA_AGE, age, 8);
-            Report(dlg, AdoptChild(id == ID_FA_ADOPT_GIRL ? 1 : 0, _wtoi(age), name),
-                   L"The child has joined the family.");
+            Report(dlg, SpawnChild(id == ID_FA_CHILD_GIRL ? 1 : 0, _wtoi(age), name), 0);
             break;
         }
         case ID_FA_NEWPERSON:
@@ -107,7 +103,7 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 static void ShowFamily(HWND owner) {
     static Template t;
     const DWORD check = BS_AUTOCHECKBOX | WS_TABSTOP, radio = BS_AUTORADIOBUTTON, push = BS_PUSHBUTTON | WS_TABSTOP;
-    t.Begin(L"Family: Marriage, Babies and Adoption", 300, 302, 32);
+    t.Begin(L"Family: Marriage, Babies and Adoption", 300, 280, 29);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_FA_STATUS, L"");
     t.Item(BUTTON, BS_GROUPBOX, 6, 24, 288, 62, -1, L"Marriage");
     t.Item(BUTTON, check, 14, 36, 260, 12, ID_FA_SAMESEX, L"Enable Same-Sex Marriage");
@@ -126,19 +122,16 @@ static void ShowFamily(HWND owner) {
     t.Item(BUTTON, radio, 172, 134, 48, 12, ID_FA_TWINS, L"Twins");
     t.Item(BUTTON, radio, 222, 134, 60, 12, ID_FA_TRIPLETS, L"Triplets");
     t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 149, 274, 12, -1, L"Twins and triplets need free child places (6 per family).");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 70, -1, L"New children");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 48, -1, L"New children");
     t.Item(STATIC, SS_LEFT, 14, 182, 88, 12, -1, L"Name (optional):");
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 104, 180, 100, 14, ID_FA_NAME, L"");
-    t.Item(BUTTON, push, 14, 198, 130, 16, ID_FA_BABY_BOY, L"Spawn a Baby Boy");
-    t.Item(BUTTON, push, 152, 198, 134, 16, ID_FA_BABY_GIRL, L"Spawn a Baby Girl");
-    t.Item(STATIC, SS_LEFT, 14, 220, 40, 12, -1, L"Age 2-13:");
-    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 56, 218, 24, 14, ID_FA_AGE, L"");
-    t.Item(BUTTON, push, 86, 217, 98, 16, ID_FA_ADOPT_BOY, L"Adopt a Boy");
-    t.Item(BUTTON, push, 188, 217, 98, 16, ID_FA_ADOPT_GIRL, L"Adopt a Girl");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 242, 288, 32, -1, L"Start again");
-    t.Item(BUTTON, push, 14, 254, 130, 16, ID_FA_NEWPERSON, L"Adopt New Person (game over)");
-    t.Item(BUTTON, push, 152, 254, 134, 16, ID_FA_EVICT, L"Evict Family...");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 280, 75, 16, IDOK, L"Close");
-    t.Item(STATIC, SS_LEFT, 10, 282, 200, 12, -1, L"");
+    t.Item(STATIC, SS_LEFT, 14, 200, 44, 12, -1, L"Age 2-13:");
+    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 58, 198, 24, 14, ID_FA_AGE, L"");
+    t.Item(BUTTON, push, 88, 197, 96, 16, ID_FA_CHILD_BOY, L"Spawn Male Child");
+    t.Item(BUTTON, push, 188, 197, 98, 16, ID_FA_CHILD_GIRL, L"Spawn Female Child");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 220, 288, 32, -1, L"Start again");
+    t.Item(BUTTON, push, 14, 232, 130, 16, ID_FA_NEWPERSON, L"Adopt New Person (game over)");
+    t.Item(BUTTON, push, 152, 232, 134, 16, ID_FA_EVICT, L"Evict Family...");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 258, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, FamilyProc, 0);
 }

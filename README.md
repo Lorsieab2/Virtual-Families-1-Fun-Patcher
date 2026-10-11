@@ -41,7 +41,8 @@ patch settings you can switch off):
   - Force Marriage Email, and Divorce Spouse;
   - next pregnancy one-shots: force success, boys or girls, singleton, twins
     or triplets;
-  - Spawn a Baby, and Adopt a Child (age 2-13);
+  - Spawn Male Child and Spawn Female Child (age 2-13, optional name; a child of
+    the current couple, with their looks);
   - Adopt New Person (only after "your family has been lost"), which keeps
     your money and the Family Tree;
   - Evict Family: resets the Family Tree and starts a new family, keeping the

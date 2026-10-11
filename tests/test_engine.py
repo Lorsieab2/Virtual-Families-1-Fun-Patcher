@@ -18,7 +18,7 @@ SPEC = {
     'SpecialUpgrades': ('Add visible mobile version purchases',
         'Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.'),
     'CheatUpgrades': ('Cheat Upgrades',
-        "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, new babies and adopted children, Adopt New Person after a game over, Evict Family)."),
+        "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family)."),
     'FleaMarket': ('Flea Market',
         'Every tray item the store sells, to buy or get for free.'),
     'RollTheDice': ('Roll the Dice',

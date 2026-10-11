@@ -58,7 +58,6 @@ static const SetActiveFn SetSceneActive = (SetActiveFn)0x40C700;
 static const SceneRefFn AdoptionScene = (SceneRefFn)0x436510;            // CAdoptionScene::Ref
 static const VoidThisFn GeneratePeepCandidate = (VoidThisFn)0x4383D0;    // CDatingScene: the reroll
 static unsigned *const DatingVtable = (unsigned *)0x4B6C64;
-static int *const BirthsCounter = (int *)0x50C568;
 
 static unsigned char *GameStateBytes() { return (unsigned char *)GameStateGet(); }
 
@@ -231,7 +230,7 @@ static const wchar_t *DivorceSpouse() {
     return 0;
 }
 
-// ---------------------------------------------------------------- babies and children
+// ---------------------------------------------------------------- children
 static void SetName(int slot, const wchar_t *name) {
     char s[26] = { 0 };
     if (!name || !name[0]) return;
@@ -240,33 +239,22 @@ static void SetName(int slot, const wchar_t *name) {
     strncpy_s((char *)(Villager(slot) + 0x2A44), 0x19, s, _TRUNCATE);
 }
 
-// A newborn, as Impregnate spawns one (age 40 units, in the nursery) but
-// visible at once: the parents are the current couple.
-static const wchar_t *SpawnBaby(int gender, const wchar_t *name) {
-    if (!CurrentFamily()) return L"There is no family yet.";
-    if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
-    int a = FounderSlot(), b = SpouseSlot();
-    if (a < 0) a = b;
-    if (b < 0) b = a;
-    if (a < 0) return L"A baby needs at least one parent in the house.";
-    unsigned char *p1 = Villager(a), *p2 = Villager(b);
-    int slot = SpawnPeepFull(VillagerManager, *(int *)(p2 + 0x2A40), gender, 40, VillagerName(a), VillagerName(b),
-                             *(int *)(p1 + 0x2A64), *(int *)(p1 + 0x2A60), *(int *)(p2 + 0x2A64),
-                             *(int *)(p2 + 0x2A60), 0x575, 0x45A, 0);
-    if (slot < 0) return L"The house is full.";
-    SetName(slot, name);
-    AddOffspring(FamilyTree, Villager(slot));
-    QueueLifeEventPending(GameStateGet(), 2, slot, -1);
-    *BirthsCounter += 1;
-    return 0;
-}
-
-// An adopted child of any age 2-13, with its own looks.
-static const wchar_t *AdoptChild(int gender, int years, const wchar_t *name) {
+// A child of the current couple, any age 2-13: the parents' names, heads and
+// bodies go into the new villager the way a birth records them, so the look is
+// inherited, and AddOffspring puts it in the Family Tree. Not a birth: no
+// "new baby" event and no births statistic.
+static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     if (!CurrentFamily()) return L"There is no family yet.";
     if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
     if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
-    int slot = SpawnPeep(VillagerManager, -1, gender, years * 20);
+    int a = FounderSlot(), b = SpouseSlot();
+    if (a < 0) a = b;
+    if (b < 0) b = a;
+    if (a < 0) return L"A child needs at least one parent in the house.";
+    unsigned char *p1 = Villager(a), *p2 = Villager(b);
+    int slot = SpawnPeepFull(VillagerManager, -1, gender, years * 20, VillagerName(a), VillagerName(b),
+                             *(int *)(p1 + 0x2A64), *(int *)(p1 + 0x2A60), *(int *)(p2 + 0x2A64),
+                             *(int *)(p2 + 0x2A60), 0, 0, 0);
     if (slot < 0) return L"The house is full.";
     SetName(slot, name);
     AddOffspring(FamilyTree, Villager(slot));
