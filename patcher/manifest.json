@@ -1,0 +1,327 @@
+{
+  "manifest_version": 1,
+  "name": "Virtual Families 1 Patcher",
+  "version": "dev",
+  "description": "Patch settings for the Virtual Families 1 Patcher. Each setting is a switch in \"Virtual Families 1 Patcher Files\\settings.ini\", section [Patches], read by vf1fun.dll when the game starts. To add a setting, add a row here: id (the settings.ini key), label, description, default, category (main or optional), and optionally requires (ids of settings it cannot work without; the patcher states them in bold) and files (payload files installed into the Virtual Families 1 Patcher Files folder only while the setting is on).",
+  "output": {
+    "default_folder_name": "Virtual Families - Modded",
+    "default_exe_name": "Virtual Families - Modded.exe"
+  },
+  "settings": [
+    {
+      "id": "FixVanillaGameBugs",
+      "label": "Fix Vanilla Game Bugs",
+      "description": "Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "OlderVillagerMortalityCurve",
+      "label": "Older Villager Mortality Curve",
+      "description": "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75). Because parents may now live on, the Family Tree's Next Generation button is also offered once the oldest parent at home is 60 and a child survives.",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "PrivateRomanticTime",
+      "label": "Private Adult Romantic Time",
+      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with \"They have enough kids already!\"). Same-sex couples already could. No baby is possible while the family is full.",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "AllowOlderPregnancies",
+      "label": "Allow Older Pregnancies",
+      "description": "Mothers over 50 can still conceive: the chance is 10% at age 50 and tapers to a 0.1% floor from 69 on, as in the Virtual Families 2 patcher (the original game made it impossible over 50). Mothers up to 50 are unchanged.",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "ClampMoneyAndFood",
+      "label": "Clamp Max Money and Food",
+      "description": "Keeps coins at no more than 4,000,000,000 and food at no more than 2,147,483,647, the Virtual Families 2 patcher's maximums (the original game has no limit, and food wraps to a negative number past 2,147,483,647, which glitches the game).",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "SpecialUpgrades",
+      "label": "Add visible mobile version purchases",
+      "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.",
+      "default": true,
+      "category": "main"
+    },
+    {
+      "id": "CheatUpgrades",
+      "label": "Cheat Upgrades",
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family).",
+      "default": true,
+      "category": "optional"
+    },
+    {
+      "id": "FleaMarket",
+      "label": "Flea Market",
+      "description": "Every tray item the store sells, to buy or get for free.",
+      "default": true,
+      "category": "optional"
+    },
+    {
+      "id": "RollTheDice",
+      "label": "Roll the Dice",
+      "description": "$500: an island event happens right away.",
+      "default": true,
+      "category": "optional"
+    },
+    {
+      "id": "CustomMapImages",
+      "label": "Custom Map/Game Images",
+      "description": "Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "CustomImages/MapX0Y0.jpg",
+          "target": "Images/MapX0Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y1.jpg",
+          "target": "Images/MapX0Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y2.jpg",
+          "target": "Images/MapX0Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y1.jpg",
+          "target": "Images/MapX1Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y2.jpg",
+          "target": "Images/MapX1Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y0.jpg",
+          "target": "Images/MapX2Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y1.jpg",
+          "target": "Images/MapX2Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y2.jpg",
+          "target": "Images/MapX2Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y3.jpg",
+          "target": "Images/MapX2Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y0.jpg",
+          "target": "Images/MapX3Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y1.jpg",
+          "target": "Images/MapX3Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y2.jpg",
+          "target": "Images/MapX3Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y3.jpg",
+          "target": "Images/MapX3Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/birdhStrip1.png",
+          "target": "Images/birdhStrip1.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/carrying.png",
+          "target": "Images/carrying.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/kitchenUpgrade.png",
+          "target": "Images/kitchenUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/patioSet.png",
+          "target": "Images/patioSet.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/pet_grid.png",
+          "target": "Images/pet_grid.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/showerCurtain.png",
+          "target": "Images/showerCurtain.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/towelUpgrade.png",
+          "target": "Images/towelUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/InventoryItems.png",
+          "target": "Images/InventoryItems.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y3.jpg",
+          "target": "Images/MapX0Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y0.jpg",
+          "target": "Images/MapX1Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/balconyflowers.png",
+          "target": "Images/balconyflowers.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bbq.png",
+          "target": "Images/bbq.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bedUpgrade.png",
+          "target": "Images/bedUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bird.png",
+          "target": "Images/bird.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/birdhouse.png",
+          "target": "Images/birdhouse.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/breads.png",
+          "target": "Images/breads.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/cans.png",
+          "target": "Images/cans.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/fishtank.png",
+          "target": "Images/fishtank.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/fountainwater.png",
+          "target": "Images/fountainwater.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/kitchenGarbageFull.png",
+          "target": "Images/kitchenGarbageFull.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/meal.png",
+          "target": "Images/meal.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/officeUpgrade.png",
+          "target": "Images/officeUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/pool.png",
+          "target": "Images/pool.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/remote.png",
+          "target": "Images/remote.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/workroomUpgrade.png",
+          "target": "Images/workroomUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/fridgeStates.png",
+          "target": "Images/fridgeStates.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/help.jpg",
+          "target": "Images/help.jpg",
+          "replaces": true
+        }
+      ]
+    },
+    {
+      "id": "VF2Songs",
+      "label": "VF1 + VF2 Songs",
+      "description": "Adds VF2 songs in addition to the normal VF1 songs.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "VF2Songs/menu.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/menu.ogg"
+        },
+        {
+          "source": "VF2Songs/song1.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song1.ogg"
+        },
+        {
+          "source": "VF2Songs/song2.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song2.ogg"
+        },
+        {
+          "source": "VF2Songs/song3.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song3.ogg"
+        },
+        {
+          "source": "VF2Songs/song4.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song4.ogg"
+        }
+      ]
+    },
+    {
+      "id": "GlowingCollectables",
+      "label": "Glowing Collectables",
+      "description": "Makes the collectables in the yard glow, so they are easier to spot.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "GlowingCollectables/collectables_small.png",
+          "target": "Images/collectables_small.png",
+          "replaces": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+Virtual Families 1 Patcher Transparency Log
+===========================================
+
+Creation disclosure
+-------------------
+Created by Lorsieab2. This is a passion project dedicated to improving the "Virtual Families" experience!
+No copyright infringement intended! Please support the original game creators! :)
+This patcher was created with Claude AI (Claude Code) in collaboration with Lorsieab2.
+
+What this patcher does
+----------------------
+- Verifies the selected vanilla Virtual Families folder. It must hold
+  Virtual Families.exe, Assets, Images, Sounds, fmod.dll, SDL2.dll, SDL2_image.dll,
+  and Virtual Families.exe must be the official version 1.01.00
+  (SHA-256 5db828c3f53c68696c18719aec0eb114be3fd4458ae2cbf185d8d4ef7eca4487).
+- Creates a separate, clearly labeled modded game folder. The vanilla game folder is only read.
+- With a vanilla folder selected, Enable/Disable Patches rebuilds a recognized modded folder from the
+  vanilla folder. With only a modded folder selected, it reconfigures that folder in place.
+- Backs up every file it will replace or delete before writing, and records every file it will create,
+  so Restore Backup can put the folder back exactly.
+- Writes machine-readable success/failure logs.
+- Dry Run (Validate Only) checks the vanilla folder, the executable, the patch and the payload files,
+  then stops before creating backups, creating the modded folder, or writing any game file.
+- Payload files are read-only/copy-only: the patcher never writes into payload/.
+
+What this patcher does not do
+-----------------------------
+- Does not inject code into a running game or edit process memory.
+- Does not use obfuscation, packers, or admin-only install locations.
+- Does not launch the game.
+- Does not alter any save. The modded game keeps its own save folder.
+
+The executable patch
+--------------------
+- The modded executable is the vanilla Virtual Families.exe plus two new sections:
+  .vf1fun (read + execute), a small loader, and .vf1fud (read + write), its state.
+  No page is both writable and executable.
+- Two existing values change so the game enters the loader: the call at 0x4497e6 (end of the
+  store screen's constructor) and theGame's Init vtable slot at 0x4b5e14. The PE checksum is
+  updated. Nothing else in the original image changes.
+- The loader loads "Virtual Families 1 Patcher Files\vf1fun.dll" by full path. If it is missing, the game runs
+  exactly as normal.
+- The modded executable is named "Virtual Families - Modded.exe". Its name never contains "patch": Windows treats
+  such names as installers and asks for administrator rights.
+
+Every file the patcher writes
+-----------------------------
+In the modded game folder (default "Virtual Families - Modded"):
+- Every file of the vanilla folder except Virtual Families.exe, copied unchanged.
+- Virtual Families - Modded.exe: the patched executable.
+- Virtual Families 1 Patcher Files\vf1fun.dll: the patcher's DLL, copied from payload\vf1fun.dll.
+- Virtual Families 1 Patcher Files\settings.ini: section [Patches], one Key=1/0 line per setting below.
+  Other sections (written by the DLL, e.g. [Cheats] InterestRate) are kept as they were.
+- Images\MapX0Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y0.jpg and put back when it is off.
+- Images\MapX0Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y1.jpg and put back when it is off.
+- Images\MapX0Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y2.jpg and put back when it is off.
+- Images\MapX1Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX1Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX1Y1.jpg and put back when it is off.
+- Images\MapX1Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX1Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX1Y2.jpg and put back when it is off.
+- Images\MapX2Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y0.jpg and put back when it is off.
+- Images\MapX2Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y1.jpg and put back when it is off.
+- Images\MapX2Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y2.jpg and put back when it is off.
+- Images\MapX2Y3.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y3.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y3.jpg and put back when it is off.
+- Images\MapX3Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y0.jpg and put back when it is off.
+- Images\MapX3Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y1.jpg and put back when it is off.
+- Images\MapX3Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y2.jpg and put back when it is off.
+- Images\MapX3Y3.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y3.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y3.jpg and put back when it is off.
+- Images\birdhStrip1.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\birdhStrip1.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\birdhStrip1.png and put back when it is off.
+- Images\carrying.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\carrying.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\carrying.png and put back when it is off.
+- Images\kitchenUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\kitchenUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\kitchenUpgrade.png and put back when it is off.
+- Images\patioSet.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\patioSet.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\patioSet.png and put back when it is off.
+- Images\pet_grid.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\pet_grid.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\pet_grid.png and put back when it is off.
+- Images\showerCurtain.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\showerCurtain.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\showerCurtain.png and put back when it is off.
+- Images\towelUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\towelUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\towelUpgrade.png and put back when it is off.
+- Images\InventoryItems.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\InventoryItems.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\InventoryItems.png and put back when it is off.
+- Images\MapX0Y3.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y3.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y3.jpg and put back when it is off.
+- Images\MapX1Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX1Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX1Y0.jpg and put back when it is off.
+- Images\balconyflowers.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\balconyflowers.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\balconyflowers.png and put back when it is off.
+- Images\bbq.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\bbq.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\bbq.png and put back when it is off.
+- Images\bedUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\bedUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\bedUpgrade.png and put back when it is off.
+- Images\bird.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\bird.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\bird.png and put back when it is off.
+- Images\birdhouse.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\birdhouse.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\birdhouse.png and put back when it is off.
+- Images\breads.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\breads.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\breads.png and put back when it is off.
+- Images\cans.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\cans.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\cans.png and put back when it is off.
+- Images\fishtank.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fishtank.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fishtank.png and put back when it is off.
+- Images\fountainwater.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fountainwater.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fountainwater.png and put back when it is off.
+- Images\kitchenGarbageFull.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\kitchenGarbageFull.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\kitchenGarbageFull.png and put back when it is off.
+- Images\meal.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\meal.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\meal.png and put back when it is off.
+- Images\officeUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\officeUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\officeUpgrade.png and put back when it is off.
+- Images\pool.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\pool.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\pool.png and put back when it is off.
+- Images\remote.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\remote.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\remote.png and put back when it is off.
+- Images\workroomUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\workroomUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\workroomUpgrade.png and put back when it is off.
+- Images\fridgeStates.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fridgeStates.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fridgeStates.png and put back when it is off.
+- Images\help.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\help.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\help.jpg and put back when it is off.
+- Virtual Families 1 Patcher Files\VF2 Songs\menu.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\menu.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song1.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song1.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song2.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song2.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song3.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song3.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song4.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song4.ogg).
+- Images\collectables_small.png: replaced only while Glowing Collectables is on (from payload\GlowingCollectables\collectables_small.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\collectables_small.png and put back when it is off.
+- .vf1_patch_backups\<date_time>_manifest\: one folder per run, holding vf1_patch_backup_manifest.json,
+  files\... (copies of every file the run replaced or deleted), patch_log.json (or
+  patch_error_log.json if the run failed) and, after a restore, restore_log.json.
+Next to manifest.json (the patcher's own folder):
+- patch_dry_run_log.json after a Dry Run, and patch_error_log.json when a run fails before its backup
+  exists.
+- patcher_local_settings.json: the folders you chose in the window, so they are filled in next time.
+The patcher writes nothing else, and it never deletes a backup folder.
+
+Written by the modded game itself
+---------------------------------
+- Virtual Families 1 Patcher Files\settings.ini: the DLL saves cheat values it remembers between sessions there.
+- Saves: Documents\LDW\Virtual Families - Modded, separate from the vanilla game's
+  Documents\LDW\Virtual Families.
+
+Settings and defaults
+---------------------
+- Main Patches (green) and Optional Patches (black), as in the patcher window.
+- FixVanillaGameBugs [on] (main): Fix Vanilla Game Bugs
+  Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).
+- OlderVillagerMortalityCurve [on] (main): Older Villager Mortality Curve
+  Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75). Because parents may now live on, the Family Tree's Next Generation button is also offered once the oldest parent at home is 60 and a child survives.
+- PrivateRomanticTime [on] (main): Private Adult Romantic Time
+  A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with "They have enough kids already!"). Same-sex couples already could. No baby is possible while the family is full.
+- AllowOlderPregnancies [on] (main): Allow Older Pregnancies
+  Mothers over 50 can still conceive: the chance is 10% at age 50 and tapers to a 0.1% floor from 69 on, as in the Virtual Families 2 patcher (the original game made it impossible over 50). Mothers up to 50 are unchanged.
+- ClampMoneyAndFood [on] (main): Clamp Max Money and Food
+  Keeps coins at no more than 4,000,000,000 and food at no more than 2,147,483,647, the Virtual Families 2 patcher's maximums (the original game has no limit, and food wraps to a negative number past 2,147,483,647, which glitches the game).
+- SpecialUpgrades [on] (main): Add visible mobile version purchases
+  Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.
+- CheatUpgrades [on] (optional): Cheat Upgrades
+  Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family).
+- FleaMarket [on] (optional): Flea Market
+  Every tray item the store sells, to buy or get for free.
+- RollTheDice [on] (optional): Roll the Dice
+  $500: an island event happens right away.
+- CustomMapImages [on] (optional): Custom Map/Game Images
+  Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.
+- VF2Songs [on] (optional): VF1 + VF2 Songs
+  Adds VF2 songs in addition to the normal VF1 songs.
+- GlowingCollectables [on] (optional): Glowing Collectables
+  Makes the collectables in the yard glow, so they are easier to spot.
+
+Restore
+-------
+- Restore Backup puts back the files a backup recorded, into the folder it was taken from, and deletes
+  the files that run had created. It refuses to restore into the vanilla game folder.

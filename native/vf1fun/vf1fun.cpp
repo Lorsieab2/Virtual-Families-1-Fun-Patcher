@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <intrin.h>
+#include <shlobj.h>
 
 // ---------------------------------------------------------------- game ABI
 struct ldwPoint { int x, y; };
@@ -206,10 +209,26 @@ public:
 static void Message(HWND owner, const wchar_t *text) {
     MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_OK | MB_ICONINFORMATION);
 }
+static bool Confirm(HWND owner, const wchar_t *text) {
+    return MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
+}
 
 // ---- Cheats
 enum { ID_MONEY_NOW = 100, ID_ADD1K, ID_ADD10K, ID_ADD100K, ID_SET_EDIT, ID_SET, ID_RATE_EDIT, ID_RATE,
-       ID_FOOD_NOW, ID_FOOD100, ID_FOOD1000, ID_FOOD_EDIT, ID_FOOD_SET };
+       ID_FOOD_NOW, ID_FOOD100, ID_FOOD1000, ID_FOOD_EDIT, ID_FOOD_SET, ID_MONEY0, ID_ADD100, ID_ADDMAX,
+       ID_FOOD0, ID_FOOD10K, ID_FOODMAX };
+// The Virtual Families 2 patcher's maximums: 4,000,000,000 coins and 2,147,483,647 food (a
+// signed 32-bit int). VF1 never clamps upward (CMoney::Adjust 0x422740 and
+// CFoodStore::Adjust 0x4221B0 only keep food from going below zero), so past 2^31 food wraps
+// to a negative number; the Clamp Money and Food setting pins both to these values.
+static const float kMaxMoney = 4000000000.f;
+static const int kMaxFood = 2147483647;
+static void AddFoodSaturating(int amount) {  // never wraps past the maximum
+    long long total = (long long)*Food + amount;
+    if (total > kMaxFood) total = kMaxFood;
+    if (total < 0) total = 0;
+    FoodAdjust(Food, (int)(total - *Food));
+}
 
 static void RefreshCheats(HWND dlg) {
     wchar_t s[128];
@@ -250,9 +269,10 @@ static void ApplyInterestRate(float percent) {
     gInterestPercent = percent;
 }
 
+static void CheatInterestChanged(float percent);  // features.inc
 static void SetInterestRate(float percent) {
-    ApplyInterestRate(percent);
     WriteSetting(L"InterestRate", percent);
+    CheatInterestChanged(percent);
 }
 
 static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
@@ -262,33 +282,42 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         return TRUE;
     case WM_COMMAND: {
         int id = LOWORD(wp);
-        float add = id == ID_ADD1K ? 1000.f : id == ID_ADD10K ? 10000.f : id == ID_ADD100K ? 100000.f : 0.f;
-        if (add) {
+        float add = id == ID_ADD100 ? 100.f : id == ID_ADD10K ? 10000.f : 0.f;
+        if ((id == ID_MONEY0 && !Confirm(dlg, L"Set your money to $0?")) ||
+            (id == ID_FOOD0 && !Confirm(dlg, L"Set your food to 0?")))
+            return TRUE;
+        if (id == ID_MONEY0 || id == ID_ADDMAX) {
+            MoneyAdjust(Money, (id == ID_ADDMAX ? kMaxMoney : 0.f) - CurrentMoney(), false);
+            RefreshCheats(dlg);
+        } else if (id == ID_FOOD0 || id == ID_FOODMAX) {
+            FoodAdjust(Food, (id == ID_FOODMAX ? kMaxFood : 0) - *Food);
+            RefreshCheats(dlg);
+        } else if (id == ID_FOOD100 || id == ID_FOOD10K) {
+            AddFoodSaturating(id == ID_FOOD100 ? 100 : 10000);
+            RefreshCheats(dlg);
+        } else if (add) {
             MoneyAdjust(Money, add, false);  // not "earned": no money achievements
             RefreshCheats(dlg);
         } else if (id == ID_SET) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_SET_EDIT, s, 64);
             float target = (float)_wtof(s);
-            if (target < 0 || target > 1e9f) { Message(dlg, L"Enter an amount from 0 to 1,000,000,000."); break; }
+            if (target < 0 || target > kMaxMoney) { Message(dlg, L"Enter an amount from 0 to 4,000,000,000."); break; }
             MoneyAdjust(Money, target - CurrentMoney(), false);
             RefreshCheats(dlg);
         } else if (id == ID_RATE) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_RATE_EDIT, s, 64);
             float rate = (float)_wtof(s);
-            if (rate < 0 || rate > 100) { Message(dlg, L"Enter a rate from 0 to 100 percent."); break; }
+            if (rate < 1 || rate > 11) { Message(dlg, L"Enter a rate from 1 to 11 percent."); break; }
             SetInterestRate(rate);
-            RefreshCheats(dlg);
-        } else if (id == ID_FOOD100 || id == ID_FOOD1000) {
-            FoodAdjust(Food, id == ID_FOOD100 ? 100 : 1000);
             RefreshCheats(dlg);
         } else if (id == ID_FOOD_SET) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_FOOD_EDIT, s, 64);
-            int target = _wtoi(s);
-            if (target < 0 || target > 1000000) { Message(dlg, L"Enter an amount of food from 0 to 1,000,000."); break; }
-            FoodAdjust(Food, target - *Food);
+            long long target = _wtoi64(s);
+            if (target < 0 || target > kMaxFood) { Message(dlg, L"Enter an amount of food from 0 to 2,147,483,647."); break; }
+            AddFoodSaturating((int)(target - *Food));
             RefreshCheats(dlg);
         } else if (id == IDCANCEL || id == IDOK) {
             EndDialog(dlg, 0);
@@ -304,11 +333,12 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowCheats(HWND owner) {
     static Template t;
-    t.Begin(L"Cheat Upgrades", 260, 200, 17);
+    t.Begin(L"Cheat Upgrades", 260, 200, 20);
     t.Item(STATIC, SS_LEFT, 10, 8, 240, 12, ID_MONEY_NOW, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 26, 75, 16, ID_ADD1K, L"+ $1,000");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 92, 26, 75, 16, ID_ADD10K, L"+ $10,000");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 26, 75, 16, ID_ADD100K, L"+ $100,000");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 26, 56, 16, ID_MONEY0, L"No Money");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 70, 26, 56, 16, ID_ADD100, L"+ 100");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 130, 26, 62, 16, ID_ADD10K, L"+ 10,000");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 26, 53, 16, ID_ADDMAX, L"Max");
     t.Item(STATIC, SS_LEFT, 10, 52, 80, 12, -1, L"Set money to $");
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 92, 50, 75, 14, ID_SET_EDIT, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 49, 75, 16, ID_SET, L"Set");
@@ -316,8 +346,10 @@ static void ShowCheats(HWND owner) {
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 92, 76, 75, 14, ID_RATE_EDIT, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 75, 75, 16, ID_RATE, L"Set rate");
     t.Item(STATIC, SS_LEFT, 10, 104, 240, 12, ID_FOOD_NOW, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 120, 75, 16, ID_FOOD100, L"+ 100 food");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 92, 120, 75, 16, ID_FOOD1000, L"+ 1,000 food");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 120, 56, 16, ID_FOOD0, L"No Food");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 70, 120, 56, 16, ID_FOOD100, L"+ 100");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 130, 120, 62, 16, ID_FOOD10K, L"+ 10,000");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 120, 53, 16, ID_FOODMAX, L"Max");
     t.Item(STATIC, SS_LEFT, 10, 146, 80, 12, -1, L"Set food to");
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | ES_NUMBER | WS_BORDER | WS_TABSTOP, 92, 144, 75, 14, ID_FOOD_EDIT, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 143, 75, 16, ID_FOOD_SET, L"Set");
@@ -348,7 +380,10 @@ static int *Stat(int i, int offset) { return (int *)(Villager(i) + 0x2AD4 + offs
 
 enum { STAT_HEALTH = 0x0C, STAT_ENERGY = 0x34, STAT_HAPPINESS = 0x38, STAT_HUNGER = 0x40 };
 static int Fed(int i) { return 100 - *Stat(i, STAT_HUNGER); }
-enum { ID_VC_LIST = 400, ID_VC_HEALTH, ID_VC_CURE, ID_VC_HAPPY, ID_VC_ENERGY, ID_VC_FED, ID_VC_ALL };
+enum { ID_VC_LIST = 400, ID_VC_HEALTH, ID_VC_CURE, ID_VC_HAPPY, ID_VC_ENERGY, ID_VC_FED, ID_VC_ALL,
+       ID_VC_HEAD, ID_VC_BODY, ID_VC_LOOKS, ID_VC_RANDOM_LOOKS, ID_VC_PROMOTE, ID_VC_CAREER,
+       ID_VC_BOARD, ID_VC_DESENS, ID_VC_LEARN, ID_VC_PSYCHO, ID_VC_RUNNING, ID_VC_AGE18 };
+static const wchar_t *ApplyVillagerUpgrade(int id, int slot);  // villager_upgrades.inc
 
 static void CureVillager(int i) {
     unsigned char *state = Villager(i) + 0x2AD4;
@@ -357,6 +392,30 @@ static void CureVillager(int i) {
         *(unsigned *)(state + 0x64 + s * 4) = 0;
     }
 }
+
+// Appearance: VF1 has no separate clothing or hair field. The head row
+// (+0x2A60: face and hair) and the body row (+0x2A64: clothes) are each one
+// of 50 sprite-sheet rows, 0-49 (CVillager::Init 0x485108..0x4851A8; drawn at
+// 0x48B944 / 0x48B5A2), and every row fits every age.
+static const int AppearanceRows = 50;
+static int *Head(int i) { return (int *)(Villager(i) + 0x2A60); }
+static int *Body(int i) { return (int *)(Villager(i) + 0x2A64); }
+static void SyncTreeLook(int slot);  // family.inc
+typedef int (__cdecl *RandomFn)(int n);
+static const RandomFn GetRandom = (RandomFn)0x403650;  // ldwGameState::GetRandom
+
+// Careers (CVillagerSkills at villager +0x2B6C: id, level, experience, salary).
+// A child has career id -1. Both calls are the ones the game's own island events
+// make: CEventProfessionalCareerTraining::ImpactGame (0x419650) calls
+// AdvanceCareer(villager, giveMoney=false, forcePromotion=true) and
+// CEventCareerChangeCouncelor::ImpactGame (0x419A20) calls ResetCareer().
+typedef void (__thiscall *AdvanceCareerFn)(void *skills, void *villager, bool giveMoney, bool force);
+typedef void (__thiscall *ResetCareerFn)(void *skills);
+static bool HasCareer(int i) { return *(int *)(Villager(i) + 0x2B6C) != -1; }
+static void PromoteVillager(int i) {
+    ((AdvanceCareerFn)0x48F590)(Villager(i) + 0x2B6C, Villager(i), false, true);
+}
+static void ChangeCareer(int i) { ((ResetCareerFn)0x48F020)(Villager(i) + 0x2B6C); }
 
 static void ApplyVillagerCheat(int i, int id) {
     if (id == ID_VC_HEALTH || id == ID_VC_ALL) *Stat(i, STAT_HEALTH) = 100;
@@ -374,14 +433,48 @@ static void FillVillagerList(HWND dlg) {
     for (int i = 0; i < VillagerSlots; ++i) {
         if (!VillagerPresent(i))
             continue;
-        wchar_t line[96];
-        swprintf(line, 96, L"%.40hs\tHealth %d  Happy %d  Fed %d  Energy %d",
+        wchar_t line[128];
+        swprintf(line, 128, L"%.40hs\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d",
                  (const char *)(Villager(i) + 0x2A44), *Stat(i, STAT_HEALTH), *Stat(i, STAT_HAPPINESS),
-                 Fed(i), *Stat(i, STAT_ENERGY));
+                 Fed(i), *Stat(i, STAT_ENERGY), *Head(i), *Body(i));
         row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
         SendMessageW(list, LB_SETITEMDATA, row, i);
     }
     SendMessageW(list, LB_SETCURSEL, 0, 0);
+}
+
+// The confirmation text for a Villager Cheats button: what it does and to whom.
+static const wchar_t *VillagerCheatAction(int id) {
+    switch (id) {
+    case ID_VC_HEALTH: return L"Max health";
+    case ID_VC_CURE: return L"Cure all illnesses";
+    case ID_VC_HAPPY: return L"Max happiness";
+    case ID_VC_ENERGY: return L"Max energy";
+    case ID_VC_FED: return L"Fill up (Fed)";
+    case ID_VC_ALL: return L"Max health, cure illnesses, max happiness, energy and fed";
+    case ID_VC_PROMOTE: return L"Instant job promotion";
+    case ID_VC_CAREER: return L"Career Change (a new career at level 1)";
+    case ID_VC_BOARD: return L"Boarding School (the child leaves the house)";
+    case ID_VC_DESENS: return L"Systematic Desensitization (removes a dislike)";
+    case ID_VC_LEARN: return L"Higher Learning Classes (a new like)";
+    case ID_VC_PSYCHO: return L"Psychotherapy (overcomes depression)";
+    case ID_VC_RUNNING: return L"Add Running Like";
+    case ID_VC_AGE18: return L"Set Age to 18";
+    case ID_VC_LOOKS: return L"Change Appearance";
+    case ID_VC_RANDOM_LOOKS: return L"Give a random look";
+    }
+    return 0;
+}
+static bool ConfirmVillagerCheat(HWND dlg, int id) {
+    const wchar_t *action = VillagerCheatAction(id);
+    if (!action) return true;
+    HWND list = GetDlgItem(dlg, ID_VC_LIST);
+    int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+    int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+    wchar_t text[256];
+    if (who < 0) swprintf(text, 256, L"%s for EVERYONE in the house?", action);
+    else swprintf(text, 256, L"%s for %.40hs?", action, (const char *)(Villager(who) + 0x2A44));
+    return Confirm(dlg, text);
 }
 
 static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
@@ -394,7 +487,69 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
     }
     case WM_COMMAND: {
         int id = LOWORD(wp);
-        if (id >= ID_VC_HEALTH && id <= ID_VC_ALL) {
+        if (id != ID_VC_LIST && HIWORD(wp) == BN_CLICKED && !ConfirmVillagerCheat(dlg, id))
+            return TRUE;
+        if (id == ID_VC_LIST && HIWORD(wp) == LBN_SELCHANGE) {
+            HWND list = GetDlgItem(dlg, ID_VC_LIST);
+            int who = (int)SendMessageW(list, LB_GETITEMDATA, SendMessageW(list, LB_GETCURSEL, 0, 0), 0);
+            if (who >= 0 && who < VillagerSlots) {
+                SetDlgItemInt(dlg, ID_VC_HEAD, *Head(who), FALSE);
+                SetDlgItemInt(dlg, ID_VC_BODY, *Body(who), FALSE);
+            }
+        } else if (id == ID_VC_LOOKS || id == ID_VC_RANDOM_LOOKS) {
+            HWND list = GetDlgItem(dlg, ID_VC_LIST);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            BOOL okHead, okBody;
+            int head = (int)GetDlgItemInt(dlg, ID_VC_HEAD, &okHead, FALSE);
+            int body = (int)GetDlgItemInt(dlg, ID_VC_BODY, &okBody, FALSE);
+            if (id == ID_VC_LOOKS && (!okHead || !okBody || head >= AppearanceRows || body >= AppearanceRows)) {
+                Message(dlg, L"Head and body are each a number from 0 to 49.");
+                return TRUE;
+            }
+            for (int i = 0; i < VillagerSlots; ++i) {
+                if (!VillagerPresent(i) || (who >= 0 && who != i))
+                    continue;
+                *Head(i) = id == ID_VC_LOOKS ? head : GetRandom(AppearanceRows);
+                *Body(i) = id == ID_VC_LOOKS ? body : GetRandom(AppearanceRows);
+                SyncTreeLook(i);
+            }
+            FillVillagerList(dlg);
+            if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
+        } else if (id == ID_VC_PROMOTE || id == ID_VC_CAREER) {
+            HWND list = GetDlgItem(dlg, ID_VC_LIST);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            int done = 0;
+            for (int i = 0; i < VillagerSlots; ++i) {
+                if (!VillagerPresent(i) || (who >= 0 && who != i) || !HasCareer(i))
+                    continue;
+                if (id == ID_VC_PROMOTE) PromoteVillager(i); else ChangeCareer(i);
+                ++done;
+            }
+            if (!done) Message(dlg, L"Only adults with a career can do that.");
+            FillVillagerList(dlg);
+            if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
+        } else if (id >= ID_VC_BOARD && id <= ID_VC_AGE18) {
+            HWND list = GetDlgItem(dlg, ID_VC_LIST);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            if (id == ID_VC_AGE18 && who < 0) {
+                Message(dlg, L"Pick one villager: Set Age to 18 only changes the selected villager.");
+                return TRUE;
+            }
+            int done = 0;
+            const wchar_t *why = 0;
+            for (int i = 0; i < VillagerSlots; ++i) {
+                if (!VillagerPresent(i) || (who >= 0 && who != i))
+                    continue;
+                const wchar_t *reason = ApplyVillagerUpgrade(id, i);
+                if (reason) why = reason; else ++done;
+            }
+            if (!done && why) Message(dlg, why);
+            FillVillagerList(dlg);
+            if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
+        } else if (id >= ID_VC_HEALTH && id <= ID_VC_ALL) {
             HWND list = GetDlgItem(dlg, ID_VC_LIST);
             int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
             int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
@@ -417,15 +572,31 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
 
 static void ShowVillagerCheats(HWND owner) {
     static Template t;
-    t.Begin(L"Villager Cheats", 300, 220, 8);
-    t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 280, 110, ID_VC_LIST, L"");
+    t.Begin(L"Villager Cheats", 340, 322, 24);
+    t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 320, 110, ID_VC_LIST, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, L"Max health");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, L"Cure illnesses");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 128, 90, 18, ID_VC_HAPPY, L"Max happiness");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 152, 90, 18, ID_VC_ENERGY, L"Max energy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 152, 90, 18, ID_VC_FED, L"Fill up (Fed)");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, L"All of these");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 215, 196, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 150, 18, ID_VC_PROMOTE, L"Instant job promotion");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 170, 176, 150, 18, ID_VC_CAREER, L"Career Change (new career)");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 104, 18, ID_VC_BOARD, L"Boarding School");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 200, 104, 18, ID_VC_DESENS, L"Systematic Desens.");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 226, 200, 104, 18, ID_VC_LEARN, L"Higher Learning");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 224, 104, 18, ID_VC_PSYCHO, L"Psychotherapy");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 224, 104, 18, ID_VC_RUNNING, L"Add Running Like");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 226, 224, 104, 18, ID_VC_AGE18, L"Set Age to 18");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 248, 328, 40, -1, L"Change Appearance (hairstyle and face, clothes)");
+    t.Item(STATIC, SS_LEFT, 14, 266, 30, 12, -1, L"Head:");
+    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 44, 264, 26, 14, ID_VC_HEAD, L"");
+    t.Item(STATIC, SS_LEFT, 78, 266, 30, 12, -1, L"Body:");
+    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 108, 264, 26, 14, ID_VC_BODY, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 263, 84, 16, ID_VC_LOOKS, L"Change (0-49)");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 263, 94, 16, ID_VC_RANDOM_LOOKS, L"Random look");
+    t.Item(STATIC, SS_LEFT, 10, 300, 220, 12, -1, L"Pick Everyone to change everybody at once.");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 296, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, VillagerCheatsProc, 0);
 }
 
@@ -453,14 +624,23 @@ static void BuyItem(HWND dlg, bool free) {
     int id = (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
     int price = Item(id)->price;
     if (!free && CurrentMoney() < price) { Message(dlg, L"You don't have enough money for that."); return; }
+    const char *itemName = GetString(StringsGet(), Item(id)->shortDesc);
+    wchar_t text[200];
+    if (!free) {
+        swprintf(text, 200, L"Buy %.60hs for $%d?", itemName ? itemName : "this item", price);
+        if (!Confirm(dlg, text)) return;
+    }
     // Same calls the store makes when you buy (theStoreScene::Buy 0x449A70),
     // except the store's limited stock is not used up.
     if (!TrayAddItem(ToolTray, id, GetUseCount(Inventory, id))) {
         Message(dlg, L"Your item tray is full. Use or sell something first.");
         return;
     }
-    if (!free)
+    if (!free) {
         MoneyAdjust(Money, (float)-price, false);
+        swprintf(text, 200, L"Purchased: %.60hs.", itemName ? itemName : "item");
+        Message(dlg, text);
+    }
     RefreshFleaMoney(dlg);
 }
 
@@ -511,7 +691,19 @@ static void ShowFleaMarket(HWND owner) {
 }
 
 // ---- Upgrades menu
-enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS };
+enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE, ID_UP_HOUSE,
+       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH };
+static void ShowAchievements(HWND owner);
+static int AchievementsUnlocked();
+static const int kAchievementTotal = 12;  // ACH_COUNT, patcher_achievements.inc
+static void ShowFamily(HWND owner);
+static int gFamilyAction;
+static void ShowStoreCheats(HWND owner);
+static void ShowHouse(HWND owner);
+static void ShowPurchases(HWND owner);
+static void ShowTime(HWND owner);
+static int GenerationNumber();
+static int OldestEverAge();
 static const int RollTheDicePrice = 500;
 static bool RollPending;
 
@@ -526,17 +718,40 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         EnableWindow(GetDlgItem(dlg, ID_UP_VILLAGERS), SettingOn(L"CheatUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_FLEA), SettingOn(L"FleaMarket", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_DICE), SettingOn(L"RollTheDice", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_STORE), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_HOUSE), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_TIME), SettingOn(L"CheatUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_PURCHASES), SettingOn(L"SpecialUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_FAMILY), SettingOn(L"CheatUpgrades", true));
+        {
+            wchar_t s[96];
+            swprintf(s, 96, L"Generation: %d     Oldest Villager: %d     Achievements: %d/%d", GenerationNumber(),
+                     OldestEverAge(), AchievementsUnlocked(), kAchievementTotal);
+            SetDlgItemTextW(dlg, ID_UP_COUNTERS, s);
+        }
         return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case ID_UP_CHEATS: ShowCheats(dlg); break;
         case ID_UP_FLEA: ShowFleaMarket(dlg); break;
         case ID_UP_VILLAGERS: ShowVillagerCheats(dlg); break;
+        case ID_UP_STORE: ShowStoreCheats(dlg); break;
+        case ID_UP_HOUSE: ShowHouse(dlg); break;
+        case ID_UP_PURCHASES: ShowPurchases(dlg); break;
+        case ID_UP_TIME: ShowTime(dlg); break;
+        case ID_UP_ACH: ShowAchievements(dlg); break;
+        case ID_UP_FAMILY:
+            ShowFamily(dlg);
+            if (gFamilyAction) EndDialog(dlg, 0);  // Evict / Adopt New Person leave the store
+            break;
         case ID_UP_DICE:
             if (CurrentMoney() < RollTheDicePrice) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
                 break;
             }
+            if (!Confirm(dlg, L"Roll the Dice for $500? An island event happens right away."))
+                break;
+            Message(dlg, L"Purchased: Roll the Dice ($500).");
             // The event shows the game's own dialog, so this one closes first.
             RollPending = true;
             EndDialog(dlg, 0);
@@ -553,13 +768,19 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowUpgrades() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 200, 156, 6);
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 180, 20, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 36, 180, 20, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 62, 180, 20, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 88, 180, 20, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
-    t.Item(STATIC, SS_LEFT, 10, 114, 180, 12, -1, L"More upgrades are coming.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 115, 134, 75, 16, IDOK, L"Close");
+    t.Begin(L"Upgrades Menu", 220, 282, 12);
+    t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 68, 200, 18, ID_UP_STORE, L"Store, Achievement and Collection Cheats...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 90, 200, 18, ID_UP_HOUSE, L"House and Yard: trash, weeds, cleaning...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, L"Time Controls: pause, speed, time warp...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, adoption...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FLEA, L"Flea Market...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 258, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 
@@ -608,10 +829,19 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
     return GetPrivateProfileIntW(L"Patches", key, fallback ? 1 : 0, SettingsPath) != 0;
 }
 
+#include "features.inc"
+#include "pages.inc"
+#include "family.inc"
+#include "family_page.inc"
+#include "villager_upgrades.inc"
+#include "songs.inc"
+#include "patcher_achievements.inc"
+
 // ---------------------------------------------------------------- hooks
 static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int param) {
     if (message == MessageButtonClicked && param == UpgradesButtonId) {
         RollPending = false;
+        gFamilyAction = 0;
         {
             LeaveFullscreen windowed;
             ShowUpgrades();
@@ -623,6 +853,10 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
                 MoneyAdjust(Money, (float)RollTheDicePrice, false);
                 Message(GameWindow(), L"No island event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
             }
+        }
+        if (gFamilyAction) {
+            OpenNewFamilyAdoption(scene, gFamilyAction);
+            gFamilyAction = 0;
         }
         return false;
     }
@@ -660,6 +894,7 @@ static void AddUpgradesButton(void *scene) {
 // real GameUpdate runs (ldwGame::Run 0x402CC0 calls GameUpdate then GameDraw
 // each pass of its main loop). Periodic features hang off this.
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_Tick() {
+    FeaturesTick();
 }
 
 // Called once at startup, from theGame::Init's vtable slot, before the real
@@ -667,11 +902,27 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Tick() {
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     InitSettingsPath();
     float rate = ReadSetting(L"InterestRate", -1.f);
-    if (rate >= 0 && rate <= 100)
+    if (rate >= 1 && rate <= 11)
         ApplyInterestRate(rate);
-    if (SettingOn(L"FixVanillaGameBugs", true))
+    InstallFeatureHooks();
+    if (SettingOn(L"VF2Songs", true))
+        InstallVF2Songs();
+    if (SettingOn(L"CheatUpgrades", true))
+        InstallFamilyHooks();
+    gClampResources = SettingOn(L"ClampMoneyAndFood", true);
+    gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
+    if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
+        InstallChanceHook();
+    if (SettingOn(L"OlderVillagerMortalityCurve", true))
+        InstallNextGenerationGate();
+    if (rate >= 1 && rate <= 11)
+        gCheatInterestPercent = rate;
+    ApplyEffectiveInterest();
+    if (SettingOn(L"FixVanillaGameBugs", true)) {
         HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
                        (unsigned *)&OriginalAdoptionHandleMessage);
+        InstallPowerFailureFix();
+    }
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
