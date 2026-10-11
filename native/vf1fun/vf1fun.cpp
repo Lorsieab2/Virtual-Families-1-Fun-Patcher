@@ -772,6 +772,7 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
 #include "family.inc"
 #include "family_page.inc"
 #include "villager_upgrades.inc"
+#include "songs.inc"
 #include "patcher_achievements.inc"
 
 // ---------------------------------------------------------------- hooks
@@ -842,6 +843,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     if (rate >= 0 && rate <= 100)
         ApplyInterestRate(rate);
     InstallFeatureHooks();
+    if (SettingOn(L"VF2Songs", true))
+        InstallVF2Songs();
     if (SettingOn(L"CheatUpgrades", true))
         InstallFamilyHooks();
     if (rate >= 0 && rate <= 100)
