@@ -50,6 +50,7 @@ struct VillageState {
     int armed;                    // pregnancy one-shots (family.inc ARM_*)
     unsigned achievements;        // patcher_achievements.inc: one bit per unlocked milestone
     int bankRate;                 // the family's bank interest in percent, as the Brokerage Account leaves it; 0 = the game's 10%
+    unsigned maidNext, gardenerNext;  // CGameTime::Seconds of the Maid's / Gardener's next visit (VF2's hourly timers)
 };
 static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
 static int gAdoptionMode;         // family.inc: an Evict or Adopt New Person in progress
@@ -94,6 +95,8 @@ static void LoadVillageState(int slot) {
         v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFFF;
         v.bankRate = GetPrivateProfileIntW(L"Village", L"BankInterestPercent", v.brokerage ? 11 : 0, path);
         if (v.bankRate < 0 || v.bankRate > 11) v.bankRate = 0;
+        v.maidNext = (unsigned)GetPrivateProfileIntW(L"Village", L"MaidNextVisit", 0, path);
+        v.gardenerNext = (unsigned)GetPrivateProfileIntW(L"Village", L"GardenerNextVisit", 0, path);
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
@@ -112,6 +115,7 @@ static void SaveVillageState(int slot) {
         { L"SameSexMarriage", (unsigned)gVillage.sameSex }, { L"RerollMarriageCandidates", (unsigned)gVillage.reroll },
         { L"NextPregnancy", (unsigned)gVillage.armed }, { L"PatcherAchievements", gVillage.achievements },
         { L"BankInterestPercent", (unsigned)gVillage.bankRate },
+        { L"MaidNextVisit", gVillage.maidNext }, { L"GardenerNextVisit", gVillage.gardenerNext },
     };
     for (int i = 0; i < (int)(sizeof rows / sizeof rows[0]); ++i) {
         swprintf(s, 32, L"%u", rows[i].value);
@@ -120,6 +124,7 @@ static void SaveVillageState(int slot) {
 }
 
 static void ApplyVillageEffects();
+static void HelpersAfterLoad();
 
 typedef bool (__thiscall *SlotFn)(void *state, int slot);
 static SlotFn OriginalGameStateLoad, OriginalGameStateSave;
@@ -129,13 +134,19 @@ static unsigned *const GameStateVtable = (unsigned *)0x4B5E50;  // RTTI theGameS
 // another to read their family names, then the current one, so the last
 // successful load wins -- which is the village being played.
 static void NormalSpeedForSaveFile(bool restoreAfter);
+// Speed: CGameTime runs at 10/speed, so 5 is 2x, 2 is 5x and 1 is 10x.
+static int gWantedSpeed = 10;
 static bool __fastcall GameStateLoad(void *state, void *, int slot) {
     bool ok = OriginalGameStateLoad(state, slot);
-    if (ok) NormalSpeedForSaveFile(false);  // a saved village always comes back at normal speed
+    if (ok) {
+        gWantedSpeed = 10;                  // also when the save already holds normal speed
+        NormalSpeedForSaveFile(false);      // a saved village always comes back at normal speed
+    }
     if (ok && slot >= 1 && slot <= 5) {
         gAdoptionMode = 0;
         LoadVillageState(slot);
         ApplyVillageEffects();
+        HelpersAfterLoad();
     }
     return ok;
 }
@@ -175,11 +186,55 @@ static void RetargetCallsTo(unsigned target, void *replacement) {
     }
 }
 
-// A bag of organic groceries adds 250 food to the fridge (items 8-11, 0x446E4D:
-// `mov edi, 0xFA`); plain groceries add 150. Food Club delivers all four organic types a day
-// ("bags of organic, local groceries containing all 4 food groups", as in VF2).
-static const int kOrganicBagFood = 250;
-static const int kFoodClubDelivery = 4 * kOrganicBagFood;  // all four organic types (items 8-11), one of each food group
+// ---------------------------------------------------------------- Food Club (VF2's CFoodStore)
+// VF2: one delivery is +500 food and UpdateNutritionAllVillagers(group, false) for the groups 0, 2, 1, 3.
+// VF1 has the same all-villager function: CVillagerManager::UpdateNutritionAllVillagers 0x48A680
+// (thiscall on 0x5B8898, (group, bonus), ret 8), the call eating groceries makes (0x446DF5 / 0x446E42).
+// For every living villager at home it marks the group active until now + 86,400 s; with bonus false
+// it gives no happiness, as VF2's delivery.
+typedef void (__thiscall *NutritionFn)(void *manager, int group, int bonus);
+static const NutritionFn UpdateNutritionAllVillagers = (NutritionFn)0x48A680;
+static const int kFoodClubDelivery = 500;
+static void FoodClubDeliver() {
+    AddFoodSaturating(kFoodClubDelivery);
+    static const int groups[4] = { 0, 2, 1, 3 };
+    for (int g : groups) UpdateNutritionAllVillagers(VillagerManager, g, 0);
+}
+static void FoodClubJoin() {  // VF2: haveFoodClub = 1, last delivery = now, one delivery right away
+    gVillage.foodClub = 1;
+    gVillage.foodClubLast = GameSeconds(GameTime);
+    FoodClubDeliver();
+}
+// VF2's daily rule: n = (now - last) / 86,400; n deliveries; last += n * 86,400.
+static void FoodClubCatchUp() {
+    if (!gVillage.foodClub) return;
+    unsigned t = GameSeconds(GameTime);
+    if (gVillage.foodClubLast == 0 || t < gVillage.foodClubLast) { gVillage.foodClubLast = t; return; }
+    unsigned n = (t - gVillage.foodClubLast) / 86400;
+    for (unsigned i = 0; i < n; ++i) FoodClubDeliver();
+    gVillage.foodClubLast += n * 86400;
+}
+// VF2's starvation guard (AllVillagersRealtimePhysiologyAndProductivityUpkeep): while a member, when a
+// villager eats and the food stock is below 60, 60 food is added first. VF1's eating is in the per-tick
+// physiology upkeep 0x48BC90: at 0x48BDFB `mov eax, [0x50C550]` starts the block that, with food > 0 and
+// hunger (CVillagerState+0x40, here [esi-0x10A64]) above 50, takes 3 food (0x48BE28). The detour adds
+// the 60 when that villager is about to eat (hunger above 50), then runs the stock block unchanged.
+__declspec(naked) static void FoodClubEatDetour() {
+    __asm {
+        mov eax, gVillage.foodClub
+        test eax, eax
+        jz stock
+        cmp dword ptr [esi - 0x10A64], 0x32
+        jle stock
+        cmp dword ptr ds:[0x50C550], 60
+        jge stock
+        add dword ptr ds:[0x50C550], 60
+    stock:
+        mov eax, dword ptr ds:[0x50C550]
+        push 0x48BE00
+        ret
+    }
+}
 
 // ---------------------------------------------------------------- store prices
 // CInventoryManager::GetPrice (0x4968C0) and CTech::GetPrice (0x4229D0) are
@@ -264,6 +319,54 @@ static void CleanHouse() {  // the stock Housekeeping Services event's four cate
     RemoveAll(Collectables, 0x8C); RemoveAll(Collectables, 0x8E);
 }
 static void CleanGarden() { RemoveAll(Collectables, 0x88); }
+
+// ---------------------------------------------------------------- Maid and Gardener (VF2's hired help)
+// VF2: a permanent service. Buying sets a timer to now + 3,600 game seconds; whenever it passes, it is
+// set to now + 3,600 again and, only in the daytime, one visit happens. On loading a save an overdue
+// timer is moved to now + 180..779 (Maid) or now + 300..899 (Gardener).
+// VF2 sends a temporary worker villager for the visit; VF1 has no way to spawn one, so the visit's
+// effect is done at visit time instead: the Maid picks up the house mess (socks 0x7E-0x83, wrappers
+// 0x84-0x87, smudges 0x8E-0x90) and, when there were fewer than 5 messes, also dusts (VF1's webs,
+// 0x8C-0x8D, the fourth category of the stock Housekeeping Services event); the Gardener pulls the
+// weeds (0x88-0x8B).
+// Daytime is VF1's own test, CNight (0x831700) 0x491630: 1 while sunrise (+0x674) < the time of day
+// < sunset (+0x678).
+typedef int (__thiscall *IntThisFn)(void *self);
+static const IntThisFn IsDayTime = (IntThisFn)0x491630;
+static void *const Night = (void *)0x831700;
+static int CountHouseMess() {
+    int n = 0;
+    unsigned char *slot = Collectables + 4;
+    for (int i = 0; i < 30; ++i, slot += 0x1C) {
+        int type = *(int *)(slot + 4);
+        if (slot[0] && ((type >= 0x7E && type <= 0x87) || (type >= 0x8E && type <= 0x90))) ++n;
+    }
+    return n;
+}
+static void MaidVisit() {
+    bool dust = CountHouseMess() < 5;
+    RemoveAll(Collectables, 0x7E); RemoveAll(Collectables, 0x84); RemoveAll(Collectables, 0x8E);
+    if (dust) RemoveAll(Collectables, 0x8C);
+}
+static void GardenerVisit() { CleanGarden(); }
+static void HireHelper(unsigned *timer) { *timer = GameSeconds(GameTime) + 3600; }
+static void HelpersAfterLoad() {
+    unsigned now = GameSeconds(GameTime);
+    if (gVillage.maid && gVillage.maidNext <= now) gVillage.maidNext = now + 180 + GetRandom(600);
+    if (gVillage.gardener && gVillage.gardenerNext <= now) gVillage.gardenerNext = now + 300 + GetRandom(600);
+}
+static void HelpersTick() {
+    if (!gVillage.maid && !gVillage.gardener) return;
+    unsigned now = GameSeconds(GameTime);
+    if (gVillage.maid && now >= gVillage.maidNext) {
+        gVillage.maidNext = now + 3600;
+        if (IsDayTime(Night)) MaidVisit();
+    }
+    if (gVillage.gardener && now >= gVillage.gardenerNext) {
+        gVillage.gardenerNext = now + 3600;
+        if (IsDayTime(Night)) GardenerVisit();
+    }
+}
 
 // One piece of house mess, exactly as CCollectableItem::SpawnTrashInHouse
 // (0x413D40) fills a slot, for any type. Socks get a never-expiring +8:
@@ -388,56 +491,6 @@ __declspec(naked) static void MortalityDetour() {
     }
 }
 
-// ---------------------------------------------------------------- time warp
-// Entered by a jmp at 0x489E8C (`mov ecx,edi; mov ebx,eax; push ebx;
-// call 0x4897F0`, 10 bytes) in CVillagerManager::AllVillagersTimeflowUpkeep:
-// eax = the ticks to add to this villager, edi = &age, esi = villager+0x13578.
-// Queued warp ticks are added once to each living villager, through the
-// game's own IncrementAge, so leaving home and the oldest-ever record still
-// run (research: never write the age directly).
-static int gWarpTicks;
-static unsigned gWarpPending;  // bit i: villager i still to receive this warp
-static void StartTimeWarp(int ticks) {
-    gWarpPending = 0;
-    for (int i = 0; i < 30; ++i) {
-        unsigned char *v = (unsigned char *)0x5B8898 + 0x14640 + i * 0x145FC;
-        if (v[0x13574] && !v[0x13578] && *(int *)(v + 0x2AE0) > 0)
-            gWarpPending |= 1u << i;
-    }
-    gWarpTicks = gWarpPending ? ticks : 0;
-}
-extern "C" int __cdecl VF1WarpTicks(unsigned char *goneByte, int ticks) {
-    if (!gWarpTicks)
-        return ticks;
-    unsigned char *villager = goneByte - 0x13578;
-    unsigned offset = (unsigned)(villager - ((unsigned char *)0x5B8898 + 0x14640));
-    if (offset % 0x145FC != 0 || offset / 0x145FC >= 30)
-        return ticks;
-    unsigned bit = 1u << (offset / 0x145FC);
-    if (!(gWarpPending & bit))
-        return ticks;
-    gWarpPending &= ~bit;
-    int warp = gWarpTicks;
-    if (!gWarpPending)
-        gWarpTicks = 0;
-    return ticks + warp;
-}
-__declspec(naked) static void WarpDetour() {
-    __asm {
-        mov ebx, eax               // native ticks stay in ebx for the remainder sum
-        push eax
-        push esi
-        call VF1WarpTicks
-        add esp, 8
-        mov ecx, edi
-        push eax
-        mov eax, 0x4897F0          // IncrementAge
-        call eax
-        push 0x489E96
-        ret
-    }
-}
-
 // ---------------------------------------------------------------- game speed and pause
 typedef void (__thiscall *SetSpeedFn)(void *time, int speed);
 static const SetSpeedFn SetSpeed = (SetSpeedFn)0x422450;
@@ -455,8 +508,6 @@ static void ResumeGame() {
     SetSpeed(GameTime, s);
     *GameSpeedSlot() = s;
 }
-// Speed: CGameTime runs at 10/speed, so 5 is 2x, 2 is 5x and 1 is 10x.
-static int gWantedSpeed = 10;
 
 // The speed slot is part of the saved game (theGameState +0x1B180), and the game catches up on the time it
 // was closed at that speed: a village saved at 10x aged 26 years in the 10.6 hours it was closed (live
@@ -476,6 +527,76 @@ static void ApplyGameSpeed() {
     if (GamePaused() || *GameSpeedSlot() == gWantedSpeed) return;
     SetSpeed(GameTime, gWantedSpeed);
     *GameSpeedSlot() = gWantedSpeed;
+}
+
+// ---------------------------------------------------------------- time warp (VF2's, step for step)
+// VF2: interest once; cap = money + 750; AdjustSecondsFromGameStart(-3660 * unpaused speed);
+// FoodStore.Update; AllVillagersTimeflowUpkeep with only the 86,400 cap; the realtime manager's update;
+// interest again; money above the cap is set back to the cap. Then the popup (pages.inc).
+// VF1 equivalents:
+//   CMoney::UpdateInterest 0x422830 (thiscall on Money 0x50C60C; pays rate * money per whole game day
+//     since [+4], read from CGameTime::Seconds).
+//   ldwGameState::GetSecondsFromGameStart 0x4036D0 = difftime(time(), the int64 time_t at 0x4E9230);
+//     VF1 has no Adjust function, so the stored start is moved back by 3660 * speed seconds. The start
+//     is part of every save (written at 0x4039C8, read at 0x40382F), so the shift is saved with it.
+//   CGameTime (0x50C5D0): Seconds = (real - base[+0x28]) / (speed[+0x20] / 10) + offset[+0x2C]. The
+//     base is moved by the same real shift and the offset by exactly 36,600 game seconds, which is what
+//     the real shift alone gives at the running speed, and also holds while paused.
+//   CVillagerManager::AllVillagersTimeflowUpkeep 0x489D00: per villager, accumulated real seconds
+//     (CVillagerState+0) are capped at 86,400, then at the speed's catch-up cap (0x489E08); ticks =
+//     seconds / 60 / speed (theGameState+0x1B180), so 3660 * speed seconds are 61 ticks (3 years + 1)
+//     through IncrementAge 0x4897F0. While theGameState's speed is paused (>= 999) it throws the time
+//     away (0x489E3C), so the unpaused speed is put in for the warp and restored after.
+//   Realtime update 0x424F80 (thiscall on the 0x425010 singleton, as the pause handler calls it at
+//     0x41E1E2): the timeflow upkeep again, then the per-tick physiology 0x48BC90 (the yearly
+//     processing: old age, leaving home and the rest), the population record and the game-over check.
+static bool gWarpUncapped;
+// Entered by a jmp at 0x489E08 (`mov ecx, [ebx+0x1B180]; cmp ecx, 5`, 9 bytes): during a warp the
+// per-speed catch-up cap is skipped, as VF2's warp bypasses it.
+__declspec(naked) static void WarpCapDetour() {
+    __asm {
+        cmp byte ptr [gWarpUncapped], 0
+        jne uncapped
+        mov ecx, dword ptr [ebx + 0x1B180]
+        cmp ecx, 5
+        jne notfive
+        push 0x489E2B
+        ret
+    notfive:
+        push 0x489E13
+        ret
+    uncapped:
+        push 0x489E3C
+        ret
+    }
+}
+typedef void (__thiscall *MoneyUpdateFn)(void *money);
+static const MoneyUpdateFn UpdateInterest = (MoneyUpdateFn)0x422830;
+static const VoidThisFn AllVillagersTimeflowUpkeep = (VoidThisFn)0x489D00;
+static const VoidThisFn RealtimeUpdate = (VoidThisFn)0x424F80;
+typedef void *(__cdecl *SingletonFn)();
+static const SingletonFn RealtimeGet = (SingletonFn)0x425010;
+static __int64 *const GameStartTime = (__int64 *)0x4E9230;
+static void TimeWarp() {
+    UpdateInterest(Money);
+    float cap = *(float *)Money + 750.f;
+    int *speedSlot = GameSpeedSlot(), savedSpeed = *speedSlot;
+    int speed = savedSpeed >= 999 ? savedSpeed - 999 : savedSpeed;
+    if (speed <= 0) speed = 10;
+    *speedSlot = speed;
+    unsigned shift = 3660u * (unsigned)speed;
+    *GameStartTime -= shift;                                  // AdjustSecondsFromGameStart(-3660 * speed)
+    unsigned char *time = (unsigned char *)GameTime;
+    *(unsigned *)(time + 0x28) += shift;
+    *(unsigned *)(time + 0x2C) += 36600;
+    FoodClubCatchUp();                                        // FoodStore.Update
+    gWarpUncapped = true;
+    AllVillagersTimeflowUpkeep(VillagerManager);
+    gWarpUncapped = false;
+    RealtimeUpdate(RealtimeGet());
+    UpdateInterest(Money);
+    if (*(float *)Money > cap) *(float *)Money = cap;
+    *speedSlot = savedSpeed;
 }
 
 // ---------------------------------------------------------------- Power Failure (Fix Vanilla Game Bugs)
@@ -548,29 +669,21 @@ static void FeaturesTick() {
     if (!state || *(int *)(state + 0x1B300) != 0)   // main scene only
         return;
     if (gWantedSpeed != 10) ApplyGameSpeed();
+    FoodClubCatchUp();
+    HelpersTick();
     DWORD now = GetTickCount();
     if (now - gLastHelperTick < 15000)               // every 15 real seconds
         return;
     gLastHelperTick = now;
     CheckAchievements();
-    if (gVillage.maid) CleanHouse();
-    if (gVillage.gardener) CleanGarden();
-    if (gVillage.foodClub) {                         // one organic bag (250 food) every game day
-        unsigned t = GameSeconds(GameTime);
-        if (gVillage.foodClubLast == 0 || t < gVillage.foodClubLast)
-            gVillage.foodClubLast = t;
-        while (t - gVillage.foodClubLast >= 86400) {
-            AddFoodSaturating(kFoodClubDelivery);
-            gVillage.foodClubLast += 86400;
-        }
-    }
 }
 
 // ---------------------------------------------------------------- installation
 static const unsigned char kItemPriceBytes[] = { 0x8B, 0x44, 0x24, 0x04, 0x8D, 0x48, 0xFF };
 static const unsigned char kTechPriceBytes[] = { 0x8B, 0x4C, 0x24, 0x08, 0x8D, 0x41, 0xFF };
 static const unsigned char kMortalityBytes[] = { 0x8B, 0xCB, 0xE8, 0x63, 0x3E, 0x00, 0x00 };
-static const unsigned char kWarpBytes[] = { 0x8B, 0xCF, 0x8B, 0xD8, 0x53, 0xE8, 0x5A, 0xF9, 0xFF, 0xFF };
+static const unsigned char kWarpCapBytes[] = { 0x8B, 0x8B, 0x80, 0xB1, 0x01, 0x00, 0x83, 0xF9, 0x05 };
+static const unsigned char kFoodClubEatBytes[] = { 0xA1, 0x50, 0xC5, 0x50, 0x00 };
 
 // ---------------------------------------------------------------- Private Adult Romantic Time
 // Dropping one adult on another (theMainScene pairing, 0x441070..): when the
@@ -593,7 +706,8 @@ static void InstallFeatureHooks() {
     if (SettingOn(L"PrivateRomanticTime", true))
         InstallPrivateRomanticTime();
     InstallJump(0x48BFC6, kMortalityBytes, 7, (void *)&MortalityDetour);
-    InstallJump(0x489E8C, kWarpBytes, 10, (void *)&WarpDetour);
+    InstallJump(0x489E08, kWarpCapBytes, 9, (void *)&WarpCapDetour);
+    InstallJump(0x48BDFB, kFoodClubEatBytes, 5, (void *)&FoodClubEatDetour);
     InstallJump(0x4968C0, kItemPriceBytes, 7, (void *)&ItemPrice);
     InstallJump(0x4229D0, kTechPriceBytes, 7, (void *)&TechPrice);
     HookVtableSlot(GameStateVtable + 6, (void *)&GameStateLoad, (unsigned *)&OriginalGameStateLoad);

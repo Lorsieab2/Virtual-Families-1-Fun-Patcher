@@ -107,13 +107,11 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         wchar_t s[96];
         switch (LOWORD(wp)) {
         case ID_HY_TRASH:
-            if (gVillage.maid) { Message(dlg, L"The Maid is active, so the house stays clean."); break; }
             swprintf(s, 96, L"Spawned %d pieces of mess.", FillHouseWithTrash());
             Message(dlg, s);
             break;
         case ID_HY_CLEAN: CleanHouse(); Message(dlg, L"The house is clean."); break;
         case ID_HY_WEEDS:
-            if (gVillage.gardener) { Message(dlg, L"The Gardener is active, so the yard stays weeded."); break; }
             swprintf(s, 96, L"Spawned %d weeds.", FillYardWithWeeds());
             Message(dlg, s);
             break;
@@ -178,11 +176,11 @@ static int PurchasePrice(const Purchase &p) { return p.price; }
 enum { ID_SU_LIST = 540, ID_SU_BUY, ID_SU_DESC };
 static const Purchase kPurchases[] = {
     { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"Upgrade your broker: a permanent 2% boost to your family's banking interest rate, up to 11%. Buy again to remove it: the rate then drops to 1%, as in the Virtual Families 2 patcher." },
-    { 1, L"Food Club", 10000, &VillageState::foodClub, L"Bags of organic groceries, one of each of the four food groups (1,000 food), delivered right away and every game day (helps prevent accidental starvation). Plus a permanent 50% discount on all groceries. Buy again to remove it." },
+    { 1, L"Food Club", 10000, &VillageState::foodClub, L"It's a CSA (Community Sources Agriculture) subscription! Bags of organic, local groceries containing all 4 food groups, delivered each day (helps prevent accidental starvation). Plus a permanent 50% discount on all food! Buy again to remove it." },
     { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"A permanent 75% discount on all health care and medicines. Buy again to remove it." },
     { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"This lucky rock increases the rate and rarity of random collectibles that appear in the yard. Buy again to remove it." },
-    { 4, L"Maid", 1000, &VillageState::maid, L"Keeps the house clean: socks, wrappers, smudges and cobwebs. Buy again to let her go." },
-    { 5, L"Gardener", 1000, &VillageState::gardener, L"Keeps the yard free of weeds. Buy again to let him go." },
+    { 4, L"Maid", 1000, &VillageState::maid, L"No more stray wrappers and socks, ever! A maid comes every game hour during the day. Buy again to let her go." },
+    { 5, L"Gardener", 1000, &VillageState::gardener, L"Had enough of pulling weeds? A gardener comes every game hour during the day. Buy again to let him go." },
 };
 
 static void FillPurchases(HWND dlg) {
@@ -214,29 +212,36 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             SetDlgItemTextW(dlg, ID_SU_DESC, kPurchases[sel].what);
         } else if (LOWORD(wp) == ID_SU_BUY && sel >= 0) {
             const Purchase &p = kPurchases[sel];
-            wchar_t text[200];
+            wchar_t text[300];
             if (PurchaseOwned(p)) {
                 // As in the Virtual Families 2 patcher: buying an upgrade again removes it (no refund).
-                swprintf(text, 200, L"Remove %s? It is not refunded, and you can buy it again later.", p.name);
+                swprintf(text, 300, L"Remove %s? It is not refunded, and you can buy it again later.", p.name);
                 if (Confirm(dlg, text)) {
                     if (p.owned == &VillageState::brokerage) BuyBrokerage();
                     else gVillage.*p.owned = 0;
-                    swprintf(text, 200, L"%s removed.", p.name);
+                    swprintf(text, 300, L"%s removed.", p.name);
                     Message(dlg, text);
                 }
             } else if (CurrentMoney() < PurchasePrice(p)) {
                 Message(dlg, L"You don't have enough money for that.");
             } else {
-                swprintf(text, 200, L"Buy %s for $%d?", p.name, PurchasePrice(p));
+                swprintf(text, 300, L"Buy %s for $%d?", p.name, PurchasePrice(p));
                 if (Confirm(dlg, text)) {
                     MoneyAdjust(Money, (float)-PurchasePrice(p), false);
+                    swprintf(text, 300, L"Purchased: %s.", p.name);
+                    // VF2's purchase popups.
                     if (p.owned == &VillageState::brokerage) BuyBrokerage();
-                    else gVillage.*p.owned = 1;
-                    if (p.owned == &VillageState::foodClub) {
-                        AddFoodSaturating(kFoodClubDelivery);
-                        gVillage.foodClubLast = GameSeconds(GameTime);
-                    }
-                    swprintf(text, 200, L"Purchased: %s.", p.name);
+                    else if (p.owned == &VillageState::foodClub) {
+                        FoodClubJoin();
+                        swprintf(text, 300, L"You are signed up for the Food Club!\n\nYou have received a food delivery "
+                                            L"containing the 4 food groups!\nYou will now get a new food delivery every day.");
+                    } else if (p.owned == &VillageState::maid) {
+                        gVillage.maid = 1; HireHelper(&gVillage.maidNext);
+                        swprintf(text, 300, L"You have a maid! Now the house will always be clean.");
+                    } else if (p.owned == &VillageState::gardener) {
+                        gVillage.gardener = 1; HireHelper(&gVillage.gardenerNext);
+                        swprintf(text, 300, L"You have a gardener! No more pesky weeds.");
+                    } else gVillage.*p.owned = 1;
                     Message(dlg, text);
                 }
             }
@@ -256,7 +261,7 @@ static void ShowPurchases(HWND owner) {
     static Template t;
     t.Begin(L"Special Upgrades", 250, 180, 4);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 230, 90, ID_SU_LIST, L"");
-    t.Item(STATIC, SS_LEFT, 10, 106, 230, 36, ID_SU_DESC, L"");
+    t.Item(STATIC, SS_LEFT, 10, 104, 230, 48, ID_SU_DESC, L"");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 156, 75, 16, ID_SU_BUY, L"Buy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 165, 156, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, PurchasesProc, 0);
@@ -273,8 +278,7 @@ static const int kSpeedSlow = 20;
 static void RefreshTime(HWND dlg) {
     wchar_t s[128];
     const wchar_t *speed = gWantedSpeed == kSpeedSlow ? L"slow" : gWantedSpeed == 5 ? L"fast (2x)" : gWantedSpeed == 2 ? L"5x" : gWantedSpeed == 1 ? L"10x" : L"normal";
-    swprintf(s, 128, L"%s. Speed: %s.%s", GamePaused() ? L"Paused" : L"Running", speed,
-             gWarpTicks ? L" A time warp is under way." : L"");
+    swprintf(s, 128, L"%s. Speed: %s.", GamePaused() ? L"Paused" : L"Running", speed);
     SetDlgItemTextW(dlg, ID_TC_STATUS, s);
 }
 
@@ -291,9 +295,13 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_TC_X5: gWantedSpeed = 2; ApplyGameSpeed(); break;
         case ID_TC_X10: gWantedSpeed = 1; ApplyGameSpeed(); break;
         case ID_TC_WARP:
-            if (MessageBoxW(dlg, L"Everyone at home ages at once, with every normal rule: birthdays, leaving home, "
-                                 L"and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                StartTimeWarp(60);  // 3 years, the Virtual Villagers patcher's standard warp (20 age ticks = 1 year)
+            // VF2's Time Warp (free here): 3 years and 1 age tick pass for the whole family at once, with
+            // every normal rule (features.inc TimeWarp).
+            if (MessageBoxW(dlg, L"Jump 3 years ahead? Everyone at home ages at once, with every normal rule: "
+                                 L"birthdays, leaving home, and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES) {
+                TimeWarp();
+                Message(dlg, L"Time warp completed! It's 3 years later!");
+            }
             break;
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); return TRUE;
         }
