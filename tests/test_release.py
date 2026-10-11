@@ -18,7 +18,12 @@ TOP = f"VF1-Patcher-{VERSION}"
 def bundle(tmp_path):
     dll = tmp_path / "vf1fun.dll"
     dll.write_bytes(b"MZ stand-in vf1fun.dll for the bundle test")
-    zip_path = package_release.build(VERSION, dll, tmp_path / "zip")
+    payload = tmp_path / "payload"
+    for setting in package_release.load_manifest()["settings"]:
+        for row in setting.get("files", []):
+            (payload / row["source"]).parent.mkdir(parents=True, exist_ok=True)
+            (payload / row["source"]).write_bytes(b"stand-in for " + row["source"].encode())
+    zip_path = package_release.build(VERSION, dll, tmp_path / "zip", payload)
     with zipfile.ZipFile(zip_path) as z:
         names = z.namelist()
         z.extractall(tmp_path / "x")
@@ -30,7 +35,8 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted([
         "Launch_GUI.bat", f"Apply_{VERSION}_Patcher.bat", "How to Use.txt", f"README-{VERSION}-PATCHER.txt",
         "Transparency Log.txt", "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "stub.json",
-        "payload/vf1fun.dll"])
+        "payload/vf1fun.dll"] + [f"payload/{row['source']}" for setting in json.loads(
+            (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])])
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == VERSION
     assert manifest["payload"]["vf1fun.dll"]["size"] == (folder / "payload" / "vf1fun.dll").stat().st_size

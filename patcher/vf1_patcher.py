@@ -56,6 +56,12 @@ DLL_NAME = "vf1fun.dll"
 SETTINGS_INI = "settings.ini"
 SETTINGS_SECTION = "Patches"
 DLL_REL = f"{PATCHER_FOLDER}/{DLL_NAME}"
+REPLACEABLE_FOLDERS = ("Images",)  # game folders whose files a setting may replace
+ORIGINALS_FOLDER = f"{PATCHER_FOLDER}/Original Files"  # the replaced game files' originals, while their setting is on
+
+
+def original_store_rel(target: str) -> str:
+    return f"{ORIGINALS_FOLDER}/{target}"
 SETTINGS_REL = f"{PATCHER_FOLDER}/{SETTINGS_INI}"
 BACKUP_MANIFEST = "vf1_patch_backup_manifest.json"
 DEFAULT_BACKUP_ROOT = ".vf1_patch_backups"
@@ -406,7 +412,8 @@ def save_dir_for_exe(exe_name: str) -> Path:
 @dataclass(frozen=True)
 class SettingFile:
     source: str  # relative to the payload folder
-    target: str  # relative to the game folder, inside PATCHER_FOLDER
+    target: str  # relative to the game folder: inside PATCHER_FOLDER, or (replaces) a game file under REPLACEABLE_FOLDERS
+    replaces: bool = False  # True: target is a game file; its original is kept in ORIGINALS_FOLDER while this is on
 
 
 @dataclass(frozen=True)
@@ -456,17 +463,26 @@ def manifest_settings(manifest: dict[str, Any]) -> dict[str, PatchSetting]:
                 raise PatchError(f"Setting {setting_id}: file #{file_index} must be an object.")
             source = normalize_rel_path(row.get("source"), f"setting {setting_id} file source")
             target = normalize_rel_path(row.get("target"), f"setting {setting_id} file target")
-            # Patcher files live in their own folder, so switching a setting
-            # off can always simply remove its files: none of them replaces a
-            # game file that would need restoring.
-            if not path_key(target).startswith(path_key(PATCHER_FOLDER) + "/"):
+            replaces = row.get("replaces", False)
+            if not isinstance(replaces, bool):
+                raise PatchError(f"Setting {setting_id}: file #{file_index} replaces must be true or false.")
+            if replaces:
+                # A few settings change the game's own art by replacing its files in the
+                # modded copy (the owner's choice, as in the Virtual Families 2 patcher).
+                # The original is kept in ORIGINALS_FOLDER and put back when the setting is off.
+                if not any(path_key(target).startswith(path_key(folder) + "/") for folder in REPLACEABLE_FOLDERS):
+                    raise PatchError(f"Setting {setting_id}: a replaced game file must be under "
+                                     f"{' or '.join(REPLACEABLE_FOLDERS)}: {target}")
+            # Every other patcher file lives in its own folder, so switching a setting
+            # off simply removes its files: none of them replaces a game file.
+            elif not path_key(target).startswith(path_key(PATCHER_FOLDER) + "/"):
                 raise PatchError(f"Setting {setting_id}: file targets must be inside {PATCHER_FOLDER}/: {target}")
             if path_key(target) in reserved:
                 raise PatchError(f"Setting {setting_id}: {target} belongs to the patcher itself.")
             if path_key(target) in seen_targets:
                 raise PatchError(f"{target} is installed by both {seen_targets[path_key(target)]} and {setting_id}.")
             seen_targets[path_key(target)] = setting_id
-            files.append(SettingFile(source, target))
+            files.append(SettingFile(source, target, replaces))
         label = str(raw.get("label", setting_id)).strip() or setting_id
         settings[setting_id] = PatchSetting(
             id=setting_id,
@@ -971,8 +987,8 @@ def _planned_writes(settings: dict[str, PatchSetting], effective: set[str], mani
             if setting.id in effective:
                 source = resolve_under(payload_dir(manifest_path), f.source, "payload folder")
                 writes[f.target] = read_payload(source, f.source, pins, True)
-            else:
-                removes.append(f.target)
+            elif not f.replaces:
+                removes.append(f.target)  # a replaced game file is put back from its saved original instead
     return writes, removes
 
 
@@ -1051,6 +1067,24 @@ def apply_manifest(args: argparse.Namespace) -> int:
             log_process_event(process_log, phase="validate", kind="modded_exe", status="success",
                               file_path=exe_name, note="patched by this patcher's loader")
             emit_progress(args, f"Modded executable verified: {exe_name}")
+            for setting in settings.values():
+                for f in setting.files:
+                    if not f.replaces:
+                        continue
+                    store = original_store_rel(f.target)
+                    store_path = resolve_under(output_dir, store)
+                    target_path = resolve_under(output_dir, f.target)
+                    if setting.id in effective:
+                        if not store_path.is_file():
+                            current = target_path.read_bytes() if target_path.is_file() else None
+                            if current is None or current == writes.get(f.target):
+                                raise PatchError(
+                                    f"{setting.label}: the original {f.target} is not saved in this modded folder. "
+                                    "Choose your vanilla Virtual Families folder too, so it can be rebuilt from it.")
+                            writes[store] = current
+                    elif store_path.is_file():
+                        writes[f.target] = store_path.read_bytes()
+                        removes.append(store)
             ini_path = output_dir / SETTINGS_REL
             old_ini = ini_path.read_bytes() if ini_path.is_file() else None
             writes[SETTINGS_REL] = render_settings_ini(old_ini, ini_values)
@@ -1082,6 +1116,13 @@ def apply_manifest(args: argparse.Namespace) -> int:
             # Keep what the DLL remembers between sessions ([Cheats]) across a rebuild.
             writes[SETTINGS_REL] = render_settings_ini(old_ini, ini_values)
             writes[exe_name] = patched
+            for setting in settings.values():
+                for f in setting.files:
+                    if f.replaces and setting.id in effective:
+                        original = resolve_under(game_dir, f.target)
+                        if not original.is_file():
+                            raise PatchError(f"{setting.label} replaces {f.target}, which is not in the vanilla folder.")
+                        writes[original_store_rel(f.target)] = original.read_bytes()
             removes = []
             for rel in writes:
                 actions[rel] = "added"
@@ -1383,8 +1424,13 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
     ]
     for setting in settings.values():
         for f in setting.files:
-            lines.append(f"- {f.target.replace('/', chr(92))}: only while {setting.label} is on "
-                         f"(from payload\\{f.source.replace('/', chr(92))}).")
+            if f.replaces:
+                lines.append(f"- {f.target.replace('/', chr(92))}: replaced only while {setting.label} is on "
+                             f"(from payload\\{f.source.replace('/', chr(92))}); the original is kept in "
+                             f"{original_store_rel(f.target).replace('/', chr(92))} and put back when it is off.")
+            else:
+                lines.append(f"- {f.target.replace('/', chr(92))}: only while {setting.label} is on "
+                             f"(from payload\\{f.source.replace('/', chr(92))}).")
     lines += [
         f"- {DEFAULT_BACKUP_ROOT}\\<date_time>_manifest\\: one folder per run, holding {BACKUP_MANIFEST},",
         "  files\\... (copies of every file the run replaced or deleted), patch_log.json (or",

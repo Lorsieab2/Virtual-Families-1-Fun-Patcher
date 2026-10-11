@@ -51,6 +51,31 @@ In the modded game folder (default "Virtual Families - Modded"):
 - Virtual Families 1 Patcher Files\vf1fun.dll: the patcher's DLL, copied from payload\vf1fun.dll.
 - Virtual Families 1 Patcher Files\settings.ini: section [Patches], one Key=1/0 line per setting below.
   Other sections (written by the DLL, e.g. [Cheats] InterestRate) are kept as they were.
+- Images\MapX0Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y0.jpg and put back when it is off.
+- Images\MapX0Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y1.jpg and put back when it is off.
+- Images\MapX0Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX0Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX0Y2.jpg and put back when it is off.
+- Images\MapX1Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX1Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX1Y1.jpg and put back when it is off.
+- Images\MapX1Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX1Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX1Y2.jpg and put back when it is off.
+- Images\MapX2Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y0.jpg and put back when it is off.
+- Images\MapX2Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y1.jpg and put back when it is off.
+- Images\MapX2Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y2.jpg and put back when it is off.
+- Images\MapX2Y3.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX2Y3.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX2Y3.jpg and put back when it is off.
+- Images\MapX3Y0.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y0.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y0.jpg and put back when it is off.
+- Images\MapX3Y1.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y1.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y1.jpg and put back when it is off.
+- Images\MapX3Y2.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y2.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y2.jpg and put back when it is off.
+- Images\MapX3Y3.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\MapX3Y3.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\MapX3Y3.jpg and put back when it is off.
+- Images\birdhStrip1.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\birdhStrip1.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\birdhStrip1.png and put back when it is off.
+- Images\carrying.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\carrying.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\carrying.png and put back when it is off.
+- Images\kitchenUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\kitchenUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\kitchenUpgrade.png and put back when it is off.
+- Images\patioSet.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\patioSet.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\patioSet.png and put back when it is off.
+- Images\pet_grid.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\pet_grid.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\pet_grid.png and put back when it is off.
+- Images\showerCurtain.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\showerCurtain.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\showerCurtain.png and put back when it is off.
+- Images\towelUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\towelUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\towelUpgrade.png and put back when it is off.
+- Virtual Families 1 Patcher Files\VF2 Songs\menu.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\menu.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song1.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song1.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song2.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song2.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song3.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song3.ogg).
+- Virtual Families 1 Patcher Files\VF2 Songs\song4.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song4.ogg).
 - .vf1_patch_backups\<date_time>_manifest\: one folder per run, holding vf1_patch_backup_manifest.json,
   files\... (copies of every file the run replaced or deleted), patch_log.json (or
   patch_error_log.json if the run failed) and, after a restore, restore_log.json.
@@ -83,6 +108,10 @@ Settings and defaults
   Every tray item the store sells, to buy or get for free.
 - RollTheDice [on] (optional): Roll the Dice
   $500: an island event happens right away.
+- CustomMapImages [on] (optional): Custom Map/Game Images
+  Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.
+- VF2Songs [on] (optional): VF1 + VF2 Songs
+  Adds VF2 songs in addition to the normal VF1 songs.
 
 Restore
 -------

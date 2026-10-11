@@ -23,6 +23,10 @@ SPEC = {
         'Every tray item the store sells, to buy or get for free.'),
     'RollTheDice': ('Roll the Dice',
         '$500: an island event happens right away.'),
+    'CustomMapImages': ('Custom Map/Game Images',
+        'Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.'),
+    'VF2Songs': ('VF1 + VF2 Songs',
+        'Adds VF2 songs in addition to the normal VF1 songs.'),
 }
 
 
@@ -187,18 +191,28 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     written = {p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()}
     backups = {f for f in written if f.startswith(vp.DEFAULT_BACKUP_ROOT + "/")}
     extra = written - vanilla_files - backups
-    assert extra == {"Virtual Families - Modded.exe", vp.DLL_REL, vp.SETTINGS_REL}
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    rows = [row for setting in manifest["settings"] for row in setting.get("files", [])]
+    replaced = {row["target"] for row in rows if row.get("replaces")}
+    added = {row["target"] for row in rows if not row.get("replaces")}
+    originals = {vp.original_store_rel(t) for t in replaced}
+    assert extra == {"Virtual Families - Modded.exe", vp.DLL_REL, vp.SETTINGS_REL} | added | originals
     assert not (out / vp.VANILLA_EXE).exists()
-    for rel in vanilla_files:
+    for rel in vanilla_files - replaced:
         assert (out / rel).read_bytes() == (vanilla_unchanged / rel).read_bytes()
+    for rel in replaced:  # the game file is the setting's art; the original is kept beside the patcher's files
+        assert (out / rel).read_bytes().startswith(b"stand-in for ")
+        assert (out / vp.original_store_rel(rel)).read_bytes() == (vanilla_unchanged / rel).read_bytes()
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0"}
+        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
-    for rel in extra:
+    for rel in extra - originals:
         assert rel.replace("/", "\\") in text
+    for rel in replaced:
+        assert rel.replace("/", "\\") + ": replaced only while Custom Map/Game Images is on" in text
     for name in {Path(b).name for b in backups if "/files/" not in b}:
         assert name in text
     assert summary["modded_save_dir"].endswith("LDW\\Virtual Families - Modded")
@@ -215,11 +229,11 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     summary = apply(workdir, output_dir=out, disable=["FleaMarket", "CheatUpgrades"])
     assert summary["mode"] == "existing_modded_output"
     assert [row["file_path"] for row in summary["written_files"]] == [vp.SETTINGS_REL]
-    assert summary["unchanged_files"] == [vp.DLL_REL]
+    assert vp.DLL_REL in summary["unchanged_files"]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1"}
+        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before
@@ -321,3 +335,32 @@ def test_cli_reports_errors_with_exit_code_2(workdir, capsys):
     assert "ERROR:" in capsys.readouterr().err
     assert vp.main(["settings", "--manifest", str(MANIFEST)]) == 0
     assert "RollTheDice [default on] - Roll the Dice" in capsys.readouterr().out
+
+
+def test_replaced_game_files_are_put_back_when_their_setting_is_off(workdir, vanilla_unchanged):
+    out = workdir / "out"
+    apply(workdir, game_dir=vanilla_unchanged, output_dir=out)
+    rows = [row for setting in json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
+            if setting["id"] == "CustomMapImages" for row in setting["files"]]
+    targets = [row["target"] for row in rows]
+    assert targets and all((out / t).read_bytes().startswith(b"stand-in for ") for t in targets)
+    # Switching it off (no vanilla folder needed) puts every original back and drops the saved copies.
+    off = apply(workdir, output_dir=out, disable=["CustomMapImages"])
+    for t in targets:
+        assert (out / t).read_bytes() == (vanilla_unchanged / t).read_bytes()
+        assert not (out / vp.original_store_rel(t)).exists()
+    assert vp.read_ini_section(ini(out), "Patches")["CustomMapImages"] == "0"
+    # Switching it on again saves the originals first, then writes the art.
+    apply(workdir, output_dir=out)
+    for t in targets:
+        assert (out / t).read_bytes().startswith(b"stand-in for ")
+        assert (out / vp.original_store_rel(t)).read_bytes() == (vanilla_unchanged / t).read_bytes()
+    # A restore of the off-run brings the art back exactly as it was.
+    vp.restore_backup(ns(backup_dir=off["backup_dir"], force_game_dir=False))
+    for t in targets:
+        assert (out / t).read_bytes().startswith(b"stand-in for ")
+
+
+def test_a_replaced_file_must_be_under_images():
+    with pytest.raises(vp.PatchError, match="must be under"):
+        settings_from([{"id": "A", "files": [{"source": "x.png", "target": "Sounds/x.png", "replaces": True}]}])

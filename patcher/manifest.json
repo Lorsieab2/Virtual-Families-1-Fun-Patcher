@@ -56,6 +56,144 @@
       "description": "$500: an island event happens right away.",
       "default": true,
       "category": "optional"
+    },
+    {
+      "id": "CustomMapImages",
+      "label": "Custom Map/Game Images",
+      "description": "Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "CustomImages/MapX0Y0.jpg",
+          "target": "Images/MapX0Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y1.jpg",
+          "target": "Images/MapX0Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y2.jpg",
+          "target": "Images/MapX0Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y1.jpg",
+          "target": "Images/MapX1Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y2.jpg",
+          "target": "Images/MapX1Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y0.jpg",
+          "target": "Images/MapX2Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y1.jpg",
+          "target": "Images/MapX2Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y2.jpg",
+          "target": "Images/MapX2Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX2Y3.jpg",
+          "target": "Images/MapX2Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y0.jpg",
+          "target": "Images/MapX3Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y1.jpg",
+          "target": "Images/MapX3Y1.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y2.jpg",
+          "target": "Images/MapX3Y2.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX3Y3.jpg",
+          "target": "Images/MapX3Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/birdhStrip1.png",
+          "target": "Images/birdhStrip1.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/carrying.png",
+          "target": "Images/carrying.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/kitchenUpgrade.png",
+          "target": "Images/kitchenUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/patioSet.png",
+          "target": "Images/patioSet.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/pet_grid.png",
+          "target": "Images/pet_grid.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/showerCurtain.png",
+          "target": "Images/showerCurtain.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/towelUpgrade.png",
+          "target": "Images/towelUpgrade.png",
+          "replaces": true
+        }
+      ]
+    },
+    {
+      "id": "VF2Songs",
+      "label": "VF1 + VF2 Songs",
+      "description": "Adds VF2 songs in addition to the normal VF1 songs.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "VF2Songs/menu.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/menu.ogg"
+        },
+        {
+          "source": "VF2Songs/song1.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song1.ogg"
+        },
+        {
+          "source": "VF2Songs/song2.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song2.ogg"
+        },
+        {
+          "source": "VF2Songs/song3.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song3.ogg"
+        },
+        {
+          "source": "VF2Songs/song4.ogg",
+          "target": "Virtual Families 1 Patcher Files/VF2 Songs/song4.ogg"
+        }
+      ]
     }
   ]
 }

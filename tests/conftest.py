@@ -51,6 +51,13 @@ def workdir(tmp_path) -> Path:
     shutil.copy2(MANIFEST, tmp_path / "patcher" / "manifest.json")
     (tmp_path / "patcher" / "payload").mkdir()
     (tmp_path / "patcher" / "payload" / vf1_patcher.DLL_NAME).write_bytes(b"MZ stand-in vf1fun.dll for tests")
+    # Stand-ins for the files settings install (the real ones are staged by tools/stage_payload.py
+    # and never committed).
+    for setting in json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]:
+        for row in setting.get("files", []):
+            stand_in = tmp_path / "patcher" / "payload" / row["source"]
+            stand_in.parent.mkdir(parents=True, exist_ok=True)
+            stand_in.write_bytes(b"stand-in for " + row["source"].encode())
     return tmp_path
 
 

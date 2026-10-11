@@ -4,8 +4,8 @@
 usage: package_release.py VERSION [--dll PATH] [--out-dir DIR]
        package_release.py --transparency-log    (rewrite release/Transparency Log.txt)
 
-Needs build/vf1fun.dll (native/build.bat) and patcher/stub.json
-(tools/build_stub.py). The layout follows the Virtual Families 2 patcher's
+Needs build/vf1fun.dll (native/build.bat), patcher/stub.json
+(tools/build_stub.py) and payload/ (the files settings install, in the repository). The layout follows the Virtual Families 2 patcher's
 release bundle: one folder, "VF1-Patcher-<version>", holding
 
   Launch_GUI.bat, Apply_<version>_Patcher.bat, How to Use.txt,
@@ -40,7 +40,7 @@ def write_transparency_log() -> Path:
     return TRANSPARENCY_LOG
 
 
-def build(version: str, dll: Path, out_dir: Path) -> Path:
+def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None) -> Path:
     top = f"VF1-Patcher-{version}"
     manifest = load_manifest()
     vf1_patcher.manifest_settings(manifest)  # refuse an inconsistent manifest
@@ -48,7 +48,7 @@ def build(version: str, dll: Path, out_dir: Path) -> Path:
     payload = {vf1_patcher.DLL_NAME: dll}
     for setting in vf1_patcher.manifest_settings(manifest).values():
         for f in setting.files:
-            payload[f.source] = ROOT / "payload" / f.source
+            payload[f.source] = (payload_root or ROOT / "payload") / f.source
     missing = [str(p) for p in [*payload.values(), vf1_patcher.STUB] if not p.is_file()]
     if missing:
         raise SystemExit("missing:\n  " + "\n  ".join(missing))
@@ -85,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("version", nargs="?")
     ap.add_argument("--dll", type=Path, default=ROOT / "build" / vf1_patcher.DLL_NAME)
     ap.add_argument("--out-dir", type=Path, default=ROOT / "outputs")
+    ap.add_argument("--payload", type=Path, default=ROOT / "payload", help="folder holding the files settings install")
     ap.add_argument("--transparency-log", action="store_true", help="rewrite release/Transparency Log.txt")
     args = ap.parse_args(argv)
     if args.transparency_log:
@@ -96,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     if TRANSPARENCY_LOG.read_text(encoding="utf-8").replace("\r\n", "\n") != expected:
         print("release/Transparency Log.txt is out of date: run tools/package_release.py --transparency-log")
         return 1
-    out = build(args.version, args.dll, args.out_dir)
+    out = build(args.version, args.dll, args.out_dir, args.payload)
     data = out.read_bytes()
     print(f"{out}  {len(data):,} bytes  SHA-256 {hashlib.sha256(data).hexdigest()}")
     return 0
