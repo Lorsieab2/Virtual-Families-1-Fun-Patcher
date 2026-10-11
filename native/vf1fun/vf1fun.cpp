@@ -370,6 +370,7 @@ static void CureVillager(int i) {
 static const int AppearanceRows = 50;
 static int *Head(int i) { return (int *)(Villager(i) + 0x2A60); }
 static int *Body(int i) { return (int *)(Villager(i) + 0x2A64); }
+static void SyncTreeLook(int slot);  // family.inc
 typedef int (__cdecl *RandomFn)(int n);
 static const RandomFn GetRandom = (RandomFn)0x403650;  // ldwGameState::GetRandom
 
@@ -432,6 +433,7 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
                     continue;
                 *Head(i) = id == ID_VC_LOOKS ? head : GetRandom(AppearanceRows);
                 *Body(i) = id == ID_VC_LOOKS ? body : GetRandom(AppearanceRows);
+                SyncTreeLook(i);
             }
             FillVillagerList(dlg);
             if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);

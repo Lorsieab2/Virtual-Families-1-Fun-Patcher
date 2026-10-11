@@ -41,7 +41,7 @@ static void ReadArmed(HWND dlg) {
 }
 
 static void Report(HWND dlg, const wchar_t *problem, const wchar_t *done) {
-    Message(dlg, problem ? problem : done);
+    if (problem || done) Message(dlg, problem ? problem : done);
     RefreshFamily(dlg);
 }
 
@@ -67,7 +67,7 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             if (MessageBoxW(dlg, L"WARNING: this permanently removes the spouse from the Family Tree and the "
                             L"house. It cannot be undone.\n\nDivorce now?", L"Divorce Spouse",
                             MB_OKCANCEL | MB_ICONWARNING) == IDOK)
-                Report(dlg, DivorceSpouse(), L"The spouse has left the family.");
+                Report(dlg, DivorceSpouse(), 0);  // the spouse simply goes away: no popup, no life event
             break;
         case ID_FA_BABY_BOY: case ID_FA_BABY_GIRL:
             Report(dlg, SpawnBaby(id == ID_FA_BABY_GIRL ? 1 : 0, name), L"A baby has joined the family.");

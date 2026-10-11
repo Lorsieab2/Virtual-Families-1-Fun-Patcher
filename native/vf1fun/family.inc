@@ -80,6 +80,31 @@ static bool GameOver() { return Population(VillagerManager) == 0 && *(int *)0x50
 static bool Pregnant(int slot) { return slot >= 0 && *(int *)(Villager(slot) + 0x2AF8) != 0; }
 static const char *VillagerName(int slot) { return (const char *)(Villager(slot) + 0x2A44); }
 
+// ---------------------------------------------------------------- Change Appearance and the Family Tree
+// The tree keeps its own copy of each person's head and body (SPeepRecord +0x20 /
+// +0x24), written when the person joins (AddOffspring, StartNextGeneration);
+// UpdatePeepRecord (0x4818F0) refreshes only the career and likes, so a changed
+// look would never reach the tree portrait. This writes it into the CURRENT
+// family's record for that villager (same slot and name); earlier generations'
+// records are history and stay as they were.
+static void SyncTreeLook(int slot) {
+    unsigned char *r = CurrentFamily();
+    if (!r) return;
+    unsigned char *peeps[8];
+    int n = 0;
+    peeps[n++] = r + 4;
+    peeps[n++] = r + 0xDC;
+    int children = *(int *)(r + 0x1B4);
+    for (int c = 0; c < children && c < 6; ++c) peeps[n++] = r + 0x1B8 + c * 0xD8;
+    for (int i = 0; i < n; ++i) {
+        unsigned char *p = peeps[i];
+        if (p[0x1A] && *(int *)(p + 0x28) == slot && strncmp((const char *)p, VillagerName(slot), 25) == 0) {
+            *(int *)(p + 0x20) = *(int *)(Villager(slot) + 0x2A60);
+            *(int *)(p + 0x24) = *(int *)(Villager(slot) + 0x2A64);
+        }
+    }
+}
+
 // ---------------------------------------------------------------- pregnancy one-shots
 // gVillage.armed: the next successful pregnancy (VF1 creates the babies at
 // conception, CVillager::Impregnate 0x4864D0). Cleared when Impregnate succeeds.
@@ -120,9 +145,10 @@ static int __fastcall BabySpawnWrapper(void *m, void *, int voice, int gender, i
 // ---------------------------------------------------------------- marriage
 // 0x43845F: CDatingScene::GeneratePeepCandidate spawns the candidate with the
 // opposite gender of the family's adult (`sete dl` at 0x43844D). With
-// Same-Sex Marriage on, the candidate's gender is GetRandom(2), as in VF2.
+// Same-Sex Marriage on, every candidate gets the SAME gender instead (owner's
+// choice: the setting shows same-sex candidates only).
 static int __fastcall CandidateSpawnWrapper(void *m, void *, int voice, int gender, int age) {
-    if (gVillage.sameSex) gender = GetRandom(2);
+    if (gVillage.sameSex) gender = gender ? 0 : 1;
     return SpawnPeep(m, voice, gender, age);
 }
 
@@ -182,7 +208,7 @@ static const wchar_t *ForceMarriageEmail() {
     if (!GetMatriarch(VillagerManager) && !GetPatriarch(VillagerManager))
         return L"There is no adult to propose to.";
     QueueMail(GameStateGet(), 2);
-    return L"A marriage proposal is waiting in the mailbox.";
+    return L"A marriage proposal has been queued.";
 }
 
 // Divorce Spouse: research/villagers.md section 3's recipe. The spouse is the
@@ -201,7 +227,6 @@ static const wchar_t *DivorceSpouse() {
     unsigned char *peep = r + 0xDC;
     *(int *)(peep + 0x28) = -1;
     peep[0x1A] = 0;
-    QueueLifeEventPending(GameStateGet(), 5, spouse, -1);
     SaveCurrentGame(GameStateGet());
     return 0;
 }

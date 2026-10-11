@@ -108,7 +108,8 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             break;
         case ID_HY_GARDEN: CleanGarden(); Message(dlg, L"The garden is weeded."); break;
         case ID_HY_BREAK:
-            swprintf(s, 96, L"Triggered %d malfunctions.", SetAllMalfunctions(true));
+            SetAllMalfunctions(true);  // some may already have been active
+            swprintf(s, 96, L"All %d house malfunctions are now active.", (int)(sizeof kMalfunctionProps / sizeof kMalfunctionProps[0]));
             Message(dlg, s);
             break;
         case ID_HY_FIX:
