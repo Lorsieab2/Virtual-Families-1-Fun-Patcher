@@ -21,9 +21,10 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     case WM_INITDIALOG: RefreshStoreCheats(dlg); return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
-        case ID_SC_X2: gVillage.priceMultiplier = 2; break;
-        case ID_SC_X5: gVillage.priceMultiplier = 5; break;
-        case ID_SC_X100: gVillage.priceMultiplier = 100; break;
+        // VF2: buying the price mode you already have takes it away again.
+        case ID_SC_X2: gVillage.priceMultiplier = gVillage.priceMultiplier == 2 ? 1 : 2; break;
+        case ID_SC_X5: gVillage.priceMultiplier = gVillage.priceMultiplier == 5 ? 1 : 5; break;
+        case ID_SC_X100: gVillage.priceMultiplier = gVillage.priceMultiplier == 100 ? 1 : 100; break;
         case ID_SC_RESET_PRICES: gVillage.priceMultiplier = 1; break;
         case ID_SC_ACH_ALL:
             if (Confirm(dlg, L"Complete every achievement? Reset Achievements is the only way back.")) {

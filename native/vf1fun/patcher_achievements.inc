@@ -76,7 +76,11 @@ static void CheckAchievements() {
     if (oldest >= 80) UnlockAchievement(ACH_GREAT_80);
     if (oldest >= 90) UnlockAchievement(ACH_MIGHTY_90);
     if (oldest >= 100) UnlockAchievement(ACH_CENTENARIAN);
-    if (oldest > 122) UnlockAchievement(ACH_OLDEST_IN_HISTORY);
+    // VF2: Oldest Person in History unlocks at an age of 122 years and one tick (122 * 20 + 1).
+    bool past122 = oldest > 122;
+    for (int i = 0; i < 30 && !past122; ++i)
+        if (Villager(i)[0x13574] && *(int *)(Villager(i) + 0x2A34) >= 122 * 20 + 1) past122 = true;
+    if (past122) UnlockAchievement(ACH_OLDEST_IN_HISTORY);
     if (FamilyTreeHas(1, kLastHead)) UnlockAchievement(ACH_RAINBOW);
     if (FamilyTreeHas(0, kLastHead - 1)) UnlockAchievement(ACH_SPIKY);
     if (FamilyTreeHas(0, kLastHead)) UnlockAchievement(ACH_BLUES_CLUES);

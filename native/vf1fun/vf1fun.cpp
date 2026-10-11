@@ -923,7 +923,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallChanceHook();
     if (gOlderPregnancies || gPrivateRomantic)
         InstallCooldownRule();
-    if (SettingOn(L"OlderVillagerMortalityCurve", true))
+    if (gOlderPregnancies)  // VF2: Next Generation at 60 is part of Allow Older Pregnancies
         InstallNextGenerationGate();
     if (rate >= 1 && rate <= 11)
         gCheatInterestPercent = rate;

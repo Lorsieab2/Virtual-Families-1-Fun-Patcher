@@ -278,7 +278,10 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         case L_CAREER: ADD(c, kCareer); break;
         case L_TRYBABY: if (PrivateRomanticCouple(v)) c.Add(kPrivateRomantic, 1); break;
         }
-        if (c.n > 0) src = c.v[LabelRandom(c.n)];
+        // VF2ApplyRememberedOrRandomLabel: one roll out of (count + 1); 0 keeps the game's own caption.
+        // The private romantic caption is not a variant: it always replaces "Trying to make a baby".
+        if (site->kind == L_TRYBABY) { if (c.n > 0) src = c.v[0]; }
+        else if (c.n > 0) { int r = LabelRandom(c.n + 1); if (r) src = c.v[r - 1]; }
     }
     return ((StrncpyFn)0x4993C0)(dest, src, n);
 }

@@ -182,6 +182,12 @@ static const int kFoodClubDelivery = 4 * kOrganicBagFood;  // all four organic t
 // the only readers of the store's prices: the store label, the buy dialog
 // (whose value Buy charges) and the return-to-store refund. Replacing both
 // keeps label, charge and refund consistent. Health Plan: medicines (items
+// VF2ApplyPriceMultiplier: the multiplied price stops at 2,147,483,647 instead of wrapping.
+static int SaturatedPrice(int price) {
+    if (price <= 0 || gVillage.priceMultiplier == 1) return price;
+    __int64 r = (__int64)price * gVillage.priceMultiplier;
+    return r > 0x7FFFFFFF ? 0x7FFFFFFF : (int)r;
+}
 // 20-29) at a quarter of the price, as in VF2.
 static int __fastcall ItemPrice(void *, void *, int item) {
     if (item < 1 || item > 0x50)
@@ -191,13 +197,13 @@ static int __fastcall ItemPrice(void *, void *, int item) {
         price /= 4;
     if (gVillage.foodClub && item >= 4 && item <= 11)  // Food Club: half price on groceries (items 4-11)
         price /= 2;
-    return price * gVillage.priceMultiplier;
+    return SaturatedPrice(price);
 }
 
 static int __fastcall TechPrice(void *, void *, int tech, int level) {
     if (level < 1 || level > 3)
         return 0;
-    return *(int *)(0x4EF620 + 4 * (tech * 3 + level)) * gVillage.priceMultiplier;
+    return SaturatedPrice(*(int *)(0x4EF620 + 4 * (tech * 3 + level)));
 }
 
 // ---------------------------------------------------------------- Lucky Rock
