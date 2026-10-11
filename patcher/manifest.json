@@ -163,6 +163,101 @@
           "source": "CustomImages/towelUpgrade.png",
           "target": "Images/towelUpgrade.png",
           "replaces": true
+        },
+        {
+          "source": "CustomImages/InventoryItems.png",
+          "target": "Images/InventoryItems.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX0Y3.jpg",
+          "target": "Images/MapX0Y3.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/MapX1Y0.jpg",
+          "target": "Images/MapX1Y0.jpg",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/balconyflowers.png",
+          "target": "Images/balconyflowers.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bbq.png",
+          "target": "Images/bbq.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bedUpgrade.png",
+          "target": "Images/bedUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/bird.png",
+          "target": "Images/bird.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/birdhouse.png",
+          "target": "Images/birdhouse.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/breads.png",
+          "target": "Images/breads.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/cans.png",
+          "target": "Images/cans.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/collectables_small.png",
+          "target": "Images/collectables_small.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/fishtank.png",
+          "target": "Images/fishtank.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/fountainwater.png",
+          "target": "Images/fountainwater.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/kitchenGarbageFull.png",
+          "target": "Images/kitchenGarbageFull.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/meal.png",
+          "target": "Images/meal.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/officeUpgrade.png",
+          "target": "Images/officeUpgrade.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/pool.png",
+          "target": "Images/pool.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/remote.png",
+          "target": "Images/remote.png",
+          "replaces": true
+        },
+        {
+          "source": "CustomImages/workroomUpgrade.png",
+          "target": "Images/workroomUpgrade.png",
+          "replaces": true
         }
       ]
     },
