@@ -70,7 +70,7 @@ Five settings change the base game on their own (plus the optional ones below):
 - **Clamp Max Money and Food:** coins stay at or under 4,000,000,000 and food at or under
   2,147,483,647 (the VF2 maximums); the original game has no limit and food wraps negative.
 - **Behavior Label Variants** (optional): the caption under a villager varies for Watching TV, Reading,
-  Browsing the web, Playing video games, Taking a nap (with sit-down captions) and the pool (laps, diving, cannonballs), as in VF2.
+  Browsing the web, Playing video games, board games, homework, the sandbox, the flower boxes, the hammock, Taking a nap (with sit-down captions) and the pool (laps, diving, cannonballs), as in VF2.
   Captions only: behaviors, chances and career progression are unchanged. Includes the office, kitchen and workshop, and "Having private adult romantic time" for a couple that cannot conceive.
 - **Allow Older Pregnancies:** mothers over 50 can still conceive (10% at 50, tapering
   to a 0.1% floor from 69), as in the VF2 patcher.

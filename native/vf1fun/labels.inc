@@ -16,6 +16,8 @@
 //   Taking a nap           0x45FAF7 0x464D47            (0x9F)
 //   Working at the computer 0x45D399                     (0x95), kitchen career 0x47ED23 (0x101), workshop 0x470FE0 (0x104)
 //   Trying to make a baby: strncpy at 0x478DB1 (0x1C0): 'private adult romantic time' for couples that cannot conceive
+//   Sandbox                0x460E50 (0xA7); Watering the flower boxes 0x463318 0x4635A8 (0xBB)
+//   Relaxing in the hammock 0x45C914 0x45CC04 (0x93); Board game 0x474A16 (0x6B); Homework 0x46CFA7 (0xA5) 0x46CB2E (0xED)
 //   Playing in the pool    0x45F19C 0x465F91 0x466241   (0x9B, 0xCF swimming, 0xD0 splashing)
 
 typedef const char *(__thiscall *GetStringFn2)(void *strings, int id);
@@ -25,7 +27,9 @@ struct LabelSet { const char *const *variants; int count; };
 static const char *const kTVLabels[] = { "Watching a movie", "Watching a TV show", "Watching a documentary", "Watching the news",
     "Watching the weather channel", "Watching cartoons" };
 static const char *const kReadingLabels[] = { "Reading a novel", "Reading a textbook", "Reading a comic book",
-    "Reading a picture book", "Reading a chapter book", "Reading a how-to manual" };
+    "Reading a picture book", "Reading a chapter book", "Reading a how-to manual", "Reading a magazine",
+    "Flipping through a magazine", "Reading a fashion magazine", "Reading a cooking magazine",
+    "Reading a news magazine", "Reading the latest issue" };
 static const char *const kWebLabels[] = { "Browsing a forum", "Watching cat videos", "Watching memes", "Making memes",
     "Reading the news online", "Shopping online" };
 static const char *const kGameLabels[] = { "Playing a puzzle game", "Playing a racing game", "Playing a farming game",
@@ -34,6 +38,13 @@ static const char *const kPoolLabels[] = { "Doing laps in the pool", "Practicing
     "Diving underwater", "Cannonball!", "Diving to the bottom of the pool", "Practicing underwater backflips",
     "Practicing underwater handstands", "Snorkelling" };
 // The nap pool also holds the "needs to sit down" captions (VF2's sit-down group).
+static const char *const kSandboxLabels[] = { "Making sand sculptures", "Digging moats", "Digging to the center of the earth" };
+static const char *const kFlowerLabels[] = { "Gardening", "Caring for the Magic Plants", "Fussing over the flowers" };
+static const char *const kHammockLabels[] = { "Swaying in the hammock", "Watching the clouds drift by",
+    "Dozing in the hammock", "Enjoying the breeze", "Daydreaming in the hammock" };
+static const char *const kBoardGameLabels[] = { "Playing chess", "Playing checkers" };
+static const char *const kHomeworkLabels[] = { "Doing math homework", "Doing geography homework", "Doing biology homework",
+    "Doing literature homework", "Procrastinating" };
 static const char *const kNapLabels[] = { "Dozing off on the couch", "Dreaming of family", "Dreaming of the beach",
     "Dreaming of the future", "Dreaming of holidays", "Resting for a while", "Resting", "Resting eyes", "Resting feet",
     "Relaxing for a bit", "Taking a break", "Enjoying life", "Enjoying the scenery", "Thinking of work",
@@ -109,6 +120,27 @@ static char *__cdecl TryingForBabyCopy(char *dest, const char *src, size_t n) {
     return ((StrncpyFn)0x4993C0)(dest, src, n);
 }
 
+static const char *__fastcall SandboxCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kSandboxLabels, (int)(sizeof kSandboxLabels / sizeof kSandboxLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall FlowerCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kFlowerLabels, (int)(sizeof kFlowerLabels / sizeof kFlowerLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall HammockCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kHammockLabels, (int)(sizeof kHammockLabels / sizeof kHammockLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall BoardGameCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kBoardGameLabels, (int)(sizeof kBoardGameLabels / sizeof kBoardGameLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall HomeworkCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kHomeworkLabels, (int)(sizeof kHomeworkLabels / sizeof kHomeworkLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+
 static void InstallBehaviorLabelVariants() {
     struct Site { unsigned address; void *wrapper; };
     const Site sites[] = {
@@ -118,6 +150,11 @@ static void InstallBehaviorLabelVariants() {
         { 0x476A47, (void *)&GameCaption },
         { 0x45FAF7, (void *)&NapCaption }, { 0x464D47, (void *)&NapCaption },
         { 0x45D399, (void *)&OfficeCaption }, { 0x47ED23, (void *)&KitchenCaption }, { 0x470FE0, (void *)&WorkshopCaption },
+        { 0x460E50, (void *)&SandboxCaption },
+        { 0x463318, (void *)&FlowerCaption }, { 0x4635A8, (void *)&FlowerCaption },
+        { 0x45C914, (void *)&HammockCaption }, { 0x45CC04, (void *)&HammockCaption },
+        { 0x474A16, (void *)&BoardGameCaption },
+        { 0x46CFA7, (void *)&HomeworkCaption }, { 0x46CB2E, (void *)&HomeworkCaption },
         { 0x45F19C, (void *)&PoolCaption }, { 0x465F91, (void *)&PoolCaption }, { 0x466241, (void *)&PoolCaption },
     };
     for (const Site &s : sites)

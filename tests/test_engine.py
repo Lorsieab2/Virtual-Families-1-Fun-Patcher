@@ -34,7 +34,7 @@ SPEC = {
     'GlowingCollectables': ('Glowing Collectables',
         'Makes the collectables in the yard glow, so they are easier to spot.'),
     'BehaviorLabelVariants': ('Behavior Label Variants',
-        'Varies the caption shown for a villager\'s action for Watching TV, Reading, Browsing the web, Playing video games, Taking a nap (with sit-down captions), the pool (laps, diving, cannonballs), working at the office, kitchen and workshop, and private adult romantic time (a couple that cannot conceive) (for example "Watching a documentary"), as in the Virtual Families 2 patcher. Captions only: the behaviors, their chances and career progression are not changed.'),
+        'Varies the caption shown for a villager\'s action for Watching TV, Reading a book or magazine, Browsing the web, Playing video games, Playing a board game, Doing homework, the sandbox, watering the flower boxes, relaxing in the hammock, Taking a nap (with sit-down captions), the pool (laps, diving, cannonballs), working at the office, kitchen and workshop, and private adult romantic time (a couple that cannot conceive) (for example "Watching a documentary"), as in the Virtual Families 2 patcher. Captions only: the behaviors, their chances and career progression are not changed.'),
 }
 
 
