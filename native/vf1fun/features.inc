@@ -48,9 +48,11 @@ struct VillageState {
     unsigned foodClubLast;        // CGameTime::Seconds of the last delivery
     int sameSex, reroll;          // Enable Same-Sex Marriage, Allow Reroll of Marriage Candidates
     int armed;                    // pregnancy one-shots (family.inc ARM_*)
+    unsigned achievements;        // patcher_achievements.inc: one bit per unlocked milestone
 };
 static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
 static int gAdoptionMode;         // family.inc: an Evict or Adopt New Person in progress
+static void UnlockAchievement(int bit);   // patcher_achievements.inc
 
 typedef unsigned (__thiscall *SecondsFn)(void *time);
 static const SecondsFn GameSeconds = (SecondsFn)0x422320;  // CGameTime::Seconds
@@ -89,6 +91,7 @@ static void LoadVillageState(int slot) {
         v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
+        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0x3FF;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
@@ -105,7 +108,7 @@ static void SaveVillageState(int slot) {
         { L"Maid", (unsigned)gVillage.maid }, { L"Gardener", (unsigned)gVillage.gardener },
         { L"PriceMultiplier", (unsigned)gVillage.priceMultiplier }, { L"FoodClubLastDelivery", gVillage.foodClubLast },
         { L"SameSexMarriage", (unsigned)gVillage.sameSex }, { L"RerollMarriageCandidates", (unsigned)gVillage.reroll },
-        { L"NextPregnancy", (unsigned)gVillage.armed },
+        { L"NextPregnancy", (unsigned)gVillage.armed }, { L"PatcherAchievements", gVillage.achievements },
     };
     for (int i = 0; i < (int)(sizeof rows / sizeof rows[0]); ++i) {
         swprintf(s, 32, L"%u", rows[i].value);
@@ -484,6 +487,7 @@ static void InstallPowerFailureFix() {
 }
 
 // ---------------------------------------------------------------- per-frame work
+static void CheckAchievements();  // patcher_achievements.inc
 static DWORD gLastHelperTick;
 static void FeaturesTick() {
     unsigned char *state = (unsigned char *)GameStateGet();
@@ -494,6 +498,7 @@ static void FeaturesTick() {
     if (now - gLastHelperTick < 15000)               // every 15 real seconds
         return;
     gLastHelperTick = now;
+    CheckAchievements();
     if (gVillage.maid) CleanHouse();
     if (gVillage.gardener) CleanGarden();
     if (gVillage.foodClub) {                         // 500 food every game day

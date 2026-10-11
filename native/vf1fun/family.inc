@@ -152,6 +152,7 @@ static void SameGenderWedding(int resident, int candidate, int dowry) {
     AddHappiness(a + 0x2AD4, 300); AddHappiness(b + 0x2AD4, 300);
     AddHappinessTrend(a + 0x2AD4, 10); AddHappinessTrend(b + 0x2AD4, 10);
     QueueLifeEventPending(GameStateGet(), 1, resident, candidate);
+    UnlockAchievement(6);
 }
 
 static HandleMessageFn OriginalDatingHandleMessage;
@@ -202,6 +203,7 @@ static const wchar_t *DivorceSpouse() {
     *(int *)(peep + 0x28) = -1;
     peep[0x1A] = 0;
     QueueLifeEventPending(GameStateGet(), 5, spouse, -1);
+    UnlockAchievement(8);
     SaveCurrentGame(GameStateGet());
     return 0;
 }
@@ -258,7 +260,9 @@ static const wchar_t *AdoptChild(int gender, int years, const wchar_t *name) {
 enum { ADOPT_NONE, ADOPT_EVICT, ADOPT_NEW_PERSON };  // gAdoptionMode, features.inc
 
 static bool __fastcall AdoptStartFamilyTree(void *tree, void *, void *villager) {
+    if (gAdoptionMode == ADOPT_EVICT) UnlockAchievement(7);
     if (gAdoptionMode == ADOPT_NEW_PERSON) {
+        UnlockAchievement(9);
         if (*(int *)tree >= 30) MakeRoomInTree(tree);
         return StartNextGeneration(tree, villager, -1);
     }

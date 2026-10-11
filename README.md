@@ -43,6 +43,9 @@ patch settings you can switch off):
     your money and the Family Tree;
   - Evict Family: resets the Family Tree and starts a new family, keeping the
     money and the house.
+- **Patcher Achievements:** ten milestones (longevity, generations, a full
+  house, and the family features), kept per village in the patcher's own
+  files. They have their own page; the game's Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
 - **Roll the Dice:** costs $500, and an island event happens right away,
   through the game's own event system.
@@ -60,7 +63,6 @@ Players: see [release/How to Use.txt](release/How to Use.txt).
 ## Planned
 
 - **Cut content:** restored where the game ships unused text or art.
-- **Achievements** for the new features.
 
 Data the game itself does not track (the purchases, the Family page's choices)
 is kept per save slot in the patcher's own files under

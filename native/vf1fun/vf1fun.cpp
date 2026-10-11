@@ -561,7 +561,10 @@ static void ShowFleaMarket(HWND owner) {
 
 // ---- Upgrades menu
 enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE, ID_UP_HOUSE,
-       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY };
+       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH };
+static void ShowAchievements(HWND owner);
+static int AchievementsUnlocked();
+static const int kAchievementTotal = 10;
 static void ShowFamily(HWND owner);
 static int gFamilyAction;
 static void ShowStoreCheats(HWND owner);
@@ -591,7 +594,8 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         EnableWindow(GetDlgItem(dlg, ID_UP_FAMILY), SettingOn(L"CheatUpgrades", true));
         {
             wchar_t s[96];
-            swprintf(s, 96, L"Generation: %d        Oldest Villager: %d", GenerationNumber(), OldestEverAge());
+            swprintf(s, 96, L"Generation: %d     Oldest Villager: %d     Achievements: %d/%d", GenerationNumber(),
+                     OldestEverAge(), AchievementsUnlocked(), kAchievementTotal);
             SetDlgItemTextW(dlg, ID_UP_COUNTERS, s);
         }
         return TRUE;
@@ -604,6 +608,7 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_UP_HOUSE: ShowHouse(dlg); break;
         case ID_UP_PURCHASES: ShowPurchases(dlg); break;
         case ID_UP_TIME: ShowTime(dlg); break;
+        case ID_UP_ACH: ShowAchievements(dlg); break;
         case ID_UP_FAMILY:
             ShowFamily(dlg);
             if (gFamilyAction) EndDialog(dlg, 0);  // Evict / Adopt New Person leave the store
@@ -629,7 +634,7 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowUpgrades() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 220, 260, 12);
+    t.Begin(L"Upgrades Menu", 220, 282, 12);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
@@ -640,8 +645,8 @@ static void ShowUpgrades() {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, adoption...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FLEA, L"Flea Market...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 236, 75, 16, IDOK, L"Close");
-    t.Item(STATIC, SS_LEFT, 10, 222, 120, 12, -1, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 258, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 
@@ -694,6 +699,7 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
 #include "pages.inc"
 #include "family.inc"
 #include "family_page.inc"
+#include "patcher_achievements.inc"
 
 // ---------------------------------------------------------------- hooks
 static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int param) {

@@ -25,6 +25,11 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
   House and Yard   Fill the house with trash or the yard with weeds, clean
                    them, trigger or fix all house malfunctions (leaks, clogs,
                    fires, power failure).
+  Patcher          Ten milestones of its own (Golden Years at 90, Centenarian at
+  Achievements     100, Beyond the Curve at 122, Dynasty, Legacy, Full House,
+                   Rainbow Wedding, Fresh Start, Amicable Split, Second
+                   Chance), kept per village. They are separate from the
+                   game's Trophies screen.
   Roll the Dice    $500: an island event happens right away.
   Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
                    Candidates (Reject shows another one); Force Marriage
