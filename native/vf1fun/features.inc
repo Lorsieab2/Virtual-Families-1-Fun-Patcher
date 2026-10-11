@@ -431,6 +431,58 @@ static void ApplyGameSpeed() {
     *GameSpeedSlot() = gWantedSpeed;
 }
 
+// ---------------------------------------------------------------- Power Failure (Fix Vanilla Game Bugs)
+// FIX: "KEEP THE FOOD" ALWAYS SAYS IT WAS FINE.
+// CEventThePowerFailure (vtable 0x4B594C): choice B ("keep the food") makes
+// GetRandom(GetRandom(4)) random villagers sick (ImpactGame 0x4198E0), but its
+// result text (GetResultDescription 0x4198C0) is always 0x5E7 "This stuff
+// still looks okay." -- 0x5E8 "Everyone gets an upset stomach. The food was
+// not ok." is never shown. The island-event dialog asks for the text when a
+// choice is clicked (0x41B144) and applies ImpactGame on OK (0x41B0D1), so the
+// roll is made here when the text is asked for, with the game's own
+// distribution, and ImpactGame applies exactly that roll. The dialog's
+// layout pass (0x41AC68 / 0x41ACA0) gets the longer text so it always fits.
+typedef int (__thiscall *ChoiceFn)(void *event, int choice);
+typedef int (__thiscall *RandomVillagerFn)(void *manager, int flag);
+typedef void (__thiscall *SymptomFn)(void *state, int symptom);
+static unsigned *const PowerFailureVtable = (unsigned *)0x4B594C;
+static const unsigned PowerFailureShowText = 0x41B14A;  // return address of the click-time call
+static const RandomVillagerFn RandomVillager = (RandomVillagerFn)0x48A490;
+static const SymptomFn SetSymptom = (SymptomFn)0x48FD80;
+static ChoiceFn OriginalPowerFailureImpact;
+static int gPowerFailureSick = -1;  // -1: no roll made for the choice on screen
+
+static int __fastcall PowerFailureText(void *, void *, int choice) {
+    if (choice == 0) return 0x5E6;
+    if ((unsigned)_ReturnAddress() != PowerFailureShowText) return 0x5E8;
+    gPowerFailureSick = GetRandom(GetRandom(4));
+    return gPowerFailureSick > 0 ? 0x5E8 : 0x5E7;
+}
+
+static int __fastcall PowerFailureImpact(void *event, void *, int choice) {
+    if (choice == 0 || gPowerFailureSick < 0)
+        return OriginalPowerFailureImpact(event, choice);
+    int sick = gPowerFailureSick;
+    gPowerFailureSick = -1;
+    typedef void (__thiscall *PropFn)(void *environment, int prop);
+    ((PropFn)0x4938C0)((void *)0x8752F0, 0x16);  // CEnvironment::SetProp, as ImpactGame
+    for (int i = 0; i < sick; ++i) {
+        int slot = RandomVillager(VillagerManager, 0);
+        if (slot < 0 || slot >= VillagerSlots) break;
+        SetSymptom(Villager(slot) + 0x2AD4, 2);
+    }
+    return 0;
+}
+
+static void InstallPowerFailureFix() {
+    unsigned *text = PowerFailureVtable + 11, *impact = PowerFailureVtable + 12;
+    if (*text != 0x4198C0 && *text != (unsigned)&PowerFailureText) return;
+    if (*impact != 0x4198E0 && *impact != (unsigned)&PowerFailureImpact) return;
+    unsigned unused;
+    HookVtableSlot(text, (void *)&PowerFailureText, &unused);
+    HookVtableSlot(impact, (void *)&PowerFailureImpact, (unsigned *)&OriginalPowerFailureImpact);
+}
+
 // ---------------------------------------------------------------- per-frame work
 static DWORD gLastHelperTick;
 static void FeaturesTick() {

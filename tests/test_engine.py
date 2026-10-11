@@ -10,7 +10,7 @@ from conftest import MANIFEST, ROOT, write_manifest
 
 SPEC = {
     'FixVanillaGameBugs': ('Fix Vanilla Game Bugs',
-        'Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption).'),
+        'Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).'),
     'OlderVillagerMortalityCurve': ('Older Villager Mortality Curve',
         "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75)."),
     'SpecialUpgrades': ('Add visible mobile version purchases',

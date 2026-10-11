@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <intrin.h>
 #include <shlobj.h>
 
 // ---------------------------------------------------------------- game ABI
@@ -767,9 +768,11 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     if (rate >= 0 && rate <= 100)
         gCheatInterestPercent = rate;
     ApplyEffectiveInterest();
-    if (SettingOn(L"FixVanillaGameBugs", true))
+    if (SettingOn(L"FixVanillaGameBugs", true)) {
         HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
                        (unsigned *)&OriginalAdoptionHandleMessage);
+        InstallPowerFailureFix();
+    }
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {

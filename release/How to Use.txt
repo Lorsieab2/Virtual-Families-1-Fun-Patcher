@@ -47,6 +47,11 @@ after you adopt, so the new family is kept. The same applies after Start Over
 and Next Generation. Quitting through the menu is still the best way to keep
 everything since then.
 
+The same setting fixes the Power Failure event: choosing to keep the food
+always said "This stuff still looks okay" even when people got sick. Now the
+words match what happens ("Everyone gets an upset stomach. The food was not
+ok.").
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).
