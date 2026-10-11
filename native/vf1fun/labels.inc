@@ -222,7 +222,7 @@ static void AddSitDown(Cands &c, const unsigned char *v) {
 // is the villager's own, every time the caption is written.
 static bool PrivateRomanticCouple(const unsigned char *villager) {
     int a = FounderSlot(), b = SpouseSlot();
-    return PrivateCoupleNow() && (villager == Villager(a) || villager == Villager(b));
+    return gPrivateRomantic && PrivateCoupleNow() && (villager == Villager(a) || villager == Villager(b));
 }
 
 typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
@@ -242,6 +242,15 @@ static const LabelSite kLabelSites[] = {
     { 0x45D3AA + 5, L_CAREER }, { 0x47ED34 + 5, L_CAREER }, { 0x470FF1 + 5, L_CAREER },
     { 0x478DB1 + 5, L_TRYBABY },
 };
+
+// Captions are cosmetic, so they use their own generator and never advance the game's (GetRandom drives
+// deaths and multiple births).
+static unsigned gLabelSeed;
+static int LabelRandom(int n) {
+    if (!gLabelSeed) gLabelSeed = GetTickCount() | 1;
+    gLabelSeed = gLabelSeed * 1664525u + 1013904223u;
+    return (int)((gLabelSeed >> 8) % (unsigned)n);
+}
 
 static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
     unsigned ret = (unsigned)_ReturnAddress();
@@ -269,12 +278,14 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         case L_CAREER: ADD(c, kCareer); break;
         case L_TRYBABY: if (PrivateRomanticCouple(v)) c.Add(kPrivateRomantic, 1); break;
         }
-        if (c.n > 0) src = c.v[GetRandom(c.n)];
+        if (c.n > 0) src = c.v[LabelRandom(c.n)];
     }
     return ((StrncpyFn)0x4993C0)(dest, src, n);
 }
 
-static void InstallBehaviorLabelVariants() {
+// allCaptions: the Behavior Label Variants setting; tryBaby: Private Adult Romantic Time (its caption alone).
+static void InstallBehaviorLabelVariants(bool allCaptions, bool tryBaby) {
     for (const LabelSite &s : kLabelSites)
-        RetargetCall(s.returnAddress - 5, 0x4993C0, (void *)&LabelCopy);  // only a call that still reaches strncpy
+        if (s.kind == L_TRYBABY ? (allCaptions || tryBaby) : allCaptions)
+            RetargetCall(s.returnAddress - 5, 0x4993C0, (void *)&LabelCopy);  // only a call that still reaches strncpy
 }

@@ -111,6 +111,7 @@ enum { ARM_FORCE = 1, ARM_MALE = 2, ARM_FEMALE = 4, ARM_SINGLE = 8, ARM_TWINS = 
 
 // 0x48EB8C: the try-for-a-baby step's ChanceOfPregnancy roll on the mother.
 static bool gOlderPregnancies;
+static bool gPrivateRomantic;
 static bool __fastcall ChanceWrapper(void *state, void *, int a, int b, int c) {
     if (gVillage.armed & ARM_FORCE) return true;
     // Allow Older Pregnancies (the Virtual Families 2 patcher's curve): the stock roll is
@@ -345,11 +346,15 @@ static bool PrivateCoupleNow() {
 // plan step that rolls ChanceOfPregnancy: `mov [eax+0x1B150], edi` (edi = now + 0x4B0, the same 1,200 s
 // VF2 uses) at 0x48EC70.
 extern "C" int __cdecl ShouldStoreFailedAttemptCooldown() {
-    if (PrivateCoupleNow()) return 0;
+    if (gPrivateRomantic && PrivateCoupleNow()) return 0;
     if (gOlderPregnancies) {
+        // the mother only, over 50: the same boundary as ChanceWrapper
         int a = FounderSlot(), b = SpouseSlot();
-        if ((a >= 0 && *(int *)(Villager(a) + 0x2A34) >= 50 * 20) || (b >= 0 && *(int *)(Villager(b) + 0x2A34) >= 50 * 20))
-            return 0;
+        if (a >= 0 && b >= 0) {
+            int ga = *(int *)(Villager(a) + 0x2A38), gb = *(int *)(Villager(b) + 0x2A38);
+            int mother = ga == gb ? -1 : (ga == 1 ? a : b);
+            if (mother >= 0 && *(int *)(Villager(mother) + 0x2A34) / 20 > 50) return 0;
+        }
     }
     return 1;
 }

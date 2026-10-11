@@ -910,13 +910,13 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallVF2Songs();
     if (SettingOn(L"CheatUpgrades", true))
         InstallFamilyHooks();
-    if (SettingOn(L"BehaviorLabelVariants", true))
-        InstallBehaviorLabelVariants();
+    gPrivateRomantic = SettingOn(L"PrivateRomanticTime", true);
+    InstallBehaviorLabelVariants(SettingOn(L"BehaviorLabelVariants", true), gPrivateRomantic);
     gClampResources = SettingOn(L"ClampMoneyAndFood", true);
     gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
     if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
         InstallChanceHook();
-    if (gOlderPregnancies || SettingOn(L"PrivateRomanticTime", true))
+    if (gOlderPregnancies || gPrivateRomantic)
         InstallCooldownRule();
     if (SettingOn(L"OlderVillagerMortalityCurve", true))
         InstallNextGenerationGate();
