@@ -82,10 +82,12 @@ static void FillList(HWND dlg, int keep) {
     }
     if (SendMessageW(list, LB_GETCURSEL, 0, 0) < 0) SendMessageW(list, LB_SETCURSEL, 0, 0);
 }
+// Hairstyles and outfits are locked to the villager's own gender: each gender's heads and bodies are drawn
+// from that gender's own sheets, so a row number only means the look shown here for that gender. The
+// Female / Male marks only show which set is listed.
 static void FollowGender(HWND dlg) {
     int who = PickedVillager(dlg);
-    if (who < 0) return;
-    gMale = *(int *)(Villager(who) + 0x2A38) != 1;
+    if (who >= 0) gMale = *(int *)(Villager(who) + 0x2A38) != 1;
     CheckRadioButton(dlg, ID_AP_FEMALE, ID_AP_MALE, gMale ? ID_AP_MALE : ID_AP_FEMALE);
 }
 static void Draw(DRAWITEMSTRUCT *d, int who) {
@@ -125,11 +127,10 @@ static void Draw(DRAWITEMSTRUCT *d, int who) {
 static void Apply(HWND dlg, int n) {
     int who = PickedVillager(dlg);
     if (who < 0) return;
-    bool otherGender = (*(int *)(Villager(who) + 0x2A38) != 1) != gMale;
+    if ((*(int *)(Villager(who) + 0x2A38) != 1) != gMale) return;  // gender-locked
     wchar_t text[200];
-    swprintf(text, 200, L"Change %.40hs's %ls to %ls #%d?%ls", (const char *)(Villager(who) + 0x2A44),
-             gOutfits ? L"outfit" : L"hairstyle", gMale ? L"male" : L"female", n,
-             otherGender ? L"\n\nThis is the other gender's look. It is drawn from the same row number." : L"");
+    swprintf(text, 200, L"Change %.40hs's %ls to #%d?", (const char *)(Villager(who) + 0x2A44),
+             gOutfits ? L"outfit" : L"hairstyle", n);
     if (!Confirm(dlg, text)) return;
     // The head and body rows are the same 0-49 numbers for both genders (each gender draws them from its own sheet).
     if (gOutfits) *Body(who) = n; else *Head(who) = n;
@@ -196,9 +197,6 @@ static INT_PTR CALLBACK Proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (id == ID_AP_HAIR || id == ID_AP_OUTFIT) {
             gOutfits = id == ID_AP_OUTFIT; gScroll = 0;
             UpdateScroll(dlg);
-        } else if (id == ID_AP_FEMALE || id == ID_AP_MALE) {
-            gMale = id == ID_AP_MALE;
-            UpdateScroll(dlg);
         } else if (id == IDOK || id == IDCANCEL) {
             EndDialog(dlg, 0);
         }
@@ -219,8 +217,8 @@ static void ShowAppearance(HWND owner) {
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 8, 8, 314, 62, ID_AP_LIST, L"");
     t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 76, 70, 12, ID_AP_HAIR, L"Hairstyles");
     t.Item(BUTTON, BS_AUTORADIOBUTTON, 82, 76, 60, 12, ID_AP_OUTFIT, L"Outfits");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 190, 76, 60, 12, ID_AP_FEMALE, L"Female");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON, 254, 76, 60, 12, ID_AP_MALE, L"Male");
+    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_DISABLED, 190, 76, 60, 12, ID_AP_FEMALE, L"Female");
+    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_DISABLED, 254, 76, 60, 12, ID_AP_MALE, L"Male");
     t.Item(STATIC, SS_OWNERDRAW | SS_NOTIFY | WS_BORDER, 8, 92, 300, 176, ID_AP_CANVAS, L"");
     t.Item(0x84, SBS_VERT, 308, 92, 12, 176, ID_AP_SCROLL, L"");
     t.Item(STATIC, SS_LEFT, 8, 274, 230, 20, ID_AP_HINT, L"Pick a villager, then click a hairstyle or outfit to give them.");

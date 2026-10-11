@@ -109,10 +109,16 @@ static const wchar_t *Psychotherapy(int i) {
     return 0;
 }
 
-// Age in units is villager +0x2A34, 20 units = 1 year. Written directly to 360 (18 years), exactly as the
-// Virtual Families 2 patcher's VF2SetSelectedVillagerAge does.
+// Age in units is villager +0x2A34, 20 units = 1 year. The result is VF2SetSelectedVillagerAge's: the age
+// becomes 360 (18 years). An older villager is written directly, as VF2 does. A younger one goes through
+// VF1's own IncrementAge (0x4897F0), like the Time Warp, so each skipped year's processing still runs in
+// order (VF1 does that processing inside IncrementAge, so a direct write would skip it).
+typedef void (__thiscall *IncrementAgeFn)(void *age, int amount);
 static const wchar_t *SetAgeTo18(int i) {
-    *(int *)(Villager(i) + 0x2A34) = 18 * 20;
+    int *age = (int *)(Villager(i) + 0x2A34);
+    const int target = 18 * 20;
+    if (*age < target) ((IncrementAgeFn)0x4897F0)(age, target - *age);
+    else *age = target;
     return 0;
 }
 

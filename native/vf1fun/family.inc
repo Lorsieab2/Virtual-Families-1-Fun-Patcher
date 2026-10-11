@@ -244,8 +244,17 @@ static const wchar_t *DivorceSpouse() {
     unsigned char *r = CurrentFamily();
     int spouse = SpouseSlot();
     if (!r || spouse < 0) return L"Nobody in the house is married.";
-    // As VF2DivorceSpouse: allowed at any time, even while expecting.
+    // As VF2DivorceSpouse: allowed at any time, even while expecting. VF1 (unlike VF2) creates the babies at
+    // conception and reserves their villager slots (theGameState +0x1B120..0x1B128), so when the spouse who
+    // leaves is the one expecting, that pregnancy ends with them and the reserved slots are freed, as Evict
+    // does; otherwise nobody would be left to deliver them and the slots would stay taken in the save.
+    // A pregnancy of the parent who stays is kept.
     unsigned char *v = Villager(spouse);
+    if (Pregnant(spouse)) {
+        unsigned char *gs = GameStateBytes();
+        *(int *)(v + 0x2AF8) = 0;
+        *(int *)(gs + 0x1B120) = -1; *(int *)(gs + 0x1B124) = -1; *(int *)(gs + 0x1B128) = -1;
+    }
     DetachAll(v);
     ForgetPlans(v, v);
     if (v[0x13575]) ClearFocus(VillagerManager);
