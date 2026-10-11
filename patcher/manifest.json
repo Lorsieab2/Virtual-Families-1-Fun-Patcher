@@ -322,6 +322,13 @@
           "replaces": true
         }
       ]
+    },
+    {
+      "id": "BehaviorLabelVariants",
+      "label": "Behavior Label Variants",
+      "description": "Varies the caption shown for a villager's action for Watching TV, Reading, Browsing the web, Playing video games, Taking a nap and the pool (laps, diving, cannonballs) (for example \"Watching a documentary\"), as in the Virtual Families 2 patcher. Captions only: the behaviors, their chances and career progression are not changed.",
+      "default": true,
+      "category": "optional"
     }
   ]
 }
