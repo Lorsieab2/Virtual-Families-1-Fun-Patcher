@@ -847,6 +847,11 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallVF2Songs();
     if (SettingOn(L"CheatUpgrades", true))
         InstallFamilyHooks();
+    gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
+    if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
+        InstallChanceHook();
+    if (SettingOn(L"OlderVillagerMortalityCurve", true))
+        InstallNextGenerationGate();
     if (rate >= 0 && rate <= 100)
         gCheatInterestPercent = rate;
     ApplyEffectiveInterest();

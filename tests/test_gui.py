@@ -107,7 +107,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert app.load_manifest_settings()
     assert {k: v.get() for k, v in app.setting_vars.items()} == {
         "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-        "SpecialUpgrades": True,
+        "AllowOlderPregnancies": True, "SpecialUpgrades": True,
         "CheatUpgrades": True, "FleaMarket": True, "RollTheDice": True, "CustomMapImages": True,
         "VF2Songs": True, "GlowingCollectables": True}
     text = labels_on_screen(app.settings_inner)
@@ -119,9 +119,9 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert not any(v.get() for v in app.setting_vars.values())
     app.select_category_settings("main")
     assert app.selected_settings() == {"FixVanillaGameBugs", "OlderVillagerMortalityCurve", "PrivateRomanticTime",
-                                      "SpecialUpgrades"}
+                                      "AllowOlderPregnancies", "SpecialUpgrades"}
     app.select_default_settings()
-    assert len(app.selected_settings()) == 10
+    assert len(app.selected_settings()) == 11
 
 
 def test_dependencies_tick_and_untick_together(app, tmp_path):

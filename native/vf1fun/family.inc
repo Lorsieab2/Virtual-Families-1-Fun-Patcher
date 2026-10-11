@@ -110,8 +110,18 @@ static void SyncTreeLook(int slot) {
 enum { ARM_FORCE = 1, ARM_MALE = 2, ARM_FEMALE = 4, ARM_SINGLE = 8, ARM_TWINS = 16, ARM_TRIPLETS = 32 };
 
 // 0x48EB8C: the try-for-a-baby step's ChanceOfPregnancy roll on the mother.
+static bool gOlderPregnancies;
 static bool __fastcall ChanceWrapper(void *state, void *, int a, int b, int c) {
     if (gVillage.armed & ARM_FORCE) return true;
+    // Allow Older Pregnancies (the Virtual Families 2 patcher's curve): the stock roll is
+    // certain failure for a mother over 50 (0x48FC97 `xor edi, edi`); here 10% at 50 tapers
+    // to a 0.1% floor from 69 on, rolled in tenths of a percent. Mothers up to 50 are stock.
+    int years = a / 20;
+    if (gOlderPregnancies && years > 50) {
+        int tenths = 100 - (years - 50) * 99 / 19;
+        if (tenths < 1) tenths = 1;
+        return GetRandom(1000) < tenths;
+    }
     return ChanceOfPregnancy(state, a, b, c);
 }
 // 0x48EBB2: the same step's Impregnate call.
@@ -312,10 +322,35 @@ static bool RetargetCall(unsigned site, unsigned target, void *replacement) {
     return WriteCode(site + 1, &rel, 4);
 }
 
+static void InstallChanceHook() {  // Allow Older Pregnancies and Force Successful Pregnancy share this call site
+    RetargetCall(0x48EB8C, 0x48FC10, (void *)&ChanceWrapper);
+}
+
+// Next Generation. The Family Tree screen shows its Next Generation button only when the
+// current family's "a parent died and children survive" flag is set (CFamilyTree
+// 0x481780, called at 0x439390). With the Older Villager Mortality Curve there is no
+// hard maximum age, so parents may never die: the button is also offered when the
+// oldest parent still at home is 60 or older and a child survives (the Virtual
+// Families 2 patcher's rule). The game's own flow then retires everyone but the
+// chosen heir, as it does after a death.
+static bool __fastcall NextGenerationGate(void *tree) {
+    typedef bool (__thiscall *FlagFn)(void *);
+    if (((FlagFn)0x481780)(tree)) return true;
+    if (!gMortalityOn || !CurrentFamily()) return false;
+    if (((ThisIntFn)0x481850)(tree) <= 0) return false;  // CountSurvivingChildren
+    int a = FounderSlot(), b = SpouseSlot();
+    int oldest = 0;
+    if (a >= 0) oldest = *(int *)(Villager(a) + 0x2A34);
+    if (b >= 0 && *(int *)(Villager(b) + 0x2A34) > oldest) oldest = *(int *)(Villager(b) + 0x2A34);
+    return oldest >= 60 * 20;
+}
+static void InstallNextGenerationGate() {
+    RetargetCall(0x439390, 0x481780, (void *)&NextGenerationGate);
+}
+
 static void InstallFamilyHooks() {
     RetargetCall(0x4368C5, 0x481E00, (void *)&AdoptStartFamilyTree);
     RetargetCall(0x4368D6, 0x422640, (void *)&AdoptMoneySet);
-    RetargetCall(0x48EB8C, 0x48FC10, (void *)&ChanceWrapper);
     RetargetCall(0x48EBB2, 0x4864D0, (void *)&ImpregnateWrapper);
     RetargetCall(0x486570, 0x403650, (void *)&FirstBabyRoll);
     RetargetCall(0x486586, 0x403650, (void *)&SecondBabyRoll);
