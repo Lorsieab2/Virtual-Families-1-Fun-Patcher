@@ -90,6 +90,7 @@ In the modded game folder (default "Virtual Families - Modded"):
 - Images\remote.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\remote.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\remote.png and put back when it is off.
 - Images\workroomUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\workroomUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\workroomUpgrade.png and put back when it is off.
 - Images\fridgeStates.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fridgeStates.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fridgeStates.png and put back when it is off.
+- Images\help.jpg: replaced only while Custom Map/Game Images is on (from payload\CustomImages\help.jpg); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\help.jpg and put back when it is off.
 - Virtual Families 1 Patcher Files\VF2 Songs\menu.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\menu.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song1.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song1.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song2.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song2.ogg).

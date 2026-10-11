@@ -258,6 +258,11 @@
           "source": "CustomImages/fridgeStates.png",
           "target": "Images/fridgeStates.png",
           "replaces": true
+        },
+        {
+          "source": "CustomImages/help.jpg",
+          "target": "Images/help.jpg",
+          "replaces": true
         }
       ]
     },
