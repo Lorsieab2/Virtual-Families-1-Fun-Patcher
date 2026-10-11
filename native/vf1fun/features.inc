@@ -124,8 +124,10 @@ static unsigned *const GameStateVtable = (unsigned *)0x4B5E50;  // RTTI theGameS
 // theGameState::Load(slot): at startup the game loads slots 1-5 one after
 // another to read their family names, then the current one, so the last
 // successful load wins -- which is the village being played.
+static void NormalSpeedForSaveFile(bool restoreAfter);
 static bool __fastcall GameStateLoad(void *state, void *, int slot) {
     bool ok = OriginalGameStateLoad(state, slot);
+    if (ok) NormalSpeedForSaveFile(false);  // a saved village always comes back at normal speed
     if (ok && slot >= 1 && slot <= 5) {
         gAdoptionMode = 0;
         LoadVillageState(slot);
@@ -135,8 +137,11 @@ static bool __fastcall GameStateLoad(void *state, void *, int slot) {
 }
 
 // theGameState::Save(slot): slots 21+ are the game's backup copies.
+static int gSpeedBeforeSave;
 static bool __fastcall GameStateSave(void *state, void *, int slot) {
+    NormalSpeedForSaveFile(true);  // never write a Time Controls speed into the save
     bool ok = OriginalGameStateSave(state, slot);
+    if (gSpeedBeforeSave) { *(int *)((unsigned char *)state + 0x1B180) = gSpeedBeforeSave; gSpeedBeforeSave = 0; }
     if (ok && slot >= 1 && slot <= 5)
         SaveVillageState(slot);
     return ok;
@@ -443,6 +448,21 @@ static void ResumeGame() {
 }
 // Speed: CGameTime runs at 10/speed, so 5 is 2x, 2 is 5x and 1 is 10x.
 static int gWantedSpeed = 10;
+
+// The speed slot is part of the saved game (theGameState +0x1B180), and the game catches up on the time it
+// was closed at that speed: a village saved at 10x aged 26 years in the 10.6 hours it was closed (live
+// 2026-10-11) and its people died of the neglect. So a Time Controls speed never reaches the save file:
+// it is written at normal speed (paused stays paused), and a save that already holds one (written by an
+// earlier version) loads at normal speed. Only the stock values 10 and 999+10 are left alone.
+static void NormalSpeedForSaveFile(bool restoreAfter) {
+    if (!GameStateGet()) return;
+    int *slot = GameSpeedSlot();
+    int s = *slot, paused = s >= 999 ? 999 : 0, speed = s - paused;
+    if (speed == 10) return;
+    if (restoreAfter) gSpeedBeforeSave = s;
+    else { gWantedSpeed = 10; if (!paused) SetSpeed(GameTime, 10); }
+    *slot = paused + 10;
+}
 static void ApplyGameSpeed() {
     if (GamePaused() || *GameSpeedSlot() == gWantedSpeed) return;
     SetSpeed(GameTime, gWantedSpeed);
