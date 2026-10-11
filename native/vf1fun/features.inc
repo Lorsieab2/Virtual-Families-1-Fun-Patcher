@@ -49,6 +49,7 @@ struct VillageState {
     int sameSex, reroll;          // Enable Same-Sex Marriage, Allow Reroll of Marriage Candidates
     int armed;                    // pregnancy one-shots (family.inc ARM_*)
     unsigned achievements;        // patcher_achievements.inc: one bit per unlocked milestone
+    int bankRate;                 // the family's bank interest in percent, as the Brokerage Account leaves it; 0 = the game's 10%
 };
 static VillageState gVillage = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 };
 static int gAdoptionMode;         // family.inc: an Evict or Adopt New Person in progress
@@ -91,6 +92,8 @@ static void LoadVillageState(int slot) {
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
         v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFFF;
+        v.bankRate = GetPrivateProfileIntW(L"Village", L"BankInterestPercent", v.brokerage ? 11 : 0, path);
+        if (v.bankRate < 0 || v.bankRate > 11) v.bankRate = 0;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
@@ -108,6 +111,7 @@ static void SaveVillageState(int slot) {
         { L"PriceMultiplier", (unsigned)gVillage.priceMultiplier }, { L"FoodClubLastDelivery", gVillage.foodClubLast },
         { L"SameSexMarriage", (unsigned)gVillage.sameSex }, { L"RerollMarriageCandidates", (unsigned)gVillage.reroll },
         { L"NextPregnancy", (unsigned)gVillage.armed }, { L"PatcherAchievements", gVillage.achievements },
+        { L"BankInterestPercent", (unsigned)gVillage.bankRate },
     };
     for (int i = 0; i < (int)(sizeof rows / sizeof rows[0]); ++i) {
         swprintf(s, 32, L"%u", rows[i].value);
@@ -229,10 +233,9 @@ static void ApplyLuckyRock() {
 // ---------------------------------------------------------------- bank
 static float gCheatInterestPercent = -1.f;  // the Cheat Upgrades rate, if set
 static void ApplyEffectiveInterest() {
-    float base = gCheatInterestPercent >= 0 ? gCheatInterestPercent : 10.f;
-    // VF2's Brokerage Account: +2 points, at most 11%.
-    if (gVillage.brokerage && gCheatInterestPercent < 0)
-        base = base + 2 > 11 ? 11 : base + 2;
+    // The family's own rate (the game's 10% until the Brokerage Account changes it); the Cheat Upgrades rate
+    // overrides it while set.
+    float base = gCheatInterestPercent >= 0 ? gCheatInterestPercent : (gVillage.bankRate ? (float)gVillage.bankRate : 10.f);
     ApplyInterestRate(base);
 }
 

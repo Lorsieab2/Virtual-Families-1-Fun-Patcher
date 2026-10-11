@@ -244,16 +244,15 @@ static const wchar_t *DivorceSpouse() {
     unsigned char *r = CurrentFamily();
     int spouse = SpouseSlot();
     if (!r || spouse < 0) return L"Nobody in the house is married.";
-    if (Pregnant(spouse) || Pregnant(FounderSlot()))
-        return L"Not while the family is expecting a baby.";
+    // As VF2DivorceSpouse: allowed at any time, even while expecting.
     unsigned char *v = Villager(spouse);
     DetachAll(v);
     ForgetPlans(v, v);
     if (v[0x13575]) ClearFocus(VillagerManager);
     v[0x13574] = 0;
-    unsigned char *peep = r + 0xDC;
-    *(int *)(peep + 0x28) = -1;
-    peep[0x1A] = 0;
+    // VF2 clears the whole 0xD8-byte second-adult record of the family.
+    memset(r + 0xDC, 0, 0xD8);
+    *(int *)(r + 0xDC + 0x28) = -1;  // VF1's "no villager slot" for a record
     SaveCurrentGame(GameStateGet());
     return 0;
 }

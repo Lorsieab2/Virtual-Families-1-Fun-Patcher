@@ -187,7 +187,16 @@ static const char *const kCareer[] = {
     "Updating career portfolio",
     "Updating resume",
     "Updating CV" };
-static const char *const kChildHomework[] = { "Doing homework", "Procrastinating" };
+// VF2's kids_table group: what a child at the homework table may be doing.
+static const char *const kChildHomework[] = {
+    "Doing arts and crafts",
+    "Making origami",
+    "Coloring in a coloring book",
+    "Making clay sculptures",
+    "Making charm bracelets",
+    "Making necklaces",
+    "Doing homework",
+    "Procrastinating" };
 static const char *const kPrivateRomantic[] = { "Having private adult romantic time" };
 
 struct Cands {
