@@ -37,6 +37,13 @@
       "category": "main"
     },
     {
+      "id": "ClampMoneyAndFood",
+      "label": "Clamp Max Money and Food",
+      "description": "Keeps coins at no more than 4,000,000,000 and food at no more than 2,147,483,647, the Virtual Families 2 patcher's maximums (the original game has no limit, and food wraps to a negative number past 2,147,483,647, which glitches the game).",
+      "default": true,
+      "category": "main"
+    },
+    {
       "id": "SpecialUpgrades",
       "label": "Add visible mobile version purchases",
       "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.",

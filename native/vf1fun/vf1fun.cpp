@@ -214,10 +214,18 @@ static void Message(HWND owner, const wchar_t *text) {
 enum { ID_MONEY_NOW = 100, ID_ADD1K, ID_ADD10K, ID_ADD100K, ID_SET_EDIT, ID_SET, ID_RATE_EDIT, ID_RATE,
        ID_FOOD_NOW, ID_FOOD100, ID_FOOD1000, ID_FOOD_EDIT, ID_FOOD_SET, ID_MONEY0, ID_ADD100, ID_ADDMAX,
        ID_FOOD0, ID_FOOD10K, ID_FOODMAX };
-// VF1 has no maximum for money or food (CMoney::Adjust and CFoodStore::Adjust
-// never clamp upward); these are the largest amounts the HUD still shows whole.
-static const float kMaxMoney = 99999999.f;
-static const int kMaxFood = 99999;
+// The Virtual Families 2 patcher's maximums: 4,000,000,000 coins and 2,147,483,647 food (a
+// signed 32-bit int). VF1 never clamps upward (CMoney::Adjust 0x422740 and
+// CFoodStore::Adjust 0x4221B0 only keep food from going below zero), so past 2^31 food wraps
+// to a negative number; the Clamp Money and Food setting pins both to these values.
+static const float kMaxMoney = 4000000000.f;
+static const int kMaxFood = 2147483647;
+static void AddFoodSaturating(int amount) {  // never wraps past the maximum
+    long long total = (long long)*Food + amount;
+    if (total > kMaxFood) total = kMaxFood;
+    if (total < 0) total = 0;
+    FoodAdjust(Food, (int)(total - *Food));
+}
 
 static void RefreshCheats(HWND dlg) {
     wchar_t s[128];
@@ -279,7 +287,7 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             FoodAdjust(Food, (id == ID_FOODMAX ? kMaxFood : 0) - *Food);
             RefreshCheats(dlg);
         } else if (id == ID_FOOD100 || id == ID_FOOD10K) {
-            FoodAdjust(Food, id == ID_FOOD100 ? 100 : 10000);
+            AddFoodSaturating(id == ID_FOOD100 ? 100 : 10000);
             RefreshCheats(dlg);
         } else if (add) {
             MoneyAdjust(Money, add, false);  // not "earned": no money achievements
@@ -288,7 +296,7 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_SET_EDIT, s, 64);
             float target = (float)_wtof(s);
-            if (target < 0 || target > 1e9f) { Message(dlg, L"Enter an amount from 0 to 1,000,000,000."); break; }
+            if (target < 0 || target > kMaxMoney) { Message(dlg, L"Enter an amount from 0 to 4,000,000,000."); break; }
             MoneyAdjust(Money, target - CurrentMoney(), false);
             RefreshCheats(dlg);
         } else if (id == ID_RATE) {
@@ -301,9 +309,9 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         } else if (id == ID_FOOD_SET) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_FOOD_EDIT, s, 64);
-            int target = _wtoi(s);
-            if (target < 0 || target > 1000000) { Message(dlg, L"Enter an amount of food from 0 to 1,000,000."); break; }
-            FoodAdjust(Food, target - *Food);
+            long long target = _wtoi64(s);
+            if (target < 0 || target > kMaxFood) { Message(dlg, L"Enter an amount of food from 0 to 2,147,483,647."); break; }
+            AddFoodSaturating((int)(target - *Food));
             RefreshCheats(dlg);
         } else if (id == IDCANCEL || id == IDOK) {
             EndDialog(dlg, 0);
@@ -636,7 +644,7 @@ enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE,
        ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH };
 static void ShowAchievements(HWND owner);
 static int AchievementsUnlocked();
-static const int kAchievementTotal = 10;  // ACH_COUNT, patcher_achievements.inc
+static const int kAchievementTotal = 12;  // ACH_COUNT, patcher_achievements.inc
 static void ShowFamily(HWND owner);
 static int gFamilyAction;
 static void ShowStoreCheats(HWND owner);
@@ -847,6 +855,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallVF2Songs();
     if (SettingOn(L"CheatUpgrades", true))
         InstallFamilyHooks();
+    gClampResources = SettingOn(L"ClampMoneyAndFood", true);
     gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
     if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
         InstallChanceHook();

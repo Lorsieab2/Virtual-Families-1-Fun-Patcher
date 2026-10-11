@@ -14,8 +14,7 @@ patch settings you can switch off):
   - money: No Money, +100, +10,000, Max, or set an exact amount;
   - food: No Food, +100, +10,000, Max, or set an exact amount;
   - change the bank's interest rate, which is remembered between sessions.
-  - Cheat money doesn't count toward the money achievements. VF1 has no real
-    maximum for money or food, so Max is 99,999,999 coins and 99,999 food.
+  - Cheat money doesn't count toward the money achievements. The Clamp Max Money and Food setting keeps both at the VF2 maximums.
 - **Villager Cheats:** for one villager or everyone:
   - max health, cure illnesses, max happiness, max energy, fill up (Fed);
   - Instant job promotion, and Career Change (adults with a career);
@@ -51,14 +50,14 @@ patch settings you can switch off):
   fit this game, with the same names (Lucky 70's, Great 80's, Mighty 90's,
   Centenarian, Oldest Person in History, Return of the Rainbow, Spiky!,
   Blue's Clues, A Decade in Blue,
-  Achiever Extraordinaire), kept per village on their own page. The game's
+  Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), kept per village on their own page. The game's
   Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
 - **Roll the Dice:** costs $500, and an island event happens right away,
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 
-Four settings change the base game on their own:
+Five settings change the base game on their own:
 - **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
   no hard maximum age. Because parents can live on, the Family Tree's Next
   Generation button is also offered once the oldest parent at home is 60 and a
@@ -66,6 +65,8 @@ Four settings change the base game on their own:
 - **Private Adult Romantic Time:** a married opposite-sex couple at six children
   can still have private romantic time (the game refused with "They have enough
   kids already!"), with the stock cooldown, as in the VF2 patcher.
+- **Clamp Max Money and Food:** coins stay at or under 4,000,000,000 and food at or under
+  2,147,483,647 (the VF2 maximums); the original game has no limit and food wraps negative.
 - **Allow Older Pregnancies:** mothers over 50 can still conceive (10% at 50, tapering
   to a 0.1% floor from 69), as in the VF2 patcher.
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed

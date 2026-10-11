@@ -191,7 +191,7 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 MoneyAdjust(Money, (float)-p.price, false);
                 owned = 1;
                 if (p.owned == &VillageState::foodClub) {
-                    FoodAdjust(Food, kOrganicBagFood);
+                    AddFoodSaturating(kOrganicBagFood);
                     gVillage.foodClubLast = GameSeconds(GameTime);
                 }
             }

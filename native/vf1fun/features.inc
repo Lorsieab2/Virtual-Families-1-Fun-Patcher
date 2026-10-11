@@ -90,7 +90,7 @@ static void LoadVillageState(int slot) {
         v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
-        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0x3FF;
+        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFFF;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;
@@ -493,8 +493,18 @@ static void InstallPowerFailureFix() {
 
 // ---------------------------------------------------------------- per-frame work
 static void CheckAchievements();  // patcher_achievements.inc
+// Clamp Money and Food: the Virtual Families 2 maximums (vf1fun.cpp, kMaxMoney / kMaxFood).
+// Food is never legitimately negative (CFoodStore::Adjust floors it at 0), so a negative
+// value can only be an overflow past 2^31 and is put back to the maximum.
+static bool gClampResources;
+static void ClampResources() {
+    float *money = (float *)Money;
+    if (*money > 4000000000.f) *money = 4000000000.f;
+    if (*Food < 0) *Food = 2147483647;
+}
 static DWORD gLastHelperTick;
 static void FeaturesTick() {
+    if (gClampResources) ClampResources();
     unsigned char *state = (unsigned char *)GameStateGet();
     if (!state || *(int *)(state + 0x1B300) != 0)   // main scene only
         return;
@@ -511,7 +521,7 @@ static void FeaturesTick() {
         if (gVillage.foodClubLast == 0 || t < gVillage.foodClubLast)
             gVillage.foodClubLast = t;
         while (t - gVillage.foodClubLast >= 86400) {
-            FoodAdjust(Food, kOrganicBagFood);
+            AddFoodSaturating(kOrganicBagFood);
             gVillage.foodClubLast += 86400;
         }
     }

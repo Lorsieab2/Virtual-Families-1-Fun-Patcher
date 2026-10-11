@@ -6,17 +6,16 @@
 // them on their own page. A new village starts with none (theGameState::Init
 // resets gVillage).
 //
-// Left out because VF1 cannot meet them: "No More Worries" and "Solving World
-// Hunger" (VF1 has no maximum coins or food: CMoney::Adjust and
-// CFoodStore::Adjust never clamp upward), the pet goals, and the behavior,
+// Left out because VF1 cannot meet them: the pet goals, and the behavior,
 // holiday, birthday and furniture goals (VF1 has none of those items or
-// behaviors).
+// behaviors). "No More Worries" and "Solving World Hunger" use the maximums of the
+// Clamp Money and Food setting (4,000,000,000 coins, 2,147,483,647 food).
 //
 // The state is read live every 15 seconds on the main scene (CheckAchievements,
 // from FeaturesTick) and when the page opens.
 struct PatcherAchievement { const wchar_t *name; const wchar_t *how; };
 enum { ACH_LUCKY_70, ACH_GREAT_80, ACH_MIGHTY_90, ACH_CENTENARIAN, ACH_OLDEST_IN_HISTORY, ACH_RAINBOW, ACH_SPIKY,
-       ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_EXTRAORDINAIRE, ACH_COUNT };
+       ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_NO_MORE_WORRIES, ACH_WORLD_HUNGER, ACH_EXTRAORDINAIRE, ACH_COUNT };
 static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Lucky 70's", L"Have a person reach age 70." },
     { L"Great 80's", L"Have a person reach age 80." },
@@ -27,6 +26,8 @@ static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Spiky!", L"Have a male villager with head value 48 in the family tree." },
     { L"Blue's Clues", L"Have a male villager with head value 49 in the family tree." },
     { L"A Decade in Blue", L"Have a female villager with head value 48 in the family tree." },
+    { L"No More Worries", L"Have the maximum amount of coins in the bank account." },
+    { L"Solving World Hunger", L"Have the maximum amount of food in the fridge." },
     { L"Achiever Extraordinaire", L"Complete every enabled achievement." },
 };
 
@@ -80,6 +81,8 @@ static void CheckAchievements() {
     if (FamilyTreeHas(0, kLastHead - 1)) UnlockAchievement(ACH_SPIKY);
     if (FamilyTreeHas(0, kLastHead)) UnlockAchievement(ACH_BLUES_CLUES);
     if (FamilyTreeHas(1, kLastHead - 1)) UnlockAchievement(ACH_DECADE_IN_BLUE);
+    if (*(float *)Money >= 4000000000.f) UnlockAchievement(ACH_NO_MORE_WORRIES);
+    if (*Food == 2147483647) UnlockAchievement(ACH_WORLD_HUNGER);
     if (AchievementsUnlocked() == ACH_COUNT - 1) UnlockAchievement(ACH_EXTRAORDINAIRE);
 }
 
