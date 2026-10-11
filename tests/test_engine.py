@@ -34,7 +34,7 @@ SPEC = {
     'GlowingCollectables': ('Glowing Collectables',
         'Makes the collectables in the yard glow, so they are easier to spot.'),
     'BehaviorLabelVariants': ('Behavior Label Variants',
-        'Varies the caption shown for a villager\'s action, using the Virtual Families 2 patcher\'s own captions: Watching TV, Reading, Browsing the web, Playing video games, Playing a board game, Doing homework, the sandbox, watering the flower boxes, Taking a nap (with the sit-down captions), the pool, career work at the computer, kitchen and workshop, and "Having private adult romantic time" for a couple that cannot conceive. Captions only: the behaviors, their chances and career progression are not changed.'),
+        'Varies the caption shown for a villager\'s action, using the Virtual Families 2 patcher\'s own captions: Watching TV, Reading, Browsing the web, Playing video games, Playing a board game, Doing homework, the sandbox, watering the flower boxes, Taking a nap (with the sit-down captions), the pool, career work at the computer, kitchen and workshop, and "Having private adult romantic time" for a couple that cannot conceive. Age-appropriate, as in VF2: online shopping from 13, social media, teen games and teen homework from 14, child pool games and homework for younger villagers. Captions only: the behaviors, their chances and career progression are not changed.'),
 }
 
 

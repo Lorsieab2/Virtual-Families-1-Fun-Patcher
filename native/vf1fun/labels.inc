@@ -1,30 +1,18 @@
-// labels.inc -- "Behavior Label Variants" (every variant caption is one the Virtual Families 2 patcher already uses): the caption under a villager ("Action" on the info bar) varies
-// for a few actions, as in the Virtual Families 2 patcher. LABELS ONLY: the behaviors, their selection
-// weights, praise training and career progression are not touched.
+// labels.inc -- "Behavior Label Variants": the caption under a villager ("Action" on the info bar) varies for a
+// set of actions, using ONLY the captions and age rules of the Virtual Families 2 patcher. LABELS ONLY: the
+// behaviors, their selection weights, praise training and career progression are not touched.
 //
-// Each behavior copies its caption into the villager's 40-byte label (villager +0x13594) with
-// `strncpy(label, theStringManager::GetString(id), 0x27)`. At each verified call site the call to
-// GetString (0x44FD90) is retargeted to a wrapper that returns one of this action's variants (or the
-// stock caption) instead. The variant is chosen once, when the action starts. Every caption is at
-// most 39 characters.
+// Each behavior copies its caption into the villager's 40-byte label with
+// `strncpy(villager + 0x13594, GetString(id), 0x27)`. At each verified copy the call to strncpy (0x4993C0) is
+// retargeted to LabelCopy, which knows the action from its return address and the villager from the
+// destination (villager = dest - 0x13594), and writes one of VF2's captions for that action and that
+// villager's age instead. The caption is chosen once, when the action starts. Every caption is at most 39
+// characters. This file's arrays are generated from the VF2 generator's BEHAVIOR_LABEL_GROUPS.
 //
-// Sites (all confirmed by disassembly to be the label write of that action):
-//   Watching TV            0x470C8C 0x4789AD 0x47EC32   (string 0x60)
-//   Reading a magazine     0x45F658                     (0x9C)
-//   Browsing the web       0x47EB3F 0x47EB7F            (0x3D0)
-//   Playing video games    0x476A47                     (0x10D)
-//   Taking a nap           0x45FAF7 0x464D47            (0x9F)
-//   Career work: computer 0x45D399 (0x95), kitchen 0x47ED23 (0x101), workshop 0x470FE0 (0x104)
-//   Trying to make a baby: strncpy at 0x478DB1 (0x1C0): 'private adult romantic time' for couples that cannot conceive
-//   Sandbox                0x460E50 (0xA7); Watering the flower boxes 0x463318 0x4635A8 (0xBB)
-//   Board game 0x474A16 (0x6B); Homework 0x46CFA7 (0xA5) 0x46CB2E (0xED)
-//   Playing in the pool    0x45F19C 0x465F91 0x466241   (0x9B, 0xCF swimming, 0xD0 splashing)
+// VF2's age gates (CVillager age in 20-a-year units, as in VF1): web "buying" from 13 (260); teen lists
+// from 14 (280); adult lists from 19 (380).
 
-typedef const char *(__thiscall *GetStringFn2)(void *strings, int id);
-static const GetStringFn2 StockGetString = (GetStringFn2)0x44FD90;
-
-struct LabelSet { const char *const *variants; int count; };
-static const char *const kTVLabels[] = {
+static const char *const kTV[] = {
     "Watching a movie",
     "Watching a TV show",
     "Watching a documentary",
@@ -33,7 +21,7 @@ static const char *const kTVLabels[] = {
     "Watching MovieFlix",
     "Watching cartoons",
     "Watching anime" };
-static const char *const kReadingLabels[] = {
+static const char *const kReading[] = {
     "Reading a novel",
     "Reading a textbook",
     "Reading a comic book",
@@ -41,13 +29,26 @@ static const char *const kReadingLabels[] = {
     "Reading a chapter book",
     "Reading manga",
     "Reading a how-to manual" };
-static const char *const kWebLabels[] = {
+static const char *const kWebBasic[] = {
     "Browsing LDWForums",
     "Watching cat videos",
     "Watching memes",
     "Making memes",
     "Posting memes online" };
-static const char *const kGameLabels[] = {
+static const char *const kWeb13Plus[] = {
+    "Buying stuff online" };
+static const char *const kWebAdult[] = {
+    "Browsing Fakebook",
+    "Browsing social media",
+    "Browsing VideoTube",
+    "Browsing ClipTok",
+    "Browsing Picstagram",
+    "Posting on Fakebook",
+    "Posting on social media",
+    "Posting on VideoTube",
+    "Posting on ClipTok",
+    "Posting on Picstagram" };
+static const char *const kGame[] = {
     "Playing Virtual Villagers",
     "Playing Virtual Town",
     "Playing Virtual Families",
@@ -61,35 +62,10 @@ static const char *const kGameLabels[] = {
     "Playing Poptropicals",
     "Playing Club Puffle",
     "Playing PetKinz" };
-static const char *const kPoolLabels[] = {
-    "Doing laps in the pool",
-    "Practicing swimming lessons",
-    "Practicing diving technique",
-    "Diving underwater",
-    "Cannonball!",
-    "Diving to the bottom of the pool",
-    "Practicing underwater backflips",
-    "Practicing underwater frontflips",
-    "Practicing underwater handstands",
-    "Snorkelling" };
-// The nap pool also holds the "needs to sit down" captions (VF2's sit-down group).
-static const char *const kSandboxLabels[] = {
-    "Making sand sculptures",
-    "Digging moats",
-    "Digging to the center of the earth" };
-static const char *const kFlowerLabels[] = {
-    "Gardening",
-    "Caring for the Magic Plants" };
-static const char *const kBoardGameLabels[] = {
-    "Playing chess",
-    "Playing checkers" };
-static const char *const kHomeworkLabels[] = {
-    "Doing math homework",
-    "Doing geography homework",
-    "Doing biology homework",
-    "Doing literature homework",
-    "Procrastinating" };
-static const char *const kNapLabels[] = {
+static const char *const kGameTeen[] = {
+    "Playing The Older Scrolls",
+    "Playing RimWorld" };
+static const char *const kNapDream[] = {
     "Dreaming of Isola",
     "Dreaming of family",
     "Dreaming of pets",
@@ -119,7 +95,8 @@ static const char *const kNapLabels[] = {
     "Dreaming of swimming",
     "Dreaming of flying",
     "Dreaming of falling",
-    "Dreaming of discovering something",
+    "Dreaming of discovering something" };
+static const char *const kSitGeneral[] = {
     "Thinking",
     "Taking a moment to reflect",
     "Thinking of family",
@@ -143,11 +120,52 @@ static const char *const kNapLabels[] = {
     "Scrapbooking",
     "Texting friends",
     "Texting family",
-    "Texting relatives",
+    "Texting relatives" };
+static const char *const kSitAdult[] = {
+    "Thinking of children",
+    "Thinking of grandchildren",
+    "Thinking of spouse",
+    "Texting spouse" };
+static const char *const kSitWork[] = {
     "Thinking of work" };
-// Career captions: VF2 uses one list for all three workstations (computer, kitchen, workshop).
-// Captions only; the behavior, its weights and the career progression are not touched.
-static const char *const kCareerLabels[] = {
+static const char *const kSitSchool[] = {
+    "Thinking of school" };
+static const char *const kSitTeenFemale[] = {
+    "Texting boyfriend" };
+static const char *const kSitTeenMale[] = {
+    "Texting girlfriend" };
+static const char *const kPoolGeneral[] = {
+    "Doing laps in the pool",
+    "Practicing swimming lessons",
+    "Practicing diving technique",
+    "Diving underwater",
+    "Cannonball!",
+    "Diving to the bottom of the pool",
+    "Practicing underwater backflips",
+    "Practicing underwater frontflips",
+    "Practicing underwater handstands",
+    "Snorkelling" };
+static const char *const kPoolChild[] = {
+    "Playing mermaids",
+    "Playing pirates",
+    "Playing dolphins",
+    "Playing sharks" };
+static const char *const kSandbox[] = {
+    "Making sand sculptures",
+    "Digging moats",
+    "Digging to the center of the earth" };
+static const char *const kFlower[] = {
+    "Gardening",
+    "Caring for the Magic Plants" };
+static const char *const kBoard[] = {
+    "Playing chess",
+    "Playing checkers" };
+static const char *const kTeenHomework[] = {
+    "Doing math homework",
+    "Doing geography homework",
+    "Doing biology homework",
+    "Doing literature homework" };
+static const char *const kCareer[] = {
     "Practicing career skills",
     "Practicing new work techniques",
     "Working on a job project",
@@ -169,95 +187,94 @@ static const char *const kCareerLabels[] = {
     "Updating career portfolio",
     "Updating resume",
     "Updating CV" };
+static const char *const kChildHomework[] = { "Doing homework", "Procrastinating" };
+static const char *const kPrivateRomantic[] = { "Having private adult romantic time" };
 
-// The stock caption is one of the choices, so the original text still appears some of the time.
-static const char *PickLabel(void *strings, int id, const LabelSet &set) {
-    int pick = GetRandom(set.count + 1);
-    return pick == set.count ? StockGetString(strings, id) : set.variants[pick];
-}
+struct Cands {
+    const char *v[160];
+    int n;
+    Cands() : n(0) {}
+    void Add(const char *const *items, int count) { for (int i = 0; i < count && n < 160; ++i) v[n++] = items[i]; }
+};
+#define ADD(c, a) (c).Add(a, (int)(sizeof a / sizeof a[0]))
 
-static const char *__fastcall TVCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kTVLabels, (int)(sizeof kTVLabels / sizeof kTVLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall ReadingCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kReadingLabels, (int)(sizeof kReadingLabels / sizeof kReadingLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall WebCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kWebLabels, (int)(sizeof kWebLabels / sizeof kWebLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall GameCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kGameLabels, (int)(sizeof kGameLabels / sizeof kGameLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall NapCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kNapLabels, (int)(sizeof kNapLabels / sizeof kNapLabels[0]) };
-    return PickLabel(strings, id, set);
-}
+enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY };
 
-static const char *__fastcall PoolCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kPoolLabels, (int)(sizeof kPoolLabels / sizeof kPoolLabels[0]) };
-    return PickLabel(strings, id, set);
+static const int kAge13 = 0x104, kAgeTeen = 0x118, kAgeAdult = 0x17C;
+
+static int VillagerAge(const unsigned char *v) { return *(const int *)(v + 0x2A34); }
+static bool VillagerHasCareer(const unsigned char *v) { return *(const int *)(v + 0x2B6C) != -1; }
+static bool VillagerIsFemale(const unsigned char *v) { return *(const int *)(v + 0x2A38) == 1; }
+
+// VF2ApplySitDownLabelPools: the "needs to sit down" captions by who is sitting.
+static void AddSitDown(Cands &c, const unsigned char *v) {
+    int age = VillagerAge(v);
+    ADD(c, kSitGeneral);
+    if (age >= kAgeAdult && VillagerHasCareer(v)) { ADD(c, kSitAdult); ADD(c, kSitWork); }
+    else if (age >= kAgeAdult) { ADD(c, kSitAdult); ADD(c, kSitSchool); }
+    else if (age >= kAgeTeen) { ADD(c, kSitSchool); if (VillagerIsFemale(v)) c.Add(kSitTeenFemale, 1); else c.Add(kSitTeenMale, 1); }
+    else { ADD(c, kSitSchool); }
 }
 
-static const char *__fastcall CareerCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kCareerLabels, (int)(sizeof kCareerLabels / sizeof kCareerLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-
-// Private adult romantic time (VF2's approach): the "Trying to make a baby" behavior is not replaced,
-// only its caption varies, and the test is the villager's own: a couple that cannot conceive, which is
-// exactly the couple the pregnancy rules (and the six-child drop patch) treat as "private": same-sex, or
-// an opposite-sex couple whose family already has six children. It is computed from the acting villager
-// every time the caption is written. Only the "Trying to make a baby" caption varies (string 0x1C0,
-// eString_BehaviorGoInHouse), written by `strncpy(villager + 0x13594, text, 0x27)` at 0x478DB1, so the
-// villager is `dest - 0x13594`.
-static bool PrivateRomanticCouple(unsigned char *villager) {
+// Private adult romantic time (VF2's approach): the "Trying to make a baby" behavior (string 0x1C0,
+// eString_BehaviorGoInHouse, written at 0x478DB1) is not replaced, only its caption, and only for a couple
+// that cannot conceive: same-sex, or an opposite-sex couple whose family already has six children. The test
+// is the villager's own, every time the caption is written.
+static bool PrivateRomanticCouple(const unsigned char *villager) {
     int a = FounderSlot(), b = SpouseSlot();
     return PrivateCoupleNow() && (villager == Villager(a) || villager == Villager(b));
 }
+
 typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
-static char *__cdecl TryingForBabyCopy(char *dest, const char *src, size_t n) {
-    if (PrivateRomanticCouple((unsigned char *)dest - 0x13594))
-        src = "Having private adult romantic time";
+struct LabelSite { unsigned returnAddress; LabelKind kind; };
+// returnAddress = (the strncpy call) + 5, for the copy that writes this action's caption.
+static const LabelSite kLabelSites[] = {
+    { 0x470C9D + 5, L_TV }, { 0x4789BE + 5, L_TV }, { 0x47EC3F + 5, L_TV },
+    { 0x45F669 + 5, L_READ },
+    { 0x47EB50 + 5, L_WEB }, { 0x47EB90 + 5, L_WEB },
+    { 0x476A58 + 5, L_GAME },
+    { 0x45FB08 + 5, L_NAP }, { 0x464D58 + 5, L_NAP },
+    { 0x45F1A9 + 5, L_POOL }, { 0x465FA2 + 5, L_POOL }, { 0x466252 + 5, L_POOL },
+    { 0x460E61 + 5, L_SAND },
+    { 0x463329 + 5, L_FLOWER }, { 0x4635B9 + 5, L_FLOWER },
+    { 0x474A27 + 5, L_BOARD },
+    { 0x46CFB8 + 5, L_HOMEWORK }, { 0x46CB3B + 5, L_HOMEWORK },
+    { 0x45D3AA + 5, L_CAREER }, { 0x47ED34 + 5, L_CAREER }, { 0x470FF1 + 5, L_CAREER },
+    { 0x478DB1 + 5, L_TRYBABY },
+};
+
+static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
+    unsigned ret = (unsigned)_ReturnAddress();
+    const unsigned char *v = (const unsigned char *)dest - 0x13594;
+    const LabelSite *site = 0;
+    for (const LabelSite &s : kLabelSites) if (s.returnAddress == ret) site = &s;
+    if (site) {
+        Cands c;
+        int age = VillagerAge(v);
+        switch (site->kind) {
+        case L_TV: ADD(c, kTV); break;
+        case L_READ: ADD(c, kReading); break;
+        case L_WEB:
+            ADD(c, kWebBasic);
+            if (age >= kAge13) ADD(c, kWeb13Plus);
+            if (age >= kAgeTeen) ADD(c, kWebAdult);
+            break;
+        case L_GAME: ADD(c, kGame); if (age >= kAgeTeen) ADD(c, kGameTeen); break;
+        case L_NAP: ADD(c, kNapDream); AddSitDown(c, v); break;
+        case L_POOL: ADD(c, kPoolGeneral); if (age < kAgeTeen) ADD(c, kPoolChild); break;
+        case L_SAND: ADD(c, kSandbox); break;
+        case L_FLOWER: ADD(c, kFlower); break;
+        case L_BOARD: ADD(c, kBoard); break;
+        case L_HOMEWORK: if (age >= kAgeTeen) ADD(c, kTeenHomework); else ADD(c, kChildHomework); break;
+        case L_CAREER: ADD(c, kCareer); break;
+        case L_TRYBABY: if (PrivateRomanticCouple(v)) c.Add(kPrivateRomantic, 1); break;
+        }
+        if (c.n > 0) src = c.v[GetRandom(c.n)];
+    }
     return ((StrncpyFn)0x4993C0)(dest, src, n);
 }
 
-static const char *__fastcall SandboxCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kSandboxLabels, (int)(sizeof kSandboxLabels / sizeof kSandboxLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall FlowerCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kFlowerLabels, (int)(sizeof kFlowerLabels / sizeof kFlowerLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall BoardGameCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kBoardGameLabels, (int)(sizeof kBoardGameLabels / sizeof kBoardGameLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-static const char *__fastcall HomeworkCaption(void *strings, void *, int id) {
-    static const LabelSet set = { kHomeworkLabels, (int)(sizeof kHomeworkLabels / sizeof kHomeworkLabels[0]) };
-    return PickLabel(strings, id, set);
-}
-
 static void InstallBehaviorLabelVariants() {
-    struct Site { unsigned address; void *wrapper; };
-    const Site sites[] = {
-        { 0x470C8C, (void *)&TVCaption }, { 0x4789AD, (void *)&TVCaption }, { 0x47EC32, (void *)&TVCaption },
-        { 0x45F658, (void *)&ReadingCaption },
-        { 0x47EB3F, (void *)&WebCaption }, { 0x47EB7F, (void *)&WebCaption },
-        { 0x476A47, (void *)&GameCaption },
-        { 0x45FAF7, (void *)&NapCaption }, { 0x464D47, (void *)&NapCaption },
-        { 0x45D399, (void *)&CareerCaption }, { 0x47ED23, (void *)&CareerCaption }, { 0x470FE0, (void *)&CareerCaption },
-        { 0x460E50, (void *)&SandboxCaption },
-        { 0x463318, (void *)&FlowerCaption }, { 0x4635A8, (void *)&FlowerCaption },
-        { 0x474A16, (void *)&BoardGameCaption },
-        { 0x46CFA7, (void *)&HomeworkCaption }, { 0x46CB2E, (void *)&HomeworkCaption },
-        { 0x45F19C, (void *)&PoolCaption }, { 0x465F91, (void *)&PoolCaption }, { 0x466241, (void *)&PoolCaption },
-    };
-    for (const Site &s : sites)
-        RetargetCall(s.address, 0x44FD90, s.wrapper);  // only a call that still reaches the stock GetString
-    RetargetCall(0x478DB1, 0x4993C0, (void *)&TryingForBabyCopy);
+    for (const LabelSite &s : kLabelSites)
+        RetargetCall(s.returnAddress - 5, 0x4993C0, (void *)&LabelCopy);  // only a call that still reaches strncpy
 }
