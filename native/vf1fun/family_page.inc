@@ -122,7 +122,7 @@ static void ShowFamily(HWND owner) {
     t.Item(BUTTON, radio, 172, 134, 48, 12, ID_FA_TWINS, L"Twins");
     t.Item(BUTTON, radio, 222, 134, 60, 12, ID_FA_TRIPLETS, L"Triplets");
     t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 149, 274, 12, -1, L"Twins and triplets need free child places (6 per family).");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 48, -1, L"New children");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 48, -1, L"Adopt new children");
     t.Item(STATIC, SS_LEFT, 14, 182, 88, 12, -1, L"Name (optional):");
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 104, 180, 100, 14, ID_FA_NAME, L"");
     t.Item(STATIC, SS_LEFT, 14, 200, 44, 12, -1, L"Age 2-13:");

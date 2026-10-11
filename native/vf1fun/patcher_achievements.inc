@@ -23,10 +23,15 @@ static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Mighty 90's", L"Have a person reach age 90." },
     { L"Centenarian", L"Have a person reach age 100 or more." },
     { L"Oldest Person in History", L"Have a person surpass age 122." },
-    { L"Return of the Rainbow", L"Have a female villager with head value 48 in the family tree." },
-    { L"Spiky!", L"Have a male villager with head value 48 in the family tree." },
+    { L"Return of the Rainbow", L"Have a female villager with head value 49 in the family tree." },
+    { L"Spiky!", L"Have a male villager with head value 49 in the family tree." },
     { L"Achiever Extraordinaire", L"Complete every enabled achievement." },
 };
+
+// VF1's head sheets have rows 0-49; the last row is the rainbow head on the female
+// sheet and the dark spiky head on the male sheet (VF2's goals use head 48, the
+// last row of its own sheet).
+static const int kLastHead = 49;
 
 static int AchievementsUnlocked() {
     int n = 0;
@@ -68,8 +73,8 @@ static void CheckAchievements() {
     if (oldest >= 90) UnlockAchievement(ACH_MIGHTY_90);
     if (oldest >= 100) UnlockAchievement(ACH_CENTENARIAN);
     if (oldest > 122) UnlockAchievement(ACH_OLDEST_IN_HISTORY);
-    if (FamilyTreeHas(1, 48)) UnlockAchievement(ACH_RAINBOW);
-    if (FamilyTreeHas(0, 48)) UnlockAchievement(ACH_SPIKY);
+    if (FamilyTreeHas(1, kLastHead)) UnlockAchievement(ACH_RAINBOW);
+    if (FamilyTreeHas(0, kLastHead)) UnlockAchievement(ACH_SPIKY);
     if (AchievementsUnlocked() == ACH_COUNT - 1) UnlockAchievement(ACH_EXTRAORDINAIRE);
 }
 
