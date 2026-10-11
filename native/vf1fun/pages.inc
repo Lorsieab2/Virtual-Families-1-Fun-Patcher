@@ -246,11 +246,15 @@ static void ShowPurchases(HWND owner) {
 
 // ---- Time controls
 enum { ID_TC_STATUS = 560, ID_TC_PAUSE, ID_TC_RESUME, ID_TC_NORMAL, ID_TC_X2, ID_TC_X5, ID_TC_X10,
-       ID_TC_WARP };
+       ID_TC_WARP, ID_TC_SLOW };
+// Slow / Normal / Fast are VF1's own engine speeds, the same three the Virtual Villagers games offer: the
+// time-flow upkeep (0x489E08) knows exactly 20 (slow, half speed), 10 (normal) and 5 (fast, 2x), each with
+// its own catch-up cap (0x5CF8 / 0x7918 / 0x9538 seconds). 5x and 10x stay as extra choices.
+static const int kSpeedSlow = 20;
 
 static void RefreshTime(HWND dlg) {
     wchar_t s[128];
-    const wchar_t *speed = gWantedSpeed == 5 ? L"2x" : gWantedSpeed == 2 ? L"5x" : gWantedSpeed == 1 ? L"10x" : L"normal";
+    const wchar_t *speed = gWantedSpeed == kSpeedSlow ? L"slow" : gWantedSpeed == 5 ? L"fast (2x)" : gWantedSpeed == 2 ? L"5x" : gWantedSpeed == 1 ? L"10x" : L"normal";
     swprintf(s, 128, L"%s. Speed: %s.%s", GamePaused() ? L"Paused" : L"Running", speed,
              gWarpTicks ? L" A time warp is under way." : L"");
     SetDlgItemTextW(dlg, ID_TC_STATUS, s);
@@ -264,6 +268,7 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_TC_PAUSE: PauseGame(); break;
         case ID_TC_RESUME: ResumeGame(); break;
         case ID_TC_NORMAL: gWantedSpeed = 10; if (!GamePaused()) { SetSpeed(GameTime, 10); *GameSpeedSlot() = 10; } break;
+        case ID_TC_SLOW: gWantedSpeed = kSpeedSlow; ApplyGameSpeed(); break;
         case ID_TC_X2: gWantedSpeed = 5; ApplyGameSpeed(); break;
         case ID_TC_X5: gWantedSpeed = 2; ApplyGameSpeed(); break;
         case ID_TC_X10: gWantedSpeed = 1; ApplyGameSpeed(); break;
@@ -283,15 +288,16 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowTime(HWND owner) {
     static Template t;
-    t.Begin(L"Time Controls", 250, 150, 9);
+    t.Begin(L"Time Controls", 250, 150, 10);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_TC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 112, 16, ID_TC_PAUSE, L"Pause");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 24, 112, 16, ID_TC_RESUME, L"Resume");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 48, 53, 16, ID_TC_NORMAL, L"Normal");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 69, 48, 53, 16, ID_TC_X2, L"2x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 48, 53, 16, ID_TC_X5, L"5x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 187, 48, 53, 16, ID_TC_X10, L"10x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 76, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 48, 73, 16, ID_TC_SLOW, L"Slow");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 88, 48, 74, 16, ID_TC_NORMAL, L"Normal");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 167, 48, 73, 16, ID_TC_X2, L"Fast");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 70, 112, 16, ID_TC_X5, L"5x");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 70, 112, 16, ID_TC_X10, L"10x");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 98, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 126, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, TimeProc, 0);
 }
