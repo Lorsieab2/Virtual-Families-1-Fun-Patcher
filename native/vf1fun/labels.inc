@@ -207,7 +207,7 @@ struct Cands {
 };
 #define ADD(c, a) (c).Add(a, (int)(sizeof a / sizeof a[0]))
 
-enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY };
+enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY, L_SITDOWN };
 
 static const int kAge13 = 0x104, kAgeTeen = 0x118, kAgeAdult = 0x17C;
 
@@ -215,7 +215,8 @@ static int VillagerAge(const unsigned char *v) { return *(const int *)(v + 0x2A3
 static bool VillagerHasCareer(const unsigned char *v) { return *(const int *)(v + 0x2B6C) != -1; }
 static bool VillagerIsFemale(const unsigned char *v) { return *(const int *)(v + 0x2A38) == 1; }
 
-// VF2ApplySitDownLabelPools: the "needs to sit down" captions by who is sitting.
+// VF2ApplySitDownLabelPools: the sit-down captions by who is sitting. As in VF2 they go only on the game's own
+// "Needs to sit down" action (eSayNeedSitDown, written at 0x47AC21); naps keep the dream captions.
 static void AddSitDown(Cands &c, const unsigned char *v) {
     int age = VillagerAge(v);
     ADD(c, kSitGeneral);
@@ -238,7 +239,9 @@ typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
 struct LabelSite { unsigned returnAddress; LabelKind kind; };
 // returnAddress = (the strncpy call) + 5, for the copy that writes this action's caption.
 static const LabelSite kLabelSites[] = {
-    { 0x470C9D + 5, L_TV }, { 0x4789BE + 5, L_TV }, { 0x47EC3F + 5, L_TV },
+    { 0x4706B5 + 5, L_TV }, { 0x4707D5 + 5, L_TV }, { 0x4708F5 + 5, L_TV }, { 0x4709D5 + 5, L_TV },
+    { 0x470AB5 + 5, L_TV }, { 0x470BC5 + 5, L_TV }, { 0x470C9D + 5, L_TV }, { 0x4789BE + 5, L_TV },
+    { 0x47EC3F + 5, L_TV },
     { 0x45F669 + 5, L_READ },
     { 0x47EB50 + 5, L_WEB }, { 0x47EB90 + 5, L_WEB },
     { 0x476A58 + 5, L_GAME },
@@ -250,6 +253,7 @@ static const LabelSite kLabelSites[] = {
     { 0x46CFB8 + 5, L_HOMEWORK }, { 0x46CB3B + 5, L_HOMEWORK },
     { 0x45D3AA + 5, L_CAREER }, { 0x47ED34 + 5, L_CAREER }, { 0x470FF1 + 5, L_CAREER },
     { 0x478DB1 + 5, L_TRYBABY },
+    { 0x47AC21 + 5, L_SITDOWN },
 };
 
 // Captions are cosmetic, so they use their own generator and never advance the game's (GetRandom drives
@@ -278,7 +282,8 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
             if (age >= kAgeTeen) ADD(c, kWebAdult);
             break;
         case L_GAME: ADD(c, kGame); if (age >= kAgeTeen) ADD(c, kGameTeen); break;
-        case L_NAP: ADD(c, kNapDream); AddSitDown(c, v); break;
+        case L_NAP: ADD(c, kNapDream); break;
+        case L_SITDOWN: AddSitDown(c, v); break;
         case L_POOL: ADD(c, kPoolGeneral); if (age < kAgeTeen) ADD(c, kPoolChild); break;
         case L_SAND: ADD(c, kSandbox); break;
         case L_FLOWER: ADD(c, kFlower); break;

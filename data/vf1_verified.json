@@ -274,5 +274,33 @@
  "0x414df4": {
   "name": "collectable spawn-rate push",
   "evidence": "68 C8 19 00 00 vs the Lucky Rock rate 68 E4 0C 00 00 (halved interval); byte-checked before writing."
+ },
+ "0x4706b5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4707d5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4708f5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4709d5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x470ab5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x470bc5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x47ac21": {
+  "name": "call to strncpy (0x4993C0) writing the needs to sit down (eSayNeedSitDown 0x48F) action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
  }
 }
