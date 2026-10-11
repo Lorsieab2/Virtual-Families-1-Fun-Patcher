@@ -170,5 +170,13 @@
  "0x424500": {
   "name": "?QueueMail@theGameState (mail type)",
   "evidence": "theMainScene 0x445267: mov ecx,[esi+0x14] (gs); push 2; call 0x424500 when a marriage proposal is due; ret 4."
+ },
+ "0x493cf0": {
+  "name": "?ClearProp@CEnvironment@@QAEXW4EPropEnum@@@Z",
+  "evidence": "thiscall on CEnvironment 0x8752F0, one stack argument (ret 4): villager repair steps call it with plan+0x28 (0x48E280, 0x48E5C3); the active byte is at 0x8752F4 + 8*prop."
+ },
+ "0x4938c0": {
+  "name": "?SetProp@CEnvironment@@QAEXW4EPropEnum@@@Z",
+  "evidence": "thiscall on CEnvironment 0x8752F0 with one stack argument; called by CEventThePowerFailure::ImpactGame 0x4198E0 (prop 0x16) and the main scene's random malfunction (0x444ECD)."
  }
 }

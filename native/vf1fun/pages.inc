@@ -69,7 +69,25 @@ static void ShowStoreCheats(HWND owner) {
 }
 
 // ---- House and yard
-enum { ID_HY_TRASH = 520, ID_HY_CLEAN, ID_HY_WEEDS, ID_HY_GARDEN };
+enum { ID_HY_TRASH = 520, ID_HY_CLEAN, ID_HY_WEEDS, ID_HY_GARDEN, ID_HY_BREAK, ID_HY_FIX };
+
+// The eight props the game's random malfunction picks from (theMainScene
+// UpdateScene 0x444ECD): 0x16 power failure, 0x19/0x1A/0x1B/0x1C/0x1E leaks
+// and clogs, 0x1F/0x20 fires. CEnvironment (0x8752F0): SetProp 0x4938C0,
+// ClearProp 0x493CF0, active byte at +4+8*prop. The game's own events and
+// repairs call these two functions the same way.
+typedef void (__thiscall *PropFn)(void *environment, int prop);
+static const int kMalfunctionProps[] = { 0x16, 0x19, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F, 0x20 };
+static bool PropActive(int prop) { return *(unsigned char *)(0x8752F4 + 8 * prop) != 0; }
+static int SetAllMalfunctions(bool on) {
+    int changed = 0;
+    for (int prop : kMalfunctionProps) {
+        if (PropActive(prop) == on) continue;
+        ((PropFn)(on ? 0x4938C0 : 0x493CF0))((void *)0x8752F0, prop);
+        ++changed;
+    }
+    return changed;
+}
 
 static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
@@ -89,6 +107,14 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             Message(dlg, s);
             break;
         case ID_HY_GARDEN: CleanGarden(); Message(dlg, L"The garden is weeded."); break;
+        case ID_HY_BREAK:
+            swprintf(s, 96, L"Triggered %d malfunctions.", SetAllMalfunctions(true));
+            Message(dlg, s);
+            break;
+        case ID_HY_FIX:
+            swprintf(s, 96, L"Fixed %d malfunctions.", SetAllMalfunctions(false));
+            Message(dlg, s);
+            break;
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); break;
         }
         return TRUE;
@@ -100,13 +126,15 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowHouse(HWND owner) {
     static Template t;
-    t.Begin(L"House and Yard", 250, 128, 6);
+    t.Begin(L"House and Yard", 250, 172, 8);
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 230, 16, ID_HY_TRASH, L"Fill available house slots with trash (5 smudges, 5 socks, 5 wrappers)");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 30, 230, 16, ID_HY_CLEAN, L"Clean House");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 54, 230, 16, ID_HY_WEEDS, L"Fill available yard slots with weeds (15)");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 74, 230, 16, ID_HY_GARDEN, L"Clean Garden");
-    t.Item(STATIC, SS_LEFT, 10, 96, 150, 24, -1, L"There are 30 mess slots in all, shared by the house and yard.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 104, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 98, 230, 16, ID_HY_BREAK, L"Trigger all house malfunctions (leaks, clogs, fires, power failure)");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 118, 230, 16, ID_HY_FIX, L"Fix all house malfunctions");
+    t.Item(STATIC, SS_LEFT, 10, 140, 150, 24, -1, L"There are 30 mess slots in all, shared by the house and yard.");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 148, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, HouseProc, 0);
 }
 

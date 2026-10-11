@@ -22,6 +22,9 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
   Flea Market      Every tray item the store sells (drinks, candy, medicine,
                    magazines, movies, weather bottles, kits, pets...): buy it
                    or get it for free.
+  House and Yard   Fill the house with trash or the yard with weeds, clean
+                   them, trigger or fix all house malfunctions (leaks, clogs,
+                   fires, power failure).
   Roll the Dice    $500: an island event happens right away.
   Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
                    Candidates (Reject shows another one); Force Marriage

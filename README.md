@@ -3,10 +3,12 @@
 A patcher for **Virtual Families** (Last Day of Work, 2014; PC version 1.01.00),
 adding features from Virtual Families 2 and new cheats.
 
-## What's in v0.1.0
+## What it adds
 
 The store gets a new **Upgrades** button, next to Done. It opens ordinary
-Windows dialogs, the way the Virtual Villagers Fun Patcher works:
+Windows dialogs, the way the Virtual Villagers Fun Patcher works. The pages
+(Cheat Upgrades, Flea Market, Roll the Dice and Special Upgrades are separate
+patch settings you can switch off):
 
 - **Cheat Upgrades:**
   - add or set money;
@@ -18,40 +20,52 @@ Windows dialogs, the way the Virtual Villagers Fun Patcher works:
   - cure illnesses;
   - max happiness;
   - max energy;
-  - fill up (Fed).
+  - fill up (Fed);
+  - Change Appearance: any of the game's 50 heads (face and hairstyle) and 50
+    bodies (clothes), or a random look. VF1 has no separate clothing or hair
+    field, so these two rows are the whole look.
+- **Store, Achievement and Collection Cheats:** store price multipliers,
+  complete or reset achievements and collections.
+- **House and Yard:** fill the house with trash or the yard with weeds, Clean
+  House, Clean Garden, trigger or fix all house malfunctions.
+- **Time Controls:** pause, resume, 2x / 5x / 10x speed, time warp +1 / +5
+  years.
+- **Special Upgrades:** VF2-style purchases (Brokerage Account, Food Club,
+  Health Plan, Lucky Rock) plus a Maid and a Gardener who keep the house and
+  yard clean.
+- **Family:**
+  - Enable Same-Sex Marriage, and Allow Reroll of Marriage Candidates;
+  - Force Marriage Email, and Divorce Spouse;
+  - next pregnancy one-shots: force success, boys or girls, singleton, twins
+    or triplets;
+  - Spawn a Baby, and Adopt a Child (age 2-13);
+  - Adopt New Person (only after "your family has been lost"), which keeps
+    your money and the Family Tree;
+  - Evict Family: resets the Family Tree and starts a new family, keeping the
+    money and the house.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
 - **Roll the Dice:** costs $500, and an island event happens right away,
   through the game's own event system.
+- **Counters** on the menu: Generation and Oldest Villager.
+
+Two settings change the base game on their own:
+- **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
+  no hard maximum age.
+- **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed
+  without quitting, and Power Failure's "keep the food" result text matches
+  what happens.
 
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## Planned
 
-- **Store cheats:** price multipliers.
-- **Weeds and trash:** spawn and clean-up cheats.
-- **Helpers:** "Maid" and "Gardener" upgrades that keep the house and yard
-  clean.
-- **VF2-style purchases:** Health Plan, Food Club, Lucky Rock and Brokerage
-  Account.
-- **Time controls.**
-- **Clothing and hairstyles:** change a villager's look, with every option
-  listed.
-- **Marriage and family:**
-  - same-sex marriage;
-  - reroll dating candidates;
-  - divorce spouse;
-  - evict family.
-- **Babies and adoption:**
-  - baby spawn cheats;
-  - an adoption menu for children;
-  - adopt a new person after the "you lost your family" game over.
-- **Lifespan:** VF2's Older Villager Mortality Curve.
-- **Counters:** Generation and Oldest Villager.
 - **Cut content:** restored where the game ships unused text or art.
 - **Achievements** for the new features.
 
-Data the game itself does not track (the counters, for example) will be kept in
-the patcher's own files, never inside the game's records.
+Data the game itself does not track (the purchases, the Family page's choices)
+is kept per save slot in the patcher's own files under
+`Documents\LDW\<exe name>\Virtual Families 1 Patcher Data`, never inside the
+game's records.
 
 ## How it works
 
