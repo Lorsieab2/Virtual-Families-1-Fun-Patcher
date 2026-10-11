@@ -27,6 +27,8 @@ SPEC = {
         'Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.'),
     'VF2Songs': ('VF1 + VF2 Songs',
         'Adds VF2 songs in addition to the normal VF1 songs.'),
+    'GlowingCollectables': ('Glowing Collectables',
+        'Makes the collectables in the yard glow, so they are easier to spot.'),
 }
 
 
@@ -207,12 +209,14 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1"}
+        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
         assert rel.replace("/", "\\") in text
-    for rel in replaced:
-        assert rel.replace("/", "\\") + ": replaced only while Custom Map/Game Images is on" in text
+    for setting in manifest["settings"]:
+        for row in setting.get("files", []):
+            if row.get("replaces"):
+                assert row["target"].replace("/", "\\") + ": replaced only while " + setting["label"] + " is on" in text
     for name in {Path(b).name for b in backups if "/files/" not in b}:
         assert name in text
     assert summary["modded_save_dir"].endswith("LDW\\Virtual Families - Modded")
@@ -233,7 +237,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1"}
+        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before

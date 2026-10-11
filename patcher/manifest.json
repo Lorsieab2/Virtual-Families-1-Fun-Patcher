@@ -215,11 +215,6 @@
           "replaces": true
         },
         {
-          "source": "CustomImages/collectables_small.png",
-          "target": "Images/collectables_small.png",
-          "replaces": true
-        },
-        {
           "source": "CustomImages/fishtank.png",
           "target": "Images/fishtank.png",
           "replaces": true
@@ -258,6 +253,11 @@
           "source": "CustomImages/workroomUpgrade.png",
           "target": "Images/workroomUpgrade.png",
           "replaces": true
+        },
+        {
+          "source": "CustomImages/fridgeStates.png",
+          "target": "Images/fridgeStates.png",
+          "replaces": true
         }
       ]
     },
@@ -287,6 +287,20 @@
         {
           "source": "VF2Songs/song4.ogg",
           "target": "Virtual Families 1 Patcher Files/VF2 Songs/song4.ogg"
+        }
+      ]
+    },
+    {
+      "id": "GlowingCollectables",
+      "label": "Glowing Collectables",
+      "description": "Makes the collectables in the yard glow, so they are easier to spot.",
+      "default": true,
+      "category": "optional",
+      "files": [
+        {
+          "source": "GlowingCollectables/collectables_small.png",
+          "target": "Images/collectables_small.png",
+          "replaces": true
         }
       ]
     }

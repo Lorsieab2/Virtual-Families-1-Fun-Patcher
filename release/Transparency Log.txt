@@ -81,7 +81,6 @@ In the modded game folder (default "Virtual Families - Modded"):
 - Images\birdhouse.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\birdhouse.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\birdhouse.png and put back when it is off.
 - Images\breads.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\breads.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\breads.png and put back when it is off.
 - Images\cans.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\cans.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\cans.png and put back when it is off.
-- Images\collectables_small.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\collectables_small.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\collectables_small.png and put back when it is off.
 - Images\fishtank.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fishtank.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fishtank.png and put back when it is off.
 - Images\fountainwater.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fountainwater.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fountainwater.png and put back when it is off.
 - Images\kitchenGarbageFull.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\kitchenGarbageFull.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\kitchenGarbageFull.png and put back when it is off.
@@ -90,11 +89,13 @@ In the modded game folder (default "Virtual Families - Modded"):
 - Images\pool.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\pool.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\pool.png and put back when it is off.
 - Images\remote.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\remote.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\remote.png and put back when it is off.
 - Images\workroomUpgrade.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\workroomUpgrade.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\workroomUpgrade.png and put back when it is off.
+- Images\fridgeStates.png: replaced only while Custom Map/Game Images is on (from payload\CustomImages\fridgeStates.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\fridgeStates.png and put back when it is off.
 - Virtual Families 1 Patcher Files\VF2 Songs\menu.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\menu.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song1.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song1.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song2.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song2.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song3.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song3.ogg).
 - Virtual Families 1 Patcher Files\VF2 Songs\song4.ogg: only while VF1 + VF2 Songs is on (from payload\VF2Songs\song4.ogg).
+- Images\collectables_small.png: replaced only while Glowing Collectables is on (from payload\GlowingCollectables\collectables_small.png); the original is kept in Virtual Families 1 Patcher Files\Original Files\Images\collectables_small.png and put back when it is off.
 - .vf1_patch_backups\<date_time>_manifest\: one folder per run, holding vf1_patch_backup_manifest.json,
   files\... (copies of every file the run replaced or deleted), patch_log.json (or
   patch_error_log.json if the run failed) and, after a restore, restore_log.json.
@@ -131,6 +132,8 @@ Settings and defaults
   Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.
 - VF2Songs [on] (optional): VF1 + VF2 Songs
   Adds VF2 songs in addition to the normal VF1 songs.
+- GlowingCollectables [on] (optional): Glowing Collectables
+  Makes the collectables in the yard glow, so they are easier to spot.
 
 Restore
 -------
