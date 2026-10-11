@@ -219,7 +219,7 @@ static void ShowPurchases(HWND owner) {
 
 // ---- Time controls
 enum { ID_TC_STATUS = 560, ID_TC_PAUSE, ID_TC_RESUME, ID_TC_NORMAL, ID_TC_X2, ID_TC_X5, ID_TC_X10,
-       ID_TC_WARP1, ID_TC_WARP5 };
+       ID_TC_WARP };
 
 static void RefreshTime(HWND dlg) {
     wchar_t s[128];
@@ -240,10 +240,10 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_TC_X2: gWantedSpeed = 5; ApplyGameSpeed(); break;
         case ID_TC_X5: gWantedSpeed = 2; ApplyGameSpeed(); break;
         case ID_TC_X10: gWantedSpeed = 1; ApplyGameSpeed(); break;
-        case ID_TC_WARP1: case ID_TC_WARP5:
+        case ID_TC_WARP:
             if (MessageBoxW(dlg, L"Everyone at home ages at once, with every normal rule: birthdays, leaving home, "
                                  L"and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                StartTimeWarp(LOWORD(wp) == ID_TC_WARP1 ? 20 : 100);
+                StartTimeWarp(60);  // 3 years, the Virtual Villagers patcher's standard warp (20 age ticks = 1 year)
             break;
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); return TRUE;
         }
@@ -256,7 +256,7 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowTime(HWND owner) {
     static Template t;
-    t.Begin(L"Time Controls", 250, 150, 10);
+    t.Begin(L"Time Controls", 250, 150, 9);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_TC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 112, 16, ID_TC_PAUSE, L"Pause");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 24, 112, 16, ID_TC_RESUME, L"Resume");
@@ -264,8 +264,7 @@ static void ShowTime(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 69, 48, 53, 16, ID_TC_X2, L"2x");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 48, 53, 16, ID_TC_X5, L"5x");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 187, 48, 53, 16, ID_TC_X10, L"10x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 76, 112, 16, ID_TC_WARP1, L"Time Warp: +1 year");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 76, 112, 16, ID_TC_WARP5, L"Time Warp: +5 years");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 76, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 126, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, TimeProc, 0);
 }

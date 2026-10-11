@@ -28,8 +28,8 @@ patch settings you can switch off):
   complete or reset achievements and collections.
 - **House and Yard:** fill the house with trash or the yard with weeds, Clean
   House, Clean Garden, trigger or fix all house malfunctions.
-- **Time Controls:** pause, resume, 2x / 5x / 10x speed, time warp +1 / +5
-  years.
+- **Time Controls:** pause, resume, 2x / 5x / 10x speed, time warp (+3
+  years).
 - **Special Upgrades:** VF2-style purchases (Brokerage Account, Food Club,
   Health Plan, Lucky Rock) plus a Maid and a Gardener who keep the house and
   yard clean.
