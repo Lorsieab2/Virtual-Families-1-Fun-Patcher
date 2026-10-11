@@ -160,10 +160,10 @@ static bool PurchaseOwned(const Purchase &p) { return p.owned ? gVillage.*p.owne
 static int PurchasePrice(const Purchase &p) { return p.price < 0 ? ItemPrice(0, 0, kAntiSpamItem) : p.price; }
 enum { ID_SU_LIST = 540, ID_SU_BUY, ID_SU_DESC };
 static const Purchase kPurchases[] = {
-    { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"The bank's interest rate goes up 2 points, to at most 11%." },
-    { 1, L"Food Club", 10000, &VillageState::foodClub, L"A bag of organic groceries (250 food) right away and every game day, plus half price on all groceries." },
-    { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"Medicines cost a quarter of the price." },
-    { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"Rare and uncommon collectibles turn up twice as often." },
+    { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"Upgrade your broker: a permanent 2% boost to your family's banking interest rate, up to 11%. Buy again to remove it." },
+    { 1, L"Food Club", 10000, &VillageState::foodClub, L"Bags of organic groceries, one of each of the four food groups (1,000 food), delivered right away and every game day (helps prevent accidental starvation). Plus a permanent 50% discount on all groceries. Buy again to remove it." },
+    { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"A permanent 75% discount on all health care and medicines. Buy again to remove it." },
+    { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"This lucky rock increases the rate and rarity of random collectibles that appear in the yard. Buy again to remove it." },
     { 4, L"Maid", 1000, &VillageState::maid, L"Keeps the house clean: socks, wrappers, smudges and cobwebs. Buy again to let her go." },
     { 5, L"Gardener", 1000, &VillageState::gardener, L"Keeps the yard free of weeds. Buy again to let him go." },
     { 6, L"Anti-spam Software", -1, 0, L"Installs the Anti-spam Software without using a computer: no more spam e-mail events. Buy again to remove it." },
@@ -215,7 +215,7 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                     MoneyAdjust(Money, (float)-PurchasePrice(p), false);
                     if (p.owned) gVillage.*p.owned = 1; else SetAntiSpam(true);
                     if (p.owned == &VillageState::foodClub) {
-                        AddFoodSaturating(kOrganicBagFood);
+                        AddFoodSaturating(kFoodClubDelivery);
                         gVillage.foodClubLast = GameSeconds(GameTime);
                     }
                     swprintf(text, 200, L"Purchased: %s.", p.name);

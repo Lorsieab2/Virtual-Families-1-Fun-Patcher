@@ -167,8 +167,10 @@ static void RetargetCallsTo(unsigned target, void *replacement) {
 }
 
 // A bag of organic groceries adds 250 food to the fridge (items 8-11, 0x446E4D:
-// `mov edi, 0xFA`); plain groceries add 150. Food Club delivers one organic bag a day.
+// `mov edi, 0xFA`); plain groceries add 150. Food Club delivers all four organic types a day
+// ("bags of organic, local groceries containing all 4 food groups", as in VF2).
 static const int kOrganicBagFood = 250;
+static const int kFoodClubDelivery = 4 * kOrganicBagFood;  // all four organic types (items 8-11), one of each food group
 
 // ---------------------------------------------------------------- store prices
 // CInventoryManager::GetPrice (0x4968C0) and CTech::GetPrice (0x4229D0) are
@@ -196,7 +198,15 @@ static int __fastcall TechPrice(void *, void *, int tech, int level) {
 // ---------------------------------------------------------------- Lucky Rock
 // CCollectableItem::Add's rarity roll: rare if rand(100) < 4, else uncommon if
 // < 17. VF2's Lucky Rock doubles both: 8 and 34.
+// ... and doubles the spawn attempt rate, as VF2's does (3/6600 -> 3/3300): CCollectableItem::Update's
+// `push 6600; call GetRandom; cmp eax, 3` (0x414DF4, the immediate at 0x414DF5).
 static void ApplyLuckyRock() {
+    static const unsigned char stock[5] = { 0x68, 0xC8, 0x19, 0x00, 0x00 };    // push 6600
+    static const unsigned char doubled[5] = { 0x68, 0xE4, 0x0C, 0x00, 0x00 };  // push 3300
+    unsigned char *spawn = (unsigned char *)0x414DF4;
+    const unsigned char *want = gVillage.luckyRock ? doubled : stock;
+    if ((memcmp(spawn, stock, 5) == 0 || memcmp(spawn, doubled, 5) == 0) && memcmp(spawn, want, 5) != 0)
+        WriteCode(0x414DF4, want, 5);
     unsigned char rare = gVillage.luckyRock ? 8 : 4, either = gVillage.luckyRock ? 34 : 17;
     unsigned char *a = (unsigned char *)0x414B6F, *b = (unsigned char *)0x414B7C;
     if ((a[-2] == 0x83 && a[-1] == 0xF8) && (b[-2] == 0x83 && b[-1] == 0xF8)) {
@@ -521,7 +531,7 @@ static void FeaturesTick() {
         if (gVillage.foodClubLast == 0 || t < gVillage.foodClubLast)
             gVillage.foodClubLast = t;
         while (t - gVillage.foodClubLast >= 86400) {
-            AddFoodSaturating(kOrganicBagFood);
+            AddFoodSaturating(kFoodClubDelivery);
             gVillage.foodClubLast += 86400;
         }
     }
