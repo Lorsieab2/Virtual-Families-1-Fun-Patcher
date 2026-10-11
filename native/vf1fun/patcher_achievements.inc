@@ -16,7 +16,7 @@
 // from FeaturesTick) and when the page opens.
 struct PatcherAchievement { const wchar_t *name; const wchar_t *how; };
 enum { ACH_LUCKY_70, ACH_GREAT_80, ACH_MIGHTY_90, ACH_CENTENARIAN, ACH_OLDEST_IN_HISTORY, ACH_RAINBOW, ACH_SPIKY,
-       ACH_EXTRAORDINAIRE, ACH_COUNT };
+       ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_EXTRAORDINAIRE, ACH_COUNT };
 static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Lucky 70's", L"Have a person reach age 70." },
     { L"Great 80's", L"Have a person reach age 80." },
@@ -25,12 +25,15 @@ static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Oldest Person in History", L"Have a person surpass age 122." },
     { L"Return of the Rainbow", L"Have a female villager with head value 49 in the family tree." },
     { L"Spiky!", L"Have a male villager with head value 48 in the family tree." },
+    { L"Blue's Clues", L"Have a male villager with head value 49 in the family tree." },
+    { L"A Decade in Blue", L"Have a female villager with head value 48 in the family tree." },
     { L"Achiever Extraordinaire", L"Complete every enabled achievement." },
 };
 
 // VF1's head sheets have rows 0-49. Return of the Rainbow is the female sheet's last
 // row (49, the rainbow hair); Spiky! is the male sheet's second-to-last row (48, the
-// black mohawk), as the owner specified.
+// black mohawk); Blue's Clues is the male sheet's last row (49) and A Decade in Blue the
+// female sheet's second-to-last row (48), as the owner specified.
 static const int kLastHead = 49;
 
 static int AchievementsUnlocked() {
@@ -75,6 +78,8 @@ static void CheckAchievements() {
     if (oldest > 122) UnlockAchievement(ACH_OLDEST_IN_HISTORY);
     if (FamilyTreeHas(1, kLastHead)) UnlockAchievement(ACH_RAINBOW);
     if (FamilyTreeHas(0, kLastHead - 1)) UnlockAchievement(ACH_SPIKY);
+    if (FamilyTreeHas(0, kLastHead)) UnlockAchievement(ACH_BLUES_CLUES);
+    if (FamilyTreeHas(1, kLastHead - 1)) UnlockAchievement(ACH_DECADE_IN_BLUE);
     if (AchievementsUnlocked() == ACH_COUNT - 1) UnlockAchievement(ACH_EXTRAORDINAIRE);
 }
 

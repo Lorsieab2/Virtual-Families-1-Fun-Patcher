@@ -90,7 +90,7 @@ static void LoadVillageState(int slot) {
         v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
-        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFF;
+        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0x3FF;
     }
     if (v.priceMultiplier != 2 && v.priceMultiplier != 5 && v.priceMultiplier != 100)
         v.priceMultiplier = 1;

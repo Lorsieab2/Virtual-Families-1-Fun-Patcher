@@ -36,7 +36,8 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
   Patcher          The Virtual Families 2 patcher's achievements that fit this
   Achievements     game, with the same names: Lucky 70's, Great 80's, Mighty
                    90's, Centenarian, Oldest Person in History, Return of the
-                   Rainbow, Spiky! and Achiever Extraordinaire. Kept per
+                   Rainbow, Spiky!, Blue's Clues, A Decade in Blue and Achiever
+                   Extraordinaire. Kept per
                    village, on their own page (the game's Trophies screen is
                    fixed). Not included: the coin and food maximums (this
                    game has none), pets, behaviors, holidays and furniture.

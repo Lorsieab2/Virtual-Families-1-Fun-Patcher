@@ -636,7 +636,7 @@ enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE,
        ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH };
 static void ShowAchievements(HWND owner);
 static int AchievementsUnlocked();
-static const int kAchievementTotal = 8;  // ACH_COUNT, patcher_achievements.inc
+static const int kAchievementTotal = 10;  // ACH_COUNT, patcher_achievements.inc
 static void ShowFamily(HWND owner);
 static int gFamilyAction;
 static void ShowStoreCheats(HWND owner);
