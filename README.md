@@ -11,16 +11,19 @@ Windows dialogs, the way the Virtual Villagers Fun Patcher works. The pages
 patch settings you can switch off):
 
 - **Cheat Upgrades:**
-  - add or set money;
-  - add or set food;
+  - money: No Money, +100, +10,000, Max, or set an exact amount;
+  - food: No Food, +100, +10,000, Max, or set an exact amount;
   - change the bank's interest rate, which is remembered between sessions.
-  - Cheat money doesn't count toward the money achievements.
+  - Cheat money doesn't count toward the money achievements. VF1 has no real
+    maximum for money or food, so Max is 99,999,999 coins and 99,999 food.
 - **Villager Cheats:** for one villager or everyone:
-  - max health;
-  - cure illnesses;
-  - max happiness;
-  - max energy;
-  - fill up (Fed);
+  - max health, cure illnesses, max happiness, max energy, fill up (Fed);
+  - Instant job promotion, and Career Change (adults with a career);
+  - Boarding School: a child leaves the house, as in the game's own "going to
+    college" departure;
+  - Systematic Desensitization (removes a dislike), Higher Learning Classes (a
+    new like), Psychotherapy (overcomes depression), Add Running Like;
+  - Set Age to 18 (the selected villager only);
   - Change Appearance: any of the game's 50 heads (face and hairstyle) and 50
     bodies (clothes), or a random look. VF1 has no separate clothing or hair
     field, so these two rows are the whole look.
@@ -53,9 +56,12 @@ patch settings you can switch off):
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 
-Two settings change the base game on their own:
+Three settings change the base game on their own:
 - **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
   no hard maximum age.
+- **Private Adult Romantic Time:** a married opposite-sex couple at six children
+  can still have private romantic time (the game refused with "They have enough
+  kids already!"), with the stock cooldown, as in the VF2 patcher.
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed
   without quitting, and Power Failure's "keep the food" result text matches
   what happens.

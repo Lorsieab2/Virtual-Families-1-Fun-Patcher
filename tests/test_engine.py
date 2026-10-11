@@ -13,6 +13,8 @@ SPEC = {
         'Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).'),
     'OlderVillagerMortalityCurve': ('Older Villager Mortality Curve',
         "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75)."),
+    'PrivateRomanticTime': ('Private Adult Romantic Time',
+        'A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with "They have enough kids already!"). Same-sex couples already could. No baby is possible while the family is full.'),
     'SpecialUpgrades': ('Add visible mobile version purchases',
         'Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.'),
     'CheatUpgrades': ('Cheat Upgrades',
@@ -192,7 +194,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra:
@@ -216,7 +218,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert summary["unchanged_files"] == [vp.DLL_REL]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))

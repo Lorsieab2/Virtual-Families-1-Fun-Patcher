@@ -144,7 +144,7 @@ struct Purchase { int id; const wchar_t *name; int price; int VillageState::*own
 enum { ID_SU_LIST = 540, ID_SU_BUY, ID_SU_DESC };
 static const Purchase kPurchases[] = {
     { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"The bank's interest rate goes up 2 points, to at most 11%." },
-    { 1, L"Food Club", 10000, &VillageState::foodClub, L"500 food right away, and 500 more every game day." },
+    { 1, L"Food Club", 10000, &VillageState::foodClub, L"A bag of organic groceries (250 food) right away and every game day, plus half price on all groceries." },
     { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"Medicines cost a quarter of the price." },
     { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"Rare and uncommon collectibles turn up twice as often." },
     { 4, L"Maid", 1000, &VillageState::maid, L"Keeps the house clean: socks, wrappers, smudges and cobwebs. Buy again to let her go." },
@@ -191,7 +191,7 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 MoneyAdjust(Money, (float)-p.price, false);
                 owned = 1;
                 if (p.owned == &VillageState::foodClub) {
-                    FoodAdjust(Food, 500);
+                    FoodAdjust(Food, kOrganicBagFood);
                     gVillage.foodClubLast = GameSeconds(GameTime);
                 }
             }

@@ -23,6 +23,13 @@
       "category": "main"
     },
     {
+      "id": "PrivateRomanticTime",
+      "label": "Private Adult Romantic Time",
+      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with \"They have enough kids already!\"). Same-sex couples already could. No baby is possible while the family is full.",
+      "default": true,
+      "category": "main"
+    },
+    {
       "id": "SpecialUpgrades",
       "label": "Add visible mobile version purchases",
       "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.",

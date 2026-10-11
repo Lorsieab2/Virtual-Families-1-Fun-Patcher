@@ -166,6 +166,10 @@ static void RetargetCallsTo(unsigned target, void *replacement) {
     }
 }
 
+// A bag of organic groceries adds 250 food to the fridge (items 8-11, 0x446E4D:
+// `mov edi, 0xFA`); plain groceries add 150. Food Club delivers one organic bag a day.
+static const int kOrganicBagFood = 250;
+
 // ---------------------------------------------------------------- store prices
 // CInventoryManager::GetPrice (0x4968C0) and CTech::GetPrice (0x4229D0) are
 // the only readers of the store's prices: the store label, the buy dialog
@@ -178,6 +182,8 @@ static int __fastcall ItemPrice(void *, void *, int item) {
     int price = *(int *)(0x4FE19C + item * 32);
     if (gVillage.healthPlan && item >= 20 && item <= 29)
         price /= 4;
+    if (gVillage.foodClub && item >= 4 && item <= 11)  // Food Club: half price on groceries (items 4-11)
+        price /= 2;
     return price * gVillage.priceMultiplier;
 }
 
@@ -500,12 +506,12 @@ static void FeaturesTick() {
     CheckAchievements();
     if (gVillage.maid) CleanHouse();
     if (gVillage.gardener) CleanGarden();
-    if (gVillage.foodClub) {                         // 500 food every game day
+    if (gVillage.foodClub) {                         // one organic bag (250 food) every game day
         unsigned t = GameSeconds(GameTime);
         if (gVillage.foodClubLast == 0 || t < gVillage.foodClubLast)
             gVillage.foodClubLast = t;
         while (t - gVillage.foodClubLast >= 86400) {
-            FoodAdjust(Food, 500);
+            FoodAdjust(Food, kOrganicBagFood);
             gVillage.foodClubLast += 86400;
         }
     }
@@ -517,9 +523,26 @@ static const unsigned char kTechPriceBytes[] = { 0x8B, 0x4C, 0x24, 0x08, 0x8D, 0
 static const unsigned char kMortalityBytes[] = { 0x8B, 0xCB, 0xE8, 0x63, 0x3E, 0x00, 0x00 };
 static const unsigned char kWarpBytes[] = { 0x8B, 0xCF, 0x8B, 0xD8, 0x53, 0xE8, 0x5A, 0xF9, 0xFF, 0xFF };
 
+// ---------------------------------------------------------------- Private Adult Romantic Time
+// Dropping one adult on another (theMainScene pairing, 0x441070..): when the
+// family has no room for children (0x48AC80 = EmptyOffspringSlots > 0 is false)
+// and the two adults are of different genders, the stock code says "They have
+// enough kids already!" (0x3DB) and refuses. The jump at 0x441287 (`je 0x4412C7`,
+// taken for same-gender pairs) becomes unconditional, so every adult pair runs
+// the ordinary romantic sequence with its stock cooldown (the Virtual Families 2
+// patcher's "six-child private romantic time"). No baby results: Impregnate
+// refuses when there is no free child place.
+static void InstallPrivateRomanticTime() {
+    static const unsigned char stock[] = { 0x74, 0x3E }, patched[] = { 0xEB, 0x3E };
+    if (BytesAre(0x441287, stock, 2))
+        WriteCode(0x441287, patched, 2);
+}
+
 static void InstallFeatureHooks() {
     BuildMortalityTable();
     gMortalityOn = SettingOn(L"OlderVillagerMortalityCurve", true);
+    if (SettingOn(L"PrivateRomanticTime", true))
+        InstallPrivateRomanticTime();
     InstallJump(0x48BFC6, kMortalityBytes, 7, (void *)&MortalityDetour);
     InstallJump(0x489E8C, kWarpBytes, 10, (void *)&WarpDetour);
     InstallJump(0x4968C0, kItemPriceBytes, 7, (void *)&ItemPrice);
