@@ -348,13 +348,10 @@ static bool PrivateCoupleNow() {
 extern "C" int __cdecl ShouldStoreFailedAttemptCooldown() {
     if (gPrivateRomantic && PrivateCoupleNow()) return 0;
     if (gOlderPregnancies) {
-        // the mother only, over 50: the same boundary as ChanceWrapper
+        // VF2StoreTryForBabyCooldownMaybe: either parent 50 or older (internal age >= 50 * 20)
         int a = FounderSlot(), b = SpouseSlot();
-        if (a >= 0 && b >= 0) {
-            int ga = *(int *)(Villager(a) + 0x2A38), gb = *(int *)(Villager(b) + 0x2A38);
-            int mother = ga == gb ? -1 : (ga == 1 ? a : b);
-            if (mother >= 0 && *(int *)(Villager(mother) + 0x2A34) / 20 > 50) return 0;
-        }
+        if ((a >= 0 && *(int *)(Villager(a) + 0x2A34) >= 50 * 20) || (b >= 0 && *(int *)(Villager(b) + 0x2A34) >= 50 * 20))
+            return 0;
     }
     return 1;
 }
