@@ -14,6 +14,8 @@
 //   Browsing the web       0x47EB3F 0x47EB7F            (0x3D0)
 //   Playing video games    0x476A47                     (0x10D)
 //   Taking a nap           0x45FAF7 0x464D47            (0x9F)
+//   Working at the computer 0x45D399                     (0x95), kitchen career 0x47ED23 (0x101), workshop 0x470FE0 (0x104)
+//   Trying to make a baby: strncpy at 0x478DB1 (0x1C0): 'private adult romantic time' for couples that cannot conceive
 //   Playing in the pool    0x45F19C 0x465F91 0x466241   (0x9B, 0xCF swimming, 0xD0 splashing)
 
 typedef const char *(__thiscall *GetStringFn2)(void *strings, int id);
@@ -31,8 +33,18 @@ static const char *const kGameLabels[] = { "Playing a puzzle game", "Playing a r
 static const char *const kPoolLabels[] = { "Doing laps in the pool", "Practicing swimming lessons", "Practicing diving technique",
     "Diving underwater", "Cannonball!", "Diving to the bottom of the pool", "Practicing underwater backflips",
     "Practicing underwater handstands", "Snorkelling" };
+// The nap pool also holds the "needs to sit down" captions (VF2's sit-down group).
 static const char *const kNapLabels[] = { "Dozing off on the couch", "Dreaming of family", "Dreaming of the beach",
-    "Dreaming of the future", "Dreaming of holidays", "Resting for a while" };
+    "Dreaming of the future", "Dreaming of holidays", "Resting for a while", "Resting", "Resting eyes", "Resting feet",
+    "Relaxing for a bit", "Taking a break", "Enjoying life", "Enjoying the scenery", "Thinking of work",
+    "Thinking of vacations", "Thinking of weekend plans", "Thinking of what to watch next", "Texting friends" };
+// Careers: captions only; the behavior, its weights and the career progression are not touched.
+static const char *const kOfficeLabels[] = { "Working on a spreadsheet", "Writing a report", "Answering email",
+    "Typing up a proposal", "Planning a presentation", "Reviewing the numbers" };
+static const char *const kKitchenLabels[] = { "Making pasta", "Making pizza", "Making salad", "Baking a cake", "Baking cookies",
+    "Making lasagna", "Making tacos", "Making sushi" };
+static const char *const kWorkshopLabels[] = { "Building a birdhouse", "Sanding a board", "Fixing a gadget",
+    "Sawing planks", "Tinkering with parts", "Measuring twice" };
 
 // The stock caption is one of the choices, so the original text still appears some of the time.
 static const char *PickLabel(void *strings, int id, const LabelSet &set) {
@@ -66,6 +78,39 @@ static const char *__fastcall PoolCaption(void *strings, void *, int id) {
     return PickLabel(strings, id, set);
 }
 
+static const char *__fastcall OfficeCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kOfficeLabels, (int)(sizeof kOfficeLabels / sizeof kOfficeLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall KitchenCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kKitchenLabels, (int)(sizeof kKitchenLabels / sizeof kKitchenLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+static const char *__fastcall WorkshopCaption(void *strings, void *, int id) {
+    static const LabelSet set = { kWorkshopLabels, (int)(sizeof kWorkshopLabels / sizeof kWorkshopLabels[0]) };
+    return PickLabel(strings, id, set);
+}
+
+// Private adult romantic time (VF2's approach): the "Trying to make a baby" behavior is not replaced,
+// only its caption varies, and the test is the villager's own: a couple that cannot conceive, which is
+// exactly the couple the pregnancy rules (and the six-child drop patch) treat as "private": same-sex, or
+// an opposite-sex couple whose family already has six children. It is computed from the acting villager
+// every time the caption is written. Only the "Trying to make a baby" caption varies (string 0x1C0,
+// eString_BehaviorGoInHouse), written by `strncpy(villager + 0x13594, text, 0x27)` at 0x478DB1, so the
+// villager is `dest - 0x13594`.
+static bool PrivateRomanticCouple(unsigned char *villager) {
+    int a = FounderSlot(), b = SpouseSlot();
+    if (a < 0 || b < 0) return false;
+    if (villager != Villager(a) && villager != Villager(b)) return false;
+    return *(int *)(Villager(a) + 0x2A38) == *(int *)(Villager(b) + 0x2A38) || EmptyOffspringSlots(FamilyTree) <= 0;
+}
+typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
+static char *__cdecl TryingForBabyCopy(char *dest, const char *src, size_t n) {
+    if (PrivateRomanticCouple((unsigned char *)dest - 0x13594))
+        src = "Having private adult romantic time";
+    return ((StrncpyFn)0x4993C0)(dest, src, n);
+}
+
 static void InstallBehaviorLabelVariants() {
     struct Site { unsigned address; void *wrapper; };
     const Site sites[] = {
@@ -74,8 +119,10 @@ static void InstallBehaviorLabelVariants() {
         { 0x47EB3F, (void *)&WebCaption }, { 0x47EB7F, (void *)&WebCaption },
         { 0x476A47, (void *)&GameCaption },
         { 0x45FAF7, (void *)&NapCaption }, { 0x464D47, (void *)&NapCaption },
+        { 0x45D399, (void *)&OfficeCaption }, { 0x47ED23, (void *)&KitchenCaption }, { 0x470FE0, (void *)&WorkshopCaption },
         { 0x45F19C, (void *)&PoolCaption }, { 0x465F91, (void *)&PoolCaption }, { 0x466241, (void *)&PoolCaption },
     };
     for (const Site &s : sites)
         RetargetCall(s.address, 0x44FD90, s.wrapper);  // only a call that still reaches the stock GetString
+    RetargetCall(0x478DB1, 0x4993C0, (void *)&TryingForBabyCopy);
 }

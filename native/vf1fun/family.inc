@@ -322,8 +322,18 @@ static bool RetargetCall(unsigned site, unsigned target, void *replacement) {
     return WriteCode(site + 1, &rel, 4);
 }
 
+// Force Successful Pregnancy skips the refusal that has nothing to do with whether a pregnancy would
+// succeed (VF2: "exactly the random refusals, nothing else"). In VF1's drop-on-spouse pairing the
+// only such refusal is the baby cooldown: the pairing compares gameState+0x1B150 with the current
+// seconds (call at 0x4412CA, `cmp [ecx+0x1B150], eax; jae too_soon`, string 0x3E3 "too soon"). While
+// the shot is armed that call reports the largest possible time, so the cooldown always counts as over.
+static unsigned __fastcall PairingSeconds(void *gameState, void *) {
+    if (gVillage.armed & ARM_FORCE) return 0xFFFFFFFFu;
+    return ((unsigned (__thiscall *)(void *))0x4036D0)(gameState);
+}
 static void InstallChanceHook() {  // Allow Older Pregnancies and Force Successful Pregnancy share this call site
     RetargetCall(0x48EB8C, 0x48FC10, (void *)&ChanceWrapper);
+    RetargetCall(0x4412CA, 0x4036D0, (void *)&PairingSeconds);
 }
 
 // Next Generation. The Family Tree screen shows its Next Generation button only when the
