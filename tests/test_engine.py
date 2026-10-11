@@ -14,7 +14,7 @@ SPEC = {
     'OlderVillagerMortalityCurve': ('Older Villager Mortality Curve',
         "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75). Because parents may now live on, the Family Tree's Next Generation button is also offered once the oldest parent at home is 60 and a child survives."),
     'PrivateRomanticTime': ('Private Adult Romantic Time',
-        'A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with "They have enough kids already!"). Same-sex couples already could. No baby is possible while the family is full.'),
+        'A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other (the original game refuses with "They have enough kids already!"). Like the Virtual Families 2 patcher, a couple that cannot conceive (same-sex, or six children) is also never made to wait "It is too soon to try to make a baby again" after an attempt, and the action reads "Having private adult romantic time". No baby is possible for them.'),
     'AllowOlderPregnancies': ('Allow Older Pregnancies',
         'Mothers over 50 can still conceive: the chance is 10% at age 50 and tapers to a 0.1% floor from 69 on, as in the Virtual Families 2 patcher (the original game made it impossible over 50). Mothers up to 50 are unchanged.'),
     'ClampMoneyAndFood': ('Clamp Max Money and Food',

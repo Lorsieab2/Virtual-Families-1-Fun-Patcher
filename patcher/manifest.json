@@ -25,7 +25,7 @@
     {
       "id": "PrivateRomanticTime",
       "label": "Private Adult Romantic Time",
-      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with \"They have enough kids already!\"). Same-sex couples already could. No baby is possible while the family is full.",
+      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other (the original game refuses with \"They have enough kids already!\"). Like the Virtual Families 2 patcher, a couple that cannot conceive (same-sex, or six children) is also never made to wait \"It is too soon to try to make a baby again\" after an attempt, and the action reads \"Having private adult romantic time\". No baby is possible for them.",
       "default": true,
       "category": "main"
     },

@@ -916,6 +916,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
     if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
         InstallChanceHook();
+    if (gOlderPregnancies || SettingOn(L"PrivateRomanticTime", true))
+        InstallCooldownRule();
     if (SettingOn(L"OlderVillagerMortalityCurve", true))
         InstallNextGenerationGate();
     if (rate >= 1 && rate <= 11)

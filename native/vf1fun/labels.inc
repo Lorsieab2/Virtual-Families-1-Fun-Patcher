@@ -100,9 +100,7 @@ static const char *__fastcall WorkshopCaption(void *strings, void *, int id) {
 // villager is `dest - 0x13594`.
 static bool PrivateRomanticCouple(unsigned char *villager) {
     int a = FounderSlot(), b = SpouseSlot();
-    if (a < 0 || b < 0) return false;
-    if (villager != Villager(a) && villager != Villager(b)) return false;
-    return *(int *)(Villager(a) + 0x2A38) == *(int *)(Villager(b) + 0x2A38) || EmptyOffspringSlots(FamilyTree) <= 0;
+    return PrivateCoupleNow() && (villager == Villager(a) || villager == Villager(b));
 }
 typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
 static char *__cdecl TryingForBabyCopy(char *dest, const char *src, size_t n) {

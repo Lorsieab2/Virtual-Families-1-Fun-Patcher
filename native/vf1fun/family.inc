@@ -331,6 +331,46 @@ static unsigned __fastcall PairingSeconds(void *gameState, void *) {
     if (gVillage.armed & ARM_FORCE) return 0xFFFFFFFFu;
     return ((unsigned (__thiscall *)(void *))0x4036D0)(gameState);
 }
+// A couple that cannot conceive ("private adult romantic time", VF2): same-sex, or an opposite-sex couple
+// whose family already has six children. Used by the caption, and below by the cooldown.
+static bool PrivateCoupleNow() {
+    int a = FounderSlot(), b = SpouseSlot();
+    if (a < 0 || b < 0) return false;
+    return *(int *)(Villager(a) + 0x2A38) == *(int *)(Villager(b) + 0x2A38) || EmptyOffspringSlots(FamilyTree) <= 0;
+}
+
+// VF2's cooldown rule (VF2StoreTryForBabyCooldownMaybe): the failed-attempt cooldown is not stored for a
+// couple that cannot conceive (so they can try again at once instead of "It is too soon to try to make a
+// baby again."), nor for an older couple (50+) while Allow Older Pregnancies is on. VF1 stores it in the
+// plan step that rolls ChanceOfPregnancy: `mov [eax+0x1B150], edi` (edi = now + 0x4B0, the same 1,200 s
+// VF2 uses) at 0x48EC70.
+extern "C" int __cdecl ShouldStoreFailedAttemptCooldown() {
+    if (PrivateCoupleNow()) return 0;
+    if (gOlderPregnancies) {
+        int a = FounderSlot(), b = SpouseSlot();
+        if ((a >= 0 && *(int *)(Villager(a) + 0x2A34) >= 50 * 20) || (b >= 0 && *(int *)(Villager(b) + 0x2A34) >= 50 * 20))
+            return 0;
+    }
+    return 1;
+}
+__declspec(naked) static void CooldownStoreDetour() {
+    __asm {
+        pushad
+        call ShouldStoreFailedAttemptCooldown
+        test eax, eax
+        popad                       // does not change the flags
+        jz skip
+        mov dword ptr [eax + 0x1B150], edi
+    skip:
+        push 0x48EC76               // the stock code continues with `call 0x48F9F0`
+        ret
+    }
+}
+static void InstallCooldownRule() {
+    static const unsigned char stock[] = { 0x89, 0xB8, 0x50, 0xB1, 0x01, 0x00 };  // mov [eax+0x1B150], edi
+    InstallJump(0x48EC70, stock, 6, (void *)&CooldownStoreDetour);
+}
+
 static void InstallChanceHook() {  // Allow Older Pregnancies and Force Successful Pregnancy share this call site
     RetargetCall(0x48EB8C, 0x48FC10, (void *)&ChanceWrapper);
     RetargetCall(0x4412CA, 0x4036D0, (void *)&PairingSeconds);
