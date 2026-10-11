@@ -346,5 +346,9 @@
  "0x425010": {
   "name": "Realtime-update singleton getter",
   "evidence": "Allocates 8 bytes (0x424F70) on first use and keeps it at 0x50C64C; its result is ecx for 0x424F80 at 0x41E1E0."
+ },
+ "0x4412ca": {
+  "name": "call to theGameState pairing-seconds read (0x4036D0) in the drop-adult-on-adult pairing check",
+  "evidence": "e8 rel32 reaching 0x4036D0 inside theMainScene's pairing handler (0x441070..); Force Successful Pregnancy retargets it to PairingSeconds, which reports an expired cooldown while forced; RetargetCall checks the target at run time."
  }
 }

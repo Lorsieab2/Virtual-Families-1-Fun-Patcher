@@ -297,7 +297,9 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         if (site->kind == L_TRYBABY) { if (c.n > 0) src = c.v[0]; }
         else if (c.n > 0) { int r = LabelRandom(c.n + 1); if (r) src = c.v[r - 1]; }
     }
-    return ((StrncpyFn)0x4993C0)(dest, src, n);
+    char *r = ((StrncpyFn)0x4993C0)(dest, src, n);
+    if (n == 0x27) dest[n] = 0;  // the 40-byte label: 0x27 characters and a terminator (a 39-character caption fills it)
+    return r;
 }
 
 // allCaptions: the Behavior Label Variants setting; tryBaby: Private Adult Romantic Time (its caption alone).
