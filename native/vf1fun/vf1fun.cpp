@@ -878,6 +878,7 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
 #include "villager_upgrades.inc"
 #include "songs.inc"
 #include "labels.inc"
+#include "computer.inc"
 #include "appearance_page.inc"
 #include "patcher_achievements.inc"
 
@@ -954,7 +955,10 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     if (SettingOn(L"CheatUpgrades", true))
         InstallFamilyHooks();
     gPrivateRomantic = SettingOn(L"PrivateRomanticTime", true);
-    InstallBehaviorLabelVariants(SettingOn(L"BehaviorLabelVariants", true), gPrivateRomantic);
+    bool behaviorLabels = SettingOn(L"BehaviorLabelVariants", true);
+    InstallBehaviorLabelVariants(behaviorLabels, gPrivateRomantic);
+    if (behaviorLabels)  // VF2 keeps the computer's 50:50 under the setting that holds its labels
+        InstallComputerFiftyFifty();
     gClampResources = SettingOn(L"ClampMoneyAndFood", true);
     gOlderPregnancies = SettingOn(L"AllowOlderPregnancies", true);
     if (gOlderPregnancies || SettingOn(L"CheatUpgrades", true))
