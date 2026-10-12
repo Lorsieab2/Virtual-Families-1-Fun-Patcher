@@ -437,7 +437,7 @@
  },
  "0x482120": {
   "name": "?InitAI@CVillager@@QAEXXZ (autonomous candidate table)",
-  "evidence": "thiscall, no arguments. For every behavior id 0..0x152 fills the entry at villager+0x2B98+id*0xC8: +0x00 id, +0x0C weight 0x5DC (1500), +0x14 0xAFC8 (praise cap), +0xC4 enabled 0; a switch (byte table 0x484DB4, jump table 0x484B44) sets per-id rules and enables the candidate at 0x484AE9 (mov [esi+0x2C5C], bl=1); every entry then gets +/- GetRandom(weight/5). 0x6D: weight 0xCE4 (3300) at 0x482E3F, enabled; 0x10E: weight left at 1500, enabled; 0x6F: default branch, not enabled. Called by Init 0x484EED, 0x485310 (0x48531C), CloneAsAdult 0x48547C and LoadAI 0x4855D3."
+  "evidence": "thiscall, no arguments. For every behavior id 0..0x152 fills the entry at villager+0x2B98+id*0xC8: +0x00 id, +0x0C weight 0x5DC (1500), +0x14 0xAFC8 (praise cap), +0xC4 enabled 0; a switch (byte table 0x484DB4, jump table 0x484B44) sets per-id rules and enables the candidate at 0x484AE9 (mov [esi+0x2C5C], bl=1); every entry then gets +/- GetRandom(weight/5). 0x6D: weight 0xCE4 (3300) at 0x482E3F, enabled; 0x10E: weight left at 1500, enabled; 0x6F: default branch, not enabled. Called by Init 0x484EED, 0x485310 (0x48531C), CloneAsAdult 0x48547C and LoadAI 0x4855D3. Not patched: the computer 50:50 never writes these weights."
  },
  "0x4855d0": {
   "name": "?LoadAI@CVillager@@QAEXAAUSSaveState@1@@Z",
@@ -447,20 +447,8 @@
   "name": "autonomous decision pass (VF2 CVillagerAI::DecideWhatToDo)",
   "evidence": "cdecl-style (villager on the stack), ret 4. First a 15% email route (NewBehavior 0x6F for an adult when nobody is doing 0x6F); otherwise collects every candidate 0..0x151 whose enabled byte +0x2C5C is set and whose age/stat/object/prop gates pass, takes its weight +0x2BA4 (tripled by the entry's need/interest conditions, quartered for a disliked interest: +0x2C48/+0x2C4C against the villager lists +0x13620/+0x1362C via 0x481400), rolls GetRandom(sum) and starts the chosen id with NewBehavior (0x488F6A). Callers 0x489478 and 0x4895FF."
  },
- "0x484eed": {
-  "name": "call site: CVillager::Init -> InitAI 0x482120",
-  "evidence": "mov ecx, esi (the villager) then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
- },
- "0x48531c": {
-  "name": "call site: villager init 0x485310 (from SpawnSpecificPeep 0x48B373) -> InitAI 0x482120",
-  "evidence": "mov ecx, esi then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
- },
- "0x48547c": {
-  "name": "call site: CVillager::CloneAsAdult -> InitAI 0x482120",
-  "evidence": "mov ecx, esi then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
- },
- "0x4857d6": {
-  "name": "call site: CVillager::LoadState -> LoadAI 0x4855D0",
-  "evidence": "push edi (the save state); mov ecx, esi; e8 rel32 reaching 0x4855D0; the only call to LoadAI. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 after the saved weights are restored, as VF2 runs its enabler after both LoadAI returns; checked at run time by RetargetCall."
+ "0x488ca9": {
+  "name": "decision pass weighting loop: read of a listed candidate's weight (mov ebx, [ecx+ebp+0x2BA4]; lea esi, [ecx+ebp])",
+  "evidence": "Vanilla bytes 8b9c29a42b0000 8d3429 at 0x488CA9-0x488CB2, whole instructions; preceded by 0x488C90 mov eax,[esp+0x14]; 0x488C94 mov edi,[esp+eax*4+0x20] (the candidate id from the list the first loop built at 0x488C4D); mov ecx,edi; imul ecx,ecx,0xC8; 0x488CA0 mov eax,[ecx+ebp+0x2BF4]; 0x488CA7 test eax,eax; followed by 0x488CB3 je (uses those flags). ebp = the villager throughout (arg [esp+0xAB0], +0x13594 label, +0x2A34 age). [esp+0x1C] = listed count (0x488C6C, compared at 0x488F0D); the loop has no unbalanced pushes (0x481400 is ret 4). ebx is then tripled (0x488EF8, need/interest conditions) or quartered (0x488EE5, disliked interest) and summed (0x488EFF) for GetRandom(sum) at 0x488F20. No branch in the function or rel32 branch in .text targets 0x488CAA-0x488CB2. Behavior Label Variants jumps from here to a detour that keeps the flags (pushfd), and when both 0x6D and 0x10E are listed gives them (w6D+w10E)/2 and the rest; it writes nothing; checked by InstallJump."
  }
 }
