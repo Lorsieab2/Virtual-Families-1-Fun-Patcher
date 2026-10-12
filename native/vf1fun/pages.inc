@@ -1,7 +1,24 @@
 // pages.inc -- the Upgrades menu's newer pages; included after features.inc.
 
 static int GenerationNumber() { return *(int *)0x5AB908; }     // CFamilyTree+0, starts at 1
-static int OldestEverAge() { return *(int *)0x50C580; }        // CGameStats+0x20, years
+// The Upgrades menu's "Oldest Villager" (and the longevity achievements) use the game's own record
+// (CGameStats+0x20, years, saved with the village) unless it is obviously cheated: an age no family
+// reaches (over 150 years, the longest the mortality curves leave anyone alive) is ignored, and the oldest
+// villager in the house now stands in for it. The Family Tree stores no ages, so it cannot supply one.
+// "Generation" is the Family Tree's own count (CFamilyTree+0, starting at 1).
+static const int kBelievableOldestYears = 150;
+static int OldestEverAge() {
+    int recorded = *(int *)0x50C580;
+    if (recorded <= kBelievableOldestYears) return recorded;
+    int oldest = 0;
+    for (int i = 0; i < 30; ++i) {
+        unsigned char *v = (unsigned char *)0x5B8898 + 0x14640 + i * 0x145FC;
+        if (!v[0x13574]) continue;
+        int years = *(int *)(v + 0x2A34) / 20;
+        if (years <= kBelievableOldestYears && years > oldest) oldest = years;
+    }
+    return oldest;
+}
 
 // ---- Store, achievement and collection cheats (VF2 wording)
 enum { ID_SC_STATUS = 500, ID_SC_X2, ID_SC_X5, ID_SC_X100, ID_SC_RESET_PRICES,
