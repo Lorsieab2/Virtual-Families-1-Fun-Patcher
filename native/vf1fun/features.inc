@@ -325,29 +325,16 @@ static void CleanGarden() { RemoveAll(Collectables, 0x88); }
 // set to now + 3,600 again and, only in the daytime, one visit happens. On loading a save an overdue
 // timer is moved to now + 180..779 (Maid) or now + 300..899 (Gardener).
 // VF2 sends a temporary worker villager for the visit; VF1 has no way to spawn one, so the visit's
-// effect is done at visit time instead: the Maid picks up the house mess (socks 0x7E-0x83, wrappers
-// 0x84-0x87, smudges 0x8E-0x90) and, when there were fewer than 5 messes, also dusts (VF1's webs,
-// 0x8C-0x8D, the fourth category of the stock Housekeeping Services event); the Gardener pulls the
-// weeds (0x88-0x8B).
+// effect is done at visit time instead: the Maid cleans up all of VF1's house mess, the four categories
+// of the stock Housekeeping Services event (socks 0x7E-0x83, wrappers 0x84-0x87, cobwebs 0x8C-0x8D in
+// the corner by the bathroom sink, smudges 0x8E-0x90); VF2's extra dusting is only an animation and
+// removes nothing. The Gardener pulls the weeds (0x88-0x8B).
 // Daytime is VF1's own test, CNight (0x831700) 0x491630: 1 while sunrise (+0x674) < the time of day
 // < sunset (+0x678).
 typedef int (__thiscall *IntThisFn)(void *self);
 static const IntThisFn IsDayTime = (IntThisFn)0x491630;
 static void *const Night = (void *)0x831700;
-static int CountHouseMess() {
-    int n = 0;
-    unsigned char *slot = Collectables + 4;
-    for (int i = 0; i < 30; ++i, slot += 0x1C) {
-        int type = *(int *)(slot + 4);
-        if (slot[0] && ((type >= 0x7E && type <= 0x87) || (type >= 0x8E && type <= 0x90))) ++n;
-    }
-    return n;
-}
-static void MaidVisit() {
-    bool dust = CountHouseMess() < 5;
-    RemoveAll(Collectables, 0x7E); RemoveAll(Collectables, 0x84); RemoveAll(Collectables, 0x8E);
-    if (dust) RemoveAll(Collectables, 0x8C);
-}
+static void MaidVisit() { CleanHouse(); }
 static void GardenerVisit() { CleanGarden(); }
 static void HireHelper(unsigned *timer) { *timer = GameSeconds(GameTime) + 3600; }
 static void HelpersAfterLoad() {
