@@ -134,6 +134,7 @@ static unsigned *const GameStateVtable = (unsigned *)0x4B5E50;  // RTTI theGameS
 // another to read their family names, then the current one, so the last
 // successful load wins -- which is the village being played.
 static void NormalSpeedForSaveFile(bool restoreAfter);
+static void RestoreGameTimeSpeed(int speed);
 // Speed: CGameTime runs at 10/speed, so 5 is 2x, 2 is 5x and 1 is 10x.
 static int gWantedSpeed = 10;
 static bool __fastcall GameStateLoad(void *state, void *, int slot) {
@@ -156,7 +157,11 @@ static int gSpeedBeforeSave;
 static bool __fastcall GameStateSave(void *state, void *, int slot) {
     NormalSpeedForSaveFile(true);  // never write a Time Controls speed into the save
     bool ok = OriginalGameStateSave(state, slot);
-    if (gSpeedBeforeSave) { *(int *)((unsigned char *)state + 0x1B180) = gSpeedBeforeSave; gSpeedBeforeSave = 0; }
+    if (gSpeedBeforeSave) {
+        *(int *)((unsigned char *)state + 0x1B180) = gSpeedBeforeSave;
+        if (gSpeedBeforeSave < 999) RestoreGameTimeSpeed(gSpeedBeforeSave);  // CGameTime back to the live speed
+        gSpeedBeforeSave = 0;
+    }
     if (ok && slot >= 1 && slot <= 5)
         SaveVillageState(slot);
     return ok;
@@ -501,13 +506,17 @@ static void ResumeGame() {
 // 2026-10-11) and its people died of the neglect. So a Time Controls speed never reaches the save file:
 // it is written at normal speed (paused stays paused), and a save that already holds one (written by an
 // earlier version) loads at normal speed. Only the stock values 10 and 999+10 are left alone.
+static void RestoreGameTimeSpeed(int speed) { SetSpeed(GameTime, speed); }
 static void NormalSpeedForSaveFile(bool restoreAfter) {
     if (!GameStateGet()) return;
     int *slot = GameSpeedSlot();
     int s = *slot, paused = s >= 999 ? 999 : 0, speed = s - paused;
     if (speed == 10) return;
+    // CGameTime keeps its own speed (+0x20) and the game saves that too, so both are normalised: on a save
+    // here (and restored right after it), on a load when the saved village comes back.
+    if (!paused) SetSpeed(GameTime, 10);
     if (restoreAfter) gSpeedBeforeSave = s;
-    else { gWantedSpeed = 10; if (!paused) SetSpeed(GameTime, 10); }
+    else gWantedSpeed = 10;
     *slot = paused + 10;
 }
 static void ApplyGameSpeed() {
