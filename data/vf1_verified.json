@@ -354,5 +354,65 @@
  "0x489ee4": {
   "name": "AllVillagersTimeflowUpkeep: load of the Oldest Villager record (mov eax,[0x50C580]) before compare-and-record",
   "evidence": "a1 80 c5 50 00 at 0x489EE4; the record is raised at 0x489F07 to age/20 when [edi] (age) > record*20; ebx = the ticks added by IncrementAge at 0x489E91 (callee-saved through 0x48F080/0x48C5A0/0x4857F0/0x423E10/0x423CB0); jump targets 0x489E9C/0x489EA4/0x489EB3 land on the first byte of the 5-byte patch. Fix Vanilla Game Bugs jumps here to OldestRecordDetour."
+ },
+ "0x45bbe1": {
+  "name": "call to strncpy (0x4993C0) writing the getting a drink action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x8e, \"Getting a drink\"); VF2 CBehavior::GetADrink (behavior macro 0x19, 'Getting a drink', plan: go to object 0x1A, GettingNW anim, activate prop 0x10); same plan shape as VF1's function at 0x45BBC0 (GettingNE anim, activate prop 0x10). The bathroom 'Getting a drink of water' (0x468C08) is a different behavior VF2 does not vary. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x47e781": {
+  "name": "call to strncpy (0x4993C0) writing the heating up some food action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x19a, \"Heating up some food\"); VF2 CBehavior::HeatUpFood (behavior macro 0xD5, same id in VF1): Knocking / Sigh / Dizzy animations, identical plan shape to VF1's function at 0x47E760. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x45cd1d": {
+  "name": "call to strncpy (0x4993C0) writing the looking for snacks action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x94, \"Looking for snacks\"); VF2 CBehavior::LookingForSnacksDispatch calls LookingForSnacks0/1/2, which all write 'Looking for snacks'; VF1 has the same three copies at 0x45CD1D, 0x45CE9D and 0x45CFFD (string 0x94). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x45ce9d": {
+  "name": "call to strncpy (0x4993C0) writing the looking for snacks action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x94, \"Looking for snacks\"); second of the three LookingForSnacks copies (see 0x45CD1D). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x45cffd": {
+  "name": "call to strncpy (0x4993C0) writing the looking for snacks action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x94, \"Looking for snacks\"); third of the three LookingForSnacks copies (see 0x45CD1D). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x47c612": {
+  "name": "call to strncpy (0x4993C0) writing the preparing a meal action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x8f, \"Preparing a meal\"); VF2 CBehavior::PreparingAMeal ('Preparing a meal', Knocking / Sigh / Dizzy animations); VF1 function at 0x47C5F0 has the same plan shape. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x45fa18": {
+  "name": "call to strncpy (0x4993C0) writing the taking a shower action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x9d, \"Taking a shower\"); VF2 CBehavior::Shower writes 'Taking a shower' (string 0xF4 there, 0x9D here). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x467139": {
+  "name": "call to strncpy (0x4993C0) writing the washing face / hands at the bathroom sink action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xd8, \"Washing face\"); VF2 WashingInBathroomSink0-3 write 'Washing face' (0x136) or 'Washing hands' (0x137) chosen at random; VF1's one function (0x4670E0) pushes both strings (0xD8, 0xD9) before a single strncpy. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x467402": {
+  "name": "call to strncpy (0x4993C0) writing the putting on lotion / aftershave / makeup / beauty mask / cream action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xdc, \"Putting on makeup\"); VF2 BathroomGroomingGeneral chooses among five strings 0x138-0x13C (lotion ... cream); VF1's function at 0x467340 pushes the five strings 0xDA-0xDE before a single strncpy. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x467d8c": {
+  "name": "call to strncpy (0x4993C0) writing the shaving / removing makeup action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xe3, \"Removing makeup\"); VF2 BathroomGroomingShaveMakeup shares the 'Sweeping' animation with VF1's function at 0x467D40, which pushes 'Shaving' (0xE2) and 'Removing makeup' (0xE3) before a single strncpy (matched by animation shape; the VF2 label ids of that function are not recoverable by name). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x469f71": {
+  "name": "call to strncpy (0x4993C0) writing the making coffee action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x198, \"Making coffee\"); VF2 CBehavior::MakeCoffee (behavior macro 0xD3, same id in VF1) writes 'Making coffee'. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x46ab81": {
+  "name": "call to strncpy (0x4993C0) writing the making a grande latte action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x19d, \"Making a grande latte \"); VF2 CBehavior::MakingAVanillaSoyDecafGrandeLatte (behavior macro 0xD9, same id in VF1) writes the latte caption. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4741a8": {
+  "name": "call to strncpy (0x4993C0) writing the looking for a falling star / admiring stars in the sky action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0x67, \"Looking for a falling star\"); pushes GetString 0x67 (Looking for a falling star) and 0x66 (Admiring stars in the sky) before one strncpy, so both stargazing captions are written here. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x46d4e8": {
+  "name": "call to strncpy (0x4993C0) writing the taking an online test action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xf0, \"Taking an online test\"); VF2 CBehavior::TeenOnlineExam writes 'Taking an online test' (string 0x14E there, 0xF0 here). Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x45fe58": {
+  "name": "call to strncpy (0x4993C0) writing the Enjoying the patio (eString_EnjoyingBackyard 0xA0) action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xa0, \"Enjoying the patio\"); go to the patio chair, GettingNE animation, 'Sit In Chair NE', drink; VF2 never varies the stock caption, the owner asked for the sit-down pool and VF2's patio-table drink captions. Behavior Label Variants retargets it, checked at run time by RetargetCall."
  }
 }
