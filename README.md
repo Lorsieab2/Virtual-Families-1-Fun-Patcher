@@ -59,7 +59,7 @@ patch settings you can switch off):
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 
-Five settings change the base game on their own:
+Five settings change the base game on their own (plus the optional ones below):
 - **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
   no hard maximum age. Because parents can live on, the Family Tree's Next
   Generation button is also offered once the oldest parent at home is 60 and a
@@ -69,6 +69,10 @@ Five settings change the base game on their own:
   kids already!"), with the stock cooldown, as in the VF2 patcher.
 - **Clamp Max Money and Food:** coins stay at or under 4,000,000,000 and food at or under
   2,147,483,647 (the VF2 maximums); the original game has no limit and food wraps negative.
+- **Behavior Label Variants** (optional): the caption under a villager varies, using the VF2 patcher's own captions,
+  for TV, reading, the web, video games, board games, homework, the sandbox, the flower boxes, naps (with the
+  sit-down captions), the pool, career work and private adult romantic time. Captions only: behaviors, chances
+  and career progression are unchanged.
 - **Allow Older Pregnancies:** mothers over 50 can still conceive (10% at 50, tapering
   to a 0.1% floor from 69), as in the VF2 patcher.
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed

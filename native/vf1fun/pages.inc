@@ -5,7 +5,9 @@ static int OldestEverAge() { return *(int *)0x50C580; }        // CGameStats+0x2
 
 // ---- Store, achievement and collection cheats (VF2 wording)
 enum { ID_SC_STATUS = 500, ID_SC_X2, ID_SC_X5, ID_SC_X100, ID_SC_RESET_PRICES,
-       ID_SC_ACH_ALL, ID_SC_ACH_RESET, ID_SC_COL_ALL, ID_SC_COL_RESET };
+       ID_SC_ACH_ALL, ID_SC_ACH_RESET, ID_SC_COL_ALL, ID_SC_COL_RESET, ID_SC_ANTISPAM };
+static bool AntiSpamOwned();
+static void SetAntiSpam(bool on);
 
 static void RefreshStoreCheats(HWND dlg) {
     wchar_t s[96];
@@ -13,6 +15,7 @@ static void RefreshStoreCheats(HWND dlg) {
         swprintf(s, 96, L"Store prices: original");
     else
         swprintf(s, 96, L"Store prices: %dx", gVillage.priceMultiplier);
+    wcscat_s(s, 96, AntiSpamOwned() ? L"     Anti-spam: installed" : L"     Anti-spam: not installed");
     SetDlgItemTextW(dlg, ID_SC_STATUS, s);
 }
 
@@ -21,10 +24,13 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     case WM_INITDIALOG: RefreshStoreCheats(dlg); return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
-        case ID_SC_X2: gVillage.priceMultiplier = 2; break;
-        case ID_SC_X5: gVillage.priceMultiplier = 5; break;
-        case ID_SC_X100: gVillage.priceMultiplier = 100; break;
+        // VF2: buying the price mode you already have takes it away again.
+        case ID_SC_X2: gVillage.priceMultiplier = gVillage.priceMultiplier == 2 ? 1 : 2; break;
+        case ID_SC_X5: gVillage.priceMultiplier = gVillage.priceMultiplier == 5 ? 1 : 5; break;
+        case ID_SC_X100: gVillage.priceMultiplier = gVillage.priceMultiplier == 100 ? 1 : 100; break;
         case ID_SC_RESET_PRICES: gVillage.priceMultiplier = 1; break;
+        // VF2's "Anti-Spam Software Ownership" cheat (item 0x158): free; buying it again switches it back.
+        case ID_SC_ANTISPAM: SetAntiSpam(!AntiSpamOwned()); break;
         case ID_SC_ACH_ALL:
             if (Confirm(dlg, L"Complete every achievement? Reset Achievements is the only way back.")) {
                 CompleteAllAchievements();
@@ -56,7 +62,7 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowStoreCheats(HWND owner) {
     static Template t;
-    t.Begin(L"Store, Achievement and Collection Cheats", 250, 170, 12);
+    t.Begin(L"Store, Achievement and Collection Cheats", 250, 194, 13);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_SC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 55, 16, ID_SC_X2, L"2x Prices");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 69, 24, 55, 16, ID_SC_X5, L"5x Prices");
@@ -68,7 +74,8 @@ static void ShowStoreCheats(HWND owner) {
     t.Item(STATIC, SS_LEFT, 10, 90, 230, 12, -1, L"Collections");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 104, 112, 16, ID_SC_COL_ALL, L"Complete all collections");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 104, 112, 16, ID_SC_COL_RESET, L"Reset all collections");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 146, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 130, 230, 16, ID_SC_ANTISPAM, L"Anti-Spam Software Ownership (install / uninstall)");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 170, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, StoreCheatsProc, 0);
 }
 
@@ -100,13 +107,11 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         wchar_t s[96];
         switch (LOWORD(wp)) {
         case ID_HY_TRASH:
-            if (gVillage.maid) { Message(dlg, L"The Maid is active, so the house stays clean."); break; }
             swprintf(s, 96, L"Spawned %d pieces of mess.", FillHouseWithTrash());
             Message(dlg, s);
             break;
         case ID_HY_CLEAN: CleanHouse(); Message(dlg, L"The house is clean."); break;
         case ID_HY_WEEDS:
-            if (gVillage.gardener) { Message(dlg, L"The Gardener is active, so the yard stays weeded."); break; }
             swprintf(s, 96, L"Spawned %d weeds.", FillYardWithWeeds());
             Message(dlg, s);
             break;
@@ -149,24 +154,33 @@ static void ShowHouse(HWND owner) {
 // events test it, 0x417C35), and the game saves it.
 static bool AntiSpamOwned() { return ((unsigned char *)GameStateGet())[0x1CC] != 0; }
 static void SetAntiSpam(bool on) { ((unsigned char *)GameStateGet())[0x1CC] = on ? 1 : 0; }
-static const int kAntiSpamItem = 47;
 
 struct Purchase {
-    int id; const wchar_t *name; int price;           // price -1: the store price of the Anti-spam Software item
-    int VillageState::*owned;                         // 0: Anti-spam Software, which the game itself keeps
+    int id; const wchar_t *name; int price;
+    int VillageState::*owned;
     const wchar_t *what;
 };
-static bool PurchaseOwned(const Purchase &p) { return p.owned ? gVillage.*p.owned != 0 : AntiSpamOwned(); }
-static int PurchasePrice(const Purchase &p) { return p.price < 0 ? ItemPrice(0, 0, kAntiSpamItem) : p.price; }
+static int BankRate() { return gVillage.bankRate ? gVillage.bankRate : 10; }
+// VF2ApplyVisibleSpecialUpgrade 0x117: the Brokerage Account is "owned" while the rate is above 10%.
+static bool PurchaseOwned(const Purchase &p) {
+    if (p.owned == &VillageState::brokerage) return BankRate() > 10;
+    return gVillage.*p.owned != 0;
+}
+// VF2's Brokerage Account: buying adds 2 points (at most 11%); buying it while owned sets the rate to 1%.
+static void BuyBrokerage() {
+    int rate = BankRate();
+    gVillage.bankRate = rate > 10 ? 1 : (rate + 2 > 11 ? 11 : rate + 2);
+    gVillage.brokerage = gVillage.bankRate > 10;
+}
+static int PurchasePrice(const Purchase &p) { return p.price; }
 enum { ID_SU_LIST = 540, ID_SU_BUY, ID_SU_DESC };
 static const Purchase kPurchases[] = {
-    { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"The bank's interest rate goes up 2 points, to at most 11%." },
-    { 1, L"Food Club", 10000, &VillageState::foodClub, L"A bag of organic groceries (250 food) right away and every game day, plus half price on all groceries." },
-    { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"Medicines cost a quarter of the price." },
-    { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"Rare and uncommon collectibles turn up twice as often." },
-    { 4, L"Maid", 1000, &VillageState::maid, L"Keeps the house clean: socks, wrappers, smudges and cobwebs. Buy again to let her go." },
-    { 5, L"Gardener", 1000, &VillageState::gardener, L"Keeps the yard free of weeds. Buy again to let him go." },
-    { 6, L"Anti-spam Software", -1, 0, L"Installs the Anti-spam Software without using a computer: no more spam e-mail events. Buy again to remove it." },
+    { 0, L"Brokerage Account", 10000, &VillageState::brokerage, L"Upgrade your broker: a permanent 2% boost to your family's banking interest rate, up to 11%. Buy again to remove it: the rate then drops to 1%, as in the Virtual Families 2 patcher." },
+    { 1, L"Food Club", 10000, &VillageState::foodClub, L"It's a CSA (Community Sources Agriculture) subscription! Bags of organic, local groceries containing all 4 food groups, delivered each day (helps prevent accidental starvation). Plus a permanent 50% discount on all food! Buy again to remove it." },
+    { 2, L"Health Plan", 10000, &VillageState::healthPlan, L"A permanent 75% discount on all health care and medicines. Buy again to remove it." },
+    { 3, L"Lucky Rock", 77777, &VillageState::luckyRock, L"This lucky rock increases the rate and rarity of random collectibles that appear in the yard. Buy again to remove it." },
+    { 4, L"Maid", 1000, &VillageState::maid, L"No more stray wrappers and socks, ever! A maid comes every game hour during the day. Buy again to let her go." },
+    { 5, L"Gardener", 1000, &VillageState::gardener, L"Had enough of pulling weeds? A gardener comes every game hour during the day. Buy again to let him go." },
 };
 
 static void FillPurchases(HWND dlg) {
@@ -198,27 +212,36 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             SetDlgItemTextW(dlg, ID_SU_DESC, kPurchases[sel].what);
         } else if (LOWORD(wp) == ID_SU_BUY && sel >= 0) {
             const Purchase &p = kPurchases[sel];
-            wchar_t text[200];
+            wchar_t text[300];
             if (PurchaseOwned(p)) {
                 // As in the Virtual Families 2 patcher: buying an upgrade again removes it (no refund).
-                swprintf(text, 200, L"Remove %s? It is not refunded, and you can buy it again later.", p.name);
+                swprintf(text, 300, L"Remove %s? It is not refunded, and you can buy it again later.", p.name);
                 if (Confirm(dlg, text)) {
-                    if (p.owned) gVillage.*p.owned = 0; else SetAntiSpam(false);
-                    swprintf(text, 200, L"%s removed.", p.name);
+                    if (p.owned == &VillageState::brokerage) BuyBrokerage();
+                    else gVillage.*p.owned = 0;
+                    swprintf(text, 300, L"%s removed.", p.name);
                     Message(dlg, text);
                 }
             } else if (CurrentMoney() < PurchasePrice(p)) {
                 Message(dlg, L"You don't have enough money for that.");
             } else {
-                swprintf(text, 200, L"Buy %s for $%d?", p.name, PurchasePrice(p));
+                swprintf(text, 300, L"Buy %s for $%d?", p.name, PurchasePrice(p));
                 if (Confirm(dlg, text)) {
                     MoneyAdjust(Money, (float)-PurchasePrice(p), false);
-                    if (p.owned) gVillage.*p.owned = 1; else SetAntiSpam(true);
-                    if (p.owned == &VillageState::foodClub) {
-                        AddFoodSaturating(kOrganicBagFood);
-                        gVillage.foodClubLast = GameSeconds(GameTime);
-                    }
-                    swprintf(text, 200, L"Purchased: %s.", p.name);
+                    swprintf(text, 300, L"Purchased: %s.", p.name);
+                    // VF2's purchase popups.
+                    if (p.owned == &VillageState::brokerage) BuyBrokerage();
+                    else if (p.owned == &VillageState::foodClub) {
+                        FoodClubJoin();
+                        swprintf(text, 300, L"You are signed up for the Food Club!\n\nYou have received a food delivery "
+                                            L"containing the 4 food groups!\nYou will now get a new food delivery every day.");
+                    } else if (p.owned == &VillageState::maid) {
+                        gVillage.maid = 1; HireHelper(&gVillage.maidNext);
+                        swprintf(text, 300, L"You have a maid! Now the house will always be clean.");
+                    } else if (p.owned == &VillageState::gardener) {
+                        gVillage.gardener = 1; HireHelper(&gVillage.gardenerNext);
+                        swprintf(text, 300, L"You have a gardener! No more pesky weeds.");
+                    } else gVillage.*p.owned = 1;
                     Message(dlg, text);
                 }
             }
@@ -238,7 +261,7 @@ static void ShowPurchases(HWND owner) {
     static Template t;
     t.Begin(L"Special Upgrades", 250, 180, 4);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 230, 90, ID_SU_LIST, L"");
-    t.Item(STATIC, SS_LEFT, 10, 106, 230, 36, ID_SU_DESC, L"");
+    t.Item(STATIC, SS_LEFT, 10, 104, 230, 48, ID_SU_DESC, L"");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 156, 75, 16, ID_SU_BUY, L"Buy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 165, 156, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, PurchasesProc, 0);
@@ -246,13 +269,16 @@ static void ShowPurchases(HWND owner) {
 
 // ---- Time controls
 enum { ID_TC_STATUS = 560, ID_TC_PAUSE, ID_TC_RESUME, ID_TC_NORMAL, ID_TC_X2, ID_TC_X5, ID_TC_X10,
-       ID_TC_WARP };
+       ID_TC_WARP, ID_TC_SLOW };
+// Slow / Normal / Fast are VF1's own engine speeds, the same three the Virtual Villagers games offer: the
+// time-flow upkeep (0x489E08) knows exactly 20 (slow, half speed), 10 (normal) and 5 (fast, 2x), each with
+// its own catch-up cap (0x5CF8 / 0x7918 / 0x9538 seconds). 5x and 10x stay as extra choices.
+static const int kSpeedSlow = 20;
 
 static void RefreshTime(HWND dlg) {
     wchar_t s[128];
-    const wchar_t *speed = gWantedSpeed == 5 ? L"2x" : gWantedSpeed == 2 ? L"5x" : gWantedSpeed == 1 ? L"10x" : L"normal";
-    swprintf(s, 128, L"%s. Speed: %s.%s", GamePaused() ? L"Paused" : L"Running", speed,
-             gWarpTicks ? L" A time warp is under way." : L"");
+    const wchar_t *speed = gWantedSpeed == kSpeedSlow ? L"slow" : gWantedSpeed == 5 ? L"fast (2x)" : gWantedSpeed == 2 ? L"5x" : gWantedSpeed == 1 ? L"10x" : L"normal";
+    swprintf(s, 128, L"%s. Speed: %s.", GamePaused() ? L"Paused" : L"Running", speed);
     SetDlgItemTextW(dlg, ID_TC_STATUS, s);
 }
 
@@ -264,13 +290,18 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_TC_PAUSE: PauseGame(); break;
         case ID_TC_RESUME: ResumeGame(); break;
         case ID_TC_NORMAL: gWantedSpeed = 10; if (!GamePaused()) { SetSpeed(GameTime, 10); *GameSpeedSlot() = 10; } break;
+        case ID_TC_SLOW: gWantedSpeed = kSpeedSlow; ApplyGameSpeed(); break;
         case ID_TC_X2: gWantedSpeed = 5; ApplyGameSpeed(); break;
         case ID_TC_X5: gWantedSpeed = 2; ApplyGameSpeed(); break;
         case ID_TC_X10: gWantedSpeed = 1; ApplyGameSpeed(); break;
         case ID_TC_WARP:
-            if (MessageBoxW(dlg, L"Everyone at home ages at once, with every normal rule: birthdays, leaving home, "
-                                 L"and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES)
-                StartTimeWarp(60);  // 3 years, the Virtual Villagers patcher's standard warp (20 age ticks = 1 year)
+            // VF2's Time Warp (free here): 3 years and 1 age tick pass for the whole family at once, with
+            // every normal rule (features.inc TimeWarp).
+            if (MessageBoxW(dlg, L"Jump 3 years ahead? Everyone at home ages at once, with every normal rule: "
+                                 L"birthdays, leaving home, and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES) {
+                TimeWarp();
+                Message(dlg, L"Time warp completed! It's 3 years later!");
+            }
             break;
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); return TRUE;
         }
@@ -283,15 +314,16 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowTime(HWND owner) {
     static Template t;
-    t.Begin(L"Time Controls", 250, 150, 9);
+    t.Begin(L"Time Controls", 250, 150, 10);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_TC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 112, 16, ID_TC_PAUSE, L"Pause");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 24, 112, 16, ID_TC_RESUME, L"Resume");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 48, 53, 16, ID_TC_NORMAL, L"Normal");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 69, 48, 53, 16, ID_TC_X2, L"2x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 48, 53, 16, ID_TC_X5, L"5x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 187, 48, 53, 16, ID_TC_X10, L"10x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 76, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 48, 73, 16, ID_TC_SLOW, L"Slow");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 88, 48, 74, 16, ID_TC_NORMAL, L"Normal");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 167, 48, 73, 16, ID_TC_X2, L"Fast");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 70, 112, 16, ID_TC_X5, L"5x");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 70, 112, 16, ID_TC_X10, L"10x");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 98, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 126, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, TimeProc, 0);
 }

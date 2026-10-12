@@ -118,17 +118,17 @@ Settings and defaults
 - FixVanillaGameBugs [on] (main): Fix Vanilla Game Bugs
   Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).
 - OlderVillagerMortalityCurve [on] (main): Older Villager Mortality Curve
-  Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75). Because parents may now live on, the Family Tree's Next Generation button is also offered once the oldest parent at home is 60 and a child survives.
+  Replaces only the annual old-age death roll with a calibrated curve that accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age.
 - PrivateRomanticTime [on] (main): Private Adult Romantic Time
-  A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with "They have enough kids already!"). Same-sex couples already could. No baby is possible while the family is full.
+  A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other (the original game refuses with "They have enough kids already!"). Like the Virtual Families 2 patcher, a couple that cannot conceive (same-sex, or six children) is also never made to wait "It is too soon to try to make a baby again" after an attempt, and the action reads "Having private adult romantic time". No baby is possible for them.
 - AllowOlderPregnancies [on] (main): Allow Older Pregnancies
-  Mothers over 50 can still conceive: the chance is 10% at age 50 and tapers to a 0.1% floor from 69 on, as in the Virtual Families 2 patcher (the original game made it impossible over 50). Mothers up to 50 are unchanged.
+  Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.
 - ClampMoneyAndFood [on] (main): Clamp Max Money and Food
   Keeps coins at no more than 4,000,000,000 and food at no more than 2,147,483,647, the Virtual Families 2 patcher's maximums (the original game has no limit, and food wraps to a negative number past 2,147,483,647, which glitches the game).
 - SpecialUpgrades [on] (main): Add visible mobile version purchases
   Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.
 - CheatUpgrades [on] (optional): Cheat Upgrades
-  Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family).
+  Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager.
 - FleaMarket [on] (optional): Flea Market
   Every tray item the store sells, to buy or get for free.
 - RollTheDice [on] (optional): Roll the Dice
@@ -139,6 +139,8 @@ Settings and defaults
   Adds VF2 songs in addition to the normal VF1 songs.
 - GlowingCollectables [on] (optional): Glowing Collectables
   Makes the collectables in the yard glow, so they are easier to spot.
+- BehaviorLabelVariants [on] (optional): Behavior Label Variants
+  Varies the caption shown for a villager's action, using the Virtual Families 2 patcher's own captions: Watching TV, Reading, Browsing the web, Playing video games, Playing a board game, Doing homework, the sandbox, watering the flower boxes, Taking a nap (dreams), Needs to sit down, the pool, career work at the computer, kitchen and workshop, and "Having private adult romantic time" for a couple that cannot conceive. Age-appropriate, as in VF2: online shopping from 13, social media, teen games and teen homework from 14, child pool games and homework for younger villagers. Captions only: the behaviors, their chances and career progression are not changed.
 
 Restore
 -------

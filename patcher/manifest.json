@@ -18,21 +18,21 @@
     {
       "id": "OlderVillagerMortalityCurve",
       "label": "Older Villager Mortality Curve",
-      "description": "Replaces only the yearly old-age death roll with the Virtual Families 2 patcher's calibrated curve, which accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age (the original game's roll made death certain by about 75). Because parents may now live on, the Family Tree's Next Generation button is also offered once the oldest parent at home is 60 and a child survives.",
+      "description": "Replaces only the annual old-age death roll with a calibrated curve that accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age.",
       "default": true,
       "category": "main"
     },
     {
       "id": "PrivateRomanticTime",
       "label": "Private Adult Romantic Time",
-      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other, with the stock cooldown (the original game refuses with \"They have enough kids already!\"). Same-sex couples already could. No baby is possible while the family is full.",
+      "description": "A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other (the original game refuses with \"They have enough kids already!\"). Like the Virtual Families 2 patcher, a couple that cannot conceive (same-sex, or six children) is also never made to wait \"It is too soon to try to make a baby again\" after an attempt, and the action reads \"Having private adult romantic time\". No baby is possible for them.",
       "default": true,
       "category": "main"
     },
     {
       "id": "AllowOlderPregnancies",
       "label": "Allow Older Pregnancies",
-      "description": "Mothers over 50 can still conceive: the chance is 10% at age 50 and tapers to a 0.1% floor from 69 on, as in the Virtual Families 2 patcher (the original game made it impossible over 50). Mothers up to 50 are unchanged.",
+      "description": "Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.",
       "default": true,
       "category": "main"
     },
@@ -53,7 +53,7 @@
     {
       "id": "CheatUpgrades",
       "label": "Cheat Upgrades",
-      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, achievements and collections, house and yard mess, time controls (pause, speed, time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family).",
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager.",
       "default": true,
       "category": "optional"
     },
@@ -322,6 +322,13 @@
           "replaces": true
         }
       ]
+    },
+    {
+      "id": "BehaviorLabelVariants",
+      "label": "Behavior Label Variants",
+      "description": "Varies the caption shown for a villager's action, using the Virtual Families 2 patcher's own captions: Watching TV, Reading, Browsing the web, Playing video games, Playing a board game, Doing homework, the sandbox, watering the flower boxes, Taking a nap (dreams), Needs to sit down, the pool, career work at the computer, kitchen and workshop, and \"Having private adult romantic time\" for a couple that cannot conceive. Age-appropriate, as in VF2: online shopping from 13, social media, teen games and teen homework from 14, child pool games and homework for younger villagers. Captions only: the behaviors, their chances and career progression are not changed.",
+      "default": true,
+      "category": "optional"
     }
   ]
 }

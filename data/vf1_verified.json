@@ -178,5 +178,177 @@
  "0x4938c0": {
   "name": "?SetProp@CEnvironment@@QAEXW4EPropEnum@@@Z",
   "evidence": "thiscall on CEnvironment 0x8752F0 with one stack argument; called by CEventThePowerFailure::ImpactGame 0x4198E0 (prop 0x16) and the main scene's random malfunction (0x444ECD)."
+ },
+ "0x470c9d": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x4789be": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x47ec3f": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x45f669": {
+  "name": "call to strncpy (0x4993C0) writing the reading action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x47eb50": {
+  "name": "call to strncpy (0x4993C0) writing the browsing the web action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x47eb90": {
+  "name": "call to strncpy (0x4993C0) writing the browsing the web action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x476a58": {
+  "name": "call to strncpy (0x4993C0) writing the video games action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x45fb08": {
+  "name": "call to strncpy (0x4993C0) writing the napping / sit down action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x464d58": {
+  "name": "call to strncpy (0x4993C0) writing the napping / sit down action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x45f1a9": {
+  "name": "call to strncpy (0x4993C0) writing the pool action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x465fa2": {
+  "name": "call to strncpy (0x4993C0) writing the pool action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x466252": {
+  "name": "call to strncpy (0x4993C0) writing the pool action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x460e61": {
+  "name": "call to strncpy (0x4993C0) writing the sandbox action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x463329": {
+  "name": "call to strncpy (0x4993C0) writing the flower boxes action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x4635b9": {
+  "name": "call to strncpy (0x4993C0) writing the flower boxes action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x474a27": {
+  "name": "call to strncpy (0x4993C0) writing the board game action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x46cfb8": {
+  "name": "call to strncpy (0x4993C0) writing the homework action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x46cb3b": {
+  "name": "call to strncpy (0x4993C0) writing the homework action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x45d3aa": {
+  "name": "call to strncpy (0x4993C0) writing the career work action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x47ed34": {
+  "name": "call to strncpy (0x4993C0) writing the career work action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x470ff1": {
+  "name": "call to strncpy (0x4993C0) writing the career work action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x478db1": {
+  "name": "call to strncpy (0x4993C0) writing the trying to make a baby action caption",
+  "evidence": "call strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0; Behavior Label Variants retargets it (checked at run time by RetargetCall) to read the villager as dest-0x13594."
+ },
+ "0x48ec70": {
+  "name": "failed-attempt baby cooldown store",
+  "evidence": "mov [eax+0x1B150], edi (edi = now + 0x4B0 = 1,200 s); the cooldown rule jumps over it for a couple that cannot conceive or for a mother over 50 with Allow Older Pregnancies; resumes at 0x48EC76 (call 0x48F9F0)."
+ },
+ "0x414df4": {
+  "name": "collectable spawn-rate push",
+  "evidence": "68 C8 19 00 00 vs the Lucky Rock rate 68 E4 0C 00 00 (halved interval); byte-checked before writing."
+ },
+ "0x4706b5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4707d5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4708f5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x4709d5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x470ab5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x470bc5": {
+  "name": "call to strncpy (0x4993C0) writing the watching TV action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x47ac21": {
+  "name": "call to strncpy (0x4993C0) writing the needs to sit down (eSayNeedSitDown 0x48F) action caption",
+  "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594 and the GetString id pushed before it); Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x48a680": {
+  "name": "CVillagerManager::UpdateNutritionAllVillagers(int group, bool bonus)",
+  "evidence": "thiscall on 0x5B8898, ret 8. For each of the 30 villagers that is present (+0x13574), at home (+0x13578 == 0) and alive (health +0x2AE0 > 0): sets CVillagerState food-group flag byte +0x84+group = 1 and its expiry dword +0x88+4*group = GetSecondsFromGameStart + 0x15180; with bonus true also 0x48F9F0(rand(10)+5) and 0x48F990(rand(3)). Only callers: grocery eating 0x446DF5 (items 4-7, bonus 0) and 0x446E42 (organic items 8-11, bonus 1). FoodGroupsActive 0x48FE30 reads the same flags/expiries. Food Club calls it with bonus 0 for groups 0, 2, 1, 3."
+ },
+ "0x48bdfb": {
+  "name": "Physiology upkeep eating block (Food Club starvation guard jmp, 5 bytes a1 50 c5 50 00)",
+  "evidence": "In the per-tick physiology upkeep 0x48BC90 (esi = villager+0x13578): `mov eax, [0x50C550]` (food); food > 0 and, when food <= 50, rand(100) < 50; then hunger [esi-0x10A64] (CVillagerState+0x40) > 0x32 -> CFoodStore::Adjust(-3) at 0x48BE28 and 0x48FA50(-3) on the state. The detour adds 60 food when a Food Club member is about to eat (hunger > 50) with food < 60, then resumes at 0x48BE00."
+ },
+ "0x491630": {
+  "name": "CNight::IsDayTime (thiscall on CNight 0x831700, returns int)",
+  "evidence": "Refreshes the day's times (0x491480) when the day changed (+0x670 vs 0x402010), then returns 1 iff sunrise [+0x674] < GetTimeOfDay 0x4912C0 < sunset [+0x678]; neighbouring 0x491690 / 0x4916F0 / 0x491750 / 0x4917B0 test other windows (sunset + offset, 10:00, 17:00)."
+ },
+ "0x831700": {
+  "name": "CNight (global)",
+  "evidence": "ecx for CNight::GetTimeOfDay 0x4912C0 at 0x44D8EB, 0x488872 and 0x490575."
+ },
+ "0x422830": {
+  "name": "CMoney::UpdateInterest",
+  "evidence": "thiscall on Money 0x50C60C (+0 money float, +4 game second of the last payment). days = (CGameTime::Seconds - [+4]) / 86400; money += money * [0x4B4520] * days + [0x4B5DD0] via CMoney::Adjust(..., true); [+4] += days * 86400. Called with ecx = 0x50C60C before money is read (e.g. 0x48FFAD, 0x44A1A1)."
+ },
+ "0x4e9230": {
+  "name": "ldwGameState game-start time (int64 time_t)",
+  "evidence": "GetSecondsFromGameStart 0x4036D0 returns difftime(_time64(), [0x4E9230]) (resets it to now if negative). Part of the 0x18-byte block 0x4E9228 written to every save at 0x4039C8 and read back at 0x40382F. Time Warp moves it back by 3660 * speed seconds, VF1's form of VF2's AdjustSecondsFromGameStart."
+ },
+ "0x50c5d0": {
+  "name": "CGameTime (global)",
+  "evidence": "Seconds 0x422320 = fistp((GetSecondsFromGameStart - [+0x28]) / ([+0x20] / 10.0)) + [+0x2C] ([+0x20] = speed, 999 paused). SetSpeed 0x422450 folds the elapsed time into [+0x2C] and restamps [+0x28]. SaveState 0x4222C0 saves +0x20/+0x24/+0x28/+0x2C."
+ },
+ "0x489d00": {
+  "name": "CVillagerManager::AllVillagersTimeflowUpkeep",
+  "evidence": "Per villager at home and alive: CVillagerState+0 += now - [+4]; capped at 0x15180, else at the speed cap (0x489E08); zeroed while theGameState+0x1B180 >= 999 (0x489E3C); ticks = seconds / 60 / speed through IncrementAge 0x4897F0 (0x489E91); the remainder is kept. Called by the realtime update 0x424F89."
+ },
+ "0x489e08": {
+  "name": "Timeflow catch-up cap (Time Warp jmp, 9 bytes 8b 8b 80 b1 01 00 83 f9 05)",
+  "evidence": "`mov ecx, [ebx+0x1B180]; cmp ecx, 5; je 0x489E2B`; 0x489E13 tests 10 and 20; caps 0x9538 / 0x7918 / 0x5CF8 reset the seconds to 0x7918. During a warp the detour continues at 0x489E3C, so only the 86,400 cap applies, as in VF2."
+ },
+ "0x424f80": {
+  "name": "Realtime update (theGameState-level per-frame update)",
+  "evidence": "thiscall on the singleton from 0x425010 (8-byte object at 0x50C64C, +0 = theGameState): AllVillagersTimeflowUpkeep 0x489D00, physiology 0x48BC90, population record 0x50C578, game-over check, then theGameState+0x1B164 = GetSecondsFromGameStart. Callers: theMainScene 0x444E9A and the pause handler 0x41E1E2 / 0x41E20A."
+ },
+ "0x425010": {
+  "name": "Realtime-update singleton getter",
+  "evidence": "Allocates 8 bytes (0x424F70) on first use and keeps it at 0x50C64C; its result is ecx for 0x424F80 at 0x41E1E0."
+ },
+ "0x4412ca": {
+  "name": "call to theGameState pairing-seconds read (0x4036D0) in the drop-adult-on-adult pairing check",
+  "evidence": "e8 rel32 reaching 0x4036D0 inside theMainScene's pairing handler (0x441070..); Force Successful Pregnancy retargets it to PairingSeconds, which reports an expired cooldown while forced; RetargetCall checks the target at run time."
  }
 }
