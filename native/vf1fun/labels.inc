@@ -187,7 +187,16 @@ static const char *const kCareer[] = {
     "Updating career portfolio",
     "Updating resume",
     "Updating CV" };
-static const char *const kChildHomework[] = { "Doing homework", "Procrastinating" };
+// VF2's kids_table group: what a child at the homework table may be doing.
+static const char *const kChildHomework[] = {
+    "Doing arts and crafts",
+    "Making origami",
+    "Coloring in a coloring book",
+    "Making clay sculptures",
+    "Making charm bracelets",
+    "Making necklaces",
+    "Doing homework",
+    "Procrastinating" };
 static const char *const kPrivateRomantic[] = { "Having private adult romantic time" };
 
 struct Cands {
@@ -198,7 +207,7 @@ struct Cands {
 };
 #define ADD(c, a) (c).Add(a, (int)(sizeof a / sizeof a[0]))
 
-enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY };
+enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY, L_SITDOWN };
 
 static const int kAge13 = 0x104, kAgeTeen = 0x118, kAgeAdult = 0x17C;
 
@@ -206,7 +215,8 @@ static int VillagerAge(const unsigned char *v) { return *(const int *)(v + 0x2A3
 static bool VillagerHasCareer(const unsigned char *v) { return *(const int *)(v + 0x2B6C) != -1; }
 static bool VillagerIsFemale(const unsigned char *v) { return *(const int *)(v + 0x2A38) == 1; }
 
-// VF2ApplySitDownLabelPools: the "needs to sit down" captions by who is sitting.
+// VF2ApplySitDownLabelPools: the sit-down captions by who is sitting. As in VF2 they go only on the game's own
+// "Needs to sit down" action (eSayNeedSitDown, written at 0x47AC21); naps keep the dream captions.
 static void AddSitDown(Cands &c, const unsigned char *v) {
     int age = VillagerAge(v);
     ADD(c, kSitGeneral);
@@ -229,7 +239,9 @@ typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
 struct LabelSite { unsigned returnAddress; LabelKind kind; };
 // returnAddress = (the strncpy call) + 5, for the copy that writes this action's caption.
 static const LabelSite kLabelSites[] = {
-    { 0x470C9D + 5, L_TV }, { 0x4789BE + 5, L_TV }, { 0x47EC3F + 5, L_TV },
+    { 0x4706B5 + 5, L_TV }, { 0x4707D5 + 5, L_TV }, { 0x4708F5 + 5, L_TV }, { 0x4709D5 + 5, L_TV },
+    { 0x470AB5 + 5, L_TV }, { 0x470BC5 + 5, L_TV }, { 0x470C9D + 5, L_TV }, { 0x4789BE + 5, L_TV },
+    { 0x47EC3F + 5, L_TV },
     { 0x45F669 + 5, L_READ },
     { 0x47EB50 + 5, L_WEB }, { 0x47EB90 + 5, L_WEB },
     { 0x476A58 + 5, L_GAME },
@@ -241,6 +253,7 @@ static const LabelSite kLabelSites[] = {
     { 0x46CFB8 + 5, L_HOMEWORK }, { 0x46CB3B + 5, L_HOMEWORK },
     { 0x45D3AA + 5, L_CAREER }, { 0x47ED34 + 5, L_CAREER }, { 0x470FF1 + 5, L_CAREER },
     { 0x478DB1 + 5, L_TRYBABY },
+    { 0x47AC21 + 5, L_SITDOWN },
 };
 
 // Captions are cosmetic, so they use their own generator and never advance the game's (GetRandom drives
@@ -269,7 +282,8 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
             if (age >= kAgeTeen) ADD(c, kWebAdult);
             break;
         case L_GAME: ADD(c, kGame); if (age >= kAgeTeen) ADD(c, kGameTeen); break;
-        case L_NAP: ADD(c, kNapDream); AddSitDown(c, v); break;
+        case L_NAP: ADD(c, kNapDream); break;
+        case L_SITDOWN: AddSitDown(c, v); break;
         case L_POOL: ADD(c, kPoolGeneral); if (age < kAgeTeen) ADD(c, kPoolChild); break;
         case L_SAND: ADD(c, kSandbox); break;
         case L_FLOWER: ADD(c, kFlower); break;
@@ -278,9 +292,14 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         case L_CAREER: ADD(c, kCareer); break;
         case L_TRYBABY: if (PrivateRomanticCouple(v)) c.Add(kPrivateRomantic, 1); break;
         }
-        if (c.n > 0) src = c.v[LabelRandom(c.n)];
+        // VF2ApplyRememberedOrRandomLabel: one roll out of (count + 1); 0 keeps the game's own caption.
+        // The private romantic caption is not a variant: it always replaces "Trying to make a baby".
+        if (site->kind == L_TRYBABY) { if (c.n > 0) src = c.v[0]; }
+        else if (c.n > 0) { int r = LabelRandom(c.n + 1); if (r) src = c.v[r - 1]; }
     }
-    return ((StrncpyFn)0x4993C0)(dest, src, n);
+    char *r = ((StrncpyFn)0x4993C0)(dest, src, n);
+    if (n == 0x27) dest[n] = 0;  // the 40-byte label: 0x27 characters and a terminator (a 39-character caption fills it)
+    return r;
 }
 
 // allCaptions: the Behavior Label Variants setting; tryBaby: Private Adult Romantic Time (its caption alone).

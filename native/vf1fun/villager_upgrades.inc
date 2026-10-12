@@ -109,16 +109,11 @@ static const wchar_t *Psychotherapy(int i) {
     return 0;
 }
 
-// Age in units is villager +0x2A34, 20 units = 1 year. Older: written directly
-// (nothing is processed twice: the per-year upkeep only runs when age passes
-// its processed mark). Younger: added through the game's own IncrementAge
-// (0x4897F0), exactly like the Time Warp, so the catch-up runs in order.
-typedef void (__thiscall *IncrementAgeFn)(void *age, int amount);
+// Age in units is villager +0x2A34, 20 units = 1 year. Written directly to 360 (18 years) for everyone,
+// exactly as the Virtual Families 2 patcher's VF2SetSelectedVillagerAge does (owner decision: "Set age to 18"
+// directly sets the age).
 static const wchar_t *SetAgeTo18(int i) {
-    int *age = (int *)(Villager(i) + 0x2A34);
-    const int target = 18 * 20;
-    if (*age < target) ((IncrementAgeFn)0x4897F0)(age, target - *age);
-    else *age = target;
+    *(int *)(Villager(i) + 0x2A34) = 18 * 20;
     return 0;
 }
 

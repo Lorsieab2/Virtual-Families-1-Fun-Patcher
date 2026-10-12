@@ -45,6 +45,8 @@ static const VoidThisFn DetachAll = (VoidThisFn)0x486860;                // CVil
 static const ForgetPlansFn ForgetPlans = (ForgetPlansFn)0x48C5A0;        // (v, v), as the death path
 static const LifeEventFn QueueLifeEventPending = (LifeEventFn)0x423E10;
 static const IntArgFn QueueMail = (IntArgFn)0x424500;                    // theGameState; 2 = marriage proposal
+typedef bool (__thiscall *MailQueuedFn)(void *state, int type);
+static const MailQueuedFn MailQueued = (MailQueuedFn)0x424030;   // theGameState: is this mail already queued? (QueueMail checks it too)
 static const IntArgFn AddHappiness = (IntArgFn)0x48F9F0;                 // CVillagerState (Marry: 300)
 static const IntArgFn AddHappinessTrend = (IntArgFn)0x48F990;            // CVillagerState (Marry: 10)
 typedef void (__thiscall *ProgressFn)(void *self, int id, int amount);
@@ -112,14 +114,27 @@ enum { ARM_FORCE = 1, ARM_MALE = 2, ARM_FEMALE = 4, ARM_SINGLE = 8, ARM_TWINS = 
 // 0x48EB8C: the try-for-a-baby step's ChanceOfPregnancy roll on the mother.
 static bool gOlderPregnancies;
 static bool gPrivateRomantic;
+// Allow Older Pregnancies, exactly the Virtual Families 2 patcher's VF2RollOlderPregnancy: when the older
+// of the two parents is 50 or older, the stock chance (the same arithmetic as VF1's ChanceOfPregnancy
+// 0x48FC10, without its "mother over 50 = never" cutoff at 0x48FC97) is taken in tenths of a percent,
+// capped by the older parent's age ((60 - age) x 10 tenths up to 59, 69 - age from 60 to 68, then 1),
+// never below 1 tenth, and rolled out of 1000. Younger couples keep the stock roll.
+// ChanceOfPregnancy(mother age, father age, father fertility) on the mother's CVillagerState (+0x4C fertility).
+static int OlderPregnancyCapTenths(int years) {
+    if (years <= 59) return (60 - years) * 10;
+    if (years <= 68) return 69 - years;
+    return 1;
+}
 static bool __fastcall ChanceWrapper(void *state, void *, int a, int b, int c) {
     if (gVillage.armed & ARM_FORCE) return true;
-    // Allow Older Pregnancies (the Virtual Families 2 patcher's curve): the stock roll is
-    // certain failure for a mother over 50 (0x48FC97 `xor edi, edi`); here 10% at 50 tapers
-    // to a 0.1% floor from 69 on, rolled in tenths of a percent. Mothers up to 50 are stock.
-    int years = a / 20;
-    if (gOlderPregnancies && years > 50) {
-        int tenths = 100 - (years - 50) * 99 / 19;
+    int mother = a / 20, father = b / 20, older = mother > father ? mother : father;
+    if (gOlderPregnancies && older >= 50) {
+        int motherFertility = *(int *)((unsigned char *)state + 0x4C);
+        int chance = 105 - (100 - motherFertility) / 3 - (100 - c) / 3;
+        if (father >= 41) chance -= (father - 40) / 5;
+        if (mother > 30) chance -= 2 * (mother - 20);
+        int tenths = chance * 10, cap = OlderPregnancyCapTenths(older);
+        if (tenths > cap) tenths = cap;
         if (tenths < 1) tenths = 1;
         return GetRandom(1000) < tenths;
     }
@@ -217,6 +232,8 @@ static const wchar_t *ForceMarriageEmail() {
         return L"Nobody in the family can get married right now.";
     if (!GetMatriarch(VillagerManager) && !GetPatriarch(VillagerManager))
         return L"There is no adult to propose to.";
+    if (MailQueued(GameStateGet(), 2))  // the game queues only one (0x424500 checks 0x424030), as VF2 does
+        return L"A marriage proposal is already queued.";
     QueueMail(GameStateGet(), 2);
     return L"A marriage proposal has been queued.";
 }
@@ -227,16 +244,24 @@ static const wchar_t *DivorceSpouse() {
     unsigned char *r = CurrentFamily();
     int spouse = SpouseSlot();
     if (!r || spouse < 0) return L"Nobody in the house is married.";
-    if (Pregnant(spouse) || Pregnant(FounderSlot()))
-        return L"Not while the family is expecting a baby.";
+    // As VF2DivorceSpouse: allowed at any time, even while expecting. VF1 (unlike VF2) creates the babies at
+    // conception and reserves their villager slots (theGameState +0x1B120..0x1B128), so when the spouse who
+    // leaves is the one expecting, that pregnancy ends with them and the reserved slots are freed, as Evict
+    // does; otherwise nobody would be left to deliver them and the slots would stay taken in the save.
+    // A pregnancy of the parent who stays is kept.
     unsigned char *v = Villager(spouse);
+    if (Pregnant(spouse)) {
+        unsigned char *gs = GameStateBytes();
+        *(int *)(v + 0x2AF8) = 0;
+        *(int *)(gs + 0x1B120) = -1; *(int *)(gs + 0x1B124) = -1; *(int *)(gs + 0x1B128) = -1;
+    }
     DetachAll(v);
     ForgetPlans(v, v);
     if (v[0x13575]) ClearFocus(VillagerManager);
     v[0x13574] = 0;
-    unsigned char *peep = r + 0xDC;
-    *(int *)(peep + 0x28) = -1;
-    peep[0x1A] = 0;
+    // VF2 clears the whole 0xD8-byte second-adult record of the family.
+    memset(r + 0xDC, 0, 0xD8);
+    *(int *)(r + 0xDC + 0x28) = -1;  // VF1's "no villager slot" for a record
     SaveCurrentGame(GameStateGet());
     return 0;
 }
@@ -337,7 +362,10 @@ static unsigned __fastcall PairingSeconds(void *gameState, void *) {
 static bool PrivateCoupleNow() {
     int a = FounderSlot(), b = SpouseSlot();
     if (a < 0 || b < 0) return false;
-    return *(int *)(Villager(a) + 0x2A38) == *(int *)(Villager(b) + 0x2A38) || EmptyOffspringSlots(FamilyTree) <= 0;
+    // VF2ClassifyRomanticSpouseDrop: a same-sex couple only while Enable Same-Sex Marriage is on.
+    bool sameSex = *(int *)(Villager(a) + 0x2A38) == *(int *)(Villager(b) + 0x2A38);
+    if (sameSex) return gVillage.sameSex != 0;
+    return EmptyOffspringSlots(FamilyTree) <= 0;
 }
 
 // VF2's cooldown rule (VF2StoreTryForBabyCooldownMaybe): the failed-attempt cooldown is not stored for a
@@ -378,22 +406,23 @@ static void InstallChanceHook() {  // Allow Older Pregnancies and Force Successf
     RetargetCall(0x4412CA, 0x4036D0, (void *)&PairingSeconds);
 }
 
-// Next Generation. The Family Tree screen shows its Next Generation button only when the
-// current family's "a parent died and children survive" flag is set (CFamilyTree
-// 0x481780, called at 0x439390). With the Older Villager Mortality Curve there is no
-// hard maximum age, so parents may never die: the button is also offered when the
-// oldest parent still at home is 60 or older and a child survives (the Virtual
-// Families 2 patcher's rule). The game's own flow then retires everyone but the
-// chosen heir, as it does after a death.
+// Next Generation, exactly the Virtual Families 2 patcher's VF2CanStartNextGenerationAtOlderAge (part of
+// Allow Older Pregnancies). The Family Tree screen shows its Next Generation button only when the current
+// family's "a parent died and children survive" flag is set (CFamilyTree 0x481780, called at 0x439390).
+// While Allow Older Pregnancies is on, the button is also offered when a child survives and the oldest
+// villager who is in the game, at home and alive is 60 or older. The game's own flow then retires everyone
+// but the chosen heir, as it does after a death.
 static bool __fastcall NextGenerationGate(void *tree) {
     typedef bool (__thiscall *FlagFn)(void *);
     if (((FlagFn)0x481780)(tree)) return true;
-    if (!gMortalityOn || !CurrentFamily()) return false;
+    if (!gOlderPregnancies) return false;
     if (((ThisIntFn)0x481850)(tree) <= 0) return false;  // CountSurvivingChildren
-    int a = FounderSlot(), b = SpouseSlot();
-    int oldest = 0;
-    if (a >= 0) oldest = *(int *)(Villager(a) + 0x2A34);
-    if (b >= 0 && *(int *)(Villager(b) + 0x2A34) > oldest) oldest = *(int *)(Villager(b) + 0x2A34);
+    int oldest = -1;
+    for (int i = 0; i < 30; ++i) {
+        unsigned char *v = Villager(i);
+        if (!v[0x13574] || v[0x13578] || *(int *)(v + 0x2AE0) <= 0) continue;  // active, at home, health > 0
+        if (*(int *)(v + 0x2A34) > oldest) oldest = *(int *)(v + 0x2A34);
+    }
     return oldest >= 60 * 20;
 }
 static void InstallNextGenerationGate() {
