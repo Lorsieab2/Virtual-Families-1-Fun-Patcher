@@ -10,7 +10,8 @@
 // characters. This file's arrays are generated from the VF2 generator's BEHAVIOR_LABEL_GROUPS.
 //
 // VF2's age gates (CVillager age in 20-a-year units, as in VF1): web "buying" from 13 (260); teen lists
-// from 14 (280); adult lists from 19 (380).
+// from 14 (280); adult lists from 19 (380); the shower, jewelry and sink lists split at 14 (280). Not ported, by the
+// owner's choice: VF2's rare Half-Caff coffee and Bubble Bass burger captions.
 
 static const char *const kTV[] = {
     "Watching a movie",
@@ -197,6 +198,140 @@ static const char *const kChildHomework[] = {
     "Making necklaces",
     "Doing homework",
     "Procrastinating" };
+// VF2 group "drink".
+static const char *const kDrink[] = {
+    "Drinking soda",
+    "Drinking milkshakes",
+    "Drinking milk",
+    "Drinking juice",
+    "Drinking mineral water",
+    "Drinking sparkling water",
+    "Drinking tea",
+    "Drinking an energy drink",
+    "Drinking Hydr-Aid",
+    "Drinking boba tea" };
+// VF2 group "heat_food".
+static const char *const kHeatFood[] = {
+    "Baking a cake",
+    "Heating up leftovers",
+    "Baking a pie",
+    "Baking cookies",
+    "Heating up pizza",
+    "Eating takeout" };
+// VF2 group "snacks".
+static const char *const kSnacks[] = {
+    "Eating a bag of chips",
+    "Eating pretzels",
+    "Eating trail mix",
+    "Eating cookies",
+    "Eating pizza",
+    "Eating popcorn",
+    "Eating candy",
+    "Drinking soda",
+    "Drinking milkshakes",
+    "Drinking milk",
+    "Drinking juice" };
+// VF2 group "meal_prep".
+static const char *const kMealPrep[] = {
+    "Making sushi",
+    "Making Chinese food",
+    "Making Mexican food",
+    "Making American food",
+    "Making vegetarian food",
+    "Making Japanese food",
+    "Making salad",
+    "Making Indian food",
+    "Making Turkish Food",
+    "Making Spanish food",
+    "Making African food",
+    "Making Filipino food",
+    "Making fish and chips",
+    "Making lasagna",
+    "Making pasta",
+    "Making dim sum",
+    "Making pizza",
+    "Making French food",
+    "Making escargot",
+    "Making burgers and fries",
+    "Making tacos",
+    "Making paella",
+    "Making seafood",
+    "Making steak au poivre" };
+// VF2 group "shower_general".
+static const char *const kShowerGeneral[] = {
+    "Taking a bath",
+    "Taking a bubble bath",
+    "Singing in the shower",
+    "Taking a relaxing bath",
+    "Taking a relaxing bubble bath" };
+// VF2 group "shower_adult".
+static const char *const kShowerAdult[] = {
+    "Having a spa day" };
+// VF2 group "shower_child".
+static const char *const kShowerChild[] = {
+    "Playing with bath toys" };
+// VF2 group "bathroom_sink_general".
+static const char *const kSinkGeneral[] = {
+    "Putting on face mask",
+    "Trimming nails",
+    "Applying lotion",
+    "Applying sunscreen" };
+// VF2 group "bathroom_sink_grooming".
+static const char *const kSinkGrooming[] = {
+    "Painting fingernails",
+    "Painting toenails",
+    "Doing a manicure",
+    "Doing a pedicure",
+    "Putting on makeup" };
+// VF2 group "bathroom_sink_female_teen_plus".
+static const char *const kSinkJewelry[] = {
+    "Putting on jewelry" };
+// VF2 group "coffee".
+static const char *const kCoffee[] = {
+    "Making espresso",
+    "Making a latte",
+    "Making a matcha latte",
+    "Making a caffe mocha",
+    "Making an americano",
+    "Making a ristretto",
+    "Making a double-shot espresso",
+    "Making black coffee",
+    "Making cappuccino",
+    "Making frozen coffee",
+    "Making iced coffee",
+    "Making a frappe",
+    "Making tea",
+    "Making matcha tea",
+    "Making earl grey tea",
+    "Making jasmine tea",
+    "Making black tea",
+    "Making iced tea" };
+// VF2 group "coffee_evening".
+static const char *const kCoffeeEvening[] = {
+    "Making chamomile tea" };
+// VF2 group "telescope".
+static const char *const kTelescope[] = {
+    "Finding constellations",
+    "Finding planets",
+    "Looking for aliens",
+    "Practicing astronomy",
+    "Finding space stations",
+    "Finding the ISS",
+    "Looking for rocket ships",
+    "Looking for meteors",
+    "Trying to find shooting stars",
+    "Looking for comets" };
+// VF2 group "teen_online_test".
+static const char *const kOnlineTest[] = {
+    "Applying for volunteer opportunities",
+    "Planning career path",
+    "Looking for schools to apply to",
+    "Exploring future career opportunities",
+    "Exploring volunteer opportunities" };
+// The two captions VF2 sets for the patio table's drinks (VF2RunMobilePreparingDrinks, VF2RunMobileDrinkAtPatioChair).
+static const char *const kPatioDrinks[] = {
+    "Getting some drinks",
+    "Having a refreshing drink" };
 static const char *const kPrivateRomantic[] = { "Having private adult romantic time" };
 
 struct Cands {
@@ -207,7 +342,8 @@ struct Cands {
 };
 #define ADD(c, a) (c).Add(a, (int)(sizeof a / sizeof a[0]))
 
-enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY, L_SITDOWN };
+enum LabelKind { L_TV, L_READ, L_WEB, L_GAME, L_NAP, L_POOL, L_SAND, L_FLOWER, L_BOARD, L_HOMEWORK, L_CAREER, L_TRYBABY, L_SITDOWN,
+                 L_DRINK, L_HEATFOOD, L_SNACKS, L_MEAL, L_SHOWER, L_SINKFACE, L_SINKGROOM, L_COFFEE, L_STARS, L_ONLINETEST, L_PATIO };
 
 static const int kAge13 = 0x104, kAgeTeen = 0x118, kAgeAdult = 0x17C;
 
@@ -235,6 +371,47 @@ static bool PrivateRomanticCouple(const unsigned char *villager) {
     return gPrivateRomantic && PrivateCoupleNow() && (villager == Villager(a) || villager == Villager(b));
 }
 
+// Captions are cosmetic, so they use their own generator and never advance the game's (GetRandom drives
+// deaths and multiple births).
+static unsigned gLabelSeed;
+static int LabelRandom(int n) {
+    if (!gLabelSeed) gLabelSeed = GetTickCount() | 1;
+    gLabelSeed = gLabelSeed * 1664525u + 1013904223u;
+    return (int)((gLabelSeed >> 8) % (unsigned)n);
+}
+
+// VF2ApplyShowerLabel: a child (under 14) gets the general list and the child list; anyone older the general list
+// and the adult list.
+static void AddShower(Cands &c, const unsigned char *v) {
+    ADD(c, kShowerGeneral);
+    if (VillagerAge(v) < kAgeTeen) ADD(c, kShowerChild); else ADD(c, kShowerAdult);
+}
+
+// VF2CanPutOnJewelry: a girl or woman from 14.
+static bool CanPutOnJewelry(const unsigned char *v) { return VillagerIsFemale(v) && VillagerAge(v) >= kAgeTeen; }
+
+// VF2ApplyBathroomSinkGeneralLabel: the face/hands washing. General list, plus the jewelry caption for a girl or
+// woman from 14.
+static void AddSinkGeneral(Cands &c, const unsigned char *v) {
+    ADD(c, kSinkGeneral);
+    if (CanPutOnJewelry(v)) ADD(c, kSinkJewelry);
+}
+
+// VF2ApplyBathroomSinkGroomingLabel: the grooming actions. Anyone who is not female gets only the general list; a
+// female gets general + grooming, and from 14 the jewelry caption as well.
+static void AddSinkGrooming(Cands &c, const unsigned char *v) {
+    ADD(c, kSinkGeneral);
+    if (!VillagerIsFemale(v)) return;
+    ADD(c, kSinkGrooming);
+    if (CanPutOnJewelry(v)) ADD(c, kSinkJewelry);
+}
+
+// VF2ApplyCoffeeLabel: by day, or at night 4 times in 5, the coffee list; otherwise (1 in 5 at night) the evening
+// list. VF2's rare Half-Caff caption is not ported (owner's exclusion). VF1's day test is CNight 0x491630.
+static void AddCoffee(Cands &c) {
+    if (IsDayTime(Night) || LabelRandom(5) != 0) ADD(c, kCoffee); else ADD(c, kCoffeeEvening);
+}
+
 typedef char *(__cdecl *StrncpyFn)(char *dest, const char *src, size_t n);
 struct LabelSite { unsigned returnAddress; LabelKind kind; };
 // returnAddress = (the strncpy call) + 5, for the copy that writes this action's caption.
@@ -254,16 +431,19 @@ static const LabelSite kLabelSites[] = {
     { 0x45D3AA + 5, L_CAREER }, { 0x47ED34 + 5, L_CAREER }, { 0x470FF1 + 5, L_CAREER },
     { 0x478DB1 + 5, L_TRYBABY },
     { 0x47AC21 + 5, L_SITDOWN },
+    // Added from the vanilla scan of strncpy into +0x13594 (dataf1_verified.json):
+    { 0x45BBE1 + 5, L_DRINK },                                      // Getting a drink (VF2 GetADrink)
+    { 0x47E781 + 5, L_HEATFOOD },                                   // Heating up some food (VF2 HeatUpFood)
+    { 0x45CD1D + 5, L_SNACKS }, { 0x45CE9D + 5, L_SNACKS }, { 0x45CFFD + 5, L_SNACKS },  // Looking for snacks (LookingForSnacks0/1/2)
+    { 0x47C612 + 5, L_MEAL },                                       // Preparing a meal (VF2 PreparingAMeal)
+    { 0x45FA18 + 5, L_SHOWER },                                     // Taking a shower (VF2 Shower)
+    { 0x467139 + 5, L_SINKFACE },                                   // Washing face / hands at the bathroom sink
+    { 0x467402 + 5, L_SINKGROOM }, { 0x467D8C + 5, L_SINKGROOM },   // Putting on lotion/makeup/...; Shaving / Removing makeup
+    { 0x469F71 + 5, L_COFFEE }, { 0x46AB81 + 5, L_COFFEE },         // Making coffee; Making a grande latte
+    { 0x4741A8 + 5, L_STARS },                                      // Looking for a falling star / Admiring stars in the sky
+    { 0x46D4E8 + 5, L_ONLINETEST },                                 // Taking an online test (VF2 TeenOnlineExam)
+    { 0x45FE58 + 5, L_PATIO },                                      // Enjoying the patio
 };
-
-// Captions are cosmetic, so they use their own generator and never advance the game's (GetRandom drives
-// deaths and multiple births).
-static unsigned gLabelSeed;
-static int LabelRandom(int n) {
-    if (!gLabelSeed) gLabelSeed = GetTickCount() | 1;
-    gLabelSeed = gLabelSeed * 1664525u + 1013904223u;
-    return (int)((gLabelSeed >> 8) % (unsigned)n);
-}
 
 static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
     unsigned ret = (unsigned)_ReturnAddress();
@@ -290,6 +470,17 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         case L_BOARD: ADD(c, kBoard); break;
         case L_HOMEWORK: if (age >= kAgeTeen) ADD(c, kTeenHomework); else ADD(c, kChildHomework); break;
         case L_CAREER: ADD(c, kCareer); break;
+        case L_DRINK: ADD(c, kDrink); break;
+        case L_HEATFOOD: ADD(c, kHeatFood); break;
+        case L_SNACKS: ADD(c, kSnacks); break;
+        case L_MEAL: ADD(c, kMealPrep); break;
+        case L_SHOWER: AddShower(c, v); break;
+        case L_SINKFACE: AddSinkGeneral(c, v); break;
+        case L_SINKGROOM: AddSinkGrooming(c, v); break;
+        case L_COFFEE: AddCoffee(c); break;
+        case L_STARS: ADD(c, kTelescope); break;
+        case L_ONLINETEST: ADD(c, kOnlineTest); break;
+        case L_PATIO: AddSitDown(c, v); ADD(c, kPatioDrinks); break;
         case L_TRYBABY: if (PrivateRomanticCouple(v)) c.Add(kPrivateRomantic, 1); break;
         }
         // VF2ApplyRememberedOrRandomLabel: one roll out of (count + 1); 0 keeps the game's own caption.
