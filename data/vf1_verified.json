@@ -350,5 +350,9 @@
  "0x4412ca": {
   "name": "call to theGameState pairing-seconds read (0x4036D0) in the drop-adult-on-adult pairing check",
   "evidence": "e8 rel32 reaching 0x4036D0 inside theMainScene's pairing handler (0x441070..); Force Successful Pregnancy retargets it to PairingSeconds, which reports an expired cooldown while forced; RetargetCall checks the target at run time."
+ },
+ "0x489ee4": {
+  "name": "AllVillagersTimeflowUpkeep: load of the Oldest Villager record (mov eax,[0x50C580]) before compare-and-record",
+  "evidence": "a1 80 c5 50 00 at 0x489EE4; the record is raised at 0x489F07 to age/20 when [edi] (age) > record*20; ebx = the ticks added by IncrementAge at 0x489E91 (callee-saved through 0x48F080/0x48C5A0/0x4857F0/0x423E10/0x423CB0); jump targets 0x489E9C/0x489EA4/0x489EB3 land on the first byte of the 5-byte patch. Fix Vanilla Game Bugs jumps here to OldestRecordDetour."
  }
 }
