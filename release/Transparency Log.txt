@@ -116,7 +116,7 @@ Settings and defaults
 ---------------------
 - Main Patches (green) and Optional Patches (black), as in the patcher window.
 - FixVanillaGameBugs [on] (main): Fix Vanilla Game Bugs
-  Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine).
+  Keeps a brand-new family if the game is closed without quitting (the original game only saved before the adoption). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine). An age set by a cheat no longer becomes the Oldest Villager record: the record only rises when a villager ages into it.
 - OlderVillagerMortalityCurve [on] (main): Older Villager Mortality Curve
   Replaces only the annual old-age death roll with a calibrated curve that accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age.
 - PrivateRomanticTime [on] (main): Private Adult Romantic Time

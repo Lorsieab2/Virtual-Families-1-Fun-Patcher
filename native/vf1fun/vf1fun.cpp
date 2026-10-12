@@ -789,6 +789,44 @@ static void ShowUpgrades() {
 }
 
 // ---------------------------------------------------------------- vanilla bug fixes
+// FIX: A CHEATED AGE BECOMES THE "OLDEST VILLAGER" RECORD.
+// The game keeps the oldest age ever reached, in years, at 0x50C580 (CGameStats+0x20, saved with the
+// village), and raises it in the aging step of AllVillagersTimeflowUpkeep (0x489EE4..0x489F07) to any
+// villager's age. An age written by a cheat (e.g. a huge age set to make someone die) was recorded as
+// is: one owner village read "Oldest Villager: 49999999". Now the record only rises when the villager
+// AGED into it: their age before this step (age - the ticks just added, ebx, which every call in the
+// step preserves) must already be within the record, or the new age must be a believable one (at most
+// 150 years, above anything the mortality curves leave alive), so a new family's first villagers and
+// every ordinary birthday, catch-up and Time Warp still count.
+extern "C" int __cdecl OldestRecordAllowed(int age, int ticks) {
+    int recorded = *(int *)0x50C580;
+    int before = age - (ticks > 0 ? ticks : 0);
+    return age / 20 <= 150 || before / 20 <= recorded;
+}
+__declspec(naked) static void OldestRecordDetour() {
+    __asm {
+        pushad
+        push ebx                    // the ticks just added
+        push dword ptr [edi]        // the villager's age now (edi = &age)
+        call OldestRecordAllowed
+        add esp, 8
+        test eax, eax
+        popad                       // does not change the flags
+        jz skip
+        mov eax, dword ptr ds:[0x50C580]
+        push 0x489EE9               // the stock compare-and-record continues
+        ret
+    skip:
+        mov edi, dword ptr [edi]    // as the stock code leaves it at 0x489F0D
+        push 0x489F0D
+        ret
+    }
+}
+static bool InstallJump(unsigned site, const unsigned char *expected, int n, void *target);  // features.inc
+static void InstallOldestRecordGuard() {
+    static const unsigned char stock[] = { 0xA1, 0x80, 0xC5, 0x50, 0x00 };  // mov eax, [0x50C580]
+    InstallJump(0x489EE4, stock, 5, (void *)&OldestRecordDetour);
+}
 // FIX: A NEW FAMILY IS LOST IF THE GAME IS CLOSED WITHOUT QUITTING.
 // The stock game saves when the intro story starts (CStoryScene::Activate
 // calls theGameState::SaveCurrentGame), which is BEFORE anyone is adopted, and
@@ -932,6 +970,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
                        (unsigned *)&OriginalAdoptionHandleMessage);
         InstallPowerFailureFix();
+        InstallOldestRecordGuard();
     }
 }
 
