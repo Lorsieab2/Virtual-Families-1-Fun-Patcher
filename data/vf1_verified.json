@@ -414,5 +414,53 @@
  "0x45fe58": {
   "name": "call to strncpy (0x4993C0) writing the Enjoying the patio (eString_EnjoyingBackyard 0xA0) action caption",
   "evidence": "strncpy(villager+0x13594, GetString(id), 0x27) with e8 rel32 reaching 0x4993C0 (vanilla scan of every strncpy into +0x13594; string id 0xa0, \"Enjoying the patio\"); go to the patio chair, GettingNE animation, 'Sit In Chair NE', drink; VF2 never varies the stock caption, the owner asked for the sit-down pool and VF2's patio-table drink captions. Behavior Label Variants retargets it, checked at run time by RetargetCall."
+ },
+ "0x441020": {
+  "name": "?HandleDropOnHotSpot@theMainScene@@IAE?B_NAAVCVillager@@@Z",
+  "evidence": "thiscall(CVillager&), ret 4: FeetPos 0x4869C0, hotspot type from CContentMap 0x8352E0 (0x4928F0, y-10), then the hotspot table 0x8754C8 dispatch 0x493FB0 (fn at [table+type*8], called cdecl with the villager); returns false for type 0. Its only caller is the villager-drop code at 0x441481, whose false result falls through to the other drop handling, as VF2's theMainScene::HandleDropOnHotSpot."
+ },
+ "0x8754c8": {
+  "name": "hotspot handler table (0x34 entries of {handler, cursor})",
+  "evidence": "Built by 0x495760 from the static initialiser 0x4B1910 (mov ecx, 0x8754C8; jmp 0x495760): every entry cleared to {0, -1}, then 0x493FD0(type, fn, cursor) registrations. Read only by 0x493FB0 (handler, from HandleDropOnHotSpot) and 0x495710 (cursor). Types 0x12 -> 0x495470 and 0x1E -> 0x495720 are the computers."
+ },
+ "0x495470": {
+  "name": "computer hotspot handler (VF2 CHotSpot::Computers)",
+  "evidence": "cdecl(CVillager&), returns true. Routes in order: CEnvironment prop 0x16 (power failure) -> NewBehavior(0x121); theGameState+0x1B808 unread mail -> NewBehavior(0x6E, data 0x3CE eString_ReadingEmail); career id (CVillagerSkills +0x2B6C, 0x48F080) == 2 -> NewBehavior(0x33) or NewBehavior(0x133) plus eSayNotUpForIt 0x4C7; otherwise ordinary NewBehavior(0x6D) at 0x495558. Registered for hotspot type 0x12 (0x495893) and called by the type 0x1E handler 0x495720 after its own power-failure check; reached only through HandleDropOnHotSpot."
+ },
+ "0x495558": {
+  "name": "call site: computer hotspot ordinary browsing -> CVillager::NewBehavior 0x4858D0",
+  "evidence": "8d4c240b 51 6a6d 8bce c644241300 then e8 rel32 reaching 0x4858D0 (vanilla bytes at 0x49554A): push &data (one zero byte), push 0x6D (BrowsingWeb), ecx = villager. The handler's last route, taken only after power failure, mail and career work did not apply. Behavior Label Variants retargets it to choose 0x10E (PlayingVideoGame) when GetRandom(2) != 0, VF2's manual-drop rule; checked at run time by RetargetCall."
+ },
+ "0x4858d0": {
+  "name": "?NewBehavior@CVillager@@QAEXW4EBehavior@@AAUSBehaviorData@@@Z",
+  "evidence": "thiscall(behavior, SBehaviorData&), ret 8. Applies the CEnvironment substitutions (props 0x1F, 0x1E, 0x1B/0x1C, 0x19, 0x16: computer behaviors 0x33/0x6A/0x6D/0x6E/0x6F/... become 0x119 during a power failure), stores the behavior at villager+0x13590 (0x485D3F), and runs it from the behavior table 0x5AAA38 through 0x4338D0. The decision pass 0x4886E0 starts its choice with it (0x488F6A)."
+ },
+ "0x482120": {
+  "name": "?InitAI@CVillager@@QAEXXZ (autonomous candidate table)",
+  "evidence": "thiscall, no arguments. For every behavior id 0..0x152 fills the entry at villager+0x2B98+id*0xC8: +0x00 id, +0x0C weight 0x5DC (1500), +0x14 0xAFC8 (praise cap), +0xC4 enabled 0; a switch (byte table 0x484DB4, jump table 0x484B44) sets per-id rules and enables the candidate at 0x484AE9 (mov [esi+0x2C5C], bl=1); every entry then gets +/- GetRandom(weight/5). 0x6D: weight 0xCE4 (3300) at 0x482E3F, enabled; 0x10E: weight left at 1500, enabled; 0x6F: default branch, not enabled. Called by Init 0x484EED, 0x485310 (0x48531C), CloneAsAdult 0x48547C and LoadAI 0x4855D3."
+ },
+ "0x4855d0": {
+  "name": "?LoadAI@CVillager@@QAEXAAUSSaveState@1@@Z",
+  "evidence": "thiscall(SSaveState&), ret 4: InitAI, then copies 0x153 saved dwords from state+0x168 into villager+0x2BA4+i*0xC8 (the candidate weights); SaveAI 0x485610 writes the same dwords back. Only caller: CVillager::LoadState at 0x4857D6."
+ },
+ "0x4886e0": {
+  "name": "autonomous decision pass (VF2 CVillagerAI::DecideWhatToDo)",
+  "evidence": "cdecl-style (villager on the stack), ret 4. First a 15% email route (NewBehavior 0x6F for an adult when nobody is doing 0x6F); otherwise collects every candidate 0..0x151 whose enabled byte +0x2C5C is set and whose age/stat/object/prop gates pass, takes its weight +0x2BA4 (tripled by the entry's need/interest conditions, quartered for a disliked interest: +0x2C48/+0x2C4C against the villager lists +0x13620/+0x1362C via 0x481400), rolls GetRandom(sum) and starts the chosen id with NewBehavior (0x488F6A). Callers 0x489478 and 0x4895FF."
+ },
+ "0x484eed": {
+  "name": "call site: CVillager::Init -> InitAI 0x482120",
+  "evidence": "mov ecx, esi (the villager) then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
+ },
+ "0x48531c": {
+  "name": "call site: villager init 0x485310 (from SpawnSpecificPeep 0x48B373) -> InitAI 0x482120",
+  "evidence": "mov ecx, esi then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
+ },
+ "0x48547c": {
+  "name": "call site: CVillager::CloneAsAdult -> InitAI 0x482120",
+  "evidence": "mov ecx, esi then e8 rel32 reaching 0x482120, after Reset 0x481F70. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 afterwards (VF2); checked at run time by RetargetCall."
+ },
+ "0x4857d6": {
+  "name": "call site: CVillager::LoadState -> LoadAI 0x4855D0",
+  "evidence": "push edi (the save state); mov ecx, esi; e8 rel32 reaching 0x4855D0; the only call to LoadAI. Behavior Label Variants wraps it to set the 0x6D and 0x10E candidate weights to 650 after the saved weights are restored, as VF2 runs its enabler after both LoadAI returns; checked at run time by RetargetCall."
  }
 }

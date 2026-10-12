@@ -1,6 +1,8 @@
 // labels.inc -- "Behavior Label Variants": the caption under a villager ("Action" on the info bar) varies for a
-// set of actions, using ONLY the captions and age rules of the Virtual Families 2 patcher. LABELS ONLY: the
-// behaviors, their selection weights, praise training and career progression are not touched.
+// set of actions, using ONLY the captions and age rules of the Virtual Families 2 patcher. This file changes
+// LABELS ONLY. The same setting also chooses the computer's web and video-game activities 50:50, as VF2's
+// Behavior Patches does; that lives in computer.inc. Nothing else (behaviors, other selection weights,
+// career progression) is touched.
 //
 // Each behavior copies its caption into the villager's 40-byte label with
 // `strncpy(villager + 0x13594, GetString(id), 0x27)`. At each verified copy the call to strncpy (0x4993C0) is
