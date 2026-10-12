@@ -90,39 +90,52 @@ static void FollowGender(HWND dlg) {
     if (who >= 0) gMale = *(int *)(Villager(who) + 0x2A38) != 1;
     CheckRadioButton(dlg, ID_AP_FEMALE, ID_AP_MALE, gMale ? ID_AP_MALE : ID_AP_FEMALE);
 }
+// Everything is drawn into an off-screen bitmap the size of the box and copied over in one go, so nothing
+// can land outside the grid however far it is scrolled (the first version drew straight onto the dialog's
+// DC and a scrolled cell could spill over the controls above and below it).
 static void Draw(DRAWITEMSTRUCT *d, int who) {
-    FillRect(d->hDC, &d->rcItem, (HBRUSH)GetStockObject(WHITE_BRUSH));
+    int w = d->rcItem.right - d->rcItem.left, h = d->rcItem.bottom - d->rcItem.top;
+    if (w <= 0 || h <= 0) return;
+    HDC mem = CreateCompatibleDC(d->hDC);
+    HBITMAP bmp = CreateCompatibleBitmap(d->hDC, w, h);
+    HGDIOBJ oldBmp = SelectObject(mem, bmp);
+    RECT all = { 0, 0, w, h };
+    FillRect(mem, &all, (HBRUSH)GetStockObject(WHITE_BRUSH));
     Bitmap *sheet = Sheet(gOutfits, gMale);
-    IntersectClipRect(d->hDC, d->rcItem.left, d->rcItem.top, d->rcItem.right, d->rcItem.bottom);
-    Graphics g(d->hDC);
-    g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
-    int cols = max(1, (int)((d->rcItem.right - d->rcItem.left) / Pitch()));
-    int current = who < 0 ? -1 : (gOutfits ? *Body(who) : *Head(who));
-    bool same = who >= 0 && (*(int *)(Villager(who) + 0x2A38) != 1) == gMale;
-    HFONT font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-    SelectObject(d->hDC, font);
-    SetBkMode(d->hDC, TRANSPARENT);
-    for (int n = 0; n < 50; ++n) {
-        int x = (n % cols) * Pitch(), y = (n / cols) * Pitch() - gScroll;
-        if (y + Pitch() < 0 || y > d->rcItem.bottom) continue;
-        if (same && n == current) {
-            RECT hi = { x, y, x + Pitch() - 2, y + Pitch() - 2 };
-            HBRUSH b = CreateSolidBrush(RGB(255, 214, 120));
-            FillRect(d->hDC, &hi, b);
-            DeleteObject(b);
-        }
-        if (sheet) {
-            if (gOutfits) {
-                g.DrawImage(sheet, Rect(x + 4, y + 4, 96, 96), (gMale ? 0 : 1) * kBodyCell, n * kBodyCell, kBodyCell, kBodyCell, UnitPixel);
-            } else {
-                g.DrawImage(sheet, Rect(x + 8, y + 4, 48, 48), kHeadCol * kHeadCell, n * kHeadCell, kHeadCell, kHeadCell, UnitPixel);
+    {
+        Graphics g(mem);
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        int cols = max(1, w / Pitch());
+        int current = who < 0 ? -1 : (gOutfits ? *Body(who) : *Head(who));
+        bool same = who >= 0 && (*(int *)(Villager(who) + 0x2A38) != 1) == gMale;
+        HGDIOBJ oldFont = SelectObject(mem, GetStockObject(DEFAULT_GUI_FONT));
+        SetBkMode(mem, TRANSPARENT);
+        for (int n = 0; n < 50; ++n) {
+            int x = (n % cols) * Pitch(), y = (n / cols) * Pitch() - gScroll;
+            if (y + Pitch() < 0 || y > h) continue;
+            if (same && n == current) {
+                RECT hi = { x, y, x + Pitch() - 2, y + Pitch() - 2 };
+                HBRUSH hb = CreateSolidBrush(RGB(255, 214, 120));
+                FillRect(mem, &hi, hb);
+                DeleteObject(hb);
             }
+            if (sheet) {
+                if (gOutfits)
+                    g.DrawImage(sheet, Rect(x + 4, y + 4, 96, 96), (gMale ? 0 : 1) * kBodyCell, n * kBodyCell, kBodyCell, kBodyCell, UnitPixel);
+                else
+                    g.DrawImage(sheet, Rect(x + 8, y + 4, 48, 48), kHeadCol * kHeadCell, n * kHeadCell, kHeadCell, kHeadCell, UnitPixel);
+            }
+            wchar_t num[8];
+            swprintf(num, 8, L"%d", n);
+            RECT t = { x, y + Pitch() - 16, x + Pitch() - 2, y + Pitch() - 2 };
+            DrawTextW(mem, num, -1, &t, DT_CENTER | DT_SINGLELINE);
         }
-        wchar_t num[8];
-        swprintf(num, 8, L"%d", n);
-        RECT t = { x, y + Pitch() - 16, x + Pitch() - 2, y + Pitch() - 2 };
-        DrawTextW(d->hDC, num, -1, &t, DT_CENTER | DT_SINGLELINE);
+        SelectObject(mem, oldFont);
     }
+    BitBlt(d->hDC, d->rcItem.left, d->rcItem.top, w, h, mem, 0, 0, SRCCOPY);
+    SelectObject(mem, oldBmp);
+    DeleteObject(bmp);
+    DeleteDC(mem);
 }
 static void Apply(HWND dlg, int n) {
     int who = PickedVillager(dlg);
