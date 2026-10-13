@@ -167,3 +167,22 @@ def test_output_folder_is_filled_in_from_the_vanilla_folder(app, tmp_path):
     app.game_dir_var.set(str(tmp_path / "Virtual Families"))
     app._auto_populate_output_dir()
     assert Path(app.output_dir_var.get()) == (tmp_path / "Virtual Families - Modded").resolve()
+
+
+def test_settings_page_stays_far_below_the_windows_coordinate_limit(app):
+    """The scrolled settings page must stay well under Windows' signed 16-bit coordinate limit (32,767 px),
+    past which the Virtual Villagers patcher's window painted blank, even at 200% display scaling."""
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    app.root.update_idletasks()
+    assert app.settings_inner.winfo_reqheight() * 2 < 16000, app.settings_inner.winfo_reqheight()
+
+
+def test_labels_that_are_not_laid_out_yet_do_not_freeze_the_window(app):
+    """Counting wrapped lines in a text widget that has no width yet (hidden window) can take minutes."""
+    app.manifest_var.set(str(MANIFEST))
+    start = time.time()
+    assert app.load_manifest_settings()
+    app._resize_all_markup_labels()
+    assert time.time() - start < 20
+

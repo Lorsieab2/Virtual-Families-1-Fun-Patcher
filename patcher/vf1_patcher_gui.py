@@ -740,14 +740,20 @@ class VF1PatcherGUI:
         text = getattr(widget, "_vf1_description_text", "")
         normal_font = getattr(widget, "_vf1_normal_font", tkfont.nametofont("TkDefaultFont"))
         width = widget.winfo_width() - 4
-        if width < 80:
+        laid_out = width >= 80
+        if not laid_out:
             width = max(80, self.settings_canvas.winfo_width() - 60)
         display_lines = estimate_wrapped_lines(text, width, normal_font.measure)
-        try:
-            count = widget.count("1.0", "end-1c", "displaylines")
-            display_lines = max(display_lines, int(count[0]) if count else 1)
-        except tk.TclError:
-            display_lines = max(display_lines, int(widget.index("end-1c").split(".", 1)[0]))
+        if laid_out:
+            # Asking Tk to count wrapped lines in a text that is not laid out yet (a 1-pixel-wide, hidden or
+            # not-yet-shown window) is pathologically slow and froze the window's main loop (and the GUI tests)
+            # on some display settings, so only a label with a real width is counted; the <Configure> event
+            # runs this again as soon as it has one.
+            try:
+                count = widget.count("1.0", "end-1c", "displaylines")
+                display_lines = max(display_lines, int(count[0]) if count else 1)
+            except tk.TclError:
+                display_lines = max(display_lines, int(widget.index("end-1c").split(".", 1)[0]))
         height = max(1, display_lines)
         if int(widget.cget("height")) != height:
             widget.configure(height=height)
