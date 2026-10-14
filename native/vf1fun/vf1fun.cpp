@@ -848,22 +848,79 @@ static const int AdoptButtonId = 1;
 static HandleMessageFn OriginalAdoptionHandleMessage;
 
 static bool __fastcall AdoptionHandleMessage(void *scene, void *, int message, int param) {
+    // Only installed when HookVtableSlot recorded the stock handler, so this
+    // is never null in practice; with no stock handler there is nothing to call.
+    if (!OriginalAdoptionHandleMessage)
+        return false;
     bool result = OriginalAdoptionHandleMessage(scene, message, param);
     if (message == MessageButtonClicked && param == AdoptButtonId)
         SaveCurrentGame(GameStateGet());
     return result;
 }
 
+// Every vtable slot this DLL has replaced, with the game's original handler for
+// it. A second install of a slot finds it already replaced and hands back the
+// recorded original, so the caller's pointer is never left null.
+struct VtableHook { unsigned *slot; unsigned original; };
+static VtableHook VtableHooks[32];
+static int VtableHookCount;
+
+// True when value points into the game's own executable image. The stock
+// handler of every slot this DLL hooks is game code, so anything outside the
+// image is a pointer some other module put there.
+static bool IsGameCode(unsigned value) {
+    const BYTE *base = (const BYTE *)GetModuleHandleW(NULL);
+    const IMAGE_NT_HEADERS *nt = (const IMAGE_NT_HEADERS *)(base + ((const IMAGE_DOS_HEADER *)base)->e_lfanew);
+    return value >= (unsigned)base && value - (unsigned)base < nt->OptionalHeader.SizeOfImage;
+}
+
+// Replaces slot with replacement and returns true, writing the slot's previous
+// value to *original. Refuses (returns false, changes nothing, writes nothing)
+// in exactly these cases:
+//   - the slot is already recorded by this DLL but now holds some other value
+//     (someone replaced it after us);
+//   - the slot holds the replacement but this DLL has no record of it;
+//   - the slot is not recorded and holds a value that is not game code (a
+//     foreign pointer), since a first install needs the stock game handler there;
+//   - all 32 record entries are in use.
+// A second install of a recorded slot whose value is still the replacement
+// returns the recorded original.
 static bool HookVtableSlot(unsigned *slot, void *replacement, unsigned *original) {
-    if (*slot == (unsigned)replacement)
-        return true;
-    *original = *slot;
+    for (int i = 0; i < VtableHookCount; i++) {
+        if (VtableHooks[i].slot == slot) {
+            if (*slot != (unsigned)replacement)
+                return false;
+            *original = VtableHooks[i].original;
+            return true;
+        }
+    }
+    if (*slot == (unsigned)replacement || !IsGameCode(*slot))
+        return false;
+    if (VtableHookCount == 32)
+        return false;
     DWORD old;
     if (!VirtualProtect(slot, 4, PAGE_READWRITE, &old))
         return false;
+    VtableHooks[VtableHookCount].slot = slot;
+    VtableHooks[VtableHookCount].original = *slot;
+    VtableHookCount++;
+    *original = *slot;
     *slot = (unsigned)replacement;
     VirtualProtect(slot, 4, old, &old);
     return true;
+}
+
+// Refused (the stock Adopt handler stays in the slot, nothing is hooked) when
+// HookVtableSlot refuses; nothing is logged in that case.
+static void HookAdoptionSave() {
+    bool hooked = HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot,
+                                 (void *)&AdoptionHandleMessage,
+                                 (unsigned *)&OriginalAdoptionHandleMessage);
+    if (!hooked) {
+        // Refused: the stock Adopt handler stays in the slot. Return early and
+        // leave everything unchanged; nothing is logged for a refusal.
+        return;
+    }
 }
 
 static bool SettingOn(const wchar_t *key, bool fallback) {
@@ -971,8 +1028,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         gCheatInterestPercent = rate;
     ApplyEffectiveInterest();
     if (SettingOn(L"FixVanillaGameBugs", true)) {
-        HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
-                       (unsigned *)&OriginalAdoptionHandleMessage);
+        HookAdoptionSave();
         InstallPowerFailureFix();
         InstallOldestRecordGuard();
     }
