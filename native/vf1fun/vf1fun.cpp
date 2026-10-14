@@ -854,13 +854,32 @@ static bool __fastcall AdoptionHandleMessage(void *scene, void *, int message, i
     return result;
 }
 
+// Every vtable slot this DLL has replaced, with the game's original handler for
+// it. A second install of a slot finds it already replaced and hands back the
+// recorded original, so the caller's pointer is never left null.
+struct VtableHook { unsigned *slot; unsigned original; };
+static VtableHook VtableHooks[32];
+static int VtableHookCount;
+
 static bool HookVtableSlot(unsigned *slot, void *replacement, unsigned *original) {
-    if (*slot == (unsigned)replacement)
-        return true;
+    if (*slot == (unsigned)replacement) {
+        for (int i = 0; i < VtableHookCount; i++) {
+            if (VtableHooks[i].slot == slot) {
+                *original = VtableHooks[i].original;
+                return true;
+            }
+        }
+        return false;  // replaced by something this DLL did not install
+    }
+    if (VtableHookCount == 32)
+        return false;
     *original = *slot;
     DWORD old;
     if (!VirtualProtect(slot, 4, PAGE_READWRITE, &old))
         return false;
+    VtableHooks[VtableHookCount].slot = slot;
+    VtableHooks[VtableHookCount].original = *original;
+    VtableHookCount++;
     *slot = (unsigned)replacement;
     VirtualProtect(slot, 4, old, &old);
     return true;
