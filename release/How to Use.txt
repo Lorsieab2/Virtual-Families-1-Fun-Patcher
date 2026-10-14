@@ -143,6 +143,13 @@ Good to know
   takes the game out of fullscreen while its menu is open and puts it back
   afterwards, but that hasn't been seen working yet. If the Upgrades menu
   doesn't appear in fullscreen, set Options > Fullscreen to Off.
+* Fix Vanilla Game Bugs (on): in the original game, a brand-new family was
+  lost if the game was closed any way other than Quit (for example a crash or
+  Task Manager). It came back as "All of your little family members died".
+  The game only saved before the adoption. The patched game saves right
+  after you adopt, so the new family is kept. The same applies after Start
+  Over and Next Generation. Quitting through the menu is still the best way to
+  keep everything since then.
 * The patcher's files live in the "Virtual Families 1 Patcher Files" folder
   inside the modded game. Delete that folder and the game runs exactly as
   normal.
