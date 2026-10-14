@@ -125,7 +125,9 @@
  },
  "0x4238e0": {
   "name": "?SaveCurrentGame@theGameState@@QAE_NXZ",
-  "evidence": "Disassembly: Save(0) through vtable +0x38 (theGameState::Save, vtable slot at 0x4B5E6C), then Save(current slot at +0x1B188) and Save(slot + 0x14). Callers include CStoryScene::Activate and the nickname/change-player dialogs. Live 2026-10-10: called after Adopt, it wrote the new villager into slots 1 and 21."
+  "evidence": "Disassembly: Save(0) through vtable +0x38 (theGameState::Save, vtable slot at 0x4B5E6C), then Save(current slot at +0x1B188) and Save(slot + 0x14). Callers include CStoryScene::Activate and the nickname/change-player dialogs. Live 2026-10-10: called after Adopt, it wrote the new villager into slots 1 and 21.",
+  "status": "needs live check",
+  "note": "The 2026-10-10 live result cited above is DISPUTED. The family-close fix (saving right after Adopt in CAdoptionScene::HandleMessage) depends on this being resolved; re-test on a live game before relying on it. Address and evidence are unchanged."
  },
  "0x423790": {
   "name": "?Save@theGameState@@UAE_NH@Z",
