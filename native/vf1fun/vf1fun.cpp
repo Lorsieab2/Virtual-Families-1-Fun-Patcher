@@ -913,9 +913,14 @@ static bool HookVtableSlot(unsigned *slot, void *replacement, unsigned *original
 // Refused (the stock Adopt handler stays in the slot, nothing is hooked) when
 // HookVtableSlot refuses; nothing is logged in that case.
 static void HookAdoptionSave() {
-    if (!HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot, (void *)&AdoptionHandleMessage,
-                        (unsigned *)&OriginalAdoptionHandleMessage))
+    bool hooked = HookVtableSlot(AdoptionVtable + StoreHandleMessageSlot,
+                                 (void *)&AdoptionHandleMessage,
+                                 (unsigned *)&OriginalAdoptionHandleMessage);
+    if (!hooked) {
+        // Refused: the stock Adopt handler stays in the slot. Return early and
+        // leave everything unchanged; nothing is logged for a refusal.
         return;
+    }
 }
 
 static bool SettingOn(const wchar_t *key, bool fallback) {
