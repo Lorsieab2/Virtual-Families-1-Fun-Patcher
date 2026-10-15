@@ -92,7 +92,7 @@ static void LoadVillageState(int slot) {
         v.sameSex = GetPrivateProfileIntW(L"Village", L"SameSexMarriage", 0, path);
         v.reroll = GetPrivateProfileIntW(L"Village", L"RerollMarriageCandidates", 0, path);
         v.armed = GetPrivateProfileIntW(L"Village", L"NextPregnancy", 0, path) & 63;
-        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0xFFF;
+        v.achievements = (unsigned)GetPrivateProfileIntW(L"Village", L"PatcherAchievements", 0, path) & 0x1FFFF;  // 17 bits
         v.bankRate = GetPrivateProfileIntW(L"Village", L"BankInterestPercent", v.brokerage ? 11 : 0, path);
         if (v.bankRate < 0 || v.bankRate > 11) v.bankRate = 0;
         v.maidNext = (unsigned)GetPrivateProfileIntW(L"Village", L"MaidNextVisit", 0, path);
@@ -339,8 +339,10 @@ static void CleanGarden() { RemoveAll(Collectables, 0x88); }
 typedef int (__thiscall *IntThisFn)(void *self);
 static const IntThisFn IsDayTime = (IntThisFn)0x491630;
 static void *const Night = (void *)0x831700;
-static void MaidVisit() { CleanHouse(); }
-static void GardenerVisit() { CleanGarden(); }
+static void EarnCleanSweep();   // patcher_achievements.inc
+static void EarnGreenThumb();   // patcher_achievements.inc
+static void MaidVisit() { CleanHouse(); EarnCleanSweep(); }
+static void GardenerVisit() { CleanGarden(); EarnGreenThumb(); }
 static void HireHelper(unsigned *timer) { *timer = GameSeconds(GameTime) + 3600; }
 static void HelpersAfterLoad() {
     unsigned now = GameSeconds(GameTime);

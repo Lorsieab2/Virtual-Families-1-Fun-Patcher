@@ -38,7 +38,8 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    90's, Centenarian, Oldest Person in History, Return of the
                    Rainbow, Spiky!, Blue's Clues, A Decade in Blue, No More Worries,
                    Solving World Hunger and Achiever
-                   Extraordinaire. Kept per
+                   Extraordinaire, and Love Is Love, Instant Family, New Blood,
+                   Clean Sweep and Green Thumb for the patcher's own features. Kept per
                    village, on their own page (the game's Trophies screen is
                    fixed). Not included: pets, behaviors, holidays and
                    furniture.

@@ -8,14 +8,19 @@
 //
 // Left out because VF1 cannot meet them: the pet goals, and the behavior,
 // holiday, birthday and furniture goals (VF1 has none of those items or
-// behaviors). "No More Worries" and "Solving World Hunger" use the maximums of the
+// behaviors). Love Is Love, Instant Family, New Blood, Clean Sweep and Green
+// Thumb are for the patcher's own features (Same-Sex Marriage, Spawn Child,
+// Adopt New Person, the Maid and the Gardener); each is earned by the first
+// real use, from the code that does the work. They take bits 12-16, so the
+// saved bits of the older achievements do not move. "No More Worries" and "Solving World Hunger" use the maximums of the
 // Clamp Money and Food setting (4,000,000,000 coins, 2,147,483,647 food).
 //
 // The state is read live every 15 seconds on the main scene (CheckAchievements,
 // from FeaturesTick) and when the page opens.
 struct PatcherAchievement { const wchar_t *name; const wchar_t *how; };
 enum { ACH_LUCKY_70, ACH_GREAT_80, ACH_MIGHTY_90, ACH_CENTENARIAN, ACH_OLDEST_IN_HISTORY, ACH_RAINBOW, ACH_SPIKY,
-       ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_NO_MORE_WORRIES, ACH_WORLD_HUNGER, ACH_EXTRAORDINAIRE, ACH_COUNT };
+       ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_NO_MORE_WORRIES, ACH_WORLD_HUNGER, ACH_EXTRAORDINAIRE,
+       ACH_LOVE_IS_LOVE, ACH_INSTANT_FAMILY, ACH_NEW_BLOOD, ACH_CLEAN_SWEEP, ACH_GREEN_THUMB, ACH_COUNT };
 static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"Lucky 70's", L"Have a person reach age 70." },
     { L"Great 80's", L"Have a person reach age 80." },
@@ -29,6 +34,11 @@ static const PatcherAchievement kAchievements[ACH_COUNT] = {
     { L"No More Worries", L"Have the maximum amount of coins in the bank account." },
     { L"Solving World Hunger", L"Have the maximum amount of food in the fridge." },
     { L"Achiever Extraordinaire", L"Complete every enabled achievement." },
+    { L"Love Is Love", L"Marry a same-sex couple with Same-Sex Marriage on." },
+    { L"Instant Family", L"Spawn a child into the family with the Spawn Child cheat." },
+    { L"New Blood", L"Adopt a new person into the family tree." },
+    { L"Clean Sweep", L"Have the Maid clean up the house." },
+    { L"Green Thumb", L"Have the Gardener pull the weeds." },
 };
 
 // VF1's head sheets have rows 0-49. Return of the Rainbow is the female sheet's last
@@ -49,6 +59,13 @@ static void UnlockAchievement(int bit) {
         return;
     gVillage.achievements |= 1u << bit;
 }
+
+// Called from the feature code (family.inc, features.inc) at the point where the feature really runs.
+static void EarnLoveIsLove() { UnlockAchievement(ACH_LOVE_IS_LOVE); }
+static void EarnInstantFamily() { UnlockAchievement(ACH_INSTANT_FAMILY); }
+static void EarnNewBlood() { UnlockAchievement(ACH_NEW_BLOOD); }
+static void EarnCleanSweep() { UnlockAchievement(ACH_CLEAN_SWEEP); }
+static void EarnGreenThumb() { UnlockAchievement(ACH_GREEN_THUMB); }
 
 // CFamilyTree records (0x5AB908 + 4 + i * 0x6C8): +4 parent-1 and +0xDC
 // parent-2 SPeepRecords, +0x1B4 child count, +0x1B8 children. SPeepRecord:
@@ -87,7 +104,9 @@ static void CheckAchievements() {
     if (FamilyTreeHas(1, kLastHead - 1)) UnlockAchievement(ACH_DECADE_IN_BLUE);
     if (*(float *)Money >= 4000000000.f) UnlockAchievement(ACH_NO_MORE_WORRIES);
     if (*Food == 2147483647) UnlockAchievement(ACH_WORLD_HUNGER);
-    if (AchievementsUnlocked() == ACH_COUNT - 1) UnlockAchievement(ACH_EXTRAORDINAIRE);
+    // Every enabled achievement: all the bits, with this one counted as already set.
+    const unsigned all = (1u << ACH_COUNT) - 1, self = 1u << ACH_EXTRAORDINAIRE;
+    if ((gVillage.achievements | self) == all) UnlockAchievement(ACH_EXTRAORDINAIRE);
 }
 
 enum { ID_PA_LIST = 760 };

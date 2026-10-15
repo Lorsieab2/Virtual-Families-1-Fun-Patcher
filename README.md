@@ -52,8 +52,9 @@ patch settings you can switch off):
   fit this game, with the same names (Lucky 70's, Great 80's, Mighty 90's,
   Centenarian, Oldest Person in History, Return of the Rainbow, Spiky!,
   Blue's Clues, A Decade in Blue,
-  Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), kept per village on their own page. The game's
-  Trophies screen is unchanged.
+  Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), and five for this patcher's own features: Love Is Love
+  (a same-sex wedding), Instant Family (Spawn Child), New Blood (Adopt New Person), Clean Sweep (the Maid) and Green Thumb (the Gardener).
+  Kept per village on their own page. The game's Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
 - **Roll the Dice:** costs $500, and an island event happens right away,
   through the game's own event system.

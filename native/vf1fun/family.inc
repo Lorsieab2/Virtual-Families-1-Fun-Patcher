@@ -192,6 +192,7 @@ static int ResidentAdult(int candidate) {
     }
     return -1;
 }
+static void EarnLoveIsLove();  // patcher_achievements.inc
 static void SameGenderWedding(int resident, int candidate, int dowry) {
     unsigned char *a = Villager(resident), *b = Villager(candidate);
     *(int *)(GameStateBytes() + 0x1B150) = 1;
@@ -203,6 +204,7 @@ static void SameGenderWedding(int resident, int candidate, int dowry) {
     AddHappiness(a + 0x2AD4, 300); AddHappiness(b + 0x2AD4, 300);
     AddHappinessTrend(a + 0x2AD4, 10); AddHappinessTrend(b + 0x2AD4, 10);
     QueueLifeEventPending(GameStateGet(), 1, resident, candidate);
+    EarnLoveIsLove();
 }
 
 static HandleMessageFn OriginalDatingHandleMessage;
@@ -217,9 +219,12 @@ static bool __fastcall DatingHandleMessage(void *scene, void *, int message, int
         bool native = GetMatriarch(VillagerManager) && GetPatriarch(VillagerManager);
         int resident = ResidentAdult(candidate), dowry = *(int *)(s + 8);
         bool r = OriginalDatingHandleMessage(scene, message, param);
-        if (!native && resident >= 0 &&
-            *(int *)(Villager(resident) + 0x2A38) == *(int *)(Villager(candidate) + 0x2A38))
-            SameGenderWedding(resident, candidate, dowry);
+        bool sameGender = resident >= 0 &&
+            *(int *)(Villager(resident) + 0x2A38) == *(int *)(Villager(candidate) + 0x2A38);
+        if (!native && sameGender)
+            SameGenderWedding(resident, candidate, dowry);  // earns Love Is Love
+        else if (native && sameGender)
+            EarnLoveIsLove();  // the game's own wedding bookkeeping ran for this pair
         return r;
     }
     return OriginalDatingHandleMessage(scene, message, param);
@@ -279,6 +284,7 @@ static void SetName(int slot, const wchar_t *name) {
 // bodies go into the new villager the way a birth records them, so the look is
 // inherited, and AddOffspring puts it in the Family Tree. Not a birth: no
 // "new baby" event and no births statistic.
+static void EarnInstantFamily();  // patcher_achievements.inc
 static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     if (!CurrentFamily()) return L"There is no family yet.";
     if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
@@ -294,6 +300,7 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     if (slot < 0) return L"The house is full.";
     SetName(slot, name);
     AddOffspring(FamilyTree, Villager(slot));
+    EarnInstantFamily();
     return 0;
 }
 
@@ -306,10 +313,13 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
 // generation of the existing tree instead of wiping it.
 enum { ADOPT_NONE, ADOPT_EVICT, ADOPT_NEW_PERSON };  // gAdoptionMode, features.inc
 
+static void EarnNewBlood();  // patcher_achievements.inc
 static bool __fastcall AdoptStartFamilyTree(void *tree, void *, void *villager) {
     if (gAdoptionMode == ADOPT_NEW_PERSON) {
         if (*(int *)tree >= 30) MakeRoomInTree(tree);
-        return StartNextGeneration(tree, villager, -1);
+        bool added = StartNextGeneration(tree, villager, -1);
+        if (added) EarnNewBlood();
+        return added;
     }
     return StartFamilyTree(tree, villager);
 }
