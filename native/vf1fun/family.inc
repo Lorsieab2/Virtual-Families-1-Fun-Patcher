@@ -310,7 +310,20 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
     if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
     int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
     if (slot < 0) return L"The house is full.";
-    SetName(slot, name);
+    // SetName fits a name into a 24-byte field and drops one that does not fit
+    // at all, so cut the typed name first: to 24 characters, then to fewer if
+    // its code-page bytes still exceed 24 (cutting only between characters).
+    // The child then keeps the name typed up to the limit. SetName is shared
+    // with Spawn Child and is not changed.
+    wchar_t fit[25] = { 0 };
+    if (name) {
+        size_t n = wcslen(name);
+        if (n > 24) n = 24;
+        char probe[25];
+        while (n > 0 && !WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)) n--;
+        wcsncpy_s(fit, 25, name, n);
+    }
+    SetName(slot, fit);
     AddOffspring(FamilyTree, Villager(slot));
     IncrementProgress(Achievements, 0xC, 1);
     IncrementProgress(Achievements, 0xD, 1);

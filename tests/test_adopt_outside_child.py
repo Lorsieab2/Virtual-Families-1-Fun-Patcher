@@ -44,7 +44,24 @@ def test_dialog_ids_are_unique():
     assert len(names) == len(set(names))
 
 
+def test_adopted_name_is_cut_to_fit_before_setname():
+    # SetName drops a name longer than its 24-byte field, so AdoptOutsideChild
+    # must cut the typed name first and pass the cut copy to SetName.
+    body = _function("AdoptOutsideChild")
+    assert body.index("wcslen(name)") < body.index("SetName(slot, fit)")
+    assert "if (n > 24) n = 24;" in body
+    assert "WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)" in body
+    assert "SetName(slot, name)" not in body
+    # the shared SetName is unchanged: Spawn Child still uses the same field
+    setname = re.search(r"static void SetName\(.*?\n\}\n", FAMILY, re.S).group(0)
+    assert "WideCharToMultiByte(CP_ACP, 0, name, -1, s, 25, 0, 0)" in setname
+
+
 def test_evidence_recorded():
+    """Checks only that the two verified entries (0x418800, 0x4188B0) name
+    AddOffspring in their evidence text. It does not check the call order or
+    the call bytes; that is test_vanilla_visitor_events_adopt_an_outside_child,
+    which reads the vanilla exe and needs VF1_VANILLA_DIR."""
     for addr in ("0x418800", "0x4188b0"):
         assert "AddOffspring" in VERIFIED[addr]["evidence"]
 
