@@ -297,6 +297,45 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     return 0;
 }
 
+// Adopt an outside child: the game's own "The Little Visitor" event (the
+// abandoned child at the door, choice A "Adopt ... into your family",
+// CEventTheLittleVisitor1/2::ImpactGame 0x418800 / 0x4188B0) does exactly this:
+// SpawnPeep(voice 1, gender, 60 units = 3 years) with no parents, AddOffspring
+// into the Family Tree, then achievement progress 0xC and 0xD. This does the
+// same at any age 2-13 with an optional name. The child has no parents in the
+// house, so its look is the game's own random one, not the couple's.
+static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *name) {
+    if (!CurrentFamily()) return L"There is no family yet.";
+    if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
+    if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
+    int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
+    if (slot < 0) return L"The house is full.";
+    // SetName fits a name into a 24-byte field and drops one that does not fit
+    // at all, so cut the typed name first: to at most 24 UTF-16 units, then
+    // back off one unit at a time while its code-page bytes still exceed 24.
+    // A cut never ends on a high surrogate (0xD800-0xDBFF), so a non-BMP
+    // character is kept whole or dropped whole and never becomes a lone '?'.
+    // The child then keeps the name typed up to that point. SetName is shared
+    // with Spawn Child and is not changed.
+    wchar_t fit[25] = { 0 };
+    if (name) {
+        size_t n = wcslen(name);
+        if (n > 24) n = 24;
+        char probe[25];
+        while (n > 0) {
+            if (name[n - 1] >= 0xD800 && name[n - 1] <= 0xDBFF) { n--; continue; }
+            if (WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)) break;
+            n--;
+        }
+        wcsncpy_s(fit, 25, name, n);
+    }
+    SetName(slot, fit);
+    AddOffspring(FamilyTree, Villager(slot));
+    IncrementProgress(Achievements, 0xC, 1);
+    IncrementProgress(Achievements, 0xD, 1);
+    return 0;
+}
+
 // ---------------------------------------------------------------- Evict Family and Adopt New Person
 // Both open the game's own new-family adoption screen (CAdoptionScene with
 // +0x10 = 0, scene 7), as Next Generation opens it (0x43926C..0x43927A). On

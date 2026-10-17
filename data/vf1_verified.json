@@ -468,5 +468,13 @@
 "0x4367a0": {
   "name": "CAdoptionScene::HandleMessage: Adopt button id 1",
   "evidence": "Disassembly: mov eax, [esp+0x2C] (the param) at 0x43679C, cmp eax, 1 at 0x4367A0, jne 0x436960 otherwise. On a match it plays sound 0x93 and then calls theGameState::Get (0x423660) at 0x4367B9. The button that sends it is the Adopt button, id 1."
+ },
+ "0x418800": {
+  "name": "?ImpactGame@CEventTheLittleVisitor1@@UAEXH@Z (adopt an outside boy)",
+  "evidence": "Disassembly: choice 0 (A, 'Adopt him into your family') only: SpawnPeep 0x48BC60 on the villager manager 0x5B8898 with (voice 1, gender 0, age 0x3C = 3 years), GetVillager 0x489900 on the result, theFamilyTree(0x5AB908)::AddOffspring 0x481AA0, then CAchievement(0x5008D8)::IncrementProgress 0x413210 for ids 0xC and 0xD. No parents are passed, so the child is an outside child who joins the Family Tree. Choice B does nothing (the adoption agency takes the child)."
+ },
+ "0x4188b0": {
+  "name": "?ImpactGame@CEventTheLittleVisitor2@@UAEXH@Z (adopt an outside girl)",
+  "evidence": "Same as 0x418800 with gender 1: push 0x3C, push 1, push 1, call 0x48BC60; AddOffspring 0x481AA0; IncrementProgress ids 0xC and 0xD. CanFire of Visitor1 (0x4187B0) requires EmptyOffspringSlots 0x4816E0 > 0."
  }
 }
