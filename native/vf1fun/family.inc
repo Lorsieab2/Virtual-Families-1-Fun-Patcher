@@ -311,16 +311,22 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
     int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
     if (slot < 0) return L"The house is full.";
     // SetName fits a name into a 24-byte field and drops one that does not fit
-    // at all, so cut the typed name first: to 24 characters, then to fewer if
-    // its code-page bytes still exceed 24 (cutting only between characters).
-    // The child then keeps the name typed up to the limit. SetName is shared
+    // at all, so cut the typed name first: to at most 24 UTF-16 units, then
+    // back off one unit at a time while its code-page bytes still exceed 24.
+    // A cut never ends on a high surrogate (0xD800-0xDBFF), so a non-BMP
+    // character is kept whole or dropped whole and never becomes a lone '?'.
+    // The child then keeps the name typed up to that point. SetName is shared
     // with Spawn Child and is not changed.
     wchar_t fit[25] = { 0 };
     if (name) {
         size_t n = wcslen(name);
         if (n > 24) n = 24;
         char probe[25];
-        while (n > 0 && !WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)) n--;
+        while (n > 0) {
+            if (name[n - 1] >= 0xD800 && name[n - 1] <= 0xDBFF) { n--; continue; }
+            if (WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)) break;
+            n--;
+        }
         wcsncpy_s(fit, 25, name, n);
     }
     SetName(slot, fit);

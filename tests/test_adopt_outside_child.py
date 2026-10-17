@@ -57,6 +57,16 @@ def test_adopted_name_is_cut_to_fit_before_setname():
     assert "WideCharToMultiByte(CP_ACP, 0, name, -1, s, 25, 0, 0)" in setname
 
 
+def test_adopted_name_never_splits_a_surrogate_pair():
+    # A non-BMP character is two UTF-16 units. Cutting after the high unit
+    # leaves a lone surrogate, which CP_ACP turns into '?', so the cut backs
+    # off past a high surrogate before the byte check.
+    body = _function("AdoptOutsideChild")
+    assert "name[n - 1] >= 0xD800 && name[n - 1] <= 0xDBFF" in body
+    assert body.index("0xDBFF") < body.index("WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)")
+    assert "wcsncpy_s(fit, 25, name, n)" in body
+
+
 def test_evidence_recorded():
     """Checks only that the two verified entries (0x418800, 0x4188B0) name
     AddOffspring in their evidence text. It does not check the call order or
