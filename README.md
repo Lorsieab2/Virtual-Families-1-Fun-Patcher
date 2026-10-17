@@ -44,6 +44,9 @@ patch settings you can switch off):
     or triplets;
   - Spawn Male Child and Spawn Female Child (age 2-13, optional name; a child of
     the current couple, with their looks);
+  - Adopt Outside Boy and Adopt Outside Girl (age 2-13, optional name; the
+    abandoned-child adoption of the game's own Little Visitor event: an
+    outside child with no parents in the house joins the Family Tree);
   - Adopt New Person (only after "your family has been lost"), which keeps
     your money and the Family Tree;
   - Evict Family: resets the Family Tree and starts a new family, keeping the

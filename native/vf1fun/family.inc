@@ -297,6 +297,26 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     return 0;
 }
 
+// Adopt an outside child: the game's own "The Little Visitor" event (the
+// abandoned child at the door, choice A "Adopt ... into your family",
+// CEventTheLittleVisitor1/2::ImpactGame 0x418800 / 0x4188B0) does exactly this:
+// SpawnPeep(voice 1, gender, 60 units = 3 years) with no parents, AddOffspring
+// into the Family Tree, then achievement progress 0xC and 0xD. This does the
+// same at any age 2-13 with an optional name. The child has no parents in the
+// house, so its look is the game's own random one, not the couple's.
+static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *name) {
+    if (!CurrentFamily()) return L"There is no family yet.";
+    if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
+    if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
+    int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
+    if (slot < 0) return L"The house is full.";
+    SetName(slot, name);
+    AddOffspring(FamilyTree, Villager(slot));
+    IncrementProgress(Achievements, 0xC, 1);
+    IncrementProgress(Achievements, 0xD, 1);
+    return 0;
+}
+
 // ---------------------------------------------------------------- Evict Family and Adopt New Person
 // Both open the game's own new-family adoption screen (CAdoptionScene with
 // +0x10 = 0, scene 7), as Next Generation opens it (0x43926C..0x43927A). On

@@ -453,20 +453,28 @@
   "name": "decision pass weighting loop: read of a listed candidate's weight (mov ebx, [ecx+ebp+0x2BA4]; lea esi, [ecx+ebp])",
   "evidence": "Vanilla bytes 8b9c29a42b0000 8d3429 at 0x488CA9-0x488CB2, whole instructions; preceded by 0x488C90 mov eax,[esp+0x14]; 0x488C94 mov edi,[esp+eax*4+0x20] (the candidate id from the list the first loop built at 0x488C4D); mov ecx,edi; imul ecx,ecx,0xC8; 0x488CA0 mov eax,[ecx+ebp+0x2BF4]; 0x488CA7 test eax,eax; followed by 0x488CB3 je (uses those flags). ebp = the villager throughout (arg [esp+0xAB0], +0x13594 label, +0x2A34 age). [esp+0x1C] = listed count (0x488C6C, compared at 0x488F0D); the loop has no unbalanced pushes (0x481400 is ret 4). ebx is then tripled (0x488EF8, need/interest conditions) or quartered (0x488EE5, disliked interest) and summed (0x488EFF) for GetRandom(sum) at 0x488F20. No branch in the function or rel32 branch in .text targets 0x488CAA-0x488CB2. Behavior Label Variants jumps from here to a detour that keeps the flags (pushfd), and when both 0x6D and 0x10E are listed gives them (w6D+w10E)/2 and the rest; it writes nothing; checked by InstallJump."
  },
-"0x4b6bd4": {
+ "0x4b6bd4": {
   "name": "CAdoptionScene vtable",
   "evidence": "Read from the vanilla exe: slot 0 = 0x436520 (??_E CAdoptionScene), slot 3 = 0x436780 (CAdoptionScene::HandleMessage, the slot the Adopt fix replaces at AdoptionVtable + StoreHandleMessageSlot), slot 6 = 0x4362D0 (DrawScene). Matches the names in data/vf1_vtable_names.json."
  },
-"0x423660": {
+ "0x423660": {
   "name": "?Get@theGameState@@SAPAV1@XZ (theGameState singleton getter)",
   "evidence": "Name from data/vf1_callgraph_hints.json. Disassembly: MSVC SEH frame (push -1, push 0x4AF3EB, fs:[0]). If [0x50025C] is empty it allocates 0x1B830 bytes (0x497B14), builds the object (0x424EA0) and stores it in [0x50025C]; returns [0x50025C]. Called from the Adopt branch of CAdoptionScene::HandleMessage at 0x4367B9."
  },
-"0x43678e": {
+ "0x43678e": {
   "name": "CAdoptionScene::HandleMessage: message test (message 8 = MessageButtonClicked)",
   "evidence": "Disassembly: cmp dword ptr [esp+0x24], 8 at 0x43678E, jne 0x43696A otherwise. Message 8 is the button-clicked message (the store's Done button test at 0x448F20 uses the same value)."
  },
-"0x4367a0": {
+ "0x4367a0": {
   "name": "CAdoptionScene::HandleMessage: Adopt button id 1",
   "evidence": "Disassembly: mov eax, [esp+0x2C] (the param) at 0x43679C, cmp eax, 1 at 0x4367A0, jne 0x436960 otherwise. On a match it plays sound 0x93 and then calls theGameState::Get (0x423660) at 0x4367B9. The button that sends it is the Adopt button, id 1."
+ },
+ "0x418800": {
+  "name": "?ImpactGame@CEventTheLittleVisitor1@@UAEXH@Z (adopt an outside boy)",
+  "evidence": "Disassembly: choice 0 (A, 'Adopt him into your family') only: SpawnPeep 0x48BC60 on the villager manager 0x5B8898 with (voice 1, gender 0, age 0x3C = 3 years), GetVillager 0x489900 on the result, theFamilyTree(0x5AB908)::AddOffspring 0x481AA0, then CAchievement(0x5008D8)::IncrementProgress 0x413210 for ids 0xC and 0xD. No parents are passed, so the child is an outside child who joins the Family Tree. Choice B does nothing (the adoption agency takes the child)."
+ },
+ "0x4188b0": {
+  "name": "?ImpactGame@CEventTheLittleVisitor2@@UAEXH@Z (adopt an outside girl)",
+  "evidence": "Same as 0x418800 with gender 1: push 0x3C, push 1, push 1, call 0x48BC60; AddOffspring 0x481AA0; IncrementProgress ids 0xC and 0xD. CanFire of Visitor1 (0x4187B0) requires EmptyOffspringSlots 0x4816E0 > 0."
  }
 }

@@ -54,7 +54,9 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    pregnancy: force success, boys or girls, singleton,
                    twins or triplets (stays set until a pregnancy
                    succeeds). Spawn Male Child / Spawn Female Child
-                   (age 2-13, optional name). Adopt New Person (only after "Your family has
+                   (age 2-13, optional name). Adopt Outside Boy / Adopt
+                   Outside Girl: an outside child joins the family, as in the
+                   game's Little Visitor event. Adopt New Person (only after "Your family has
                    been lost"): keeps your money and the Family Tree. Evict
                    Family: resets the Family Tree and starts a new family;
                    you keep the money, the house and everything you own.
