@@ -1,4 +1,4 @@
-// vf1fun.dll -- the Virtual Families 1 Patcher's companion.
+// vf1fun.dll -- the Virtual Families 1 Fun Patcher's companion.
 //
 // The patched executable calls VF1Fun_StoreCreated(scene) at the end of the
 // store screen's constructor (see patcher/vf1_patcher.py). This adds an
@@ -207,10 +207,10 @@ public:
 };
 
 static void Message(HWND owner, const wchar_t *text) {
-    MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_OK | MB_ICONINFORMATION);
+    MessageBoxW(owner, text, L"Virtual Families 1 Fun Patcher", MB_OK | MB_ICONINFORMATION);
 }
 static bool Confirm(HWND owner, const wchar_t *text) {
-    return MessageBoxW(owner, text, L"Virtual Families 1 Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
+    return MessageBoxW(owner, text, L"Virtual Families 1 Fun Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
 }
 
 // ---- Cheats

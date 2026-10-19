@@ -1,8 +1,8 @@
 {
   "manifest_version": 1,
-  "name": "Virtual Families 1 Patcher",
+  "name": "Virtual Families 1 Fun Patcher",
   "version": "dev",
-  "description": "Patch settings for the Virtual Families 1 Patcher. Each setting is a switch in \"Virtual Families 1 Patcher Files\\settings.ini\", section [Patches], read by vf1fun.dll when the game starts. To add a setting, add a row here: id (the settings.ini key), label, description, default, category (main or optional), and optionally requires (ids of settings it cannot work without; the patcher states them in bold) and files (payload files installed into the Virtual Families 1 Patcher Files folder only while the setting is on).",
+  "description": "Patch settings for the Virtual Families 1 Fun Patcher. Each setting is a switch in \"Virtual Families 1 Patcher Files\\settings.ini\", section [Patches], read by vf1fun.dll when the game starts. To add a setting, add a row here: id (the settings.ini key), label, description, default, category (main or optional), and optionally requires (ids of settings it cannot work without; the patcher states them in bold) and files (payload files installed into the Virtual Families 1 Patcher Files folder only while the setting is on).",
   "output": {
     "default_folder_name": "Virtual Families - Modded",
     "default_exe_name": "Virtual Families - Modded.exe"

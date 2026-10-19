@@ -1,4 +1,4 @@
-# Virtual Families 1 Patcher
+# Virtual Families 1 Fun Patcher
 
 A patcher for **Virtual Families** (Last Day of Work, 2014; PC version 1.01.00),
 adding features from Virtual Families 2 and new cheats.
@@ -145,7 +145,7 @@ copies as arguments.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.
 - **Release zip:** `python tools/package_release.py VERSION` writes
-  `outputs/VF1-Patcher-VERSION.zip`, laid out like a VF2 release (Launch_GUI.bat,
+  `outputs/VF1-Fun-Patcher-VERSION.zip`, laid out like a VF2 release (Launch_GUI.bat,
   Apply_VERSION_Patcher.bat, How to Use.txt, README, Transparency Log.txt,
   manifest.json with the payload's SHA-256, the scripts, payload/vf1fun.dll).
 - **Tests:** set `VF1_VANILLA_DIR` to a copy of your own vanilla Virtual

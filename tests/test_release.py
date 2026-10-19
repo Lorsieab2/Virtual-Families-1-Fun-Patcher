@@ -11,7 +11,7 @@ import package_release
 import vf1_patcher as vp
 
 VERSION = "v9.9.9-test"
-TOP = f"VF1-Patcher-{VERSION}"
+TOP = f"VF1-Fun-Patcher-{VERSION}"
 
 
 @pytest.fixture

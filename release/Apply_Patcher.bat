@@ -2,7 +2,7 @@
 setlocal
 set "SCRIPT_DIR=%~dp0"
 echo.
-echo Virtual Families 1 Patcher - {VERSION}
+echo Virtual Families 1 Fun Patcher - {VERSION}
 echo This creates a separate modded game folder next to the vanilla folder
 echo (or in your Games folder if the game is installed under Program Files).
 echo Enter or drag the original "Virtual Families.exe" here.

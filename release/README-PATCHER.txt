@@ -1,4 +1,4 @@
-Virtual Families 1 Patcher - {VERSION}
+Virtual Families 1 Fun Patcher - {VERSION}
 
 This patcher was created with Claude AI (Claude Code) in collaboration with Lorsieab2.
 
