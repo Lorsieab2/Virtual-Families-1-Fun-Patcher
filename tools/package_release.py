@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Package a player release: outputs/VF1-Patcher-<version>.zip.
+"""Package a player release: outputs/VF1-Fun-Patcher-<version>.zip.
 
 usage: package_release.py VERSION [--dll PATH] [--out-dir DIR]
        package_release.py --transparency-log    (rewrite release/Transparency Log.txt)
 
 Needs build/vf1fun.dll (native/build.bat), patcher/stub.json
 (tools/build_stub.py) and payload/ (the files settings install, in the repository). The layout follows the Virtual Families 2 patcher's
-release bundle: one folder, "VF1-Patcher-<version>", holding
+release bundle: one folder, "VF1-Fun-Patcher-<version>", holding
 
   Launch_GUI.bat, Apply_<version>_Patcher.bat, How to Use.txt,
   README-<version>-PATCHER.txt, Transparency Log.txt, manifest.json,
@@ -41,7 +41,7 @@ def write_transparency_log() -> Path:
 
 
 def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None) -> Path:
-    top = f"VF1-Patcher-{version}"
+    top = f"VF1-Fun-Patcher-{version}"
     manifest = load_manifest()
     vf1_patcher.manifest_settings(manifest)  # refuse an inconsistent manifest
     vf1_patcher.manifest_output_exe_name(manifest)  # and a forbidden exe name

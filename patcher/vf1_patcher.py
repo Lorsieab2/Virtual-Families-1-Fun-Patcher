@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Virtual Families 1 Patcher: build or reconfigure a modded copy of the game.
+"""Virtual Families 1 Fun Patcher: build or reconfigure a modded copy of the game.
 
 Ported from the Virtual Families 2 Restoration/Addition Patcher
 (offline_vf2_patcher.py): the same apply / settings / restore commands, the
@@ -718,7 +718,7 @@ def read_payload(path: Path, rel: str, pins: dict[str, dict[str, Any]], pinned: 
 
 # ---------------------------------------------------------------- settings.ini
 
-INI_COMMENT = "; Written by the Virtual Families 1 Patcher: 1 = on, 0 = off. Change these with Enable/Disable Patches."
+INI_COMMENT = "; Written by the Virtual Families 1 Fun Patcher: 1 = on, 0 = off. Change these with Enable/Disable Patches."
 
 
 def _decode_ini(data: bytes) -> tuple[str, str]:
@@ -919,7 +919,7 @@ def find_modded_executable(output_dir: Path, preferred: str) -> tuple[Path, str]
             other = path
     if other is not None:
         return other, "other_version"
-    raise PatchError(f"No executable patched by the Virtual Families 1 Patcher was found in {output_dir}.")
+    raise PatchError(f"No executable patched by the Virtual Families 1 Fun Patcher was found in {output_dir}.")
 
 
 # --------------------------------------------------------------------- backups
@@ -1366,7 +1366,7 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
     settings = manifest_settings(manifest)
     folder = manifest_output_folder_name(manifest)
     exe = manifest_output_exe_name(manifest)
-    title = "Virtual Families 1 Patcher Transparency Log"
+    title = "Virtual Families 1 Fun Patcher Transparency Log"
     lines = [
         title,
         "=" * len(title),

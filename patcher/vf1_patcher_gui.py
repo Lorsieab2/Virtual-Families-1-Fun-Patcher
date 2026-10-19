@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tkinter GUI for the Virtual Families 1 Patcher.
+"""Tkinter GUI for the Virtual Families 1 Fun Patcher.
 
 Ported from the Virtual Families 2 Restoration/Addition Patcher's window
 (offline_vf2_patcher_gui.py): the same Patch Input, Patch Settings, Run Log
@@ -30,7 +30,7 @@ from tkinter import font as tkfont
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vf1_patcher as patcher  # noqa: E402
 
-APP_DISPLAY_NAME = "Virtual Families 1 Patcher"
+APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
 PATCHER_RELEASES_URL = "https://github.com/Lorsieab2/Virtual-Families-1-Patcher/"
 PATCHER_ICON_PNG = "patcher_icon.png"
 PATCHER_ICON_ICO = "patcher_icon.ico"
