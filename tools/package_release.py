@@ -48,7 +48,10 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
     payload = {vf1_patcher.DLL_NAME: dll}
     for setting in vf1_patcher.manifest_settings(manifest).values():
         for f in setting.files:
-            payload[f.source] = (payload_root or ROOT / "patcher" / "payload") / f.source
+            path = (payload_root or ROOT / "patcher" / "payload") / f.source
+            if not path.is_file() and f.source.lower().endswith(".dll"):
+                path = ROOT / "build" / f.source   # a companion DLL is built (native\build_kids.bat), never committed
+            payload[f.source] = path
     missing = [str(p) for p in [*payload.values(), vf1_patcher.STUB] if not p.is_file()]
     if missing:
         raise SystemExit("missing:\n  " + "\n  ".join(missing))

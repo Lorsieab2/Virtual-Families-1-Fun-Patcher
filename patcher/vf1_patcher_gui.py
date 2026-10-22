@@ -48,7 +48,10 @@ AI_DISCLOSURE = (
 SETTING_CATEGORIES = [
     ("main", "Main Patches", "#00802b"),
     ("optional", "Optional Patches", "#000000"),
+    (patcher.EXPERIMENTAL_CATEGORY, "Experimental", "#b30000"),
 ]
+# Shown under the Experimental heading. Experimental settings default off and Enable All leaves them off.
+EXPERIMENTAL_WARNING = patcher.EXPERIMENTAL_WARNING
 SETTING_CATEGORY_LOOKUP = {key: (label, color) for key, label, color in SETTING_CATEGORIES}
 
 
@@ -683,6 +686,10 @@ class VF1PatcherGUI:
             for _key, label, color, category_settings in categorized_settings(settings):
                 self._category_header(self.settings_inner, label, color).grid(row=row, column=0, sticky="ew", pady=(8 if row else 0, 4))
                 row += 1
+                if _key == patcher.EXPERIMENTAL_CATEGORY:
+                    self._markup_label(self.settings_inner, f"**{EXPERIMENTAL_WARNING}**").grid(
+                        row=row, column=0, sticky="ew", pady=(0, 4))
+                    row += 1
                 for setting in category_settings:
                     var = tk.BooleanVar(value=setting.default)
                     self.setting_vars[setting.id] = var
@@ -783,9 +790,10 @@ class VF1PatcherGUI:
                 var.set(self.settings[setting_id].default)
 
     def select_all_settings(self) -> None:
+        # Enable All leaves Experimental settings off: the player ticks each one deliberately.
         with self._bulk_setting_change():
-            for var in self.setting_vars.values():
-                var.set(True)
+            for setting_id, var in self.setting_vars.items():
+                var.set(not self.settings[setting_id].experimental)
 
     def clear_all_settings(self) -> None:
         with self._bulk_setting_change():

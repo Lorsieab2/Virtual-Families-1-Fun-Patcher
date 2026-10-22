@@ -30,6 +30,19 @@
       "category": "main"
     },
     {
+      "id": "UpTo28Children",
+      "label": "Up to 28 Children",
+      "description": "Lets one generation have up to 28 children instead of 6. Only the first 6 children appear in the Family Tree, exactly as before; every child, including the 7th to the 28th, can be chosen to inherit the house in Next Generation. Twins and triplets never take a family past 28: with 27 children a twin or triplet pregnancy has one baby, with 26 a triplet pregnancy has two, and at 28 no more babies come (the normal twin and triplet chances are unchanged while there is room). Children 7 to 28 are remembered in a small file beside each save (the Virtual Families 1 Patcher Data\\Children folder in the save folder); the save file itself is not changed. Virtual Families 1 natively keeps up to 6 children per generation in its Family Tree, and a household holds at most 30 villagers (2 parents and 28 children). This patch keeps children 7 to 28 in a separate file beside the save, so they never overwrite Family Tree entries; storing more than 6 children in the Family Tree itself would overwrite its entries and glitch the game. Experimental: not yet tested in a running game. Back up your saves before using it. Installs its own small DLL, vf1kids.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.",
+      "default": false,
+      "category": "experimental",
+      "files": [
+        {
+          "source": "vf1kids.dll",
+          "target": "Virtual Families 1 Patcher Files/vf1kids.dll"
+        }
+      ]
+    },
+    {
       "id": "AllowOlderPregnancies",
       "label": "Allow Older Pregnancies",
       "description": "Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.",

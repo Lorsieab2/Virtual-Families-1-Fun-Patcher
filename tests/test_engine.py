@@ -15,6 +15,8 @@ SPEC = {
         "Replaces only the annual old-age death roll with a calibrated curve that accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age."),
     'PrivateRomanticTime': ('Private Adult Romantic Time',
         'A married opposite-sex couple at six children can still have private romantic time when one is dropped on the other (the original game refuses with "They have enough kids already!"). Like the Virtual Families 2 patcher, a couple that cannot conceive (same-sex, or six children) is also never made to wait "It is too soon to try to make a baby again" after an attempt, and the action reads "Having private adult romantic time". No baby is possible for them.'),
+    'UpTo28Children': ('Up to 28 Children',
+        'Lets one generation have up to 28 children instead of 6. Only the first 6 children appear in the Family Tree, exactly as before; every child, including the 7th to the 28th, can be chosen to inherit the house in Next Generation. Twins and triplets never take a family past 28: with 27 children a twin or triplet pregnancy has one baby, with 26 a triplet pregnancy has two, and at 28 no more babies come (the normal twin and triplet chances are unchanged while there is room). Children 7 to 28 are remembered in a small file beside each save (the Virtual Families 1 Patcher Data\\Children folder in the save folder); the save file itself is not changed. Virtual Families 1 natively keeps up to 6 children per generation in its Family Tree, and a household holds at most 30 villagers (2 parents and 28 children). This patch keeps children 7 to 28 in a separate file beside the save, so they never overwrite Family Tree entries; storing more than 6 children in the Family Tree itself would overwrite its entries and glitch the game. Experimental: not yet tested in a running game. Back up your saves before using it. Installs its own small DLL, vf1kids.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.'),
     'AllowOlderPregnancies': ('Allow Older Pregnancies',
         'Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.'),
     'ClampMoneyAndFood': ('Clamp Max Money and Food',
@@ -52,12 +54,33 @@ def ns(**kw):
 
 # ---------------------------------------------------------------- manifest
 
+# Experimental settings are exempt by rule, not by name: they default OFF (the owner's decision, 2026-10-22:
+# Up to 28 Children is Experimental). Every setting outside that category must still default on.
+MANIFEST_ROWS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
+OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS if row.get("category") == "experimental")
+
+
 def test_shipped_manifest_offers_every_setting_all_on():
     settings = vp.manifest_settings(json.loads(MANIFEST.read_text(encoding="utf-8")))
     assert list(settings) == list(SPEC)
     for setting_id, (label, description) in SPEC.items():
         s = settings[setting_id]
-        assert (s.label, s.description, s.default) == (label, description, True)
+        expected = setting_id not in OWNER_APPROVED_DEFAULT_OFF
+        assert (s.label, s.description, s.default) == (label, description, expected), setting_id
+    assert {k for k, s in settings.items() if not s.default} == set(OWNER_APPROVED_DEFAULT_OFF)
+    assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children"}
+    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF)
+
+
+def test_enable_all_leaves_experimental_settings_off():
+    settings = vp.manifest_settings(json.loads(MANIFEST.read_text(encoding="utf-8")))
+    every = vp.resolve_enabled_settings(settings, ns(enable_all=True, disable_all=False, enable=None, disable=None))
+    assert every == set(settings) - {"UpTo28Children"}
+    named = vp.resolve_enabled_settings(settings, ns(enable_all=True, disable_all=False, enable=["UpTo28Children"],
+                                                     disable=None))
+    assert named == set(settings)
+    assert "UpTo28Children" not in vp.resolve_enabled_settings(
+        settings, ns(enable_all=False, disable_all=False, enable=None, disable=None))
     assert settings["FixVanillaGameBugs"].category == "main"
 
 
@@ -161,7 +184,8 @@ def test_transparency_log_is_current_and_names_every_setting():
     committed = (ROOT / "release" / "Transparency Log.txt").read_text(encoding="utf-8").replace("\r\n", "\n")
     assert committed == text, "run: python tools/package_release.py --transparency-log"
     for setting_id, (label, description) in SPEC.items():
-        assert f"{setting_id} [on]" in text and label in text and description in text
+        state = "off" if setting_id in OWNER_APPROVED_DEFAULT_OFF else "on"
+        assert f"{setting_id} [{state}]" in text and label in text and description in text
 
 
 def test_transparency_log_lists_setting_files(tmp_path):
@@ -202,7 +226,11 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     rows = [row for setting in manifest["settings"] for row in setting.get("files", [])]
     replaced = {row["target"] for row in rows if row.get("replaces")}
-    added = {row["target"] for row in rows if not row.get("replaces")}
+    # a default-off setting (Up to 28 Children) installs nothing in a default build
+    on_rows = [row for setting in manifest["settings"] if setting.get("default", True)
+               for row in setting.get("files", [])]
+    added = {row["target"] for row in on_rows if not row.get("replaces")}
+    assert not (out / "Virtual Families 1 Patcher Files" / "vf1kids.dll").exists()
     originals = {vp.original_store_rel(t) for t in replaced}
     assert extra == {"Virtual Families - Modded.exe", vp.DLL_REL, vp.SETTINGS_REL} | added | originals
     assert not (out / vp.VANILLA_EXE).exists()
@@ -214,7 +242,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
@@ -242,7 +270,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert vp.DLL_REL in summary["unchanged_files"]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))

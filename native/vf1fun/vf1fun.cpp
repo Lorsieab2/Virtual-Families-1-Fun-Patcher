@@ -928,6 +928,35 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
     return GetPrivateProfileIntW(L"Patches", key, fallback ? 1 : 0, SettingsPath) != 0;
 }
 
+// ---------------------------------------------------------------- Up to 28 Children
+// The feature is its own DLL, vf1kids.dll, installed beside this one only while the
+// UpTo28Children setting is on (patcher/manifest.json). This DLL only loads it and asks it
+// two numbers for the Family page; everything else is in vf1kids.dll.
+typedef int (__cdecl *KidsIntFn)();
+static KidsIntFn KidsChildren, KidsLimit;
+
+static void LoadKidsCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1kids.dll");
+    HMODULE kids = LoadLibraryW(path);
+    if (!kids) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(kids, "VF1Kids_Startup");
+    if (!startup || !startup()) return;   // not installed: the game keeps its own six-child limit
+    KidsChildren = (KidsIntFn)GetProcAddress(kids, "VF1Kids_Children");
+    KidsLimit = (KidsIntFn)GetProcAddress(kids, "VF1Kids_Limit");
+}
+
+// "This family already has six children." -- or the 28 when Up to 28 Children is installed.
+static const wchar_t *FamilyFullText() {
+    return KidsLimit ? L"This family has no room for another child (28 at most)."
+                     : L"This family already has six children.";
+}
+
 #include "features.inc"
 #include "pages.inc"
 #include "family.inc"
@@ -1032,6 +1061,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallPowerFailureFix();
         InstallOldestRecordGuard();
     }
+    if (SettingOn(L"UpTo28Children", false))
+        LoadKidsCompanion();
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
