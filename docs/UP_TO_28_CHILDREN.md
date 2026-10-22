@@ -56,6 +56,15 @@ after each save of slots 1..5 with extra children; the game's backup of the prev
 the previous sidecar; after a load the sidecar whose hash matches the loaded file is used; an unreadable
 file is kept as `<name>.unreadable-N.dat`.
 
+Before each save both sidecars are read and checked against the save files beside them. Only a sidecar
+that validates and was written with its save is rotated with it (or removed with it, at slot + 20); a
+damaged one, or one that validates but belongs to another save, is renamed `<name>.unreadable-N.dat` and
+never deleted. If even that rename cannot be made, the file is left exactly as it is and no sidecar is
+written over it. A sidecar another program holds open (sharing, lock or access-denied errors) is not
+damaged: the open is tried five times over about a second; if it stays shut it is left as it is, never set
+aside, and no save writes or rotates this slot's sidecar until it has been read. The first save that can
+read it keeps every child it records together with the ones born since.
+
 ## Evidence
 
 - `tools/vf1_kids_sites.py`: 23 pins, the layout constants as operands, the calls the DLL relies on, the
@@ -66,8 +75,11 @@ file is kept as `<name>.unreadable-N.dat`.
   renames and reused slots; single / twin / triplet pregnancies at 26, 27 and 28 children through the real
   Impregnate (and with free slots, so the 28 alone limits); the stock odds; Next Generation offering every
   child, the six-or-fewer stock path, the full house; the sidecar round trip, the backup, an unreadable
-  file kept aside, another family; the setting off; a patched pinned function refusing the whole plan;
-  12 source mutations each caught; vf1fun's loader in a harness with a stand-in DLL.
+  file kept aside, another family; an unreadable and a foreign backup sidecar set aside (never deleted,
+  never rotated); a shut sidecar retried (sharing, lock and access-denied errors) and never set aside or
+  replaced; the longest save path set aside or left in place; the setting off; a patched pinned function
+  refusing the whole plan; 22 source mutations each caught; vf1fun's loader in a harness with a stand-in
+  DLL.
 
 ## Differences from the request, and what is not covered
 

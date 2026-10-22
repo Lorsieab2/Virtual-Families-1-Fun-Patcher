@@ -35,6 +35,9 @@ SAVE_DIR = "C:\\Users\\Tester\\Documents\\LDW\\VF1 Kids Test"
 DLL_PATH = "C:\\Game\\Virtual Families 1 Patcher Files\\vf1kids.dll"
 INVALID = 0xFFFFFFFF
 ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, ERROR_ALREADY_EXISTS = 2, 3, 183
+ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION = 5, 32, 33
+ERROR_FILENAME_EXCED_RANGE = 206
+OPEN_TRIES = 5                 # the DLL's kOpenTries: a shut file is opened this many times
 ALIVE, DEAD, GONE = 1, 2, 3
 
 UPDATE_PEEP_RECORD = 0x4818F0
@@ -61,6 +64,30 @@ class FileSystem:
         self.next = 0x100
         self.last_error = 0
         self.log = []
+        self.shut = {}           # key -> opens still refused (None: every one), as another program holding it
+        self.shut_error = ERROR_SHARING_VIOLATION
+        self.sleeps = []
+        self.max_path = None     # MoveFileExA refuses a destination longer than this
+
+    def hold(self, path, opens=None, error=ERROR_SHARING_VIOLATION):
+        """Another program holds the file: `opens` refused opens (None: until released)."""
+        self.shut[self.key(path)] = opens
+        self.shut_error = error
+
+    def release(self, path):
+        self.shut.pop(self.key(path), None)
+
+    def _refused(self, k):
+        if k not in self.shut:
+            return False
+        left = self.shut[k]
+        if left is None:
+            return True
+        if left <= 0:
+            del self.shut[k]
+            return False
+        self.shut[k] = left - 1
+        return True
 
     @staticmethod
     def key(path):
@@ -92,6 +119,9 @@ class FileSystem:
             disposition = e.arg(4)
             k = fs.key(path)
             fs.log.append(("CreateFileA", path, disposition))
+            if fs._refused(k):
+                fs.last_error = fs.shut_error
+                return INVALID, 28
             if disposition == 3:
                 if k not in fs.files:
                     fs.last_error = ERROR_FILE_NOT_FOUND if fs.parent(path) in fs.dirs else ERROR_PATH_NOT_FOUND
@@ -149,6 +179,12 @@ class FileSystem:
             src, dst, flags = e.cstr(e.arg(0)), e.cstr(e.arg(1)), e.arg(2)
             fs.log.append(("MoveFileExA", src, dst, flags))
             ks, kd = fs.key(src), fs.key(dst)
+            if ks in fs.shut or kd in fs.shut:
+                fs.last_error = ERROR_SHARING_VIOLATION
+                return 0, 12
+            if fs.max_path is not None and len(dst) > fs.max_path:
+                fs.last_error = ERROR_FILENAME_EXCED_RANGE
+                return 0, 12
             if ks not in fs.files:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return 0, 12
@@ -161,6 +197,9 @@ class FileSystem:
         def delete(e):
             path = e.cstr(e.arg(0))
             fs.log.append(("DeleteFileA", path))
+            if fs.key(path) in fs.shut:
+                fs.last_error = ERROR_SHARING_VIOLATION
+                return 0, 4
             if fs.files.pop(fs.key(path), None) is None:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return 0, 4
@@ -170,6 +209,7 @@ class FileSystem:
             "CreateFileA": create, "ReadFile": read_file, "WriteFile": write_file, "CloseHandle": close,
             "FlushFileBuffers": lambda e: (1, 4), "CreateDirectoryA": mkdir, "MoveFileExA": move,
             "DeleteFileA": delete, "GetLastError": lambda e: (fs.last_error, 0),
+            "Sleep": lambda e: (fs.sleeps.append(e.arg(0)), 0)[1:] + (4,),
         })
 
 
@@ -180,6 +220,7 @@ class KidsWorld:
         self.e = Emu(exe, dll, 0)
         self.fs = FileSystem()
         self.fs.bind(self.e)
+        self.save_dir = SAVE_DIR
         self.fs.mkdirs(SAVE_DIR)
         self.rolls = []
         self.spawned = []
@@ -253,10 +294,10 @@ class KidsWorld:
         e.seam_live(stub, make_path)
 
     def save_path(self, slot):
-        return f"{SAVE_DIR}\\Virtual Families{slot}.ldw"
+        return f"{self.save_dir}\\Virtual Families{slot}.ldw"
 
     def sidecar_path(self, slot):
-        return f"{SAVE_DIR}\\Virtual Families 1 Patcher Data\\Children\\Virtual Families{slot}.ldw.dat"
+        return f"{self.save_dir}\\Virtual Families 1 Patcher Data\\Children\\Virtual Families{slot}.ldw.dat"
 
     def tree(self):
         return K.FAMILY_TREE
@@ -742,11 +783,145 @@ def scenario_other_family_is_ignored(w: KidsWorld):
     assert w.load(1) == 1 and w.status()["lastLoad"] == 4 and w.extras() == []
 
 
+
+def _aside(w, slot, n=1):
+    return w.sidecar_path(slot)[:-4] + f".unreadable-{n}.dat"
+
+
+def _two_saves(w):
+    """Two saves of slot 1: the backup (slot 21) has the first save and its sidecar, slot 1 the second."""
+    w.start_family()
+    w.have_children(8)
+    w.save_content[1] = b"FIRST"
+    assert w.save(1) == 1
+    w.have_children(2, first_slot=10)
+    w.save_content[1] = b"SECOND"
+    assert w.save(1) == 1
+    assert w.fs.read(w.save_path(21)) == b"FIRST" and w.fs.read(w.save_path(1)) == b"SECOND"
+    assert w.sidecar(21)["save_hash"] == fnv(b"FIRST") and w.sidecar(1)["save_hash"] == fnv(b"SECOND")
+
+
+def scenario_unreadable_backup_is_set_aside(w: KidsWorld):
+    """The game removes the save at slot + 20 at every save; an unreadable sidecar there is read first and
+    kept beside itself, never deleted."""
+    _two_saves(w)
+    raw = bytearray(w.fs.read(w.sidecar_path(21)))
+    raw[60] ^= 0xFF
+    w.fs.files[w.fs.key(w.sidecar_path(21))] = bytes(raw)
+    second = w.fs.read(w.sidecar_path(1))
+    w.save_content[1] = b"THIRD"
+    mark = len(w.fs.log)
+    assert w.save(1) == 1 and w.status()["lastSave"] == 1
+    assert w.fs.read(_aside(w, 21)) == bytes(raw), "the unreadable backup sidecar is kept, unchanged"
+    assert w.fs.read(w.sidecar_path(21)) == second, "this slot's validated sidecar went with its save"
+    assert w.sidecar(1)["save_hash"] == fnv(b"THIRD")
+    assert ("DeleteFileA", w.sidecar_path(21)) not in w.fs.log[mark:]
+
+
+def scenario_foreign_backup_is_set_aside(w: KidsWorld):
+    """A sidecar that validates but was not written with the save beside it is someone else's: it is set
+    aside, never deleted and never rotated."""
+    _two_saves(w)
+    backup_side, slot_side = w.fs.read(w.sidecar_path(21)), w.fs.read(w.sidecar_path(1))
+    w.fs.files[w.fs.key(w.save_path(21))] = b"A BACKUP FROM ELSEWHERE"
+    w.save_content[1] = b"THIRD"
+    assert w.save(1) == 1 and w.status()["lastSave"] == 1
+    assert w.fs.read(_aside(w, 21)) == backup_side, "the foreign backup sidecar is kept, unchanged"
+    assert w.fs.read(w.sidecar_path(21)) == slot_side
+    # this slot's own sidecar, when its save was changed elsewhere, is foreign too: set aside, not rotated
+    side_before = w.fs.read(w.sidecar_path(1))
+    w.fs.files[w.fs.key(w.save_path(1))] = b"EDITED ELSEWHERE"
+    w.save_content[1] = b"FOURTH"
+    assert w.save(1) == 1 and w.status()["lastSave"] == 1
+    assert w.fs.read(_aside(w, 1)) == side_before
+    assert not w.fs.exists(w.sidecar_path(21)), "an unvalidated sidecar is never rotated onto the backup"
+    assert not w.fs.exists(_aside(w, 21, 2)), "the backup's own validated sidecar goes with its save"
+    assert w.sidecar(1)["save_hash"] == fnv(b"FOURTH")
+
+
+def scenario_shut_sidecar_is_retried_never_set_aside(w: KidsWorld):
+    """A sidecar another program holds open is tried again, never judged damaged, never set aside, and
+    never replaced by a save that would drop the children it records."""
+    w.start_family()
+    w.have_children(8)
+    w.report_death(8)
+    w.set_active(8, 0)
+    assert w.save(1) == 1
+    side = w.fs.read(w.sidecar_path(1))
+    held = [(8, DEAD), (9, ALIVE)]
+    # held briefly: the open is tried again and the load is exact
+    for error in (ERROR_SHARING_VIOLATION, ERROR_LOCK_VIOLATION, ERROR_ACCESS_DENIED):
+        w.reset_tree()
+        w.start_family()
+        w.have_children(6)
+        w.fs.sleeps.clear()
+        w.fs.hold(w.sidecar_path(1), opens=OPEN_TRIES - 1, error=error)
+        assert w.load(1) == 1 and w.status()["lastLoad"] == 1, error
+        assert [(e[0], e[2]) for e in w.extras()] == held
+        assert len(w.fs.sleeps) == OPEN_TRIES - 1 and sum(w.fs.sleeps) <= 1200
+    # held throughout: left exactly as it is
+    w.reset_tree()
+    w.start_family()
+    w.have_children(6)
+    w.fs.sleeps.clear()
+    w.fs.hold(w.sidecar_path(1))
+    assert w.load(1) == 1 and w.status()["lastLoad"] == 6
+    assert len(w.fs.sleeps) == OPEN_TRIES - 1, "a shut open is tried a bounded number of times"
+    assert w.extras() == []
+    assert w.fs.read(w.sidecar_path(1)) == side and not w.fs.exists(_aside(w, 1))
+    # a save while it is still shut writes nothing over it and moves nothing
+    w.have_children(1, first_slot=10)
+    assert w.save(1) == 1 and w.status()["lastSave"] == 4
+    assert w.fs.read(w.sidecar_path(1)) == side and not w.fs.exists(_aside(w, 1))
+    assert not w.fs.exists(w.sidecar_path(21))
+    # released: the next save reads it, keeps everything it records (it was written with the save the
+    # game has since moved to slot + 20, so its dead child still counts) and adds what this session added
+    w.fs.release(w.sidecar_path(1))
+    assert w.save(1) == 1 and w.status()["lastSave"] == 1
+    entries = [(x["slot"], x["state"]) for x in w.sidecar(1)["entries"]]
+    assert entries == [(10, ALIVE), (8, DEAD), (9, ALIVE)], entries
+    assert not w.fs.exists(_aside(w, 1))
+
+
+def scenario_long_path_set_aside(w: KidsWorld):
+    """The longest save path the game can make: the damaged sidecar is set aside; when even the set-aside
+    name cannot be made, the file is left exactly as it is (never deleted) and no save replaces it."""
+    base = "C:\\" + "\\".join(["L" * 60] * 3) + "\\"
+    w.save_dir = base
+    w.save_dir = base + "D" * (257 - len(w.save_path(1)))   # slot 21's save path is then 258, the most there is
+    w.fs.mkdirs(w.save_dir)
+    w.fs.mkdirs(w.fs.parent(w.sidecar_path(1)))             # a file system that takes long paths
+    assert len(w.save_path(1)) == 257 and len(w.sidecar_path(1)) > 260 + 24
+    w.start_family()
+    w.have_children(8)
+    assert w.save(1) == 1 and w.status()["lastSave"] == 1
+    good = w.fs.read(w.sidecar_path(1))
+    w.fs.files[w.fs.key(w.sidecar_path(1))] = b"damaged"
+    w.reset_tree()
+    w.start_family()
+    w.have_children(6)
+    assert w.load(1) == 1 and w.status()["lastLoad"] == 5
+    assert w.fs.read(_aside(w, 1)) == b"damaged" and not w.fs.exists(w.sidecar_path(1))
+    # the set-aside name does not fit (the file system refuses it): nothing is deleted
+    w.fs.files[w.fs.key(w.sidecar_path(1))] = b"damaged again"
+    w.fs.max_path = len(w.sidecar_path(1))
+    assert w.load(1) == 1 and w.status()["lastLoad"] == 7
+    assert w.fs.read(w.sidecar_path(1)) == b"damaged again"
+    w.have_children(2, first_slot=8)
+    assert w.save(1) == 1 and w.status()["lastSave"] == 4
+    assert w.fs.read(w.sidecar_path(1)) == b"damaged again", "a damaged file that cannot be set aside is kept"
+    assert good != b"damaged again"
+
+
 ALL = [
     scenario_six_stock_then_extras, scenario_free_slots_cap, scenario_deaths_count_toward_28,
     scenario_rename_and_reused_slot, scenario_next_generation_candidates, scenario_six_or_fewer_is_stock,
     scenario_full_house, scenario_sidecar_round_trip, scenario_sidecar_follows_backup,
     scenario_unreadable_sidecar_is_kept_aside, scenario_other_family_is_ignored,
+    scenario_unreadable_backup_is_set_aside,
+    scenario_foreign_backup_is_set_aside,
+    scenario_shut_sidecar_is_retried_never_set_aside,
+    scenario_long_path_set_aside,
 ]
 FACTORY = [scenario_births_near_the_limit, scenario_stock_odds_unchanged, scenario_limit_counts_lifetime_births]
 
