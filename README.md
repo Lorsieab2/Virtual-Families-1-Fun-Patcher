@@ -62,7 +62,7 @@ patch settings you can switch off):
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 
-Five settings change the base game on their own (plus the optional ones below):
+Six settings change the base game on their own (plus the optional ones below):
 - **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
   no hard maximum age. Because parents can live on, the Family Tree's Next
   Generation button is also offered once the oldest parent at home is 60 and a
@@ -83,6 +83,16 @@ Five settings change the base game on their own (plus the optional ones below):
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed
   without quitting, and Power Failure's "keep the food" result text matches
   what happens.
+- **Up to 28 Children:** one generation may have up to 28 children instead of
+  6. Only the first 6 appear in the Family Tree, as before; every child, the
+  7th to the 28th included, can be chosen to inherit the house in Next
+  Generation. Twins and triplets never take a family past 28 (27 children: a
+  twin or triplet pregnancy has one baby; 26: a triplet pregnancy has two), and
+  the normal chances are unchanged while there is room. Children 7 to 28 are
+  remembered in a small file beside each save (`Virtual Families 1 Patcher
+  Data\Children`); the save file itself is not changed. Virtual Families 1 can natively support up to 30 villagers per generation; any more will start overwriting Family Tree entries and glitch the game.
+  It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
+  **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
 Players: see [release/How to Use.txt](release/How to Use.txt).
 

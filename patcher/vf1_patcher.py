@@ -986,7 +986,14 @@ def _planned_writes(settings: dict[str, PatchSetting], effective: set[str], mani
         for f in setting.files:
             if setting.id in effective:
                 source = resolve_under(payload_dir(manifest_path), f.source, "payload folder")
-                writes[f.target] = read_payload(source, f.source, pins, True)
+                pinned = True
+                if not source.is_file() and f.source.lower().endswith(".dll"):
+                    # Running from a source checkout: native\build_kids.bat (and the like) write build\<name>.dll,
+                    # exactly as vf1fun.dll is found there (resolve_dll_source).
+                    checkout = manifest_path.parent.parent / "build" / f.source
+                    if checkout.is_file():
+                        source, pinned = checkout, False
+                writes[f.target] = read_payload(source, f.source, pins, pinned)
             elif not f.replaces:
                 removes.append(f.target)  # a replaced game file is put back from its saved original instead
     return writes, removes

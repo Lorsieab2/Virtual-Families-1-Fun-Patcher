@@ -281,7 +281,7 @@ static void SetName(int slot, const wchar_t *name) {
 // "new baby" event and no births statistic.
 static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     if (!CurrentFamily()) return L"There is no family yet.";
-    if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
+    if (EmptyOffspringSlots(FamilyTree) <= 0) return FamilyFullText();
     if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
     int a = FounderSlot(), b = SpouseSlot();
     if (a < 0) a = b;
@@ -306,7 +306,7 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
 // house, so its look is the game's own random one, not the couple's.
 static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *name) {
     if (!CurrentFamily()) return L"There is no family yet.";
-    if (EmptyOffspringSlots(FamilyTree) <= 0) return L"This family already has six children.";
+    if (EmptyOffspringSlots(FamilyTree) <= 0) return FamilyFullText();
     if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
     int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
     if (slot < 0) return L"The house is full.";
