@@ -33,8 +33,7 @@ import vf1_kids_sites as K  # noqa: E402
 
 SRC = ROOT / "native" / "vf1kids"
 VCVARS = Path(r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars32.bat")
-OWNER_SENTENCE = ("Virtual Families 1 can natively support up to 30 villagers per generation; any more will "
-                  "start overwriting Family Tree entries and glitch the game.")
+OWNER_SENTENCE = ('Virtual Families 1 natively keeps up to 6 children per generation in its Family Tree, and a household holds at most 30 villagers (2 parents and 28 children). This patch keeps children 7 to 28 in a separate file beside the save, so they never overwrite Family Tree entries; storing more than 6 children in the Family Tree itself would overwrite its entries and glitch the game.')
 
 
 def vanilla_exe() -> Path:
@@ -68,7 +67,7 @@ def test_manifest_row():
     rows = [s for s in m["settings"] if s["id"] == "UpTo28Children"]
     assert len(rows) == 1
     row = rows[0]
-    assert row["default"] is True and row["category"] == "main" and row["label"] == "Up to 28 Children"
+    assert row["default"] is False and row["category"] == "experimental" and row["label"] == "Up to 28 Children"
     assert OWNER_SENTENCE in row["description"]
     assert row["files"] == [{"source": "vf1kids.dll", "target": "Virtual Families 1 Patcher Files/vf1kids.dll"}]
 

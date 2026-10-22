@@ -22,12 +22,10 @@ one with capstone + pefile.
 | Twins / triplets | CVillager::Impregnate 0x4864D0 | first call EmptyOffspringSlots (none = no pregnancy); twins only when it is > 1, triplets only when it is > 2; chances GetRandom(100) < 7 + bonus and < 25 + bonus. vf1fun's pregnancy one-shots retarget only the two rolls and the first baby's gender, so the same caps apply to them |
 | Next Generation | CAdoptionScene CreateNextGenerationCandidates 0x436390, GetNextCandidate 0x436460, Activate 0x436700, HandleMessage 0x436780 | clones every recorded child as an adult into six-dword arrays (+0x14 clones, +0x2C sources, +0x44 count, +0x48 cursor); Accept calls StartNextGeneration(scene[+8], scene[+0x2C + 4 * scene[+0x48]]) and hides every other slot |
 
-**On the owner's description sentence** ("Virtual Families 1 can natively support up to 30 villagers per
-generation; any more will start overwriting Family Tree entries and glitch the game."): the household is
-30 villager slots, as the sentence says, but the Family Tree record holds 2 parents + **6** children per
+**On the owner's description sentence** ("Virtual Families 1 natively keeps up to 6 children per generation in its Family Tree, and a household holds at most 30 villagers (2 parents and 28 children). This patch keeps children 7 to 28 in a separate file beside the save, so they never overwrite Family Tree entries; storing more than 6 children in the Family Tree itself would overwrite its entries and glitch the game."): it matches the disassembly. The household is 30
+villager slots (KIDS_HOUSEHOLD_SLOTS 0x1E), and the Family Tree record holds 2 parents + **6** children per
 generation; a 7th child written into it would overwrite the next generation's record. Past 30 villagers
-nothing is overwritten: FindEmptySlot returns -1 and no villager is spawned. The sentence is used as the
-owner wrote it; the difference is reported to the owner.
+nothing is overwritten: FindEmptySlot returns -1 and no villager is spawned.
 
 ## What the patch does
 
@@ -89,6 +87,6 @@ read it keeps every child it records together with the ones born since.
   children 7-28.
 - A lost sidecar loses the extra children's status (they stay in the house, but cannot inherit, and the
   limit is counted from the stock six again; the free-slot cap still holds).
-- Default on, like every VF1 patch (the request said "off unless the owner says otherwise").
+- Experimental (the owner's decision, 2026-10-22): category `experimental` in the manifest, shown as the patcher's own **Experimental** section (red heading, after Optional Patches) with the warning "Experimental: not yet tested in a running game. Back up your saves before using it." It defaults off; Enable All and `--enable-all` leave Experimental settings off, so it is only ticked (or named with `--enable`) deliberately. tests/test_engine.py exempts the Experimental category by rule and fails if any other patch defaults off.
 - No live test: the scene's drawing of a clone made in a child's own slot, the real CloneAsAdult (a seam in
   the emulation), real saves and loads, and Windows file behaviour are not exercised in a running game.

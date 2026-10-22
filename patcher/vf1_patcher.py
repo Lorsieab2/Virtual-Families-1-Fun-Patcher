@@ -416,6 +416,12 @@ class SettingFile:
     replaces: bool = False  # True: target is a game file; its original is kept in ORIGINALS_FOLDER while this is on
 
 
+# Settings in this category are experimental: they default off, and no "all" option turns them on (the
+# command line's --enable-all, the GUI's Enable All); the player ticks or --enable's each one by name.
+EXPERIMENTAL_CATEGORY = "experimental"
+EXPERIMENTAL_WARNING = "Experimental: not yet tested in a running game. Back up your saves before using it."
+
+
 @dataclass(frozen=True)
 class PatchSetting:
     id: str
@@ -425,6 +431,10 @@ class PatchSetting:
     category: str = "main"
     requires: tuple[str, ...] = ()
     files: tuple[SettingFile, ...] = ()
+
+    @property
+    def experimental(self) -> bool:
+        return (self.category or "main").lower() == EXPERIMENTAL_CATEGORY
 
 
 def manifest_settings(manifest: dict[str, Any]) -> dict[str, PatchSetting]:
@@ -539,7 +549,8 @@ def resolve_enabled_settings(settings: dict[str, PatchSetting], args: argparse.N
     if getattr(args, "disable_all", False):
         enabled = set()
     if getattr(args, "enable_all", False):
-        enabled = set(settings)
+        # Every setting except the experimental ones, which only --enable turns on.
+        enabled = {setting_id for setting_id, setting in settings.items() if not setting.experimental}
     enable = split_cli_ids(getattr(args, "enable", None), "--enable")
     disable = split_cli_ids(getattr(args, "disable", None), "--disable")
     unknown = sorted({s for s in enable + disable if s not in settings})
@@ -1456,7 +1467,9 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
         "",
         "Settings and defaults",
         "---------------------",
-        "- Main Patches (green) and Optional Patches (black), as in the patcher window.",
+        "- Main Patches (green), Optional Patches (black) and Experimental (red), as in the patcher window.",
+        "- Experimental settings are off by default and Enable All (or --enable-all) leaves them off:",
+        "  Experimental: not yet tested in a running game. Back up your saves before using it.",
     ]
     for setting in settings.values():
         state = "on" if setting.default else "off"
@@ -1490,7 +1503,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply_cmd.add_argument("--dry-run", action="store_true", help="Validate only; do not back up or write any game file.")
     apply_cmd.add_argument("--enable", action="append", help="Enable a setting. Repeat or comma-separate ids.")
     apply_cmd.add_argument("--disable", action="append", help="Disable a setting. Repeat or comma-separate ids.")
-    apply_cmd.add_argument("--enable-all", action="store_true", help="Enable every setting before --enable/--disable.")
+    apply_cmd.add_argument("--enable-all", action="store_true", help="Enable every setting except Experimental ones (name those with --enable) before --enable/--disable.")
     apply_cmd.add_argument("--disable-all", action="store_true", help="Disable every setting before --enable/--disable.")
     apply_cmd.add_argument("--exe-name", help=f"Name of the modded executable (default from the manifest, \"{DEFAULT_MODDED_EXE}\"). Must not contain \"patch\".")
     apply_cmd.add_argument("--dll", help=f"Use this {DLL_NAME} instead of payload\\{DLL_NAME} (for development builds).")
