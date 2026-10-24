@@ -165,7 +165,35 @@ copies as arguments.
 - **Tests:** set `VF1_VANILLA_DIR` to a copy of your own vanilla Virtual
   Families folder (or `VF1_VANILLA_EXE` to its executable, for the
   executable-only tests), then run `pytest tests`. The tests only read that
-  folder.
+  folder. Install the test tools with `pip install -r requirements-dev.txt`.
+
+### Running the tests in parallel
+
+`python scripts/run_tests_parallel.py` runs the whole suite at once: one
+pytest process per test file, with the two slow files
+(`test_up_to_28_children.py`, `test_engine.py`) cut into several jobs. Every
+job gets its own short temp folder, and every DLL a test builds goes there
+(`native\build_kids.bat` honours `VF1_BUILD_DIR`), so no two jobs write the
+same file. A job that fails is run again on its own, and only what still fails
+alone counts; the summary is printed and written to
+`%TEMP%\vf1-parallel-tests\summary.txt` (change it with `--out`, the number of
+processes with `--workers`). It exits 1 if anything still fails alone. On a
+16-worker run the full suite takes about 1.5 minutes instead of about 6.
+
+**Release-only tests.** A test that takes 15 seconds or more is listed in
+`RELEASE_ONLY` in `tests/conftest.py`: a plain `pytest` run skips it and says
+so; `pytest --release` (or `VF1_RELEASE=1`) runs it. The parallel runner
+passes `--release` unless you give it `--quick`, and the run before a release
+must be a full one (`python scripts/run_tests_parallel.py`, no `--quick`).
+`tests/test_release_only.py` checks that every listed entry is a real test.
+
+**CI.** `.github/workflows/tests.yml` runs `pytest tests` on Windows with
+Python 3.12 for every pull request and every push to `main`, and puts a per-file
+table on the run's Summary tab (the JUnit report is kept as an artifact). CI
+has no game files and no Visual Studio 18 toolchain, so every test that needs
+them skips with its reason: CI checks the manifest, engine, GUI, release
+bundle and source-level tests, and the patched-executable, emulated-DLL and
+native-build tests are checked only by a local run with the vanilla copy.
 
 ## Related projects
 
