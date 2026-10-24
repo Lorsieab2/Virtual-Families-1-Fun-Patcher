@@ -1,0 +1,72 @@
+name: tests
+
+# Modelled on the Virtual Villagers Fun Patcher's workflow: the suite on every
+# push to main and every pull request, with a per-file breakdown on the run's
+# Summary tab and the JUnit report kept as an artifact.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push supersedes an in-flight run for the same ref.
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    # Windows, because the patcher and its game are Windows-only.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          # setup-python's pip cache hashes a dependency file and fails the
+          # step when none matches, so it must name a real one.
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run the suite
+        # The game files are never committed, so this checkout has no vanilla
+        # Virtual Families (VF1_VANILLA_DIR is unset) and the runner has no
+        # Visual Studio 18 32-bit toolchain: every test that needs either skips
+        # with its reason. "Green" here means green over the rest -- the
+        # manifest, engine, GUI, release-bundle and source-level checks. The
+        # patched-executable, emulated-DLL and native-build tests run only
+        # locally, with scripts/run_tests_parallel.py and the vanilla copy.
+        #
+        # No --release: the release-only tests all need the vanilla game, so
+        # they would skip here anyway. The whole run takes well under a
+        # minute, so it is not sharded.
+        #
+        # -rf prints the short failure summary; tee keeps the log on screen.
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests/ -q -rf -p no:cacheprovider --junit-xml=junit.xml 2>&1 | tee pytest.log
+
+      - name: Summarise the run
+        # Always, so a red run gets the same breakdown as a green one.
+        if: always()
+        shell: bash
+        run: |
+          python scripts/summarise_test_run.py junit.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ github.run_id }}
+          path: junit.xml
+          if-no-files-found: error

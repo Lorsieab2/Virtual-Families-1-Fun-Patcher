@@ -76,7 +76,19 @@ def app(tk_root, tmp_path, monkeypatch):
     window = gui.VF1PatcherGUI(top)
     window._open_work_wait = lambda label: None  # no popup during tests
     yield window
+    # The window queues an after_idle(lambda) for every markup label (load_manifest_settings makes dozens).
+    # Destroying it deletes their Tcl commands but leaves the queued scripts in the one shared interpreter,
+    # named by Python object id + "<lambda>"; a later test's new lambda (for example the Enable/Disable Patches
+    # button command) can get the same id, and the stale idle script then calls it during that test's mainloop:
+    # the real apply's askyesno appeared in test_dry_run_from_the_window and hung it. Cancel them all first.
+    # (Same fix as the VF2 REDUX patcher, commit e9317f8.)
+    cancel_pending_after(tk_root)
     top.destroy()
+
+
+def cancel_pending_after(root) -> None:
+    for pending in root.tk.splitlist(root.tk.call("after", "info")):
+        root.tk.call("after", "cancel", pending)
 
 
 def labels_on_screen(widget):
@@ -158,7 +170,34 @@ def test_dependencies_tick_and_untick_together(app, tmp_path):
     assert widget.get(bold[0], bold[1]) == "Requires: Cheat Upgrades."
 
 
-def test_dry_run_from_the_window(app, workdir, vanilla_unchanged):
+def test_a_closed_windows_queued_callbacks_never_reach_the_next_window(tk_root, tmp_path, monkeypatch):
+    """The app fixture's teardown: without cancel_pending_after, a stale idle script of a closed window called the
+    next window's Enable/Disable Patches command (start_apply(dry_run=False)) in 7 of 30 tries."""
+    monkeypatch.setattr(gui, "local_settings_path", lambda base_dir=None: tmp_path / "local.json")
+    monkeypatch.setattr(gui, "guess_game_dir", lambda: "")
+    calls = []
+    monkeypatch.setattr(gui.VF1PatcherGUI, "start_apply", lambda self, *, dry_run: calls.append(dry_run))
+    for _ in range(20):
+        top = tk.Toplevel(tk_root)
+        top.withdraw()
+        window = gui.VF1PatcherGUI(top)
+        window.manifest_var.set(str(MANIFEST))
+        assert window.load_manifest_settings()      # queues one after_idle(lambda) per markup label
+        cancel_pending_after(tk_root)
+        top.destroy()
+        top = tk.Toplevel(tk_root)
+        top.withdraw()
+        gui.VF1PatcherGUI(top)
+        tk_root.update()
+        cancel_pending_after(tk_root)
+        top.destroy()
+    assert calls == []
+
+
+def test_dry_run_from_the_window(app, workdir, vanilla_unchanged, monkeypatch):
+    asked = []
+    # A dry run never asks to Enable/Disable; if anything reaches the real apply, fail instead of hanging on it.
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or False)
     app.manifest_var.set(str(workdir / "patcher" / "manifest.json"))
     app.game_dir_var.set(str(vanilla_unchanged))
     app.output_dir_var.set(str(workdir / "out"))
@@ -173,6 +212,7 @@ def test_dry_run_from_the_window(app, workdir, vanilla_unchanged):
     # The worker hands its result back with root.after, which needs mainloop.
     app.root.after(0, lambda: (app.start_apply(dry_run=True), poll()))
     app.root.mainloop()
+    assert asked == [], "a dry run reached the Enable/Disable confirmation"
     assert app.status_var.get() == "Dry run complete.", app.log_text.get("1.0", "end")
     assert "Dry run complete. Nothing was written" in app.log_text.get("1.0", "end")
     assert not (workdir / "out").exists()

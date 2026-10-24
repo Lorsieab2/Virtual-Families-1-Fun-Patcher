@@ -126,14 +126,14 @@ def test_a_damaged_executable_is_refused(pin):
 
 # ===================================================================== the DLL under emulation
 def _build(kind: str, out_dir: Path) -> Path:
+    """Runs build_kids.bat itself, but into this run's own out_dir (VF1_BUILD_DIR) instead of the shared
+    build\\ folder, so test runs going at the same time never compile into the same files."""
     need_toolchain()
-    r = subprocess.run(["cmd.exe", "/c", str(ROOT / "native" / "build_kids.bat")] + ([kind] if kind else []),
-                       capture_output=True, text=True, env=_env())
-    assert r.returncode == 0, r.stdout + r.stderr
-    name = "vf1kids_test.dll" if kind == "test" else "vf1kids.dll"
     out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(ROOT / "build" / name, out_dir / name)
-    return out_dir / name
+    r = subprocess.run(["cmd.exe", "/c", str(ROOT / "native" / "build_kids.bat")] + ([kind] if kind else []),
+                       capture_output=True, text=True, env=dict(_env(), VF1_BUILD_DIR=str(out_dir)))
+    assert r.returncode == 0, r.stdout + r.stderr
+    return out_dir / ("vf1kids_test.dll" if kind == "test" else "vf1kids.dll")
 
 
 @pytest.fixture(scope="module")

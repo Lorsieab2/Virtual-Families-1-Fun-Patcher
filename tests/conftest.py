@@ -61,6 +61,57 @@ def workdir(tmp_path) -> Path:
     return tmp_path
 
 
+# --- Release-only tests ----------------------------------------------------
+#
+# As in the Virtual Villagers Fun Patcher: a test that took 15 s or more in a
+# full serial run (pytest --durations, 2026-10-23, 148 tests in 342 s) is
+# release-only. An ordinary run skips it; the run before a release includes it:
+# `pytest --release`, VF1_RELEASE=1, or scripts/run_tests_parallel.py (which
+# passes --release unless told --quick). The skip says why, so a run never hides
+# that it left them out. tests/test_release_only.py checks that every entry
+# names a real test.
+#
+# Two slow fixture setups are NOT listed, because skipping the test that first
+# uses them only moves the cost to the next one: the vf1kids.dll builds in
+# test_up_to_28_children.py (~31 s) and the hook harness build in
+# test_hook_install.py (~24 s).
+
+RELEASE_ONLY = (
+    "tests/test_up_to_28_children.py::test_every_mutation_is_caught[28 becomes 29]",
+    "tests/test_up_to_28_children.py::test_every_mutation_is_caught[no reused-slot invalidation]",
+    "tests/test_engine.py::test_rebuild_keeps_remembered_cheats_and_restore_undoes_a_first_build",
+    "tests/test_up_to_28_children.py::test_every_mutation_is_caught[no restore of the swapped child]",
+    "tests/test_up_to_28_children.py::test_every_mutation_is_caught[free-slot cap dropped]",
+)
+RELEASE_SKIP_REASON = "release-only (slow): run with --release or VF1_RELEASE=1"
+
+
+def pytest_addoption(parser):
+    parser.addoption("--release", action="store_true", default=False,
+                     help="also run the slow release-only tests (tests/conftest.py RELEASE_ONLY)")
+
+
+def release_run(config) -> bool:
+    return bool(config.getoption("--release")) or os.environ.get("VF1_RELEASE") == "1"
+
+
+def pytest_collection_modifyitems(config, items):
+    if release_run(config):
+        return
+    slow = set(RELEASE_ONLY)
+    skip = pytest.mark.skip(reason=RELEASE_SKIP_REASON)
+    for item in items:
+        if repo_nodeid(item) in slow:
+            item.add_marker(skip)
+
+
+def repo_nodeid(item) -> str:
+    """The item's node id relative to the repository, whatever pytest chose as rootdir (with no ini file a
+    run of one file roots at tests/, which would turn "tests/x.py::t" into "x.py::t")."""
+    rest = item.nodeid.split("::", 1)[1] if "::" in item.nodeid else ""
+    return f"{Path(item.path).resolve().relative_to(ROOT).as_posix()}::{rest}"
+
+
 def write_manifest(path: Path, **changes) -> Path:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     data.update(changes)
