@@ -110,8 +110,13 @@ def test_window_has_the_vf2_sections_and_buttons(app):
                      "Dry Run (Validate Only)", "Enable/Disable Patches", "Restore Backup", "Check for updates",
                      gui.PROJECT_CREATOR_MESSAGE, gui.SAVE_COMPATIBILITY_NOTE, gui.AI_DISCLOSURE]:
         assert any(expected == t or expected in str(t) for t in text), expected
-    frames = [w.cget("text") for w in app.root.winfo_children()[0].winfo_children() if w.winfo_class() == "TLabelframe"]
-    assert frames == ["Patch Input", "Patch Settings", "Run Log"]
+    root_frame = app.root.winfo_children()[0]
+    assert [w.cget("text") for w in root_frame.winfo_children() if w.winfo_class() == "TLabelframe"] == ["Run Log"]
+    tabs = [app.sections.tab(tab, "text") for tab in app.sections.tabs()]
+    assert tabs == ["Patches", "Tools"], "the patch selection has its own tab, the tools another"
+    patches_tab = app.root.nametowidget(app.sections.tabs()[0])
+    assert [w.cget("text") for w in patches_tab.winfo_children() if w.winfo_class() == "TLabelframe"] == \
+        ["Patch Input", "Patch Settings"]
 
 
 def test_settings_load_under_their_category_with_descriptions(app):

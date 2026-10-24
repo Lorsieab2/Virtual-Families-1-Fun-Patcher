@@ -1,0 +1,257 @@
+{
+  "_comment": "The patcher window's \"?\" guides. One short, plain guide for every patch (by patch id) and every button, tool and setting (by control key). Each guide is a list of short lines: what it does, how to use it, and what to watch out for. tests/test_how_to_use.py refuses a patch or control without one, and a guide that is too long or uses technical words. Same style as the Virtual Villagers Fun Patcher's guides.",
+  "patches": [
+    {
+      "ids": ["FixVanillaGameBugs"],
+      "guide": [
+        "Fixes three small bugs of the original game.",
+        "A brand-new family is kept even if the game is closed without Quit (a crash, say). Power Failure now tells the truth about the food. A cheat-set age no longer counts as the Oldest Villager record.",
+        "Nothing to click: tick it, patch, and play as usual.",
+        "On by default."
+      ]
+    },
+    {
+      "ids": ["OlderVillagerMortalityCurve"],
+      "guide": [
+        "Changes only the yearly roll for dying of old age, using the curve from Virtual Families 2.",
+        "There is no fixed maximum age any more: villagers can live well past 100, though it becomes more and more likely that they die.",
+        "Nothing to click: tick it, patch, and play as usual.",
+        "Because parents can live on, Next Generation is also offered once the oldest parent at home is 60 and a child survives."
+      ]
+    },
+    {
+      "ids": ["PrivateRomanticTime"],
+      "guide": [
+        "A married man and woman with six children can still have private romantic time (the game said \"They have enough kids already!\").",
+        "Drop one of them on the other, as usual. No baby is possible for them.",
+        "A couple that cannot have a baby is never made to wait before trying again."
+      ]
+    },
+    {
+      "ids": ["AllowOlderPregnancies"],
+      "guide": [
+        "Mothers over 50 can still become pregnant: 10% at 50, falling to a permanent 0.1% from 69.",
+        "Nothing to click: tick it, patch, and play as usual.",
+        "Below 50 the game's own chances are unchanged."
+      ]
+    },
+    {
+      "ids": ["ClampMoneyAndFood"],
+      "guide": [
+        "Keeps coins at 4,000,000,000 or less and food at 2,147,483,647 or less, the Virtual Families 2 maximums.",
+        "Without it, food past that number wraps around to a negative number and glitches the game.",
+        "Nothing to click: tick it, patch, and play as usual."
+      ]
+    },
+    {
+      "ids": ["SpecialUpgrades"],
+      "guide": [
+        "Adds Special Upgrades to the new Upgrades button in the store: Brokerage Account, Food Club, Health Plan and Lucky Rock.",
+        "It also adds a Maid and a Gardener who keep the house and yard clean.",
+        "Each one asks you to confirm and then shows Purchased. Buying one again removes it, with no refund."
+      ]
+    },
+    {
+      "ids": ["CheatUpgrades"],
+      "guide": [
+        "Adds cheat pages to the Upgrades button in the store: money, food, the bank's interest rate, villager cheats, store prices, achievements, house and yard mess, time controls and the Family page.",
+        "Click Upgrades next to Done in the store, then pick a page. Every cheat button asks you to confirm.",
+        "Cheat money does not count toward the money achievements.",
+        "Back up your saves first if you plan to experiment: use Back Up Saves on the Tools tab."
+      ]
+    },
+    {
+      "ids": ["FleaMarket"],
+      "guide": [
+        "Adds a Flea Market page to the Upgrades button with every tray item the store sells.",
+        "Click an item to buy it, or to get it for free.",
+        "Buying one again removes it, as with the Special Upgrades."
+      ]
+    },
+    {
+      "ids": ["RollTheDice"],
+      "guide": [
+        "Adds a Roll the Dice page to the Upgrades button.",
+        "It costs $500 and an island event happens right away.",
+        "Anything can happen, good or bad. Back up your saves first if you care about the family."
+      ]
+    },
+    {
+      "ids": ["CustomMapImages"],
+      "guide": [
+        "Replaces the standard house and some game pictures with customized ones, made by the fans at LDWForums.",
+        "Pictures only: gameplay and saves are not touched.",
+        "Untick it and patch again to get the original pictures back."
+      ]
+    },
+    {
+      "ids": ["VF2Songs"],
+      "guide": [
+        "Adds the songs of Virtual Families 2 to the songs of Virtual Families 1.",
+        "Nothing to click: the game plays them with its own.",
+        "Untick it and patch again to get only the original songs."
+      ]
+    },
+    {
+      "ids": ["GlowingCollectables"],
+      "guide": [
+        "Makes the collectables in the yard glow, so they are easier to spot.",
+        "Pictures only: gameplay and saves are not touched.",
+        "Untick it and patch again to get the original look back."
+      ]
+    },
+    {
+      "ids": ["BehaviorLabelVariants"],
+      "guide": [
+        "The caption under a villager now varies, using the captions of Virtual Families 2: TV, reading, the web, video games, board games, homework, the sandbox, naps, the pool and more.",
+        "At the computer, browsing the web and playing video games are chosen 50:50.",
+        "Only the words change: what villagers do, and how often, stays the game's own."
+      ]
+    },
+    {
+      "ids": ["UpTo28Children"],
+      "guide": [
+        "One generation may have up to 28 children instead of 6. Only the first 6 appear in the Family Tree, but any child can be chosen to inherit the house.",
+        "Nothing to click. Children 7 to 28 are remembered in a small file beside each save; the save itself is not changed.",
+        "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself.",
+        "Back up your saves before using it: use Back Up Saves on the Tools tab."
+      ]
+    }
+  ],
+  "controls": {
+    "getting_started": {
+      "title": "Getting started",
+      "guide": [
+        "The patcher makes a separate modded copy of your Virtual Families folder. Your original game and saves are never changed.",
+        "On the Patches tab: choose your vanilla Virtual Families folder, tick the patches you want, then click Enable/Disable Patches.",
+        "Play \"Virtual Families - Modded.exe\" inside the new modded folder. The Upgrades button is next to Done in the store.",
+        "The Tools tab has Back Up Saves and Restore Saves for your family saves.",
+        "Every \"?\" button explains the feature beside it."
+      ]
+    },
+    "game_folder": {
+      "title": "Vanilla game folder",
+      "guide": [
+        "Click Browse and pick your official Virtual Families folder, the one that holds Virtual Families.exe.",
+        "Leave it empty to only change the patches of a modded folder you already made: choose that one under Modded output folder.",
+        "The original folder is only read, never changed."
+      ]
+    },
+    "patch_manifest": {
+      "title": "Patch manifest",
+      "guide": [
+        "The list of patches and their settings. The patcher fills it in for you when it starts.",
+        "You only need Browse if you were given another list to try.",
+        "Load Manifest Settings shows its patches below."
+      ]
+    },
+    "output_location": {
+      "title": "Modded output location",
+      "guide": [
+        "Save modified folders under: the folder where \"Virtual Families - Modded\" is made. Leave it empty to use the folder next to your game (or your Games folder if the game is under Program Files).",
+        "Modded output folder: the finished modded game. Choose an existing one here to change its patches without the vanilla folder."
+      ]
+    },
+    "backup_folder": {
+      "title": "Backup folder and patch log",
+      "guide": [
+        "Backup folder: where the patcher keeps a copy of the old modded folder before each rebuild. Leave it empty for the default.",
+        "Patch log: where a record of the run is written. Leave it empty for the default.",
+        "These are game-file backups, not save backups. For your saves use Back Up Saves on the Tools tab."
+      ]
+    },
+    "load_manifest": {
+      "title": "Load Manifest Settings",
+      "guide": [
+        "Reads the patch list again and shows each patch with a checkbox and a short description.",
+        "A patch that needs another says so in bold, and ticking it ticks the other one too."
+      ]
+    },
+    "defaults": {
+      "title": "Defaults",
+      "guide": [
+        "Ticks the patches that are on by default.",
+        "The Experimental ones are left unticked."
+      ]
+    },
+    "enable_all": {
+      "title": "Enable All",
+      "guide": [
+        "Ticks every patch except the Experimental ones, which you tick yourself.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "disable_all": {
+      "title": "Disable All",
+      "guide": [
+        "Unticks every patch, so you can tick just the ones you want.",
+        "Applying it gives you the original game in a modded folder."
+      ]
+    },
+    "enable_main": {
+      "title": "Enable All Main Patches",
+      "guide": [
+        "Ticks every patch under Main Patches and leaves the others as they are.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "enable_optional": {
+      "title": "Enable all Optional Content",
+      "guide": [
+        "Ticks every patch under Optional Patches and leaves the others as they are.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "dry_run": {
+      "title": "Dry Run (Validate Only)",
+      "guide": [
+        "Checks that your game folder is the right one and that the patches fit, without writing anything.",
+        "Worth a click before the first real run.",
+        "The Run Log shows the result."
+      ]
+    },
+    "enable_disable": {
+      "title": "Enable/Disable Patches",
+      "guide": [
+        "Makes or refreshes the modded game with the ticked patches on and the unticked ones off.",
+        "With a vanilla folder chosen, the modded folder is rebuilt from it. With only a modded folder chosen, its patches are switched in place.",
+        "It first backs up the files it will change; Restore backup undoes a run.",
+        "It asks you to confirm."
+      ]
+    },
+    "restore_backup": {
+      "title": "Restore Backup",
+      "guide": [
+        "Puts the modded folder back the way it was before one Enable/Disable run.",
+        "Click Browse and pick a folder inside .vf1_patch_backups, then click Restore Backup. It asks first.",
+        "This is for the game files. To put back your saves use Restore Saves on the Tools tab."
+      ]
+    },
+    "check_for_updates": {
+      "title": "Check for updates",
+      "guide": [
+        "Opens the patcher's page on GitHub in your browser, where the newest version is.",
+        "Nothing is downloaded or changed by the click."
+      ]
+    },
+    "back_up_saves": {
+      "title": "Back Up Saves",
+      "guide": [
+        "Copies your family saves, and the patcher's own files for each save, into a dated Backups folder inside the save folder.",
+        "Click Back Up Saves, tick the save folders you want, then Back Up Selected.",
+        "The game can stay open: it is paused for the copy, but the backup holds the family as of its last save.",
+        "Old backups are never replaced or deleted. Every copy is checked against the original."
+      ]
+    },
+    "restore_saves": {
+      "title": "Restore Saves",
+      "guide": [
+        "Puts a backup back: the whole save folder, or one save slot.",
+        "Quit the game first, from its own menu.",
+        "Choose a backup, choose whole folder or one slot, then Restore...; you are shown what will change and asked to confirm first.",
+        "Your saves as they are now are backed up first, so a restore can be undone.",
+        "Delete Backup... removes a backup you no longer want (it asks first)."
+      ]
+    }
+  }
+}
