@@ -306,6 +306,62 @@ def test_a_running_game_is_reported_and_nothing_changes(app, save, monkeypatch):
     assert app.status_var.get() == "Rename Family: nothing was renamed."
 
 
+# ------------------------------------------------------------------ Game Speed
+
+
+def speed_saves(save):
+    from test_game_speed import NORMAL_SAVE, PAUSED_SAVE, fixture
+    (save / "Virtual Families1.ldw").write_bytes(fixture(PAUSED_SAVE))
+    (save / "Virtual Families2.ldw").write_bytes(fixture(NORMAL_SAVE))
+
+
+def test_game_speed_is_on_the_tools_tab_with_a_question_mark(app):
+    tools = app.root.nametowidget(app.sections.tabs()[1])
+    assert "Game Speed..." in text_of(tools) and "game_speed" in app.help_keys
+
+
+def test_game_speed_without_family_saves_says_so(app, save):
+    app.game_speed()
+    assert app.shown[-1][0] == "showinfo" and "No modded family saves" in app.shown[-1][1][1]
+
+
+def test_game_speed_shows_each_speed_asks_then_sets_it(app, save, monkeypatch):
+    import vf1_game_speed as gsp
+    speed_saves(save)
+    asked = []
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or True)
+    dialog = app._show_speed_dialog(app._save_folders()[1])
+    labels = [w.cget("text") for w in walk(dialog) if w.winfo_class() == "TRadiobutton"]
+    assert any(t.startswith("Save 1: ") and t.endswith("- Paused") for t in labels)
+    assert any(t.startswith("Save 2: ") and t.endswith("- Normal") for t in labels)
+    assert dialog._vf1_slot_var.get() == 1 and dialog._vf1_target_var.get() == "Normal"
+    dialog._vf1_target_var.set("Paused")
+    assert "already" in dialog._vf1_problem_var.get()
+    dialog._vf1_start()
+    assert dialog.winfo_exists() and not asked                       # refused before asking
+    dialog._vf1_slot_var.set(2)
+    assert dialog._vf1_target_var.get() == "Paused" and dialog._vf1_problem_var.get() == ""
+    dialog._vf1_start()
+    assert len(asked) == 1 and "Save 2" in asked[0][1] and "from Normal to Paused" in asked[0][1]
+    assert {s.slot: s.state.label for s in gsp.read_slots(save) if s.state}[2] == "Paused"
+    assert app.status_var.get() == "Game Speed: Save 2 is now Paused."
+    assert "Game Speed: Virtual Families - Modded Save 2: Normal -> Paused" in app.log_text.get("1.0", "end")
+    assert app.shown[-1][0] == "showinfo" and "(before speed change)" in app.shown[-1][1][1]
+    assert sb.list_backups(save)[0].before_speed_change
+
+
+def test_game_speed_with_the_game_running_changes_nothing(app, save, monkeypatch):
+    speed_saves(save)
+    before = snapshot(save)
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(sb, "WindowsProcesses", Running)
+    dialog = app._show_speed_dialog(app._save_folders()[1])
+    dialog._vf1_start()
+    assert snapshot(save) == before
+    assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
+    assert app.status_var.get() == "Game Speed: nothing was changed."
+
+
 # ------------------------------------------------------------------ Check Saves
 
 

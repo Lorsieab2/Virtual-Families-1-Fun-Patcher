@@ -262,6 +262,16 @@ the patcher's Up to 28 Children are not in the save (Children sidecar, section 1
 - Ageing: one age unit per `60 x speed` real seconds while running (0x489E78..0x489E86; 600 s at speed 10);
   catch-up after time away is capped (86 400 s over 24 h, otherwise about 31 000 s; 0x489DF5..0x489E32).
 - Money: float at gs+0xDBB8, next interest at +0xDBBC in CGameTime seconds (0x422830). Food: int gs+0xDA2C.
+- **Pause / Unpause (VERIFIED, traced for Game Speed, `patcher/vf1_game_speed.py`).** Options Yes 0x41E1CC:
+  UpdateAll, `SetSpeed(999)`, gs+0x1B180 += 999, UpdateAll; Options No 0x41E21B: UpdateAll, `SetSpeed(10)`,
+  gs+0x1B180 = 10, UpdateAll; Space 0x440CB2 the same without UpdateAll (unpause stores option - 999, 10 if 0).
+  `SetSpeed` 0x422450 returns at once for the current speed, else banks `Seconds()` in +0xC, stamps +8, moves
+  +0 to +4 and stores the new speed, **except that 999 stores 0** (`xor ebp, ebp` 0x42246F): a paused clock is
+  stopped (real saves: 1009 / 0 / 10). These four calls are the only callers of SetSpeed, and 10, +999 and
+  option - 999 the only values the game writes to gs+0x1B180 (0x41C175, 0x41C70D, 0x41E1F9, 0x41E245, 0x423983,
+  0x440CDF, 0x440D08): there is no Slow or Fast. While paused the two-second update still restamps each present,
+  at-home, living villager's st+4 and zeroes st+0 (0x489DE9..0x489E6B). Seconds() at speed 10 is exact: the CRT
+  sets 53-bit x87 precision (0x49C8A5 from 0x497AAE) and SDL2's D3D9 device keeps it (D3DCREATE_FPU_PRESERVE).
 
 ### 2.7 Value ranges the game keeps (VERIFIED in the vanilla exe, for Check Saves)
 

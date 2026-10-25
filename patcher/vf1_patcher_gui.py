@@ -32,6 +32,7 @@ import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
 import vf1_check_saves as check_saves  # noqa: E402
 import vf1_rename_family as rename_family  # noqa: E402
+import vf1_game_speed as game_speed  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
 
 APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
@@ -1109,6 +1110,7 @@ class VF1PatcherGUI:
         "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
         "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
         "Rename Family": "Backing up your saves, then writing the new family name into them.",
+        "Game Speed": "Backing up your saves, then writing the new game speed into the family's save.",
         "Repair Saves": "Backing up your saves, then fixing only the values you ticked.",
     }
 
@@ -1346,6 +1348,8 @@ class VF1PatcherGUI:
         self._help_button(links, "restore_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Rename Family...", self.rename_family).pack(side="left", padx=(18, 0))
         self._help_button(links, "rename_family").pack(side="left", padx=(3, 0))
+        self._link(links, "Game Speed...", self.game_speed).pack(side="left", padx=(18, 0))
+        self._help_button(links, "game_speed").pack(side="left", padx=(3, 0))
         self._link(links, "Check Saves...", self.check_saves).pack(side="left", padx=(18, 0))
         self._help_button(links, "check_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
@@ -1695,6 +1699,150 @@ class VF1PatcherGUI:
         messagebox.showinfo(
             "Rename Family",
             f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
+            f"Backup: {result.backup.backup_folder}")
+        return result
+
+    # ------------------------------------------------------------------ Game Speed
+
+    def game_speed(self) -> None:
+        """Let the player pick a save slot and Paused or Normal, then write that speed into the closed game's save."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Game Speed", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return
+        folders = [folder for folder in folders if any(s.state is not None for s in game_speed.read_slots(folder))]
+        if not folders:
+            messagebox.showinfo(
+                "Game Speed",
+                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
+                "first; it makes its save folder then.")
+            return
+        self._show_speed_dialog(folders)
+
+    def _show_speed_dialog(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Game Speed")
+        ttk.Label(frame, text="Set a family's game speed:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text=("Quit the game from its own menu first: a running game would put the old speed back. Your saves "
+                  "are backed up first, as \"Backup <date> (before speed change)\". Paused works as if you paused "
+                  "just before the game last saved; Normal as if you unpaused it now, so the paused time is never "
+                  "aged in."),
+            wraplength=640, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        folder_var = tk.StringVar(value=folders[0].name)
+        by_name = {folder.name: folder for folder in folders}
+        if len(folders) > 1:
+            row = ttk.Frame(frame)
+            row.pack(anchor="w", pady=(0, 6))
+            ttk.Label(row, text="Save folder").pack(side="left", padx=(0, 8))
+            ttk.Combobox(row, textvariable=folder_var, values=list(by_name), state="readonly", width=40).pack(side="left")
+        slot_var = tk.IntVar(value=0)
+        slots_box = ttk.Frame(frame)
+        slots_box.pack(anchor="w", pady=(0, 6))
+        target_var = tk.StringVar(value="")
+        problem_var = tk.StringVar()
+        slots: dict[int, game_speed.SlotSpeed] = {}
+
+        def fill_slots(*_args) -> None:
+            for child in slots_box.winfo_children():
+                child.destroy()
+            slots.clear()
+            first = 0
+            for info in game_speed.read_slots(by_name[folder_var.get()]):
+                slots[info.slot] = info
+                usable = info.state is not None and info.problem is None
+                ttk.Radiobutton(slots_box, text=info.label, value=info.slot, variable=slot_var,
+                                state="normal" if usable else "disabled").pack(anchor="w")
+                if usable and not first:
+                    first = info.slot
+            slot_var.set(first)
+
+        def check(*_args) -> None:
+            info = slots.get(slot_var.get())
+            target = target_var.get()
+            if info is None or info.state is None:
+                problem = "Choose a family."
+            elif info.problem:
+                problem = info.problem
+            elif not target:
+                problem = "Choose Paused or Normal."
+            elif info.state.label == target:
+                problem = f"This family is {target} already."
+            else:
+                problem = ""
+            problem_var.set(problem)
+
+        def picked(*_args) -> None:
+            info = slots.get(slot_var.get())
+            if info is not None and info.state is not None and info.problem is None:
+                target_var.set(game_speed.NORMAL_NAME if info.state.kind == "paused" else game_speed.PAUSED)
+            check()
+
+        ttk.Label(frame, text="New speed").pack(anchor="w")
+        targets = ttk.Frame(frame)
+        targets.pack(anchor="w", pady=(2, 0))
+        for name in game_speed.TARGETS:
+            ttk.Radiobutton(targets, text=name, value=name, variable=target_var).pack(side="left", padx=(0, 14))
+        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=640, justify="left").pack(
+            anchor="w", pady=(2, 0))
+        folder_var.trace_add("write", fill_slots)
+        slot_var.trace_add("write", picked)
+        target_var.trace_add("write", check)
+        fill_slots()
+        picked()
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def start() -> None:
+            folder = by_name[folder_var.get()]
+            slot = slot_var.get()
+            target = target_var.get()
+            check()
+            if slot not in slots or problem_var.get():
+                messagebox.showinfo("Game Speed", problem_var.get() or "Choose a family.", parent=dialog)
+                return
+            info = slots[slot]
+            if not messagebox.askyesno(
+                    "Game Speed",
+                    f"Set Save {slot}, \"{info.name or '(no name)'}\", from {info.state.label} to {target}?\n\nYour "
+                    "saves are backed up first. The game must be closed.", parent=dialog):
+                return
+            dialog.destroy()
+            self._run_game_speed(folder, slot, target)
+
+        ttk.Button(buttons, text="Set Speed", command=start).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]
+        dialog._vf1_slot_var = slot_var  # type: ignore[attr-defined]
+        dialog._vf1_target_var = target_var  # type: ignore[attr-defined]
+        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
+        dialog._vf1_slots = slots  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _run_game_speed(self, folder: Path, slot: int, target: str) -> object:
+        def work():
+            try:
+                return game_speed.set_speed(folder, slot, target), None
+            except (game_speed.SpeedError, save_backup.BackupError, OSError) as exc:
+                return None, str(exc)
+
+        result, error = self._run_with_wait("Game Speed", work)
+        if error is not None:
+            self.status_var.set("Game Speed: nothing was changed.")
+            self._append_log(f"Game Speed: {folder.name} Save {slot} was NOT changed: {error}\n")
+            messagebox.showerror("Game Speed", error)
+            return None
+        self.status_var.set(f"Game Speed: Save {slot} is now {result.after}.")
+        self._append_log(f"Game Speed: {folder.name} Save {slot}: {result.before} -> {result.after}; "
+                         f"backup {result.backup.backup_folder}\n")
+        messagebox.showinfo(
+            "Game Speed",
+            f"Save {slot} was {result.before} and is now {result.after} (the save was read back and checked).\n\n"
             f"Backup: {result.backup.backup_folder}")
         return result
 
