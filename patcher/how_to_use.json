@@ -292,6 +292,7 @@
         "Paused works as if you paused just before the game last saved. Normal works as if you unpaused it right now, so the time it spent paused is never aged in.",
         "Set Normal just before you play: like any family at normal speed, it catches up on the time the game is closed after that.",
         "Your saves are backed up first, as \"Backup <date> (before speed change)\", so Restore Saves can undo it.",
+        "Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a save and loads every family at Normal or Paused.",
         "A save at any other speed is shown but not changed here; change it in the game instead."
       ]
     },

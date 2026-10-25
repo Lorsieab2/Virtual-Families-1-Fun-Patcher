@@ -272,6 +272,14 @@ the patcher's Up to 28 Children are not in the save (Children sidecar, section 1
   0x440CDF, 0x440D08): there is no Slow or Fast. While paused the two-second update still restamps each present,
   at-home, living villager's st+4 and zeroes st+0 (0x489DE9..0x489E6B). Seconds() at speed 10 is exact: the CRT
   sets 53-bit x87 precision (0x49C8A5 from 0x497AAE) and SDL2's D3D9 device keeps it (D3DCREATE_FPU_PRESERVE).
+- **Time Controls speeds are never saved (VERIFIED in the v1.1 vf1fun.dll and its source, features.inc).** The
+  patcher's Time Controls page sets 20 (Slow), 10, 5 (Fast), 2 (5x) or 1 (10x) with the game's own `SetSpeed`
+  and the same value in gs+0x1B180; its Pause / Resume are the Space bar's (+999, option - 999). Its
+  theGameState::Save wrapper writes any value but 10 / 1009 as 10 (after `SetSpeed(10)`) or 1009 and puts the
+  live speed back afterwards; its Load wrapper turns any such value into 10 (`SetSpeed(10)`) or 1009. So a save
+  holds only 10 or 1009 from these builds; v0.2.0 alone could save 20 / 5 / 2 / 1 (or 999 + one). Game Speed
+  names those in words and refuses them. The catch-up cap (0x489E08) is 0x9538 s for 5, 0x5CF8 for 20 and 0x7918
+  for every other value, 2 and 1 included.
 
 ### 2.7 Value ranges the game keeps (VERIFIED in the vanilla exe, for Check Saves)
 
