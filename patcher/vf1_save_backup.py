@@ -632,12 +632,12 @@ _BACKUP_NAME = re.compile(
 )
 # "Virtual Families3.ldw" (the slot save), its sidecar "...3.ldw.dat" and "...3.ldw.unreadable-K.dat".
 # Files N+20 and N+40 are the game's two older autosave copies of slot N, so they belong to
-# slot N; 0, 20 and 40 are the shared options file and its copies.
+# slot N; 0 is the shared options file (never rotated: the game rotates only n > 0); 20 and 40 are never written, so they name no slot.
 _SLOT_LDW = re.compile(r"^(?:.*\D)?(\d+)\.ldw(?:\.dat|\.unreadable-\d+\.dat)?$", re.IGNORECASE)
 # The patcher's per-save files: "Slot 3.ini", "Slot 3 Achievements.ini" ...
 _SLOT_NAMED = re.compile(r"^Slot (\d+)\b.*$", re.IGNORECASE)
 ENGINE_LOG = "ldwLog.txt"
-SHARED = "shared"       # the options file (Virtual Families0/20/40.ldw): not any one slot
+SHARED = "shared"       # the options file (Virtual Families0.ldw): not any one slot
 
 
 @dataclass
@@ -677,7 +677,7 @@ def file_slot(relative: Path) -> int | str:
     match = _SLOT_LDW.match(name)
     if match:
         number = int(match.group(1))
-        if number in (0, 20, 40):
+        if number == 0:
             return SHARED
         return number % 20 if number <= 45 and 1 <= number % 20 <= 5 else "unknown"
     match = _SLOT_NAMED.match(name)

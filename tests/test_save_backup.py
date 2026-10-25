@@ -322,17 +322,16 @@ def test_slot_files_include_the_two_older_autosave_copies_and_all_sidecars():
                  "Virtual Families 1 Patcher Data/Slot 1.ini"):
         assert slot(name) == 1, name
     assert slot("Virtual Families45.ldw") == 5 and slot("Virtual Families25.ldw") == 5
-    for name in ("Virtual Families0.ldw", "Virtual Families20.ldw", "Virtual Families40.ldw",
-                 "Virtual Families0.ldw.dat"):
+    for name in ("Virtual Families0.ldw", "Virtual Families0.ldw.dat"):
         assert slot(name) == sb.SHARED, name
-    assert slot("Virtual Families6.ldw") == "unknown" and slot("Virtual Families46.ldw") == "unknown"
+    assert slot("Virtual Families20.ldw") == "unknown" and slot("Virtual Families40.ldw") == "unknown" and slot("Virtual Families6.ldw") == "unknown" and slot("Virtual Families46.ldw") == "unknown"
 
 
 def test_a_one_slot_restore_takes_exactly_that_slots_files_and_never_the_shared_ones(tmp_path):
     save = _slot_folder(tmp_path)
     backup = sb.back_up_save_folder(save, FakeProcesses(), NOW).backup_folder
     for p in save.rglob("*"):
-        if p.is_file() and "Backups" not in p.parts:
+        if p.is_file() and "Backups" not in p.parts and p.name not in ("Virtual Families20.ldw", "Virtual Families40.ldw"):
             p.write_bytes(b"new")
     plan = sb.plan_restore(save, backup, 1)
     assert sorted(p.name for p in plan.replace) == sorted([
@@ -342,7 +341,7 @@ def test_a_one_slot_restore_takes_exactly_that_slots_files_and_never_the_shared_
     sb.restore_backup(save, backup, 1, FakeProcesses(), NOW + timedelta(hours=1))
     for n in (1, 21, 41):
         assert (save / f"Virtual Families{n}.ldw").read_bytes() == b"old %d" % n
-    for n in (0, 2, 20, 22, 40):
+    for n in (0, 2, 22):
         assert (save / f"Virtual Families{n}.ldw").read_bytes() == b"new", n
     assert (save / "ldwLog.txt").read_text() == "new"
     assert (save / sb.PATCHER_DATA_FOLDER / "Slot 2.ini").read_text() == "new"
@@ -363,3 +362,11 @@ def test_backup_lists_only_real_slots(tmp_path):
     save = _slot_folder(tmp_path)
     sb.back_up_save_folder(save, FakeProcesses(), NOW)
     assert sb.list_backups(save)[0].slots == [1, 2]
+
+
+def test_files_20_and_40_name_no_slot_so_a_differing_one_refuses_a_slot_restore(tmp_path):
+    save = _slot_folder(tmp_path)
+    backup = sb.back_up_save_folder(save, FakeProcesses(), NOW).backup_folder
+    (save / "Virtual Families20.ldw").write_bytes(b"new")
+    with pytest.raises(sb.RestoreRefused, match="whole save folder"):
+        sb.plan_restore(save, backup, 1)
