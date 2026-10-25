@@ -30,6 +30,7 @@ from tkinter import font as tkfont
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
+import vf1_rename_family as rename_family  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
 
 APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
@@ -1084,6 +1085,7 @@ class VF1PatcherGUI:
         "Restore backup": "Restoring the selected backup into the folder it was taken from.",
         "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
         "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
+        "Rename Family": "Backing up your saves, then writing the new family name into them.",
     }
 
     def _work_wait_detail(self, label: str) -> str:
@@ -1318,6 +1320,8 @@ class VF1PatcherGUI:
         self._help_button(links, "back_up_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Restore Saves...", self.restore_saves).pack(side="left", padx=(18, 0))
         self._help_button(links, "restore_saves").pack(side="left", padx=(3, 0))
+        self._link(links, "Rename Family...", self.rename_family).pack(side="left", padx=(18, 0))
+        self._help_button(links, "rename_family").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
@@ -1497,6 +1501,141 @@ class VF1PatcherGUI:
         dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
         self._hold(dialog)
         return dialog
+
+    # ------------------------------------------------------------------ Rename Family
+
+    def rename_family(self) -> None:
+        """Let the player pick a save slot and a new family name, then rename it in the closed game's saves."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Rename Family", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return
+        folders = [folder for folder in folders if any(s.name is not None for s in rename_family.read_slots(folder))]
+        if not folders:
+            messagebox.showinfo(
+                "Rename Family",
+                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
+                "first; it makes its save folder then.")
+            return
+        self._show_rename_dialog(folders)
+
+    def _show_rename_dialog(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Rename Family")
+        ttk.Label(frame, text="Rename a family:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text=("Quit the game from its own menu first: a running game would put the old name back. Your saves "
+                  "are backed up first, as \"Backup <date> (before rename)\". Old logs keep their history; the "
+                  "Family History gets a line that records the rename."),
+            wraplength=640, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        folder_var = tk.StringVar(value=folders[0].name)
+        by_name = {folder.name: folder for folder in folders}
+        if len(folders) > 1:
+            row = ttk.Frame(frame)
+            row.pack(anchor="w", pady=(0, 6))
+            ttk.Label(row, text="Save folder").pack(side="left", padx=(0, 8))
+            ttk.Combobox(row, textvariable=folder_var, values=list(by_name), state="readonly", width=40).pack(side="left")
+        slot_var = tk.IntVar(value=0)
+        slots_box = ttk.Frame(frame)
+        slots_box.pack(anchor="w", pady=(0, 6))
+        name_var = tk.StringVar()
+        problem_var = tk.StringVar()
+        slots: dict[int, rename_family.SlotInfo] = {}
+
+        def fill_slots(*_args) -> None:
+            for child in slots_box.winfo_children():
+                child.destroy()
+            slots.clear()
+            slot_var.set(0)
+            for info in rename_family.read_slots(by_name[folder_var.get()]):
+                slots[info.slot] = info
+                usable = info.name is not None and info.problem is None
+                ttk.Radiobutton(slots_box, text=info.label, value=info.slot, variable=slot_var,
+                                state="normal" if usable else "disabled").pack(anchor="w")
+                if usable and slot_var.get() == 0:
+                    slot_var.set(info.slot)
+                    name_var.set(info.name or "")
+
+        def picked(*_args) -> None:
+            info = slots.get(slot_var.get())
+            if info is not None and info.name is not None:
+                name_var.set(info.name)
+
+        def check(*_args) -> None:
+            name = name_var.get()
+            info = slots.get(slot_var.get())
+            problem = rename_family.name_problem(name)
+            if problem is None and info is not None and name == info.name:
+                problem = "That is the family's name already."
+            problem_var.set(problem or "")
+
+        ttk.Label(frame, text=f"New family name (up to {rename_family.MAX_LENGTH} characters)").pack(anchor="w")
+        entry = ttk.Entry(frame, textvariable=name_var, width=40)
+        entry.pack(anchor="w", pady=(2, 0))
+        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=640, justify="left").pack(
+            anchor="w", pady=(2, 0))
+        folder_var.trace_add("write", fill_slots)
+        slot_var.trace_add("write", picked)
+        name_var.trace_add("write", check)
+        fill_slots()
+        check()
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def start() -> None:
+            folder = by_name[folder_var.get()]
+            slot = slot_var.get()
+            name = name_var.get()
+            check()
+            if slot not in slots or problem_var.get():
+                messagebox.showinfo("Rename Family", problem_var.get() or "Choose a family to rename.", parent=dialog)
+                return
+            old = slots[slot].name or "(no name)"
+            if not messagebox.askyesno(
+                    "Rename Family",
+                    f"Rename Save {slot}, \"{old}\", to \"{name}\"?\n\nYour saves are backed up first. The game must "
+                    "be closed.", parent=dialog):
+                return
+            dialog.destroy()
+            self._run_rename(folder, slot, name)
+
+        ttk.Button(buttons, text="Rename", command=start).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]
+        dialog._vf1_slot_var = slot_var  # type: ignore[attr-defined]
+        dialog._vf1_name_var = name_var  # type: ignore[attr-defined]
+        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        entry.focus_set()
+        return dialog
+
+    def _run_rename(self, folder: Path, slot: int, name: str) -> object:
+        def work():
+            try:
+                return rename_family.rename_family(folder, slot, name), None
+            except (rename_family.RenameError, save_backup.BackupError, OSError) as exc:
+                return None, str(exc)
+
+        result, error = self._run_with_wait("Rename Family", work)
+        if error is not None:
+            self.status_var.set("Rename Family: nothing was renamed.")
+            self._append_log(f"Rename Family: {folder.name} Save {slot} was NOT renamed: {error}\n")
+            messagebox.showerror("Rename Family", error)
+            return None
+        self.status_var.set(f"Rename Family: Save {slot} is now called {result.new_name}.")
+        note = (f" A line was added to the Family History ({result.notes[0].name})." if result.notes
+                else " The family has no Family History yet, so no line was added.")
+        self._append_log(f"Rename Family: {folder.name} Save {slot}: {result.old_name} -> {result.new_name}; "
+                         f"backup {result.backup.backup_folder}\n")
+        messagebox.showinfo(
+            "Rename Family",
+            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
+            f"Backup: {result.backup.backup_folder}")
+        return result
 
     def restore_saves(self) -> None:
         """List the backups of the modded game's saves so the player can restore or delete one."""

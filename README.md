@@ -125,6 +125,13 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
     confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
     part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
+  - **Rename Family...:** renames a family in a closed game's saves (the game must not be running). Pick a save
+    slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
+    family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
+    slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
+    Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
+    the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.

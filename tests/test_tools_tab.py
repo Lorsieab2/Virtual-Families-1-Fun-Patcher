@@ -232,3 +232,75 @@ def test_a_failed_backup_is_shown_as_not_backed_up(app, save, monkeypatch):
     assert any("NOT backed up" in t for t in text_of(results[-1]))
     assert not (save / "Backups").exists()
     results[-1].destroy()
+
+
+# ------------------------------------------------------------------ Rename Family
+
+
+def real_form_saves(save):
+    from test_rename_family import options_bytes, slot_bytes
+    (save / "Virtual Families1.ldw").write_bytes(slot_bytes("Smith"))
+    (save / "Virtual Families2.ldw").write_bytes(slot_bytes("Jones"))
+    (save / "Virtual Families0.ldw").write_bytes(options_bytes(["Smith", "Jones", "", "", ""]))
+
+
+def test_rename_family_is_on_the_tools_tab_with_a_question_mark(app):
+    tools = app.root.nametowidget(app.sections.tabs()[1])
+    assert "Rename Family..." in text_of(tools) and "rename_family" in app.help_keys
+
+
+def test_rename_family_without_family_saves_says_so(app, save):
+    app.rename_family()                       # the fixture's saves are not in the game's format
+    assert app.shown[-1][0] == "showinfo" and "No modded family saves" in app.shown[-1][1][1]
+
+
+def test_rename_family_asks_then_renames_and_reports(app, save, monkeypatch):
+    import vf1_rename_family as rf
+    real_form_saves(save)
+    asked = []
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or True)
+    monkeypatch.setattr(rf.save_backup, "WindowsProcesses", NoProcesses)
+    dialog = app._show_rename_dialog(app._save_folders()[1])
+    assert dialog._vf1_slot_var.get() == 1 and dialog._vf1_name_var.get() == "Smith"
+    assert "already" in dialog._vf1_problem_var.get()
+    dialog._vf1_name_var.set("x" * 20)
+    assert "too long" in dialog._vf1_problem_var.get()
+    dialog._vf1_start()
+    assert dialog.winfo_exists() and not asked and app.shown[-1][0] == "showinfo"     # refused before asking
+    dialog._vf1_slot_var.set(2)
+    assert dialog._vf1_name_var.get() == "Jones"
+    dialog._vf1_name_var.set("The Joneses")
+    dialog._vf1_start()
+    assert len(asked) == 1 and "Rename Save 2" in asked[0][1] and "The Joneses" in asked[0][1]
+    assert not dialog.winfo_exists()
+    assert {s.slot: s.name for s in rf.read_slots(save)}[2] == "The Joneses"
+    assert {s.slot: s.name for s in rf.read_slots(save)}[1] == "Smith"
+    assert app.status_var.get() == "Rename Family: Save 2 is now called The Joneses."
+    assert "Rename Family: Virtual Families - Modded Save 2: Jones -> The Joneses" in app.log_text.get("1.0", "end")
+    assert app.shown[-1][0] == "showinfo" and "(before rename)" in app.shown[-1][1][1]
+    assert sb.list_backups(save)[0].before_rename
+
+
+def test_declining_the_confirmation_changes_nothing(app, save, monkeypatch):
+    real_form_saves(save)
+    before = snapshot(save)
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: False)
+    dialog = app._show_rename_dialog(app._save_folders()[1])
+    dialog._vf1_name_var.set("Nope")
+    dialog._vf1_start()
+    assert snapshot(save) == before and dialog.winfo_exists() and not (save / "Backups").exists()
+    dialog.destroy()
+
+
+def test_a_running_game_is_reported_and_nothing_changes(app, save, monkeypatch):
+    import vf1_rename_family as rf
+    real_form_saves(save)
+    before = snapshot(save)
+    monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(rf.save_backup, "WindowsProcesses", Running)
+    dialog = app._show_rename_dialog(app._save_folders()[1])
+    dialog._vf1_name_var.set("Other")
+    dialog._vf1_start()
+    assert snapshot(save) == before
+    assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
+    assert app.status_var.get() == "Rename Family: nothing was renamed."

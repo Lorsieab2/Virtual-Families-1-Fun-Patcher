@@ -51,6 +51,12 @@ and differ in the others (a quit was last); N+40, where present, always differs 
 
 `vf1_save.file_owner(relative_path)` implements exactly this table.
 
+**Slot-menu names (VERIFIED against five real folders, copies only).** In `Virtual Families0.ldw` the name of slot N
+is the NUL-terminated string at file offset `header size + 0xA + 0x15 x (N - 1)` (gs+0x1B192 + 0x15 x (N - 1) minus
+the payload start 0x1B188), 0x15 bytes each; in every checked folder it equals the family name inside slot N's
+own save (gs+0x1B12C, section 2.3). `patcher/vf1_rename_family.py` (Rename Family) writes exactly these two fields,
+and the same field of the slot's N+20 / N+40 copies when they hold the old name.
+
 ### 1.3 Where the Back Up / Restore tool's rule (feat/tools-tab, `patcher/vf1_save_backup.py`) is wrong
 
 - **21..25 and 41..45 are filed under slots 21..25 / 41..45**, not under slots 1..5. `_SLOT_LDW` takes the
