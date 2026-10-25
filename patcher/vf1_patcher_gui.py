@@ -96,6 +96,28 @@ def load_saved_paths(settings_path: Path | None = None) -> dict[str, str]:
     return saved
 
 
+def _load_settings_file(path: Path) -> dict:
+    """The whole local settings file (every key), or {}."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def load_tree_settings(settings_path: Path | None = None) -> dict:
+    """The Family Tree Maker's remembered look and window ("family_tree": {"style", "window"})."""
+    tree = _load_settings_file(settings_path or local_settings_path()).get("family_tree")
+    return tree if isinstance(tree, dict) else {}
+
+
+def save_tree_settings(style: dict | None, window: dict | None, settings_path: Path | None = None) -> None:
+    path = settings_path or local_settings_path()
+    data = _load_settings_file(path)
+    data["family_tree"] = {"style": style or {}, "window": window or {}}
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 def save_saved_paths(
     *,
     vanilla_game_dir: str | None = None,
@@ -104,7 +126,7 @@ def save_saved_paths(
     settings_path: Path | None = None,
 ) -> None:
     path = settings_path or local_settings_path()
-    data = load_saved_paths(path)
+    data = {**_load_settings_file(path), **load_saved_paths(path)}
     vanilla = clean_path_text(vanilla_game_dir)
     parent = clean_path_text(modded_output_parent_dir)
     output = clean_path_text(modded_output_dir)
@@ -1328,6 +1350,19 @@ class VF1PatcherGUI:
         self._help_button(links, "check_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
 
+        tree_box = ttk.LabelFrame(tab, text="Family Tree Maker", style="Section.TLabelframe", padding=10)
+        tree_box.pack(fill="x", pady=(10, 0))
+        ttk.Label(
+            tree_box,
+            text=("Draws a family's tree from its save, with each family member's face from the "
+                  "game, and lets you mark, colour and arrange it and save it as a picture. Saves are only read."),
+            style="Muted.TLabel", wraplength=760, justify="left",
+        ).pack(anchor="w")
+        tree_row = ttk.Frame(tree_box)
+        tree_row.pack(anchor="w", pady=(8, 0))
+        self._link(tree_row, "Family Tree Maker", self.open_family_tree).pack(side="left")
+        self._help_button(tree_row, "family_tree").pack(side="left", padx=(3, 0))
+
         guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
         row = ttk.Frame(guide_box)
@@ -1337,6 +1372,28 @@ class VF1PatcherGUI:
         ttk.Label(guide_box, text="Every \"?\" button in this window opens a short guide for the feature beside it.",
                   style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
         self._refresh_saves_found()
+
+    # ------------------------------------------------------------------ Family Tree Maker
+
+    def open_family_tree(self):
+        """The Family Tree Maker (vf1_family_tree_window): choose a save folder and a family, then the editor."""
+        import vf1_family_tree_window as tree_window
+        saved = load_tree_settings()
+        if not hasattr(self, "tree_style"):
+            self.tree_style = saved.get("style") or None
+        if not hasattr(self, "tree_window"):
+            self.tree_window = saved.get("window") or {}
+        _documents, folders = self._save_folders()
+        documents = save_backup.documents_folder()
+        stock = documents / "LDW" / "Virtual Families" if documents is not None else None
+        if stock is not None and stock.is_dir() and stock not in folders:
+            folders.append(stock)
+        return tree_window.open_family_tree(self, folders=folders)
+
+    def _save_settings(self) -> None:
+        """The Family Tree Maker's look and window, remembered for the next tree (the patcher's local settings)."""
+        with contextlib.suppress(OSError, TypeError, ValueError):
+            save_tree_settings(getattr(self, "tree_style", None), getattr(self, "tree_window", None))
 
     # ------------------------------------------------------------------ Back Up Saves / Restore Saves
 
