@@ -263,6 +263,30 @@ the patcher's Up to 28 Children are not in the save (Children sidecar, section 1
   catch-up after time away is capped (86 400 s over 24 h, otherwise about 31 000 s; 0x489DF5..0x489E32).
 - Money: float at gs+0xDBB8, next interest at +0xDBBC in CGameTime seconds (0x422830). Food: int gs+0xDA2C.
 
+### 2.7 Value ranges the game keeps (VERIFIED in the vanilla exe, for Check Saves)
+
+Each value below is only ever stored through a setter that clamps it, read from the disassembly (capstone on
+the 1.01.00 exe, SHA-256 `5db828c3...4487`); the names of the six stats stay UNCONFIRMED, the ranges do not.
+All are in CVillagerState (record offset 0xA8 + the offset shown).
+
+| st+ | Range | Clamp instructions (minimum, maximum) |
+|---|---|---|
+| 0xC health | 0..100; above 0 the cause (st+0x10) is stored as -1 | SetHealth 0x48F820 (`jg` 0x48F829, 100 at 0x48F83C..0x48F841, cause -1 at 0x48F848); AdjustHealth 0x48F860 (0x48F8A5..0x48F8D1) |
+| 0x34 | 1..100 | 0x48F8EB, 0x48F8FA (set 0x48F8E0, add 0x48F910) |
+| 0x38 | 1..100 | 0x48F96B, 0x48F97A |
+| 0x3C | -500..500 | 0x48F9CE (0xFFFFFE0C), 0x48F9DF (0x1F4) |
+| 0x40 | 1..100 | 0x48FA2B, 0x48FA3A |
+| 0x44 | 1..100 | 0x48FACB, 0x48FADA |
+| 0x48 | 1..100 | 0x48FB2B, 0x48FB3A |
+| 0x4C fertility | 1..100 | 0x48FB8B, 0x48FB9A |
+| 0x50 wants kids | 1..99 | 0x48FBEB, 0x48FBFA (0x63) |
+
+The dead body is removed once `(now - st+4) / 60 / speed` reaches 240 age units while health <= 0
+(0x489D31..0x489D64, `cmp eax, 0xF0`). The old-age roll (0x48C068) has no fixed maximum age. All of the owner's
+saved copies (five folders, every slot) pass these checks. `patcher/vf1_check_saves.py` reports a value outside
+a range and, for health, the cause of death and these clamps only, can set it to the clamp the game itself would
+have applied (the player must tick it); everything else it finds is only reported.
+
 ## 3. What the save does NOT hold (VERIFIED by range)
 
 No life-event history: the pending life events (1 wedding, 2 conception, 4 death, 5 left home;

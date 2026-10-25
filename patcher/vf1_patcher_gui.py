@@ -30,6 +30,7 @@ from tkinter import font as tkfont
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
+import vf1_check_saves as check_saves  # noqa: E402
 import vf1_rename_family as rename_family  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
 
@@ -1086,6 +1087,7 @@ class VF1PatcherGUI:
         "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
         "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
         "Rename Family": "Backing up your saves, then writing the new family name into them.",
+        "Repair Saves": "Backing up your saves, then fixing only the values you ticked.",
     }
 
     def _work_wait_detail(self, label: str) -> str:
@@ -1322,6 +1324,8 @@ class VF1PatcherGUI:
         self._help_button(links, "restore_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Rename Family...", self.rename_family).pack(side="left", padx=(18, 0))
         self._help_button(links, "rename_family").pack(side="left", padx=(3, 0))
+        self._link(links, "Check Saves...", self.check_saves).pack(side="left", padx=(18, 0))
+        self._help_button(links, "check_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
@@ -1635,6 +1639,144 @@ class VF1PatcherGUI:
             "Rename Family",
             f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
             f"Backup: {result.backup.backup_folder}")
+        return result
+
+    # ------------------------------------------------------------------ Check Saves
+
+    def check_saves(self) -> None:
+        """Check one save slot's values against the game's own rules; fix only what the player ticks."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Check Saves", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return
+        folders = [folder for folder in folders if any(s.name is not None for s in rename_family.read_slots(folder))]
+        if not folders:
+            messagebox.showinfo(
+                "Check Saves",
+                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
+                "first; it makes its save folder then.")
+            return
+        self._show_check_dialog(folders)
+
+    def _show_check_dialog(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Check Saves")
+        ttk.Label(frame, text="Check a family's save:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text=("Reads the save and its two older copies and tells you, in plain words, anything the game itself "
+                  "could never produce. Nothing is changed by checking. A few values can be fixed here, each only if "
+                  "you tick it: the game must be closed and your saves are backed up first."),
+            wraplength=640, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        folder_var = tk.StringVar(value=folders[0].name)
+        by_name = {folder.name: folder for folder in folders}
+        if len(folders) > 1:
+            row = ttk.Frame(frame)
+            row.pack(anchor="w", pady=(0, 6))
+            ttk.Label(row, text="Save folder").pack(side="left", padx=(0, 8))
+            ttk.Combobox(row, textvariable=folder_var, values=list(by_name), state="readonly", width=40).pack(side="left")
+        slot_var = tk.IntVar(value=0)
+        slots_box = ttk.Frame(frame)
+        slots_box.pack(anchor="w", pady=(0, 6))
+        report = ttk.Label(frame, text="", justify="left", wraplength=640, font=("Consolas", 9))
+        report.pack(anchor="w", pady=(6, 0))
+        repairs_box = ttk.LabelFrame(frame, text="Fixes the game's own rules decide", padding=8)
+        ticks: dict[str, tk.BooleanVar] = {}
+        state: dict[str, object] = {"result": None}
+
+        def show(*_args) -> None:
+            for child in repairs_box.winfo_children():
+                child.destroy()
+            ticks.clear()
+            repairs_box.pack_forget()
+            slot = slot_var.get()
+            if slot == 0:
+                report.configure(text="")
+                state["result"] = None
+                return
+            try:
+                result = check_saves.check(by_name[folder_var.get()], slot)
+            except check_saves.CheckError as exc:
+                state["result"] = None
+                report.configure(text=str(exc))
+                return
+            state["result"] = result
+            report.configure(text=result.text())
+            if result.repairs:
+                repairs_box.pack(fill="x", pady=(10, 0), before=buttons)
+                ttk.Label(repairs_box, text="Leave a box unticked for \"Don't know (leave it)\".",
+                          style="Muted.TLabel").pack(anchor="w")
+                for repair in result.repairs:
+                    var = tk.BooleanVar(value=False)
+                    ticks[repair.key] = var
+                    ttk.Checkbutton(repairs_box, text=repair.title, variable=var).pack(anchor="w", pady=(6, 0))
+                    ttk.Label(repairs_box, text="\n".join(repair.evidence), style="Muted.TLabel", wraplength=600,
+                              justify="left").pack(anchor="w", padx=(22, 0))
+
+        def fill_slots(*_args) -> None:
+            for child in slots_box.winfo_children():
+                child.destroy()
+            slot_var.set(0)
+            for info in rename_family.read_slots(by_name[folder_var.get()]):
+                usable = info.name is not None
+                ttk.Radiobutton(slots_box, text=info.label, value=info.slot, variable=slot_var,
+                                state="normal" if usable else "disabled").pack(anchor="w")
+                if usable and slot_var.get() == 0:
+                    slot_var.set(info.slot)
+            show()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def start() -> None:
+            chosen = {key for key, var in ticks.items() if var.get()}
+            slot = slot_var.get()
+            if not chosen:
+                messagebox.showinfo("Check Saves", "Tick at least one fix first. Unticked fixes are left as they are.",
+                                    parent=dialog)
+                return
+            if not messagebox.askyesno(
+                    "Repair Saves",
+                    f"Fix {len(chosen)} value(s) in Save {slot}?\n\nYour saves are backed up first. The game must be "
+                    "closed.", parent=dialog):
+                return
+            folder = by_name[folder_var.get()]
+            dialog.destroy()
+            self._run_repair(folder, slot, chosen)
+
+        ttk.Button(buttons, text="Fix the Ticked Values", command=start).pack(side="left")
+        ttk.Button(buttons, text="Check Again", command=show).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        folder_var.trace_add("write", fill_slots)
+        slot_var.trace_add("write", show)
+        fill_slots()
+        dialog._vf1_slot_var = slot_var  # type: ignore[attr-defined]
+        dialog._vf1_ticks = ticks  # type: ignore[attr-defined]
+        dialog._vf1_report = report  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _run_repair(self, folder: Path, slot: int, chosen: set[str]) -> object:
+        def work():
+            try:
+                return check_saves.apply(folder, slot, chosen), None
+            except (check_saves.CheckError, save_backup.BackupError, OSError) as exc:
+                return None, str(exc)
+
+        result, error = self._run_with_wait("Repair Saves", work)
+        if error is not None:
+            self.status_var.set("Repair Saves: nothing was changed.")
+            self._append_log(f"Repair Saves: {folder.name} Save {slot} was NOT repaired: {error}\n")
+            messagebox.showerror("Repair Saves", error)
+            return None
+        self.status_var.set(f"Repair Saves: {len(result.repaired)} value(s) fixed in Save {slot}.")
+        self._append_log(f"Repair Saves: {folder.name} Save {slot}: fixed {'; '.join(result.repaired)}; "
+                         f"backup {result.backup.backup_folder}\n")
+        messagebox.showinfo("Repair Saves", f"Fixed {len(result.repaired)} value(s) in Save {slot}.\n\n"
+                                            f"Backup: {result.backup.backup_folder}")
         return result
 
     def restore_saves(self) -> None:
