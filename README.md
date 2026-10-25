@@ -132,6 +132,16 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
     Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
     the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+  - **Check Saves...:** reads one slot's save and its two older copies (`patcher/vf1_check_saves.py`, no log is
+    read or written) and lists each finding as OK, WRONG (impossible), NOTE or UNCHECKED, using only the save
+    fields `docs/vf1-save-format.md` marks VERIFIED: health 0 to 100 and a living villager's cause of death -1
+    (SetHealth 0x48F820, AdjustHealth 0x48F860), the other clamped values (section 2.7), ages, looks, sex,
+    pregnancies, a dead body kept past 240 age units, family tree generations that link, the current family
+    pointing at the right villagers, and the unborn babies' slots. A value outside a clamp the game itself
+    applies (and a living villager's cause of death) can be **fixed**, only when ticked, with its evidence shown;
+    the game must be closed, the folder is backed up first as `Backup <date> (before repair)`, the save is
+    written atomically, read back and put back if anything fails. Everything whose right value is not certain
+    is only reported. It writes no log and no data file. Tests: `tests/test_check_saves.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.

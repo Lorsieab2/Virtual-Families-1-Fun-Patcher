@@ -264,6 +264,16 @@
         "Delete Backup... removes a backup you no longer want (it asks first)."
       ]
     },
+    "check_saves": {
+      "title": "Check Saves",
+      "guide": [
+        "Looks through one family's save, and its two older copies, for values the game itself could never produce. Checking changes nothing.",
+        "Click Check Saves..., then pick the save. Each finding says OK, WRONG (impossible), NOTE (unusual, not an error) or UNCHECKED.",
+        "A few values can be fixed. Each is shown with the reason, and nothing is fixed unless you tick it. Leave it unticked if you don't know.",
+        "To fix, quit the game first. Your saves are backed up first, as \"Backup <date> (before repair)\", so Restore Saves can undo it.",
+        "Anything the right answer isn't certain for, such as an age below 0 or a broken family tree link, is only reported."
+      ]
+    },
     "rename_family": {
       "title": "Rename Family",
       "guide": [
