@@ -28,7 +28,9 @@ from tkinter import filedialog, messagebox, ttk
 from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
+import vf1_save_backup as save_backup  # noqa: E402
 
 APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
 PATCHER_RELEASES_URL = "https://github.com/Lorsieab2/Virtual-Families-1-Patcher/"
@@ -286,6 +288,34 @@ def success_file_lines(summary: dict[str, object]) -> list[str]:
     return lines or ["(none)"]
 
 
+def scrollable_frame(window: tk.Misc, padding: int = 16) -> ttk.Frame:
+    """A frame inside ``window`` that scrolls once it is taller than 80% of the screen.
+
+    With several save folders, the chooser and the results could otherwise
+    push their buttons off the bottom of the screen.
+    """
+    outer = ttk.Frame(window)
+    outer.pack(fill="both", expand=True)
+    canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
+    bar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=bar.set)
+    inner = ttk.Frame(canvas, padding=padding)
+    canvas.create_window((0, 0), window=inner, anchor="nw")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    def resize(_event: object = None) -> None:
+        width, height = inner.winfo_reqwidth(), inner.winfo_reqheight()
+        limit = int(window.winfo_screenheight() * 0.8)
+        canvas.configure(scrollregion=(0, 0, width, height), width=width, height=min(height, limit))
+        if height > limit:
+            bar.pack(side="right", fill="y")
+        else:
+            bar.pack_forget()
+
+    inner.bind("<Configure>", resize)
+    return inner
+
+
 # How often the main thread pumps the event loop while a worker runs.
 WAIT_POLL_SECONDS = 0.03
 # How long to keep retrying the modal grab before giving up loudly.
@@ -370,7 +400,7 @@ class VF1PatcherGUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(APP_DISPLAY_NAME)
-        self.root.geometry("920x720")
+        self.root.geometry("920x820")
         self.root.minsize(760, 560)
 
         self.game_dir_var = tk.StringVar()
@@ -384,6 +414,9 @@ class VF1PatcherGUI:
         self.status_var = tk.StringVar(
             value="Choose a vanilla Virtual Families folder, or choose an existing modded output folder, plus a patch manifest.")
         self.version_var = tk.StringVar(value="Version: not loaded")
+        self.saves_found_var = tk.StringVar(value="")
+        self.help_keys: set[str] = set()
+        self._help_windows: dict[str, tk.Toplevel] = {}
 
         self.settings: dict[str, patcher.PatchSetting] = {}
         self.setting_vars: dict[str, tk.BooleanVar] = {}
@@ -453,7 +486,8 @@ class VF1PatcherGUI:
         root_frame = ttk.Frame(self.root, padding=12)
         root_frame.grid(row=0, column=0, sticky="nsew")
         root_frame.columnconfigure(0, weight=1)
-        root_frame.rowconfigure(3, weight=1)
+        root_frame.rowconfigure(1, weight=3)
+        root_frame.rowconfigure(2, weight=1)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
@@ -466,8 +500,11 @@ class VF1PatcherGUI:
         ttk.Label(header, textvariable=self.version_var, style="Muted.TLabel").grid(row=0, column=2, sticky="e", padx=(12, 0))
         ttk.Label(header, text=PROJECT_CREATOR_MESSAGE, style="Muted.TLabel", justify="left",
                   wraplength=660).grid(row=1, column=1, sticky="w", pady=(2, 0))
-        update_link = ttk.Label(header, text="Check for updates", style="Link.TLabel", cursor="hand2")
-        update_link.grid(row=1, column=2, sticky="e", padx=(12, 0), pady=(2, 0))
+        header_links = ttk.Frame(header)
+        header_links.grid(row=1, column=2, sticky="e", padx=(12, 0), pady=(2, 0))
+        update_link = ttk.Label(header_links, text="Check for updates", style="Link.TLabel", cursor="hand2")
+        update_link.pack(side="left")
+        self._help_button(header_links, "check_for_updates").pack(side="left", padx=(3, 0))
         update_link.bind("<Button-1>", lambda _event: self._open_updates_url())
         update_link.bind("<Enter>", lambda _event: update_link.configure(style="LinkHover.TLabel"))
         update_link.bind("<Leave>", lambda _event: update_link.configure(style="Link.TLabel"))
@@ -476,20 +513,30 @@ class VF1PatcherGUI:
         ttk.Label(header, text=AI_DISCLOSURE, style="Muted.TLabel", justify="left",
                   wraplength=660).grid(row=3, column=1, columnspan=2, sticky="w", pady=(2, 0))
 
-        self._build_file_section(root_frame).grid(row=1, column=0, sticky="ew")
-        self._build_settings_section(root_frame).grid(row=2, column=0, sticky="nsew", pady=(10, 0))
-        self._build_log_section(root_frame).grid(row=3, column=0, sticky="nsew", pady=(10, 0))
-        self._build_action_section(root_frame).grid(row=4, column=0, sticky="ew", pady=(10, 0))
+        # Patches on one tab, the tools (save backups) on another; the Run Log below serves both.
+        self.sections = ttk.Notebook(root_frame)
+        self.sections.grid(row=1, column=0, sticky="nsew")
+        patches_tab = ttk.Frame(self.sections, padding=(0, 10, 0, 0))
+        tools_tab = ttk.Frame(self.sections, padding=14)
+        self.sections.add(patches_tab, text="Patches")
+        self.sections.add(tools_tab, text="Tools")
+        patches_tab.columnconfigure(0, weight=1)
+        patches_tab.rowconfigure(1, weight=1)
+        self._build_file_section(patches_tab).grid(row=0, column=0, sticky="ew")
+        self._build_settings_section(patches_tab).grid(row=1, column=0, sticky="nsew", pady=(10, 0))
+        self._build_action_section(patches_tab).grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        self._build_tools_tab(tools_tab)
+        self._build_log_section(root_frame).grid(row=2, column=0, sticky="nsew", pady=(10, 0))
 
     def _build_file_section(self, parent: tk.Widget) -> ttk.LabelFrame:
         frame = ttk.LabelFrame(parent, text="Patch Input", style="Section.TLabelframe", padding=10)
         frame.columnconfigure(1, weight=1)
-        self._path_row(frame, 0, "Vanilla game folder (optional if reconfiguring an existing modded folder)", self.game_dir_var, self._browse_game_dir)
-        self._path_row(frame, 1, "Patch manifest", self.manifest_var, self._browse_manifest)
-        self._path_row(frame, 2, "Save modified folders under", self.output_parent_dir_var, self._browse_output_parent_dir, optional=True)
-        self._path_row(frame, 3, "Modded output folder", self.output_dir_var, self._browse_output_dir, optional=True)
-        self._path_row(frame, 4, "Backup folder", self.backup_dir_var, self._browse_backup_dir, optional=True)
-        self._path_row(frame, 5, "Patch log", self.log_path_var, self._browse_log_path, optional=True)
+        self._path_row(frame, 0, "Vanilla game folder (optional if reconfiguring an existing modded folder)", self.game_dir_var, self._browse_game_dir, help_key="game_folder")
+        self._path_row(frame, 1, "Patch manifest", self.manifest_var, self._browse_manifest, help_key="patch_manifest")
+        self._path_row(frame, 2, "Save modified folders under", self.output_parent_dir_var, self._browse_output_parent_dir, optional=True, help_key="output_location")
+        self._path_row(frame, 3, "Modded output folder", self.output_dir_var, self._browse_output_dir, optional=True, help_key="output_location")
+        self._path_row(frame, 4, "Backup folder", self.backup_dir_var, self._browse_backup_dir, optional=True, help_key="backup_folder")
+        self._path_row(frame, 5, "Patch log", self.log_path_var, self._browse_log_path, optional=True, help_key="backup_folder")
         return frame
 
     def _build_settings_section(self, parent: tk.Widget) -> ttk.LabelFrame:
@@ -500,12 +547,20 @@ class VF1PatcherGUI:
         controls = ttk.Frame(frame)
         controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         controls.columnconfigure(4, weight=1)
-        self._button(controls, "Load Manifest Settings", self.load_manifest_settings).grid(row=0, column=0, padx=(0, 6))
-        self._button(controls, "Defaults", self.select_default_settings).grid(row=0, column=1, padx=(0, 6))
-        self._button(controls, "Enable All", self.select_all_settings).grid(row=0, column=2, padx=(0, 6))
-        self._button(controls, "Disable All", self.clear_all_settings).grid(row=0, column=3, padx=(0, 6))
-        self._button(controls, "Enable All Main Patches", lambda: self.select_category_settings("main")).grid(row=1, column=0, padx=(0, 6), pady=(6, 0))
-        self._button(controls, "Enable all Optional Content", lambda: self.select_category_settings("optional")).grid(row=1, column=1, padx=(0, 6), pady=(6, 0))
+        self._with_help(controls, lambda p: self._button(p, "Load Manifest Settings", self.load_manifest_settings),
+                        "load_manifest").grid(row=0, column=0, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Defaults", self.select_default_settings),
+                        "defaults").grid(row=0, column=1, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Enable All", self.select_all_settings),
+                        "enable_all").grid(row=0, column=2, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Disable All", self.clear_all_settings),
+                        "disable_all").grid(row=0, column=3, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Enable All Main Patches",
+                                                         lambda: self.select_category_settings("main")),
+                        "enable_main").grid(row=1, column=0, padx=(0, 6), pady=(6, 0))
+        self._with_help(controls, lambda p: self._button(p, "Enable all Optional Content",
+                                                         lambda: self.select_category_settings("optional")),
+                        "enable_optional").grid(row=1, column=1, padx=(0, 6), pady=(6, 0))
 
         outer = ttk.Frame(frame)
         outer.grid(row=1, column=0, sticky="nsew")
@@ -533,7 +588,7 @@ class VF1PatcherGUI:
         frame = ttk.LabelFrame(parent, text="Run Log", style="Section.TLabelframe", padding=10)
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
-        self.log_text = tk.Text(frame, height=11, wrap="word", state="disabled")
+        self.log_text = tk.Text(frame, height=8, wrap="word", state="disabled")
         scroll = ttk.Scrollbar(frame, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scroll.set)
         self.log_text.grid(row=0, column=0, sticky="nsew")
@@ -543,8 +598,10 @@ class VF1PatcherGUI:
     def _build_action_section(self, parent: tk.Widget) -> ttk.Frame:
         frame = ttk.Frame(parent)
         frame.columnconfigure(3, weight=1)
-        self._button(frame, "Dry Run (Validate Only)", lambda: self.start_apply(dry_run=True)).grid(row=0, column=0, padx=(0, 8))
-        self._apply_button(frame, "Enable/Disable Patches", lambda: self.start_apply(dry_run=False)).grid(row=0, column=1, padx=(0, 8))
+        self._with_help(frame, lambda p: self._button(p, "Dry Run (Validate Only)", lambda: self.start_apply(dry_run=True)),
+                        "dry_run").grid(row=0, column=0, padx=(0, 8))
+        self._with_help(frame, lambda p: self._apply_button(p, "Enable/Disable Patches", lambda: self.start_apply(dry_run=False)),
+                        "enable_disable").grid(row=0, column=1, padx=(0, 8))
         ttk.Label(
             frame,
             text="Dry Run validates that the patcher's working. It does not actually change or write files.",
@@ -560,17 +617,20 @@ class VF1PatcherGUI:
         ttk.Label(restore_frame, text="Restore log").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(6, 0))
         ttk.Entry(restore_frame, textvariable=self.restore_log_var).grid(row=1, column=1, sticky="ew", padx=(0, 6), pady=(6, 0))
         self._button(restore_frame, "Save As", self._browse_restore_log).grid(row=1, column=2, padx=(0, 8), pady=(6, 0))
-        self._button(restore_frame, "Restore Backup", self.start_restore).grid(row=0, column=3, rowspan=2, sticky="ns")
+        self._with_help(restore_frame, lambda p: self._button(p, "Restore Backup", self.start_restore),
+                        "restore_backup").grid(row=0, column=3, rowspan=2, sticky="ns")
 
         ttk.Label(frame, textvariable=self.status_var, style="Status.TLabel").grid(row=0, column=3, sticky="ew", padx=(8, 0))
         return frame
 
     def _path_row(self, parent: ttk.LabelFrame, row: int, label: str, variable: tk.StringVar, command: object,
-                  *, optional: bool = False) -> None:
+                  *, optional: bool = False, help_key: str | None = None) -> None:
         suffix = " (optional)" if optional else ""
         ttk.Label(parent, text=f"{label}{suffix}").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
         ttk.Entry(parent, textvariable=variable).grid(row=row, column=1, sticky="ew", padx=(0, 6), pady=3)
         self._button(parent, "Browse", command).grid(row=row, column=2, sticky="ew", pady=3)
+        if help_key:
+            self._help_button(parent, help_key).grid(row=row, column=3, padx=(4, 0), pady=3)
 
     def _button(self, parent: tk.Widget, text: str, command: object) -> ttk.Button:
         button = ttk.Button(parent, text=text, command=command)
@@ -696,7 +756,12 @@ class VF1PatcherGUI:
                     item = ttk.Frame(self.settings_inner, padding=(0, 4))
                     item.grid(row=row, column=0, sticky="ew")
                     item.columnconfigure(0, weight=1)
-                    ttk.Checkbutton(item, text=setting.label, variable=var).grid(row=0, column=0, sticky="w")
+                    head = ttk.Frame(item)
+                    head.grid(row=0, column=0, sticky="w")
+                    ttk.Checkbutton(head, text=setting.label, variable=var).pack(side="left")
+                    if how_to_use.patch_key(setting.id) in how_to_use.guide_lines():
+                        self._help_button(head, how_to_use.patch_key(setting.id), setting.label).pack(
+                            side="left", padx=(6, 0))
                     details = setting_description_text(
                         setting, settings, self.setting_prerequisites.get(setting.id, frozenset()))
                     self._markup_label(item, details).grid(row=1, column=0, sticky="ew", padx=(22, 0))
@@ -1017,6 +1082,8 @@ class VF1PatcherGUI:
     _WORK_WAIT_DETAIL = {
         "Dry run": "Checking your game files. Nothing is written in a dry run.",
         "Restore backup": "Restoring the selected backup into the folder it was taken from.",
+        "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
+        "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
     }
 
     def _work_wait_detail(self, label: str) -> str:
@@ -1161,6 +1228,457 @@ class VF1PatcherGUI:
             subprocess.Popen(["explorer", path])
         except Exception as exc:
             messagebox.showerror(APP_DISPLAY_NAME, f"Could not open path:\n{path}\n\n{exc}")
+
+    # ------------------------------------------------------------------ help ("?") guides
+
+    def _help_button(self, parent: tk.Widget, key: str, title: str | None = None) -> ttk.Button:
+        """A small "?" button that opens the brief guide for one feature.
+
+        ``key`` names the guide in how_to_use.json; a key with no guide fails
+        here, while the window is built, never later on a click.
+        """
+        how_to_use.guide(key, title)
+        self.help_keys.add(key)
+        return ttk.Button(parent, text="?", width=2, command=lambda: self._show_how_to_use(key, title))
+
+    def _with_help(self, parent: tk.Widget, make_widget: object, key: str) -> ttk.Frame:
+        """A button followed by its "?" in one cell of a grid."""
+        frame = ttk.Frame(parent)
+        make_widget(frame).pack(side="left")
+        self._help_button(frame, key).pack(side="left", padx=(3, 0))
+        return frame
+
+    def _show_how_to_use(self, key: str, title: str | None = None) -> tk.Toplevel:
+        """The small "How to use" window for one feature."""
+        window = self._help_windows.get(key)
+        if window is not None and window.winfo_exists():
+            window.deiconify()
+            window.lift()
+            window.focus_set()
+            return window
+        guide = how_to_use.guide(key, title)
+        window = tk.Toplevel(self.root)
+        window.title(f"How to use: {guide.title}")
+        window.transient(self.root)
+        window.resizable(False, False)
+        frame = scrollable_frame(window, padding=16)
+        ttk.Label(frame, text=guide.title, font=("", 11, "bold"), wraplength=480, justify="left").pack(
+            anchor="w", pady=(0, 8))
+        for line in guide.lines:
+            ttk.Label(frame, text=line, wraplength=480, justify="left").pack(anchor="w", pady=(0, 6))
+        close = ttk.Button(frame, text="Close", command=window.destroy)
+        close.pack(anchor="e", pady=(8, 0))
+        window.bind("<Escape>", lambda _event: window.destroy())
+        self._center_dialog(window)
+        close.focus_set()
+        self._help_windows[key] = window
+        return window
+
+    def _center_dialog(self, window: tk.Toplevel) -> None:
+        window.update_idletasks()
+        try:
+            viewable = bool(self.root.winfo_viewable())
+        except tk.TclError:
+            viewable = False
+        width, height = window.winfo_reqwidth(), window.winfo_reqheight()
+        if viewable:
+            x = self.root.winfo_rootx() + (self.root.winfo_width() - width) // 2
+            y = self.root.winfo_rooty() + (self.root.winfo_height() - height) // 2
+        else:
+            x = max(0, (window.winfo_screenwidth() - width) // 2)
+            y = max(0, (window.winfo_screenheight() - height) // 2)
+        window.geometry(f"+{x}+{y}")
+
+    def _link(self, parent: tk.Widget, text: str, command: object) -> ttk.Label:
+        """A clickable, underlined link label (the same look as Check for updates)."""
+        link = ttk.Label(parent, text=text, style="Link.TLabel", cursor="hand2")
+        link.bind("<Button-1>", lambda _event: command())
+        link.bind("<Enter>", lambda _event: link.configure(style="LinkHover.TLabel"))
+        link.bind("<Leave>", lambda _event: link.configure(style="Link.TLabel"))
+        return link
+
+    # ------------------------------------------------------------------ Tools tab
+
+    def _build_tools_tab(self, tab: ttk.Frame) -> None:
+        """Everything that is not a patch: for now, backing up and restoring the family saves."""
+        box = ttk.LabelFrame(tab, text="Family saves", style="Section.TLabelframe", padding=10)
+        box.pack(fill="x")
+        ttk.Label(
+            box,
+            text=("Backs up and restores the saves of the modded game: the game's own save files in "
+                  f"Documents\\LDW\\{save_backup.PATCHER_SAVE_FOLDER}, and the patcher's own files for each save "
+                  f"(\"{save_backup.PATCHER_DATA_FOLDER}\"). Nothing is ever replaced without a backup of it first."),
+            style="Muted.TLabel", wraplength=760, justify="left",
+        ).grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(box, textvariable=self.saves_found_var, foreground="#245a9a", wraplength=760,
+                  justify="left").grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        links = ttk.Frame(box)
+        links.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self._link(links, "Back Up Saves", self.back_up_saves).pack(side="left")
+        self._help_button(links, "back_up_saves").pack(side="left", padx=(3, 0))
+        self._link(links, "Restore Saves...", self.restore_saves).pack(side="left", padx=(18, 0))
+        self._help_button(links, "restore_saves").pack(side="left", padx=(3, 0))
+        self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
+
+        guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
+        guide_box.pack(fill="x", pady=(10, 0))
+        row = ttk.Frame(guide_box)
+        row.pack(anchor="w")
+        self._link(row, "Getting started", lambda: self._show_how_to_use("getting_started")).pack(side="left")
+        self._help_button(row, "getting_started").pack(side="left", padx=(3, 0))
+        ttk.Label(guide_box, text="Every \"?\" button in this window opens a short guide for the feature beside it.",
+                  style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
+        self._refresh_saves_found()
+
+    # ------------------------------------------------------------------ Back Up Saves / Restore Saves
+
+    def _save_folders(self) -> tuple[Path | None, list[Path]]:
+        """(Documents, the modded game's save folders found there)."""
+        documents = save_backup.documents_folder()
+        extra: list[str] = []
+        output = clean_path_text(self.output_dir_var.get())
+        if output:
+            with contextlib.suppress(OSError):
+                extra = [p.stem for p in Path(output).glob("*.exe") if p.is_file()]
+        return documents, save_backup.find_save_folders(documents, tuple(extra))
+
+    def _refresh_saves_found(self) -> None:
+        documents, folders = self._save_folders()
+        if documents is None:
+            text = "Windows did not report where your Documents folder is, so the save folders cannot be found."
+        elif not folders:
+            text = (f"No modded save folders were found in {documents / 'LDW'}. A modded game makes its save "
+                    "folder the first time it is played.")
+        else:
+            text = "Save folders found: " + ", ".join(folder.name for folder in folders)
+        self.saves_found_var.set(text)
+
+    def back_up_saves(self) -> None:
+        """Let the player pick save folders, then pause the game (if running) and copy."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Back Up Saves", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return
+        if not folders:
+            messagebox.showinfo(
+                "Back Up Saves",
+                f"No modded save folders were found in {documents / 'LDW'}.\n\nA modded game makes its save "
+                "folder the first time it is played.")
+            return
+        self._show_backup_chooser(folders)
+
+    def _scrolling_dialog(self, title: str) -> tuple[tk.Toplevel, ttk.Frame]:
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.transient(self.root)
+        return dialog, scrollable_frame(dialog, padding=16)
+
+    def _hold(self, dialog: tk.Toplevel) -> None:
+        """Centre a dialog and make it modal; the main window stays inert behind it."""
+        self._center_dialog(dialog)
+        with contextlib.suppress(tk.TclError):
+            dialog.grab_set()
+        with contextlib.suppress(tk.TclError):
+            dialog.focus_set()
+
+    def _show_backup_chooser(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Back Up Saves")
+        ttk.Label(frame, text="Choose the save folders to back up:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text=("Each folder is copied into a new dated folder inside it: <save folder>\\Backups\\Backup <date and "
+                  "time>. If the game is running it is paused for the copy and then resumes by itself. The game saves "
+                  "only when you quit normally, so a backup made while it is running holds the family as of its last "
+                  "save."),
+            wraplength=640, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        choices: list[tuple[Path, tk.BooleanVar]] = []
+        for folder in folders:
+            label = folder.name
+            if save_backup.running_game_count(folder):
+                label += "   (running: will be paused for the copy)"
+            var = tk.BooleanVar(value=save_backup.is_patcher_save_folder(folder.name))
+            ttk.Checkbutton(frame, text=label, variable=var).pack(anchor="w", padx=(14, 0))
+            choices.append((folder, var))
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def start() -> None:
+            chosen = [folder for folder, var in choices if var.get()]
+            if not chosen:
+                messagebox.showinfo("Back Up Saves", "Tick at least one save folder.", parent=dialog)
+                return
+            dialog.destroy()
+            self._run_backups(chosen)
+
+        ttk.Button(buttons, text="Back Up Selected", command=start).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        dialog._vf1_choices = choices  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _run_with_wait(self, label: str, func: object) -> object:
+        """Run ``func`` off the main thread behind the wait popup; re-raise what it raised."""
+        box: dict[str, object] = {}
+
+        def target() -> None:
+            try:
+                box["value"] = func()
+            except BaseException as exc:  # handed back to the caller below
+                box["error"] = exc
+
+        self._open_work_wait(label)
+        try:
+            thread = threading.Thread(target=target, daemon=True)
+            thread.start()
+            while thread.is_alive():
+                with contextlib.suppress(tk.TclError):
+                    self.root.update()
+                time.sleep(WAIT_POLL_SECONDS)
+        finally:
+            self._close_work_wait()
+        if "error" in box:
+            raise box["error"]  # type: ignore[misc]
+        return box.get("value")
+
+    def _run_backups(self, folders: list[Path]) -> list[tuple[Path, object, str | None]]:
+        def work():
+            outcomes = []
+            for folder in folders:
+                try:
+                    outcomes.append((folder, save_backup.back_up_save_folder(folder), None))
+                except (save_backup.BackupError, OSError) as exc:
+                    outcomes.append((folder, None, str(exc)))
+            return outcomes
+
+        outcomes = self._run_with_wait("Back Up Saves", work)
+        made = sum(1 for _folder, result, _error in outcomes if result is not None)
+        self.status_var.set(f"Back Up Saves: {made} of {len(outcomes)} save folder(s) backed up.")
+        for folder, result, error in outcomes:
+            if result is None:
+                self._append_log(f"Back Up Saves: {folder.name} was NOT backed up: {error}\n")
+            else:
+                self._append_log(f"Back Up Saves: {folder.name}: {result.file_count} file(s) copied to "
+                                 f"{result.backup_folder}\n")
+        self._show_backup_results(outcomes)
+        return outcomes
+
+    def _show_backup_results(self, outcomes) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Back Up Saves")
+        for folder, result, error in outcomes:
+            ttk.Label(frame, text=folder.name, font=("", 10, "bold")).pack(anchor="w", pady=(8, 0))
+            if result is None:
+                ttk.Label(frame, text=f"NOT backed up: {error}", wraplength=640, justify="left",
+                          foreground="#a01010").pack(anchor="w", padx=(14, 0))
+                continue
+            lines = [
+                f"Backed up {result.file_count} file(s), {save_backup.describe_size(result.total_bytes)}; every copy "
+                "was checked against the original (size and SHA-256).",
+                f"Backup folder: {result.backup_folder}",
+                ("The game was running: it was paused for the copy and has resumed. The backup holds the family as "
+                 "of its last save (the game saves when you quit it normally)." if result.paused
+                 else "The game was not running."),
+            ]
+            ttk.Label(frame, text="\n".join(lines), wraplength=640, justify="left").pack(anchor="w", padx=(14, 0))
+            if result.resume_problems:
+                ttk.Label(
+                    frame,
+                    text=("The backup is complete, but the game could not be resumed: "
+                          + "; ".join(result.resume_problems)
+                          + ". If it stays frozen, close it from Task Manager; the backup above is safe."),
+                    wraplength=640, justify="left", foreground="#a01010").pack(anchor="w", padx=(14, 0))
+            self._link(frame, "Open Backup Folder",
+                       lambda path=result.backup_folder: self._open_path(str(path))).pack(
+                anchor="w", padx=(14, 0), pady=(2, 0))
+        ttk.Button(frame, text="Close", command=dialog.destroy).pack(pady=(16, 0))
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def restore_saves(self) -> None:
+        """List the backups of the modded game's saves so the player can restore or delete one."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Restore Saves", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return
+        if not any(save_backup.list_backups(folder) for folder in folders):
+            messagebox.showinfo("Restore Saves",
+                                "There are no backups of the modded game's saves yet.\n\nUse Back Up Saves to make one.")
+            return
+        self._show_restore_window(folders)
+
+    def _show_restore_window(self, folders: list[Path]) -> tk.Toplevel:
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Restore Saves")
+        dialog.transient(self.root)
+        frame = scrollable_frame(dialog, padding=16)
+        ttk.Label(frame, text="Choose a backup to restore:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text=("Newest first. The game must be closed: quit it from its own menu before restoring. You are shown "
+                  "what will change and asked to confirm. Your saves as they are now are backed up first, as "
+                  "\"Backup <date> (before restore)\", so a restore can be undone."),
+            wraplength=700, justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+        listbox = tk.Listbox(frame, width=110, height=12, exportselection=False)
+        listbox.pack(fill="both", expand=True)
+        details = ttk.Label(frame, text="", wraplength=700, justify="left")
+        details.pack(anchor="w", pady=(6, 0))
+        scope = tk.StringVar(value="whole")
+        slot_choice = tk.StringVar()
+        options = ttk.Frame(frame)
+        options.pack(anchor="w", pady=(8, 0))
+        ttk.Radiobutton(options, text="The whole save folder", value="whole", variable=scope).grid(
+            row=0, column=0, sticky="w")
+        ttk.Radiobutton(options, text="One save slot only:", value="slot", variable=scope).grid(
+            row=1, column=0, sticky="w")
+        slots = ttk.Combobox(options, textvariable=slot_choice, state="readonly", width=24)
+        slots.grid(row=1, column=1, sticky="w", padx=(8, 0))
+        entries: list[tuple[Path, object]] = []
+
+        def describe(folder: Path, info) -> str:
+            saves = ", ".join(f"Save {slot}" for slot in info.slots) or "no slot saves"
+            return (f"{info.label}   [{folder.name}]   {saves}   "
+                    f"{info.file_count} files, {save_backup.describe_size(info.size)}")
+
+        def refresh() -> None:
+            entries.clear()
+            listbox.delete(0, "end")
+            listed = [(folder, info) for folder in folders for info in save_backup.list_backups(folder)]
+            listed.sort(key=lambda item: item[1].when, reverse=True)
+            for folder, info in listed:
+                entries.append((folder, info))
+                listbox.insert("end", describe(folder, info))
+            if entries:
+                listbox.selection_set(0)
+            selected()
+
+        def current():
+            chosen = listbox.curselection()
+            return entries[chosen[0]] if chosen else None
+
+        def selected(_event=None) -> None:
+            item = current()
+            if item is None:
+                details.configure(text="")
+                slots.configure(values=[])
+                slot_choice.set("")
+                return
+            _folder, info = item
+            details.configure(text=f"Backup folder: {info.path}")
+            values = [f"Save {slot}" for slot in info.slots]
+            slots.configure(values=values)
+            slot_choice.set(values[0] if values else "")
+
+        def chosen_slot():
+            if scope.get() != "slot":
+                return None
+            text = slot_choice.get()
+            if not text.startswith("Save "):
+                return False
+            return int(text.removeprefix("Save "))
+
+        def restore() -> None:
+            item = current()
+            if item is None:
+                return
+            slot = chosen_slot()
+            if slot is False:
+                messagebox.showinfo("Restore Saves", "This backup holds no slot save to choose.", parent=dialog)
+                return
+            self._run_restore(dialog, item[0], item[1], slot)
+            if dialog.winfo_exists():
+                with contextlib.suppress(tk.TclError):
+                    dialog.grab_set()
+                refresh()
+
+        def delete() -> None:
+            item = current()
+            if item is None:
+                return
+            folder, info = item
+            if not messagebox.askyesno(
+                "Delete Backup",
+                f"Delete this backup permanently?\n\n{describe(folder, info)}\n\n{info.path}\n\n"
+                "Your current saves are not affected.",
+                parent=dialog,
+            ):
+                return
+            try:
+                save_backup.delete_backup(folder, info.path)
+            except (save_backup.BackupError, OSError) as exc:
+                messagebox.showerror("Delete Backup", str(exc), parent=dialog)
+            refresh()
+
+        listbox.bind("<<ListboxSelect>>", selected)
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="Restore...", command=restore).pack(side="left")
+        ttk.Button(buttons, text="Delete Backup...", command=delete).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        dialog._vf1_listbox = listbox  # type: ignore[attr-defined]
+        dialog._vf1_restore = restore  # type: ignore[attr-defined]
+        dialog._vf1_delete = delete  # type: ignore[attr-defined]
+        dialog._vf1_scope = scope  # type: ignore[attr-defined]
+        dialog._vf1_slot_choice = slot_choice  # type: ignore[attr-defined]
+        refresh()
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _run_restore(self, parent: tk.Toplevel, folder: Path, info, slot: int | None) -> bool:
+        """Confirm exactly what will change, then restore with the game closed. True if it restored."""
+        if save_backup.running_game_count(folder):
+            messagebox.showerror(
+                "Restore Saves",
+                f"{save_backup.game_exe_name(folder)} is running.\n\nQuit the game from its own menu first, then "
+                "restore: a running game writes its family over the restored save when it quits. Nothing was changed.",
+                parent=parent)
+            return False
+        try:
+            plan = self._run_with_wait("Restore Saves", lambda: save_backup.plan_restore(folder, info.path, slot))
+        except (save_backup.BackupError, OSError) as exc:
+            messagebox.showerror("Restore Saves", str(exc), parent=parent)
+            return False
+        if plan.changes == 0:
+            messagebox.showinfo("Restore Saves", "Your saves already match this backup; there is nothing to restore.",
+                                parent=parent)
+            return False
+        what = "the whole save folder" if slot is None else f"Save {slot} only"
+        lines = ([f"Replace: {path}" for path in plan.replace] + [f"Add: {path}" for path in plan.add]
+                 + [f"Remove: {path}" for path in plan.remove])
+        shown = "\n".join(lines[:20])
+        if len(lines) > 20:
+            shown += f"\n... and {len(lines) - 20} more"
+        if not messagebox.askyesno(
+            "Restore Saves",
+            f"Restore {what} of {folder.name} from the backup of {info.label}?\n\n"
+            f"{len(plan.replace)} file(s) will be replaced, {len(plan.add)} added and {len(plan.remove)} removed:"
+            f"\n\n{shown}\n\nYour saves as they are now are backed up first, so this can be undone.",
+            parent=parent,
+        ):
+            return False
+        try:
+            result = self._run_with_wait("Restore Saves",
+                                         lambda: save_backup.restore_backup(folder, info.path, slot))
+        except (save_backup.BackupError, OSError) as exc:
+            self.status_var.set("Restore Saves: the restore did not complete.")
+            self._append_log(f"Restore Saves: {folder.name}: the restore did not complete: {exc}\n")
+            messagebox.showerror("Restore Saves", str(exc), parent=parent)
+            return False
+        undo = (f"\n\nYour saves from before the restore are in:\n{result.before_restore.backup_folder}"
+                if result.before_restore else "")
+        self.status_var.set(f"Restore Saves: {folder.name} restored from {info.label}.")
+        self._append_log(f"Restore Saves: {folder.name}: restored {what} from the backup of {info.label}.\n")
+        messagebox.showinfo(
+            "Restore Saves",
+            f"Restored {what} from the backup of {info.label}: every file was checked against the backup.{undo}",
+            parent=parent)
+        return True
 
     def _on_close(self) -> None:
         self._save_current_paths()

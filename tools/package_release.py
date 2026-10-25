@@ -10,7 +10,8 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
 
   Launch_GUI.bat, Apply_<version>_Patcher.bat, How to Use.txt,
   README-<version>-PATCHER.txt, Transparency Log.txt, manifest.json,
-  vf1_patcher.py, vf1_patcher_gui.py, stub.json, payload/vf1fun.dll
+  vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
+  vf1_how_to_use.py and how_to_use.json (the "?" guides), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
 file, which the patcher checks before it installs them. No game files.
@@ -71,6 +72,9 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
         "vf1_patcher.py": (ROOT / "patcher" / "vf1_patcher.py").read_bytes(),
         "vf1_patcher_gui.py": (ROOT / "patcher" / "vf1_patcher_gui.py").read_bytes(),
+        "vf1_save_backup.py": (ROOT / "patcher" / "vf1_save_backup.py").read_bytes(),
+        "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
+        "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }
     for rel, path in payload.items():

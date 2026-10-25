@@ -108,6 +108,30 @@ Six settings change the base game on their own (plus the optional ones below):
 
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
+## The patcher window: Patches and Tools
+
+The window has two tabs, as in the Virtual Villagers Fun Patcher:
+- **Patches:** the patch selection (Patch Input, Patch Settings, Dry Run, Enable/Disable
+  Patches, Restore Backup) exactly as before, with Check for updates in the header.
+- **Tools:** things that are not patches. For now:
+  - **Back Up Saves:** copies the modded game's save folder
+    (`Documents\LDW\Virtual Families - Modded`: the `Virtual Families<N>.ldw` slot saves, plus the patcher's own
+    `Virtual Families 1 Patcher Data` folder with each save's Slot files and the Children
+    files) into a new `Backups\Backup <date and time>` folder inside it. The save folders are found
+    automatically (Documents is read from Windows, so a OneDrive-redirected Documents works). A running game is
+    paused for the copy and resumed; every copy is checked against the original (size and SHA-256); an existing
+    backup is never replaced, and a copy that fails is kept as `... INCOMPLETE` and never offered for restore.
+  - **Restore Saves:** lists the backups (newest first) and puts one back, the whole folder or one save slot.
+    The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
+    confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
+    part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
+  - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
+    in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
+    Tools tab's *Getting started* link opens the overview.
+
+The save tools live in `patcher/vf1_save_backup.py` (no Tk; tested with temporary copies only, see
+`tests/test_save_backup.py` and `tests/test_tools_tab.py`) and the guides in `patcher/vf1_how_to_use.py`.
+
 ## Planned
 
 - **Cut content:** restored where the game ships unused text or art.
@@ -131,7 +155,7 @@ If that DLL is missing, the game runs exactly as normal.
 
 The patcher program is a port of the Virtual Families 2 patcher's: the same
 window (Patch Input, Patch Settings, Run Log, Dry Run, Enable/Disable Patches,
-Restore Backup), the same `apply` / `settings` / `restore` commands, backups
+Restore Backup; the Patches tab, plus a Tools tab as in the Virtual Villagers patcher), the same `apply` / `settings` / `restore` commands, backups
 under `.vf1_patch_backups` in the modded folder, and JSON patch logs.
 - **Settings** come from [patcher/manifest.json](patcher/manifest.json): one
   row per patch with its id, label, description, default, category and,

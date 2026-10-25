@@ -34,7 +34,8 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
     folder, names = bundle
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted([
         "Launch_GUI.bat", f"Apply_{VERSION}_Patcher.bat", "How to Use.txt", f"README-{VERSION}-PATCHER.txt",
-        "Transparency Log.txt", "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "stub.json",
+        "Transparency Log.txt", "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
+        "vf1_how_to_use.py", "how_to_use.json", "stub.json",
         "payload/vf1fun.dll"] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])])
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
