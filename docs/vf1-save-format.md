@@ -273,7 +273,7 @@ the patcher's Up to 28 Children are not in the save (Children sidecar, section 1
   at-home, living villager's st+4 and zeroes st+0 (0x489DE9..0x489E6B). Seconds() at speed 10 is exact: the CRT
   sets 53-bit x87 precision (0x49C8A5 from 0x497AAE) and SDL2's D3D9 device keeps it (D3DCREATE_FPU_PRESERVE).
 
-### 2.7 Value ranges the game keeps (VERIFIED in the vanilla exe, for Check Saves)
+### 2.7 Value ranges the game keeps (VERIFIED in the vanilla exe)
 
 Each value below is only ever stored through a setter that clamps it, read from the disassembly (capstone on
 the 1.01.00 exe, SHA-256 `5db828c3...4487`); the names of the six stats stay UNCONFIRMED, the ranges do not.
@@ -293,9 +293,7 @@ All are in CVillagerState (record offset 0xA8 + the offset shown).
 
 The dead body is removed once `(now - st+4) / 60 / speed` reaches 240 age units while health <= 0
 (0x489D31..0x489D64, `cmp eax, 0xF0`). The old-age roll (0x48C068) has no fixed maximum age. All of the owner's
-saved copies (five folders, every slot) pass these checks. `patcher/vf1_check_saves.py` reports a value outside
-a range and, for health, the cause of death and these clamps only, can set it to the clamp the game itself would
-have applied (the player must tick it); everything else it finds is only reported.
+saved copies (five folders, every slot) hold values inside these ranges.
 
 ## 3. What the save does NOT hold (VERIFIED by range)
 
@@ -308,10 +306,9 @@ native divorce or evict). A log must therefore be written by the DLL as things h
 
 The sites below are calls or vtable entries. The save-side facts above were traced for this document;
 the in-game behaviour at each site (delivery, the death behaviour, the body timer, the Marry handler)
-comes from `research/villagers.md` / `research/time.md`. **Since re-traced for vf1logs.dll** (Family Logs):
-see docs/FAMILY_LOGS.md for the sites actually hooked (the delivery is seen at the physiology pass's only
-call, 0x424F93; the cause is read at ReportDeath instead of hooking SetHealth), proved by
-tools/vf1_logs_sites.py and emulated in tests/test_family_logs.py; not yet run live.
+comes from `research/villagers.md` / `research/time.md`. **Since re-traced** with an emulator over the
+vanilla exe: the delivery is seen at the physiology pass's only call, 0x424F93, and the cause of death can be
+read at ReportDeath instead of hooking SetHealth; not yet run live.
 
 | Event | Hook | What is known there |
 |---|---|---|
