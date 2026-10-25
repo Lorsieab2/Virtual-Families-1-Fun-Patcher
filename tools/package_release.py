@@ -12,6 +12,7 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
   README-<version>-PATCHER.txt, Transparency Log.txt, manifest.json,
   vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
   vf1_save.py, vf1_rename_family.py (Rename Family), vf1_game_speed.py (Game Speed),
+  vf1_game_mechanics.py (Game Mechanics),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
@@ -77,6 +78,7 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_save.py": (ROOT / "patcher" / "vf1_save.py").read_bytes(),
         "vf1_rename_family.py": (ROOT / "patcher" / "vf1_rename_family.py").read_bytes(),
         "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
+        "vf1_game_mechanics.py": (ROOT / "patcher" / "vf1_game_mechanics.py").read_bytes(),
         "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),

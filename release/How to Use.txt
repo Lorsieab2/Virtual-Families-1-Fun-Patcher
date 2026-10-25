@@ -159,6 +159,15 @@ Next to the Patches tab is a Tools tab for your family saves.
                     (before speed change)"). Time Controls' Slow, Fast, 5x
                     and 10x are not offered: the game never keeps them in a
                     save and loads every family at Normal or Paused.
+  Game Mechanics    Shows how the game works underneath: ageing, time
+                    away, needs, health, sickness, old age, babies,
+                    careers, money, events, messes, collectibles and
+                    malfunctions, with every chance and timer. Times are
+                    real times at Normal, with Slow and Fast beside them.
+                    Each line says how sure it is: VERIFIED-E (the game's
+                    own code was run), VERIFIED-C (read in the game's own
+                    code) or UNCONFIRMED. It only reads: nothing is opened
+                    or changed, so the game can stay open.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).

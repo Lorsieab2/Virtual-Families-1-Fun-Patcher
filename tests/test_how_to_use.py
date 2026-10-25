@@ -25,7 +25,7 @@ CONTROLS = {
     "getting_started", "game_folder", "patch_manifest", "output_location", "backup_folder", "load_manifest",
     "defaults", "enable_all", "disable_all", "enable_main", "enable_optional", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
-    "rename_family", "game_speed",
+    "rename_family", "game_speed", "game_mechanics",
 }
 
 # Words a player never sees in the patcher or the game.
@@ -92,7 +92,7 @@ def test_the_experimental_patch_guide_says_so():
 
 def test_the_guides_ship_with_the_patcher():
     source = (ROOT / "tools" / "package_release.py").read_text(encoding="utf-8")
-    for name in ("vf1_how_to_use.py", "vf1_save_backup.py", "vf1_rename_family.py", "vf1_game_speed.py",
+    for name in ("vf1_how_to_use.py", "vf1_save_backup.py", "vf1_rename_family.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
                  "how_to_use.json"):
         assert f'"{name}"' in source
 

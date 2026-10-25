@@ -135,6 +135,18 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     Normal (or Paused) and loads any save holding one of them at Normal (theGameState Save / Load wrappers, since
     v0.3.0), so no installed game can produce one in a save. A save the old v0.2.0 left at one is named in words
     and refused. Module `patcher/vf1_game_speed.py`, tests `tests/test_game_speed.py`.
+  - **Game Mechanics...:** a read-only window, modelled on the Virtual Villagers Fun Patcher's, that shows how
+    the stock game works underneath, grouped by topic with a link to each at the top: time and ageing (with the
+    emulated time-away limits), needs and upkeep, health, sickness, old age and death, pregnancy and babies,
+    careers (all 108 with their salaries), money and interest, leaving home, dating and marriage, the 71 e-mail
+    and pop-up events, messes, collectibles, malfunctions, and a chance and timer index. Every time is real time
+    at Normal with the Time Controls Slow and Fast beside it, and every line carries its evidence label:
+    **VERIFIED-E** (the game's own routine emulated with the game's inputs, odds counted exactly),
+    **VERIFIED-C** (the game's own code on a traced call path) or **UNCONFIRMED**. The facts are VF1's own, from
+    `docs/game-mechanics/spec.md` and re-checks in the exe; the module's docstring records which of the owner's
+    proposed lines held and which were left out. It opens no save, game file or install and writes nothing.
+    Module `patcher/vf1_game_mechanics.py` (`python patcher/vf1_game_mechanics.py` prints the page), tests
+    `tests/test_game_mechanics.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.

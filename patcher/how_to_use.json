@@ -274,6 +274,15 @@
         "Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a save and loads every family at Normal or Paused.",
         "A save at any other speed is shown but not changed here; change it in the game instead."
       ]
+    },
+    "game_mechanics": {
+      "title": "Game Mechanics",
+      "guide": [
+        "Shows how Virtual Families works underneath: ageing, time away, needs, health, sickness, old age, babies, careers, money, events, messes and more.",
+        "Click Game Mechanics... and pick a topic at the top to jump to it. Every time is a real time, for Normal speed, with Slow and Fast beside it.",
+        "Each line says how sure it is: VERIFIED-E (the game's own code was run), VERIFIED-C (read in the game's own code) or UNCONFIRMED.",
+        "It only reads: no save or game file is opened or changed, so the game can stay open."
+      ]
     }
   }
 }
