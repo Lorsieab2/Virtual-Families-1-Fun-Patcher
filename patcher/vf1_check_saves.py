@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import math
 import os
+import uuid
 import struct
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -422,7 +423,7 @@ def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -
 
 
 def _write_atomically(path: Path, data: bytes) -> None:
-    temporary = path.with_name(path.name + ".repair-tmp")
+    temporary = path.with_name(f"{path.name}.repair-{uuid.uuid4().hex[:12]}.tmp")   # a leftover never blocks the next one
     try:
         with temporary.open("xb") as handle:
             handle.write(data)
