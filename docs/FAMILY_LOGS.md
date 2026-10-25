@@ -39,6 +39,28 @@ append-only Parents file. The slot is theGameState+0x1B188 for events and the Sa
 - **Evict Family** keeps the slot's logs: the eviction is an Event, and the next family's first generation is
   logged as "after the eviction".
 
+## Check Saves & Logs / Repair Saves & Logs (patcher/vf1_log_tools.py, the Tools tab)
+
+Check reads every file above against the save (and `Virtual Families<N+20>.ldw` / `<N+40>.ldw` when they hold
+the same family) and writes nothing. Repair, with the game closed and only what the player ticked or answered,
+writes in the same slot folder (so Start Over and a new family clear these too):
+
+    Save <N>\Logs\Repairs Made\Virtual Families 1 Repairs Made Log <k>.txt   "Repair <n>": every change, the lines
+                                                                           removed (with the reason), every answer,
+                                                                           each file's copy, the backup folder
+    Save <N>\Logs\Unaccounted\Virtual Families 1 Unaccounted Log <k>.txt     "Unaccounted <n>": a family member gone
+                                                                           with no record of how
+    Save <N>\Logs\Reconciliation\Virtual Families 1 Reconciliation - Save <N>.txt   the check, as it stood before the
+                                                                           latest repair
+    Save <N>\Data\Log Checks\Virtual Families 1 Answered Questions - Save <N>.dat   `VF1LOGS ANSWERS 1`, then one JSON
+                                                                           answer per line (never "Don't know")
+    Save <N>\Copies Made Before Repairs\Repair <n> <date>\...              each file as it was before repair <n>
+
+and before anything, a backup of the whole save folder, `Backups\Backup <date> (before repair)` (Restore Saves
+lists it). Repairs append to the logs as the DLL does (same numbering, same rolling) except removals, which
+rewrite the file only when it still holds exactly the lines checked. The DLL reads none of these new files.
+The save is never written.
+
 ## Hooks (each traced in the vanilla disassembly and proved by tools/vf1_logs_sites.py; emulated in tests)
 
 | Event | Where | Kind | Why it is enough |

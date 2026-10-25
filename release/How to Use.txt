@@ -152,6 +152,28 @@ Next to the Patches tab is a Tools tab for your family saves.
                     (before restore)"), so a restore can be undone.
                     Delete Backup removes a backup you no longer want.
 
+Tools tab: Check Saves & Logs / Repair Saves & Logs
+---------------------------------------------------
+For the Family Logs (Experimental patch). Choose the save folder and the
+family (save slot).
+
+  Check Saves & Logs   Compares the family's logs with its save and lists
+                       what agrees and what does not: family members missing
+                       from the logs, deaths logged for someone alive, records
+                       logged twice, members who vanished with no record,
+                       parents that disagree, statistics that do not add up.
+                       It only reads, so the game can stay open.
+  Repair Saves & Logs  Quit the game first. Every change is shown with its
+                       evidence and ticked when it is confirmed wrong; untick
+                       what you do not want. Questions only you can answer
+                       have "Don't know", which changes nothing. An answer is
+                       kept and never asked again (Answered Questions...
+                       changes or clears one). Nothing changes until you press
+                       Repair and confirm. The save folder is backed up first
+                       (as "Backup <date> (before repair)", which Restore Saves
+                       can put back), and every change is listed in that save's
+                       Repairs Made log. The save itself is never changed.
+
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).
 

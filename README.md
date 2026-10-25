@@ -125,12 +125,28 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
     confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
     part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
+  - **Check Saves & Logs:** for one save slot, compares the Family Logs and their data files with the save (and
+    the game's older copies of it, `Virtual Families<N+20>.ldw` / `<N+40>.ldw`, when they hold the same family)
+    and lists each contradiction in plain words as OK / WRONG / ASK / NOTE / UNCHECKED: family members missing
+    from the logs, Death records of members still alive, records logged twice, members gone with no record of
+    how (Unaccounted), parents that disagree, Family Statistics / Population pages and counters that do not add
+    up. It only reads.
+  - **Repair Saves & Logs:** with the game closed, shows each repair with its evidence (confirmed wrong: ticked)
+    and each question with its choices ("Don't know" always changes nothing), then, once confirmed, backs the
+    save folder up (`Backup <date> (before repair)`, offered by Restore Saves), copies each file into
+    `Save N\Copies Made Before Repairs` before changing it, and writes one `Repair <n>` record (every change,
+    the removed lines, every answer) in `Save N\Logs\Repairs Made`. Answers are kept and never asked again;
+    **Answered Questions...** changes or clears one. **The save itself is never changed**: no Virtual Villagers
+    patcher save repair has a counterpart here on a VERIFIED save field, so every repair is log-only.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.
 
 The save tools live in `patcher/vf1_save_backup.py` (no Tk; tested with temporary copies only, see
 `tests/test_save_backup.py` and `tests/test_tools_tab.py`) and the guides in `patcher/vf1_how_to_use.py`.
+Check / Repair Saves & Logs live in `patcher/vf1_log_tools.py` (no Tk; `tests/test_log_tools.py` and
+`tests/test_log_tools_window.py`, including logs written by the real `vf1logs.dll` under emulation for copies of
+real saves). `python patcher/vf1_log_tools.py <save folder> <slot>` prints the check's report.
 
 ## Planned
 

@@ -199,6 +199,8 @@ def test_a_member_no_log_names_is_backfilled(folder):
     # the backup holds the folder as it was, and the file's own copy is kept before the change
     backup = Path(done.backup.backup_folder)
     assert backup.name == "Backup 2026-10-24 15-00-00 (before repair)"
+    (listed,) = sb.list_backups(folder)                   # Restore Saves offers it
+    assert listed.before_repair and listed.label == "2026-10-24 15:00:00 (before repair)" and listed.slots == [1]
     assert {k: v for k, v in snapshot(backup).items()} == before
     copy = lt.slot_root(folder, 1) / lt.COPIES_FOLDER / "Repair 1 2026-10-24 15-00-00" / "Logs" / "Family History" \
         / "Family History 1.txt"

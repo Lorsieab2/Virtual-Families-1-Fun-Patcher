@@ -29,6 +29,7 @@ from tkinter import font as tkfont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vf1_how_to_use as how_to_use  # noqa: E402
+import vf1_log_tools as log_tools  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
 
@@ -1084,6 +1085,8 @@ class VF1PatcherGUI:
         "Restore backup": "Restoring the selected backup into the folder it was taken from.",
         "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
         "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
+        "Check Saves & Logs": "Reading the save and its Family Logs. Nothing is changed.",
+        "Repair Saves & Logs": "Repairing the Family Logs. The save folder is backed up first.",
     }
 
     def _work_wait_detail(self, label: str) -> str:
@@ -1319,6 +1322,21 @@ class VF1PatcherGUI:
         self._link(links, "Restore Saves...", self.restore_saves).pack(side="left", padx=(18, 0))
         self._help_button(links, "restore_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
+
+        logs_box = ttk.LabelFrame(tab, text="Family logs", style="Section.TLabelframe", padding=10)
+        logs_box.pack(fill="x", pady=(10, 0))
+        ttk.Label(
+            logs_box,
+            text=("Compares the Family Logs of one save with the save itself and lists what does not agree; Repair "
+                  "puts right what you choose, with the game closed. The save itself is never changed."),
+            style="Muted.TLabel", wraplength=760, justify="left",
+        ).pack(anchor="w")
+        log_links = ttk.Frame(logs_box)
+        log_links.pack(anchor="w", pady=(8, 0))
+        self._link(log_links, "Check Saves & Logs...", self.check_saves_and_logs).pack(side="left")
+        self._help_button(log_links, "check_logs").pack(side="left", padx=(3, 0))
+        self._link(log_links, "Repair Saves & Logs...", self.repair_saves_and_logs).pack(side="left", padx=(18, 0))
+        self._help_button(log_links, "repair_logs").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -1679,6 +1697,318 @@ class VF1PatcherGUI:
             f"Restored {what} from the backup of {info.label}: every file was checked against the backup.{undo}",
             parent=parent)
         return True
+
+    # ------------------------------------------------------------------ Check Saves & Logs / Repair Saves & Logs
+
+    def check_saves_and_logs(self) -> tk.Toplevel | None:
+        return self._show_log_tool(repair=False)
+
+    def repair_saves_and_logs(self) -> tk.Toplevel | None:
+        return self._show_log_tool(repair=True)
+
+    def _show_log_tool(self, repair: bool) -> tk.Toplevel | None:
+        """Pick a save folder and a save slot, then Check (only reads) or Repair (game closed) its Family Logs."""
+        title = "Repair Saves & Logs" if repair else "Check Saves & Logs"
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror(title, "Windows did not report where your Documents folder is, so the save folders "
+                                 "cannot be found.")
+            return None
+        if not folders:
+            messagebox.showinfo(title, f"No modded save folders were found in {documents / 'LDW'}.\n\nA modded game "
+                                "makes its save folder the first time it is played.")
+            return None
+        dialog, frame = self._scrolling_dialog(title)
+        intro = ("Shows every change it can make, with the evidence, and asks before anything is done; questions only "
+                 "you can answer are asked, with \"Don't know\" leaving things as they are. The game must be closed. "
+                 "The save folder is backed up first, and every change is listed in the save's Repairs Made log. "
+                 "The save itself is never changed." if repair else
+                 "Compares every Family Log and data file of one save with the save, and lists what agrees and what "
+                 "does not. It only reads: nothing is changed, so the game may be running.")
+        ttk.Label(frame, text=intro, wraplength=600, justify="left").grid(row=0, column=0, columnspan=2, sticky="w",
+                                                                          pady=(0, 10))
+        ttk.Label(frame, text="Save folder:").grid(row=1, column=0, sticky="w")
+        folder_box = ttk.Combobox(frame, values=[f.name for f in folders], state="readonly", width=50)
+        folder_box.grid(row=1, column=1, sticky="we", pady=2)
+        folder_box.current(0)
+        ttk.Label(frame, text="Family:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
+        slot_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
+        slot_list.grid(row=2, column=1, sticky="we", pady=(4, 2))
+        problem = tk.StringVar()
+        ttk.Label(frame, textvariable=problem, foreground="#a01010", wraplength=600, justify="left").grid(
+            row=3, column=0, columnspan=2, sticky="w")
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        go = ttk.Button(buttons, text="Repair..." if repair else "Check")
+        go.pack(side="left")
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        state: dict = {"slots": []}
+
+        def chosen():
+            picked = slot_list.curselection()
+            if not picked:
+                return None
+            info = state["slots"][picked[0]]
+            return info if info.name is not None else None
+
+        def refresh(_event=None) -> None:
+            ok = chosen() is not None
+            problem.set("" if ok else "Choose a save with a family.")
+            go.configure(state="normal" if ok else "disabled")
+
+        def load_slots(_event=None) -> None:
+            slot_list.delete(0, "end")
+            state["slots"] = log_tools.read_slots(folders[folder_box.current()])
+            for info in state["slots"]:
+                slot_list.insert("end", info.label)
+            first = next((n for n, info in enumerate(state["slots"]) if info.name is not None), None)
+            if first is not None:
+                slot_list.selection_set(first)
+            refresh()
+
+        def start() -> None:
+            info = chosen()
+            if info is None:
+                return
+            folder = folders[folder_box.current()]
+            if repair:
+                self._run_repair(dialog, folder, info)
+            else:
+                self._run_check(dialog, folder, info)
+            if dialog.winfo_exists():
+                with contextlib.suppress(tk.TclError):
+                    dialog.grab_set()
+
+        go.configure(command=start)
+        folder_box.bind("<<ComboboxSelected>>", load_slots)
+        slot_list.bind("<<ListboxSelect>>", refresh)
+        frame.columnconfigure(1, weight=1)
+        load_slots()
+        dialog._vf1_slots = slot_list  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _run_check(self, parent: tk.Toplevel, folder: Path, info) -> tk.Toplevel | None:
+        try:
+            result = self._run_with_wait("Check Saves & Logs", lambda: log_tools.check(folder, info.slot))
+        except (log_tools.LogToolError, OSError) as exc:
+            self.status_var.set("Check Saves & Logs: the logs could not be checked.")
+            messagebox.showerror("Check Saves & Logs", str(exc), parent=parent)
+            return None
+        self.status_var.set(f"Check Saves & Logs: {info.name or '(no name)'}: {result.summary}")
+        return self._show_log_report(parent, folder, info, result)
+
+    def _show_log_report(self, parent: tk.Toplevel, folder: Path, info, result) -> tk.Toplevel:
+        """The check's report, read only."""
+        window = tk.Toplevel(parent)
+        window.title(f"Check Saves & Logs - {info.name or '(no name)'} (Save {info.slot})")
+        window.transient(parent)
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=f"{folder.name}\n{result.summary}", font=("", 10, "bold"), justify="left").pack(anchor="w")
+        ttk.Label(frame, text=("OK: agrees with the save.  WRONG: confirmed wrong (\"repairable\" says whether Repair "
+                               "Saves & Logs can put it right).  ASK: a question only you can answer, asked by Repair "
+                               "Saves & Logs; nothing changes until you answer.  NOTE: a difference that is not proof "
+                               "of an error.  UNCHECKED: nothing to check it against, or it could not be read."),
+                  wraplength=760, justify="left").pack(anchor="w", pady=(4, 8))
+        body = ttk.Frame(frame)
+        body.pack(fill="both", expand=True)
+        text = tk.Text(body, wrap="word", width=110, height=30)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        text.pack(side="left", fill="both", expand=True)
+        text.tag_configure("WRONG", foreground="#a01010")
+        text.tag_configure("ASK", foreground="#8a4b00")
+        text.tag_configure("section", font=("", 9, "bold"))
+        for line in result.text.splitlines():
+            verdict = line.split(None, 1)[0] if line.strip() else ""
+            tag = "section" if line.startswith("== ") else (verdict if verdict in ("WRONG", "ASK") else ())
+            text.insert("end", line + "\n", tag)
+        text.configure(state="disabled")
+
+        def close() -> None:
+            window.destroy()
+            with contextlib.suppress(tk.TclError):
+                parent.grab_set()
+
+        ttk.Button(frame, text="Close", command=close).pack(anchor="e", pady=(8, 0))
+        window.protocol("WM_DELETE_WINDOW", close)
+        window._vf1_text = text  # type: ignore[attr-defined]
+        self._hold(window)
+        return window
+
+    def _run_repair(self, parent: tk.Toplevel, folder: Path, info) -> tk.Toplevel | None:
+        title = "Repair Saves & Logs"
+        if save_backup.running_game_count(folder):
+            messagebox.showerror(title, f"{save_backup.game_exe_name(folder)} is running.\n\nQuit the game first (from "
+                                 "its own menu), then choose Repair Saves & Logs again: a running game writes its "
+                                 "logs again when it saves. Nothing was changed.", parent=parent)
+            return None
+        try:
+            result = self._run_with_wait("Check Saves & Logs", lambda: log_tools.check(folder, info.slot))
+        except (log_tools.LogToolError, OSError) as exc:
+            messagebox.showerror(title, f"The logs could not be checked. {exc}", parent=parent)
+            return None
+        if not result.repairs() and not result.questions() and not log_tools.load_answers(folder, info.slot):
+            messagebox.showinfo(title, f"{result.summary}\n\nThere is nothing to repair and nothing to ask.",
+                                parent=parent)
+            return None
+        return self._show_repair_checklist(parent, folder, info, result)
+
+    def _show_repair_checklist(self, parent: tk.Toplevel, folder: Path, info, result) -> tk.Toplevel:
+        """Every repair with its evidence (ticked: confirmed wrong) and every question with its choices."""
+        title = "Repair Saves & Logs"
+        dialog = tk.Toplevel(parent)
+        dialog.title(f"{title} - {info.name or '(no name)'} (Save {info.slot})")
+        dialog.transient(parent)
+        frame = scrollable_frame(dialog, padding=16)
+        ttk.Label(frame, text=result.summary, font=("", 10, "bold"), wraplength=700, justify="left").pack(anchor="w")
+        ttk.Label(frame, text=("Untick anything you do not want done. Nothing changes until you press Repair and "
+                               "confirm; the save folder is backed up first."), wraplength=700,
+                  justify="left").pack(anchor="w", pady=(4, 8))
+        ticks: list[tuple[log_tools.Repair, tk.BooleanVar]] = []
+        choices: list[tuple[log_tools.Question, tk.StringVar]] = []
+        repairs = result.repairs()
+        if repairs:
+            ttk.Label(frame, text="Confirmed wrong: put right", font=("", 10, "bold")).pack(anchor="w", pady=(6, 2))
+        for r in repairs:
+            var = tk.BooleanVar(value=True)
+            ttk.Checkbutton(frame, text=r.title, variable=var).pack(anchor="w")
+            for line in r.evidence:
+                ttk.Label(frame, text=line, style="Muted.TLabel", wraplength=660, justify="left").pack(
+                    anchor="w", padx=(24, 0))
+            ticks.append((r, var))
+        questions = result.questions()
+        if questions:
+            ttk.Label(frame, text="Questions only you can answer", font=("", 10, "bold")).pack(anchor="w", pady=(10, 2))
+        for q in questions:
+            ttk.Label(frame, text=q.text, wraplength=680, justify="left").pack(anchor="w", pady=(4, 0))
+            for line in q.evidence:
+                ttk.Label(frame, text=line, style="Muted.TLabel", wraplength=660, justify="left").pack(
+                    anchor="w", padx=(24, 0))
+            var = tk.StringVar(value=log_tools.DONT_KNOW)
+            ttk.Combobox(frame, textvariable=var, values=q.options, state="readonly", width=70).pack(
+                anchor="w", padx=(24, 0), pady=(2, 0))
+            choices.append((q, var))
+        kept = log_tools.load_answers(folder, info.slot)
+        edits: dict = {"changed": {}, "cleared": set()}
+        answered_row = ttk.Frame(frame)
+        answered_row.pack(anchor="w", pady=(12, 0))
+        ttk.Label(answered_row, text=f"Answered before (not asked again): {len(kept)}").pack(side="left")
+        if kept:
+            ttk.Button(answered_row, text="Answered Questions...",
+                       command=lambda: self._show_answered_questions(dialog, kept, result, edits)).pack(
+                side="left", padx=(8, 0))
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def go() -> None:
+            chosen = {r.key for r, var in ticks if var.get()}
+            answers = {q.key: var.get() for q, var in choices if not log_tools.dont_know(var.get())}
+            planned = [r.title for r, var in ticks if var.get()]
+            for q, var in choices:
+                if q.key in answers:
+                    fix = q.repairs.get(answers[q.key])
+                    planned.append(fix.title if fix is not None else f"Keep your answer: {answers[q.key]}")
+            planned += [f"Change an answer to: {a}" for a in edits["changed"].values()]
+            planned += ["Clear an answer (it is asked again)" for _k in edits["cleared"]]
+            if not planned:
+                messagebox.showinfo(title, "Nothing is ticked or answered, so there is nothing to do.", parent=dialog)
+                return
+            shown = "\n".join(f"- {line}" for line in planned[:20])
+            if len(planned) > 20:
+                shown += f"\n... and {len(planned) - 20} more"
+            if not messagebox.askyesno(title, f"Make these changes to {info.name or '(no name)'} (Save {info.slot})'s "
+                                       f"logs?\n\n{shown}\n\nThe save folder is backed up first, and every change is "
+                                       "listed in the save's Repairs Made log. The save itself is not changed.",
+                                       parent=dialog):
+                return
+            try:
+                done = self._run_with_wait("Repair Saves & Logs", lambda: log_tools.apply(
+                    folder, info.slot, chosen, answers=answers, answer_changes=edits["changed"],
+                    cleared=edits["cleared"]))
+            except (log_tools.LogToolError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Repair Saves & Logs did not finish.")
+                messagebox.showerror(title, str(exc), parent=dialog)
+                return
+            dialog.destroy()
+            self._show_repair_result(parent, info, done)
+
+        ttk.Button(buttons, text="Repair", command=go).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
+        dialog._vf1_ticks = ticks  # type: ignore[attr-defined]
+        dialog._vf1_choices = choices  # type: ignore[attr-defined]
+        dialog._vf1_edits = edits  # type: ignore[attr-defined]
+        dialog._vf1_go = go  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
+
+    def _show_answered_questions(self, parent: tk.Toplevel, kept: dict, result, edits: dict) -> tk.Toplevel:
+        """Every kept answer: change it (applied at Repair, as a first answer is) or clear it (asked again)."""
+        window, frame = self._scrolling_dialog("Answered Questions")
+        window.transient(parent)
+        ttk.Label(frame, text=("Your answers to earlier questions. A changed answer is used when you press Repair; a "
+                               "cleared one is asked again."), wraplength=640, justify="left").pack(anchor="w")
+        live = {q.key for q, _a in result.answered()}
+        rows = []
+        for key, entry in kept.items():
+            box = ttk.Frame(frame)
+            box.pack(fill="x", pady=(10, 0))
+            ttk.Label(box, text=entry.get("question", key), wraplength=640, justify="left").pack(anchor="w")
+            status = ("Matches a question now: your answer is used, and the question is not asked." if key in live
+                      else "No longer matches any question now; kept, and used again if it comes back.")
+            ttk.Label(box, text=f"{entry.get('date', '')}  {status}", style="Muted.TLabel", wraplength=640,
+                      justify="left").pack(anchor="w")
+            answer = tk.StringVar(value=edits["changed"].get(key, entry.get("answer", "")))
+            options = [o for o in entry.get("options", []) if not log_tools.dont_know(o)]
+            ttk.Combobox(box, textvariable=answer, values=options, state="readonly", width=70).pack(anchor="w")
+            clear = tk.BooleanVar(value=key in edits["cleared"])
+            ttk.Checkbutton(box, text="Clear this answer (ask it again)", variable=clear).pack(anchor="w")
+            rows.append((key, entry, answer, clear))
+
+        def keep() -> None:
+            edits["changed"].clear()
+            edits["cleared"].clear()
+            for key, entry, answer, clear in rows:
+                if clear.get():
+                    edits["cleared"].add(key)
+                elif answer.get() and answer.get() != entry.get("answer"):
+                    edits["changed"][key] = answer.get()
+            window.destroy()
+            with contextlib.suppress(tk.TclError):
+                parent.grab_set()
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="OK", command=keep).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=window.destroy).pack(side="left", padx=(8, 0))
+        window._vf1_rows = rows  # type: ignore[attr-defined]
+        window._vf1_keep = keep  # type: ignore[attr-defined]
+        self._hold(window)
+        return window
+
+    def _show_repair_result(self, parent: tk.Toplevel, info, done) -> None:
+        title = "Repair Saves & Logs"
+        if done.record is None:
+            self.status_var.set("Repair Saves & Logs: nothing was changed.")
+            messagebox.showinfo(title, "Nothing was changed." + ("\n\n" + "\n".join(done.skipped) if done.skipped
+                                                                  else ""), parent=parent)
+            return
+        lines = list(done.lines) + [f"Not done: {s}" for s in done.skipped]
+        shown = "\n".join(lines[:30])
+        if len(lines) > 30:
+            shown += f"\n... and {len(lines) - 30} more (all of it is in the Repairs Made log)"
+        self.status_var.set(f"Repair Saves & Logs: {info.name or '(no name)'} (Save {info.slot}): Repair {done.record} "
+                            "made.")
+        self._append_log(f"Repair Saves & Logs: {info.name or '(no name)'} (Save {info.slot}): Repair {done.record}, "
+                         f"{len(done.lines)} change(s). Backup: {done.backup.backup_folder}\n")
+        messagebox.showinfo(title, f"Repair {done.record} is done and listed in the save's Repairs Made log.\n\n{shown}"
+                            f"\n\nBackup of the save folder from before the repair:\n{done.backup.backup_folder}",
+                            parent=parent)
 
     def _on_close(self) -> None:
         self._save_current_paths()

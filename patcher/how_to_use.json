@@ -135,7 +135,7 @@
         "The patcher makes a separate modded copy of your Virtual Families folder. Your original game and saves are never changed.",
         "On the Patches tab: choose your vanilla Virtual Families folder, tick the patches you want, then click Enable/Disable Patches.",
         "Play \"Virtual Families - Modded.exe\" inside the new modded folder. The Upgrades button is next to Done in the store.",
-        "The Tools tab has Back Up Saves and Restore Saves for your family saves.",
+        "The Tools tab has Back Up Saves and Restore Saves for your family saves, and Check and Repair Saves & Logs for the Family Logs.",
         "Every \"?\" button explains the feature beside it."
       ]
     },
@@ -262,6 +262,26 @@
         "Choose a backup, choose whole folder or one slot, then Restore...; you are shown what will change and asked to confirm first.",
         "Your saves as they are now are backed up first, so a restore can be undone.",
         "Delete Backup... removes a backup you no longer want (it asks first)."
+      ]
+    },
+    "check_logs": {
+      "title": "Check Saves & Logs",
+      "guide": [
+        "Compares one save's Family Logs with the save itself and lists what agrees and what does not.",
+        "It finds family members missing from the logs, deaths logged for someone alive, records logged twice, members who vanished with no record, parents that disagree and statistics that do not add up.",
+        "Choose the save folder and the family, then Check. It only reads, so the game can stay open.",
+        "WRONG is confirmed wrong; ASK is a question only you can answer; NOTE is a difference that proves nothing.",
+        "Needs Family Logs (Patches tab) to have written logs for that save."
+      ]
+    },
+    "repair_logs": {
+      "title": "Repair Saves & Logs",
+      "guide": [
+        "Puts right what Check Saves & Logs finds in one save's Family Logs. Quit the game first.",
+        "Each change is shown with its evidence, ticked when it is confirmed wrong; untick what you do not want.",
+        "Questions only you can answer have \"Don't know\", which changes nothing. An answer is kept and never asked again; Answered Questions... changes or clears one.",
+        "Nothing changes until you press Repair and confirm. The save folder is backed up first.",
+        "Every change and answer is listed in that save's Repairs Made log. The save itself is never changed."
       ]
     }
   }

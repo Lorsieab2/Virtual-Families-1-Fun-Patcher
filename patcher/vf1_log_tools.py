@@ -59,7 +59,7 @@ import vf1_save_backup as save_backup
 PATCHER_FOLDER = "Virtual Families 1 Patcher"
 SAVE_STEM = "Virtual Families"
 COPIES_FOLDER = "Copies Made Before Repairs"
-BEFORE_REPAIR = "(before repair)"
+BEFORE_REPAIR = save_backup.BEFORE_REPAIR     # Restore Saves lists these backups too
 BACKFILLED = "[backfilled, no date] "
 
 # The executable's own words (string ids 0x464 / 0x465 / Nursing / 0x507..0x50C), as vf1logs.dll prints them.

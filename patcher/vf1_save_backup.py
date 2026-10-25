@@ -255,6 +255,7 @@ def backup_folder_name(now: datetime) -> str:
 IN_PROGRESS = " (in progress)"
 INCOMPLETE = " INCOMPLETE"
 BEFORE_RESTORE = "(before restore)"
+BEFORE_REPAIR = "(before repair)"     # made by Repair Saves & Logs (vf1_log_tools.py) before it changes anything
 DELETE_ATTEMPTS = 5
 DELETE_RETRY_SECONDS = 0.5
 
@@ -628,7 +629,7 @@ def describe_size(size: int) -> str:
 # ---------------------------------------------------------------------------
 
 _BACKUP_NAME = re.compile(
-    r"^Backup (\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2})(?: \((\d+)\))?(?: (\(before restore\)))?$"
+    r"^Backup (\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2})(?: \((\d+)\))?(?: (\(before restore\)|\(before repair\)))?$"
 )
 # "Virtual Families3.ldw" (the slot save), its sidecar "...3.ldw.dat" and "...3.ldw.unreadable-K.dat".
 # Files N+20 and N+40 are the game's two older autosave copies of slot N, so they belong to
@@ -648,17 +649,20 @@ class BackupInfo:
     file_count: int
     size: int
     slots: list[int]     # the save slots whose own save file is in the backup
+    before_repair: bool = False
 
     @property
     def label(self) -> str:
         text = self.when.strftime("%Y-%m-%d %H:%M:%S")
         if self.before_restore:
             text += " " + BEFORE_RESTORE
+        elif self.before_repair:
+            text += " " + BEFORE_REPAIR
         return text
 
 
 def _parse_backup_name(name: str) -> tuple[datetime, int, str] | None:
-    """(when, sequence, label) -- the label "" or BEFORE_RESTORE."""
+    """(when, sequence, label) -- the label "", BEFORE_RESTORE or BEFORE_REPAIR."""
     match = _BACKUP_NAME.match(name)
     if not match:
         return None
@@ -710,7 +714,7 @@ def list_backups(save_folder: Path) -> list[BackupInfo]:
     """The usable backups in ``save_folder``\\Backups, newest first.
 
     Only folders this tool names ("Backup <date>", "Backup <date> (2)",
-    "Backup <date> (before restore)") are listed; an "... INCOMPLETE" copy is
+    "Backup <date> (before restore)", "Backup <date> (before repair)") are listed; an "... INCOMPLETE" copy is
     not a usable backup and is never offered.
     """
     backups = save_folder / BACKUPS_FOLDER
@@ -725,7 +729,7 @@ def list_backups(save_folder: Path) -> list[BackupInfo]:
         files = files_to_back_up(entry)
         size = sum((entry / relative).stat().st_size for relative in files)
         found.append((when, sequence, BackupInfo(
-            entry, when, label == BEFORE_RESTORE, len(files), size, slots_in(entry))))
+            entry, when, label == BEFORE_RESTORE, len(files), size, slots_in(entry), label == BEFORE_REPAIR)))
     found.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [info for _when, _sequence, info in found]
 
