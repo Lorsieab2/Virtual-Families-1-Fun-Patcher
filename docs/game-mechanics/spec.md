@@ -56,9 +56,9 @@ CRT static-initializer tables (`_initterm` 0x4B2464..0x4B2540 and 0x4B2544..0x4B
 
 | Item | Rule | Real time | Save (file offset) | Status |
 |---|---|---|---|---|
-| Speed | gs+0x1B180. Stock writes only 10 (Options "No" 0x41E21B, Space 0x440CB2, theChangePlayerDlg 0x41C169, theCreateNickNameDlg 0x41C701). Patcher Time Controls writes 20 / 10 / 5 (/ 2 / 1) and always saves 10 (paused stays paused) | | 0x1B190 | VERIFIED-C (stock writers); patcher behaviour from `features.inc` source: UNCONFIRMED |
+| Speed | gs+0x1B180. Stock writes only 10 (Options "No" 0x41E21B, Space 0x440CB2, theChangePlayerDlg 0x41C169, theCreateNickNameDlg 0x41C701). Patcher Time Controls writes 20 / 10 / 5 (/ 2 / 1), each through `SetSpeed` (vf1fun.dll 0x10008B02..0x10008BB5, wanted speed 0x10034048), and always saves 10 (paused stays paused: 1009); its Load wrapper turns any other value into 10 / 1009 (Save 0x10003CA0, Load 0x10003B80) | | 0x1B190 | VERIFIED-C (stock writers; patcher behaviour in the v1.1 vf1fun.dll bytes and `features.inc`) |
 | Pause | Options "Yes" 0x41E1CC: `SetSpeed(999)` and **gs+0x1B180 += 999** (add, not set). Space: paused -> speed - 999 (0 becomes 10); else pause. Options "No" sets 10 | | | VERIFIED-C |
-| Game seconds | `CGameTime::Seconds` 0x422320 = banked + (real s since the last speed change) / (speed/10). Paused (999) runs at 1/99.9 speed, not frozen | 1 game s = 2 / 1 / 0.5 real s | CGameTime 0xDA74 | VERIFIED-C |
+| Game seconds | `CGameTime::Seconds` 0x422320 = banked + (real s since the last speed change) / (speed/10). Paused, it is frozen: `SetSpeed(999)` stores speed 0 (`xor ebp, ebp` 0x42246F, stored 0x422574) and `Seconds` returns the banked value when the multiplier is 0 (0x42233C); real paused saves hold clock speed 0 | 1 game s = 2 / 1 / 0.5 real s | CGameTime 0xDA74 | VERIFIED-C |
 | Real seconds | `GetSecondsFromGameStart` 0x4036D0 = now - header epoch; keeps running while the game is closed | | header +8 (i64) | VERIFIED-C |
 | Age unit | `AllVillagersTimeflowUpkeep` 0x489D00 adds real s since the villager's stamp to a bank, ages bank / 60 / speed units, keeps the remainder | **1 unit = 20 / 10 / 5 min; 1 year (20 units) = 6 h 40 m / 3 h 20 m / 1 h 40 m** | rec +0xA8 bank, +0xAC stamp | VERIFIED-E (`t_timeflow.py`: 1200 / 600 / 300 s give 1 unit; 1 s less gives 0) |
 | Catch-up cap | bank > 86,400 -> **86,400** and the speed rule is skipped; otherwise speed 5: > 38,200 -> 31,000; speed 20: > 23,800 -> 31,000; speed 10 and any other value: > 31,000 -> 31,000 | see table below | | VERIFIED-E |
@@ -324,7 +324,7 @@ The game's own name for this (college / boarding school): UNCONFIRMED (no reader
 0x1B15C; first one 900 game s after a new village, 0x424368) and Population > 0, a random villager is picked
 (0x48A490); if that villager is alive, fully caught up (age = processed age) and no e-mail is pending: **66.02%**
 queue an island-event e-mail, **33.98%** fire a pop-up event now; either way the next check is **now + 3,600 game s
-= 2 h / 1 h / 30 min real** (paused: 99.9 h real). Otherwise nothing happens and the check repeats next frame.
+= 2 h / 1 h / 30 min real** (paused: never, the game clock stops). Otherwise nothing happens and the check repeats next frame.
 Selection (`0x41B1F0`, VERIFIED-C): uniform (rand(count)) among events 1..71 whose `CanFire` (vtable +4) is true and
 whose e-mail flag (vtable +0x14) matches; the "fired" byte 0x502048+i is written and never read, so events repeat.
 Opening the e-mail fires an e-mail event (0x41B3A0). Island state is not saved.
@@ -436,7 +436,7 @@ the prop-to-name pairing is UNCONFIRMED.
 ## 17. Timers (every timer found on the traced paths)
 
 Clock: **R** real seconds since the save's start (runs while closed and paused), **G** game seconds (10/speed of
-real; paused 1/99.9), **U** age units, **F** frames, **S** the 2-second step (runs while paused).
+real; stopped while paused), **U** age units, **F** frames, **S** the 2-second step (runs while paused).
 
 | Timer | Field (file offset) | Clock | Length | Slow / Normal / Fast | Status |
 |---|---|---|---|---|---|
