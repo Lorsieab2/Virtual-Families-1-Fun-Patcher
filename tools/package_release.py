@@ -11,7 +11,8 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
   Launch_GUI.bat, Apply_<version>_Patcher.bat, How to Use.txt,
   README-<version>-PATCHER.txt, Transparency Log.txt, manifest.json,
   vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
-  vf1_save.py, vf1_rename_family.py (Rename Family) and vf1_check_saves.py (Check Saves),
+  vf1_save.py, vf1_rename_family.py (Rename Family), vf1_game_speed.py (Game Speed) and
+  vf1_check_saves.py (Check Saves),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py), stub.json, payload/vf1fun.dll
@@ -78,6 +79,7 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_save_backup.py": (ROOT / "patcher" / "vf1_save_backup.py").read_bytes(),
         "vf1_save.py": (ROOT / "patcher" / "vf1_save.py").read_bytes(),
         "vf1_rename_family.py": (ROOT / "patcher" / "vf1_rename_family.py").read_bytes(),
+        "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
         "vf1_check_saves.py": (ROOT / "patcher" / "vf1_check_saves.py").read_bytes(),
         "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
         "vf1_genealogy.py": (ROOT / "patcher" / "vf1_genealogy.py").read_bytes(),
