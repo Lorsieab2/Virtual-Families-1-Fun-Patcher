@@ -621,9 +621,10 @@ static void ReadMembers(int slot) {
             unsigned k = 0;
             while (*p && *p != '\t' && *p != '\r' && *p != '\n') { if (k < 27) name[k++] = *p; ++p; }
             name[k] = 0;
-            int values[7] = { 0 };
-            for (int i = 0; i < 7 && *p == '\t'; ++i) { ++p; values[i] = ParseInt(p); }
-            if (s >= 0 && s < (int)LOGS_HOUSEHOLD_SLOTS && values[6] == 1) {
+            // sex, age, head, body, present, left home, health, death logged
+            int values[8] = { 0 };
+            for (int i = 0; i < 8 && *p == '\t'; ++i) { ++p; values[i] = ParseInt(p); }
+            if (s >= 0 && s < (int)LOGS_HOUSEHOLD_SLOTS && values[7] == 1) {
                 Logged &l = DeathLogged[s];
                 l.valid = 1;
                 l.sex = values[0];
@@ -706,7 +707,7 @@ static void DeleteTree(char *path, unsigned len, unsigned cap, bool top) {
         const char *name = found.cFileName;
         if (name[0] == '.' && (name[1] == 0 || (name[1] == '.' && name[2] == 0))) continue;
         bool dir = (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        if (top && dir && SameText(name, "Backups", 8)) continue;
+        if (top && dir && lstrcmpiA(name, "Backups") == 0) continue;
         unsigned n = Length(name);
         if (len + 1 + n + 1 >= cap) continue;
         path[len] = '\\';

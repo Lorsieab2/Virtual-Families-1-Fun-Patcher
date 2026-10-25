@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import struct
 import sys
 from pathlib import Path
@@ -126,7 +127,7 @@ PINS = [
     ("vs_set_health", 0x48F820, 0x32, "CVillagerState::SetHealth(health, cause)"),
     ("vs_adjust_health", 0x48F860, 0x74, "CVillagerState::AdjustHealth(delta, cause)"),
     ("ft_update_parents", 0x4819C0, 0xDB, "CFamilyTree::UpdateParents(a, b)"),
-    ("ft_add_offspring", 0x481AA0, 0x175, "CFamilyTree::AddOffspring(villager)"),
+    ("ft_add_offspring", 0x481AA0, 0x90, "CFamilyTree::AddOffspring(villager)"),
     ("ft_start_next_gen", 0x481B30, 0xE5, "CFamilyTree::StartNextGeneration(villager, source)"),
     ("ft_start_family_tree", 0x481E00, 0x1A, "CFamilyTree::StartFamilyTree = Reset + StartNextGeneration(v, -1)"),
     ("v_set_left_home", 0x4857F0, 0x1C, "CVillager::SetLeftHome"),
@@ -284,14 +285,19 @@ def call_target(exe: Exe, at: int) -> int:
     return (at + 5 + struct.unpack("<i", raw[1:])[0]) & 0xFFFFFFFF
 
 
-def all_callers(exe: Exe, target: int) -> list[int]:
+def all_callers(exe: Exe, targets) -> dict[int, list[int]]:
+    """Every call/jmp rel32 in .text that reaches one of `targets` (one pass)."""
     sec = next(s for s in exe.pe.sections if s.Name.startswith(b".text"))
     text = sec.get_data()
     va0 = exe.base + sec.VirtualAddress
-    out = []
-    for k in range(len(text) - 5):
-        if text[k] in (0xE8, 0xE9) and (va0 + k + 5 + struct.unpack_from("<i", text, k + 1)[0]) & 0xFFFFFFFF == target:
-            out.append(va0 + k)
+    out = {t: [] for t in targets}
+    for m in re.finditer(rb"[\xE8\xE9]", text):
+        k = m.start()
+        if k + 5 > len(text):
+            break
+        t = (va0 + k + 5 + struct.unpack_from("<i", text, k + 1)[0]) & 0xFFFFFFFF
+        if t in out:
+            out[t].append(va0 + k)
     return out
 
 
@@ -307,6 +313,10 @@ def validate(data: bytes) -> dict:
         if sum(i.size for i in _md().disasm(raw, va)) != n:
             raise SiteError(f"{name}: not whole instructions")
         pins[name] = (va, raw, mask_for(raw, va))
+    spans = sorted((va, va + n, name) for name, va, n, _note in PINS)
+    for (a0, a1, an), (b0, _b1, bn) in zip(spans, spans[1:]):
+        if b0 < a1:   # a pin's entry may hold another companion's jmp: it must not sit inside another pin
+            raise SiteError(f"pins {an} and {bn} overlap")
     for name, values in CROSS.items():
         va, raw, _m = pins[name]
         got = _operands(raw, va)
@@ -321,9 +331,10 @@ def validate(data: bytes) -> dict:
             raise SiteError(f"{pin}+{at - va:#x}: calls {call_target(exe, at):#x}, not {func:#x}")
     # Each retargeted call is the ONLY call (or jmp) of its function: nothing else reaches it unseen.
     singles = {0x4864D0: [0x48EBB2], 0x48BC90: [0x424F93], 0x481CF0: [0x489D8F, 0x48E200], 0x4243C0: [0x448426]}
+    found = all_callers(exe, singles)
     for target, sites in singles.items():
-        if all_callers(exe, target) != sites:
-            raise SiteError(f"{target:#x} has callers {[hex(x) for x in all_callers(exe, target)]}")
+        if found[target] != sites:
+            raise SiteError(f"{target:#x} has callers {[hex(x) for x in found[target]]}")
     for name, (pin, steal) in ENTRY_HOOKS.items():
         va, raw, _m = pins[pin]
         size = 0

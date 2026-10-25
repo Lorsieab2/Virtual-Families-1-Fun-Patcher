@@ -239,6 +239,7 @@ class FileSystem:
             "SetFileAttributesA": lambda e: (1, 8), "FindFirstFileA": find_first, "FindNextFileA": find_next,
             "FindClose": lambda e: (fs.finds.pop(e.arg(0), None), 1)[1:] + (4,),
             "GetLastError": lambda e: (fs.last_error, 0), "GetLocalTime": local_time,
+            "lstrcmpiA": lambda e: (0 if e.cstr(e.arg(0)).lower() == e.cstr(e.arg(1)).lower() else 1, 8),
         })
 
 
@@ -408,7 +409,7 @@ class LogsWorld:
         e = self.e
         e.seam_live(UPDATE_PEEP_RECORD, lambda emu: (0, 4))
         e.seam_live(UPDATE_CURRENT_FAMILY_RECORD, lambda emu: (0, 0))
-        e.seam_live(L.STRINGS_GET, lambda emu: (self.strings, 0))
+        e.seam_live(L.FUNCTIONS["STRINGS_GET"], lambda emu: (self.strings, 0))
 
         def get_string(emu):
             assert emu.ecx == self.strings, "GetString on something other than theStringManager"
