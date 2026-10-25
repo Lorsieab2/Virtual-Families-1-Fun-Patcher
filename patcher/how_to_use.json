@@ -247,6 +247,7 @@
       "title": "Restore Saves",
       "guide": [
         "Puts a backup back: the whole save folder, or one save slot.",
+        "One slot means that slot's save, its two older autosave copies, its patcher data and its Children files. The shared options file and the engine log are only restored with the whole folder.",
         "Quit the game first, from its own menu.",
         "Choose a backup, choose whole folder or one slot, then Restore...; you are shown what will change and asked to confirm first.",
         "Your saves as they are now are backed up first, so a restore can be undone.",

@@ -630,11 +630,14 @@ def describe_size(size: int) -> str:
 _BACKUP_NAME = re.compile(
     r"^Backup (\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2})(?: \((\d+)\))?(?: (\(before restore\)))?$"
 )
-# "Virtual Families3.ldw" (the slot save) and its sidecar "...3.ldw.dat".
-_SLOT_LDW = re.compile(r"^(?:.*\D)?(\d+)\.ldw(?:\.dat)?$", re.IGNORECASE)
+# "Virtual Families3.ldw" (the slot save), its sidecar "...3.ldw.dat" and "...3.ldw.unreadable-K.dat".
+# Files N+20 and N+40 are the game's two older autosave copies of slot N, so they belong to
+# slot N; 0, 20 and 40 are the shared options file and its copies.
+_SLOT_LDW = re.compile(r"^(?:.*\D)?(\d+)\.ldw(?:\.dat|\.unreadable-\d+\.dat)?$", re.IGNORECASE)
 # The patcher's per-save files: "Slot 3.ini", "Slot 3 Achievements.ini" ...
 _SLOT_NAMED = re.compile(r"^Slot (\d+)\b.*$", re.IGNORECASE)
 ENGINE_LOG = "ldwLog.txt"
+SHARED = "shared"       # the options file (Virtual Families0/20/40.ldw): not any one slot
 
 
 @dataclass
@@ -671,7 +674,13 @@ def file_slot(relative: Path) -> int | str:
     name = relative.name
     if name.casefold() == ENGINE_LOG.casefold():
         return "engine log"
-    match = _SLOT_LDW.match(name) or _SLOT_NAMED.match(name)
+    match = _SLOT_LDW.match(name)
+    if match:
+        number = int(match.group(1))
+        if number in (0, 20, 40):
+            return SHARED
+        return number % 20 if number <= 45 and 1 <= number % 20 <= 5 else "unknown"
+    match = _SLOT_NAMED.match(name)
     if match:
         return int(match.group(1))
     # A per-save folder: ".../Slot 3/..."
@@ -689,7 +698,9 @@ def slots_in(folder: Path) -> list[int]:
         for entry in folder.iterdir():
             match = re.fullmatch(r"(?:.*\D)?(\d+)\.ldw", entry.name, re.IGNORECASE)
             if match and entry.is_file():
-                slots.add(int(match.group(1)))
+                owner = file_slot(Path(entry.name))
+                if isinstance(owner, int):
+                    slots.add(owner)
     except OSError:
         pass
     return sorted(slots)
@@ -778,7 +789,7 @@ def plan_restore(save_folder: Path, backup: Path, slot: int | None = None) -> Re
         there = relative in in_backup
         if slot is not None:
             owner = file_slot(relative)
-            if owner == "engine log":
+            if owner in ("engine log", SHARED):
                 continue
             if owner != slot:
                 if owner == "unknown" and not (

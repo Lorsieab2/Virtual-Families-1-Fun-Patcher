@@ -1,4 +1,4 @@
-﻿"""Back Up Saves / Restore Saves (patcher/vf1_save_backup.py).
+"""Back Up Saves / Restore Saves (patcher/vf1_save_backup.py).
 
 Every test builds its own fake Documents folder in tmp_path and drives the tool with a fake process
 controller; no real save, no real game, no running process is ever touched.
@@ -297,3 +297,69 @@ def test_delete_backup_removes_only_that_backup_even_read_only(save):
     assert [i.path for i in sb.list_backups(save)] == [second]
     assert not [p for p in (save / "Backups").iterdir() if p.name.endswith(sb.DELETING)]
     assert len(tree(save)) == 9                                        # the live saves are untouched
+
+
+def _slot_folder(tmp_path):
+    save = tmp_path / "LDW" / "Virtual Families - Modded"
+    (save / sb.PATCHER_DATA_FOLDER / "Children").mkdir(parents=True)
+    for n in (0, 1, 2, 21, 41, 22, 20, 40):
+        (save / f"Virtual Families{n}.ldw").write_bytes(b"old %d" % n)
+    kids = save / sb.PATCHER_DATA_FOLDER / "Children"
+    for name in ("Virtual Families1.ldw.dat", "Virtual Families21.ldw.dat", "Virtual Families41.ldw.dat",
+                 "Virtual Families1.ldw.unreadable-2.dat", "Virtual Families2.ldw.dat"):
+        (kids / name).write_bytes(b"old " + name.encode())
+    for n in (1, 2):
+        (save / sb.PATCHER_DATA_FOLDER / f"Slot {n}.ini").write_text(f"old {n}")
+    (save / "ldwLog.txt").write_text("old log")
+    return save
+
+
+def test_slot_files_include_the_two_older_autosave_copies_and_all_sidecars():
+    slot = lambda name: sb.file_slot(Path(name))
+    for name in ("Virtual Families1.ldw", "Virtual Families21.ldw", "Virtual Families41.ldw",
+                 "Virtual Families 1 Patcher Data/Children/Virtual Families41.ldw.dat",
+                 "Virtual Families 1 Patcher Data/Children/Virtual Families21.ldw.unreadable-3.dat",
+                 "Virtual Families 1 Patcher Data/Slot 1.ini"):
+        assert slot(name) == 1, name
+    assert slot("Virtual Families45.ldw") == 5 and slot("Virtual Families25.ldw") == 5
+    for name in ("Virtual Families0.ldw", "Virtual Families20.ldw", "Virtual Families40.ldw",
+                 "Virtual Families0.ldw.dat"):
+        assert slot(name) == sb.SHARED, name
+    assert slot("Virtual Families6.ldw") == "unknown" and slot("Virtual Families46.ldw") == "unknown"
+
+
+def test_a_one_slot_restore_takes_exactly_that_slots_files_and_never_the_shared_ones(tmp_path):
+    save = _slot_folder(tmp_path)
+    backup = sb.back_up_save_folder(save, FakeProcesses(), NOW).backup_folder
+    for p in save.rglob("*"):
+        if p.is_file() and "Backups" not in p.parts:
+            p.write_bytes(b"new")
+    plan = sb.plan_restore(save, backup, 1)
+    assert sorted(p.name for p in plan.replace) == sorted([
+        "Virtual Families1.ldw", "Virtual Families21.ldw", "Virtual Families41.ldw",
+        "Virtual Families1.ldw.dat", "Virtual Families21.ldw.dat", "Virtual Families41.ldw.dat",
+        "Virtual Families1.ldw.unreadable-2.dat", "Slot 1.ini"])
+    sb.restore_backup(save, backup, 1, FakeProcesses(), NOW + timedelta(hours=1))
+    for n in (1, 21, 41):
+        assert (save / f"Virtual Families{n}.ldw").read_bytes() == b"old %d" % n
+    for n in (0, 2, 20, 22, 40):
+        assert (save / f"Virtual Families{n}.ldw").read_bytes() == b"new", n
+    assert (save / "ldwLog.txt").read_text() == "new"
+    assert (save / sb.PATCHER_DATA_FOLDER / "Slot 2.ini").read_text() == "new"
+    assert (save / sb.PATCHER_DATA_FOLDER / "Children" / "Virtual Families2.ldw.dat").read_bytes() == b"new"
+
+
+def test_the_whole_folder_restore_still_restores_the_shared_files(tmp_path):
+    save = _slot_folder(tmp_path)
+    backup = sb.back_up_save_folder(save, FakeProcesses(), NOW).backup_folder
+    (save / "Virtual Families0.ldw").write_bytes(b"new")
+    (save / "ldwLog.txt").write_text("new")
+    sb.restore_backup(save, backup, None, FakeProcesses(), NOW + timedelta(hours=1))
+    assert (save / "Virtual Families0.ldw").read_bytes() == b"old 0"
+    assert (save / "ldwLog.txt").read_text() == "old log"
+
+
+def test_backup_lists_only_real_slots(tmp_path):
+    save = _slot_folder(tmp_path)
+    sb.back_up_save_folder(save, FakeProcesses(), NOW)
+    assert sb.list_backups(save)[0].slots == [1, 2]
