@@ -1,0 +1,529 @@
+# Virtual Families 1: "Game Mechanics" window spec (read-only research), v1
+
+Target: the vanilla `Virtual Families.exe` 1.01.00 (SHA-256 `5DB828C3...ECA4487`, the vanilla hash in
+`docs/vf1-save-format.md`), analysed from a copy. Every address is a VF1 virtual address (image base 0x400000, no
+ASLR). Layout and section numbers follow the VF2 patcher's Game Mechanics spec so the two line up; every fact was
+re-traced in VF1's own exe, and no VF2 number was copied. Where VF1 differs from VF2 the row says so.
+
+Inputs read: the VF1 static RE notes `time.md`, `villagers.md`, `house_store.md` (kept outside the repo; the VF1 repo
+has no `discoveries.md` on any branch); `docs/vf1-save-format.md` (origin/feat/save-reader); the VV1 spec and
+clamp_verify method. Nothing in any repo, save or install was changed; no game was launched; nothing was pushed.
+
+## Evidence labels
+
+- **VERIFIED-E**: the routine was run as linked inside unicorn (`vf1emu.py`) with the inputs the game supplies, and
+  the odds were counted over every value of the roll. `GetRandom(N)` 0x403650 is `rand() % N` (CRT rand
+  0x498BD8, MSVC LCG). Over the LCG's full period every 15-bit value 0..32767 appears equally often, so each forced
+  result v is weighted by #{r < 32768 : r % N = v} / 32768. These are the game's exact odds; "rand(100) < 30" is
+  30.03%, not 30%.
+- **VERIFIED-C**: the routine sits on a traced call path (section 0) and the rule is the instruction sequence itself
+  (constants, compares, one roll), read in VF1's disassembly.
+- **UNCONFIRMED**: not on a traced path, reached only from player input that was not traced, a meaning the code does
+  not show, or a patcher DLL behaviour read from its source but not run. Stated as such.
+- Nothing is inferred from save values alone. No design choice is called a bug.
+
+**Speeds.** VF1's speed value (theGameState+0x1B180) is a divisor: one age unit takes 60 x speed real seconds, and
+CGameTime game seconds run at 10/speed of real time (`CGameTime::Seconds` 0x422320). Stock VF1 only ever writes 10;
+the patcher's Time Controls adds **Slow 20, Normal 10, Fast 5** (and 5x = 2, 10x = 1). Real times below are written
+**Slow / Normal / Fast**. Paused = speed + 999.
+
+## 0. Reachability (traced, `reach.py`)
+
+Recursive descent from the PE entry with vtables made live when reached code stores them (the VV1 method), plus the
+CRT static-initializer tables (`_initterm` 0x4B2464..0x4B2540 and 0x4B2544..0x4B2560, pushed by the CRT at
+0x4989B2..0x4989DA); without them the behaviour table (below) was missed.
+
+- **Frame loop**: entry 0x49BCD2 -> CRT start -> `WinMain` 0x425240 (call at 0x49BC64) builds theGame (vtable
+  0x4B5E04, 0x4252DB) and calls vtable +0x18 = `ldwGame::Run` 0x402CC0 (0x4252FA). Run calls vtable +0x1C =
+  `theGame::GameUpdate` 0x422D90 every frame (0x402CD7). GameUpdate case 0 gets the main scene (0x444D30) and calls
+  its vtable +0x10 = 0x40C460 (0x422E0D), which calls vtable +0x20 = `theMainScene::UpdateScene` **0x444DB0**
+  (0x40C471) while the house screen is active.
+- **Frame rate**: theGameState vtable +0x28 = 0x402FA0 returns **30**. How the window uses it was not traced, so
+  "per frame" rolls are given per frame and converted at 30 fps as an upper bound. VERIFIED-C (getter only).
+- **Inside UpdateScene** (VERIFIED-C):
+  - **2-second step** (0x444E28..0x444EE0: `ldwEventManager::GetSeconds() >= scene+0x30`, then +0x30 = now + 2):
+    `theRealtimeManager::UpdateAll` **0x424F80** (0x444E9A) -> `AllVillagersTimeflowUpkeep` **0x489D00** (0x424F89)
+    and `AllVillagersRealtimePhysiologyAndProductivityUpkeep` **0x48BC90** (0x424F93), then max population and the
+    game-over tip; then the house-malfunction roll (0x444ECD). This step reads no pause flag.
+  - Per frame: the island-event timer (0x445271), the marriage e-mail timer (0x4451EF), `CCollectableItem::Update`
+    0x414BF0 (collectibles and messes), villager plans (0x489CC0 -> 0x486F20 -> 0x489540 -> 0x48E350).
+- **Behaviour table**: the initializer 0x480260 registers **217** behaviour functions (code 0x452420..0x480260) into
+  the table object 0x5AAA38 (`behaviours.py`). They hold 4,492 of the 5,087 roll sites (section 18).
+- Store, drag-and-drop and dialog handlers are player input; their dispatch through the framework was not traced, so
+  rules that run only there are marked.
+
+## 1. Clock, speed, pause, time away
+
+| Item | Rule | Real time | Save (file offset) | Status |
+|---|---|---|---|---|
+| Speed | gs+0x1B180. Stock writes only 10 (Options "No" 0x41E21B, Space 0x440CB2, theChangePlayerDlg 0x41C169, theCreateNickNameDlg 0x41C701). Patcher Time Controls writes 20 / 10 / 5 (/ 2 / 1) and always saves 10 (paused stays paused) | | 0x1B190 | VERIFIED-C (stock writers); patcher behaviour from `features.inc` source: UNCONFIRMED |
+| Pause | Options "Yes" 0x41E1CC: `SetSpeed(999)` and **gs+0x1B180 += 999** (add, not set). Space: paused -> speed - 999 (0 becomes 10); else pause. Options "No" sets 10 | | | VERIFIED-C |
+| Game seconds | `CGameTime::Seconds` 0x422320 = banked + (real s since the last speed change) / (speed/10). Paused (999) runs at 1/99.9 speed, not frozen | 1 game s = 2 / 1 / 0.5 real s | CGameTime 0xDA74 | VERIFIED-C |
+| Real seconds | `GetSecondsFromGameStart` 0x4036D0 = now - header epoch; keeps running while the game is closed | | header +8 (i64) | VERIFIED-C |
+| Age unit | `AllVillagersTimeflowUpkeep` 0x489D00 adds real s since the villager's stamp to a bank, ages bank / 60 / speed units, keeps the remainder | **1 unit = 20 / 10 / 5 min; 1 year (20 units) = 6 h 40 m / 3 h 20 m / 1 h 40 m** | rec +0xA8 bank, +0xAC stamp | VERIFIED-E (`t_timeflow.py`: 1200 / 600 / 300 s give 1 unit; 1 s less gives 0) |
+| Catch-up cap | bank > 86,400 -> **86,400** and the speed rule is skipped; otherwise speed 5: > 38,200 -> 31,000; speed 20: > 23,800 -> 31,000; speed 10 and any other value: > 31,000 -> 31,000 | see table below | | VERIFIED-E |
+| While paused | speed >= 999: bank set to 0 every step: **no aging, and the paused time is never credited** | | | VERIFIED-E (1005 / 1009 / 1020: 0 units after 3 days) |
+| A villager with stamp 0 | skipped (never ages) | | | VERIFIED-E |
+| Day / night | `CNight::GetTimeOfDay` 0x4912C0 = **PC local clock** hour + min/60 + CNight+0x680 (always 0), +12 h with Reverse Day/Night (gs+0x1B184) | follows the PC clock | 0x1B194 | VERIFIED-C |
+
+**Time away, emulated** (`t_timeflow.py`, `out_clamp.txt`; credited = units x 60 x speed + bank). This settles the
+two readings: **reading B is what the code does.**
+
+| Bank (s away) | Slow (20) | Normal (10) | Fast (5) |
+|---|---|---|---|
+| 23,800 (6 h 36 m 40 s) | 23,800 s, 19 u | 23,800 s, 39 u | 23,800 s, 79 u |
+| 23,801 | **31,000 s, 25 u** | 23,801 s, 39 u | 23,801 s, 79 u |
+| 30,000 | 31,000 s, 25 u | 30,000 s, 50 u | 30,000 s, 100 u |
+| 31,001 | 31,000 s, 25 u | 31,000 s, 51 u | 31,001 s, 103 u |
+| 38,201 | 31,000 s, 25 u | 31,000 s, 51 u | **31,000 s, 103 u** |
+| 50,000 | 31,000 s, 25 u | 31,000 s, 51 u | 31,000 s, 103 u |
+| 86,400 (exactly 24 h) | 31,000 s, 25 u | 31,000 s, 51 u | 31,000 s, 103 u |
+| 86,401 and more (200,000) | **86,400 s, 72 u (3.6 y)** | **86,400 s, 144 u (7.2 y)** | **86,400 s, 288 u (14.4 y)** |
+
+So: up to 6 h 36 m 40 s / 8 h 36 m 40 s / 10 h 36 m 40 s counts in full; from there to exactly 24 h counts as
+8 h 36 m 40 s (on Slow that is *more* than the time away between 6 h 37 m and 8 h 37 m); more than 24 h counts as
+24 h. The bank also carries the remainder from the last pass (< 60 x speed s). VF1 differs from the VF2 spec, which
+reports a single 31,000 s cap.
+
+## 2. Per-unit villager upkeep (the core of every need)
+
+`AllVillagersRealtimePhysiologyAndProductivityUpkeep` 0x48BC90, from the 2-second step. For every present,
+at-home villager with health > 0 it processes each unit n from processed age (rec +0xB0) up to the age, one at a
+time, repeating passes until nobody is behind, so a catch-up replays every credited unit in one frame. Status
+VERIFIED-E (`t_phys.py`, `t_life.py`, `out_life.txt`, `out_life2.txt`) unless marked.
+
+| Every | Rule | Address |
+|---|---|---|
+| 4 units (80 / 40 / 20 min) | Hunger +5 (`0x48FD30`; above 80 the gain is halved to +2) | 0x48BD21 |
+| 3 units (60 / 30 / 15 min) | Health state, happiness state, sickness check (below) | 0x48BD49..0x48BD5E |
+| even units, only the last 12 units of a catch-up | Energy state (below; reads the PC clock) | 0x48BD8A (VERIFIED-C) |
+| 3 units | **Salary**: money + salary x 3 / 24 = **salary / 8**, paid whatever the career field holds (a careerless villager with a non-zero salary field is paid) | 0x48BDD4 |
+| unit | Poo (rec +0xF0) >= 90: set to 25..49 (25 + rand(25)) | 0x48BDF6 |
+| unit | **Eating**: food > 0 and (food > 50, or a 50.05% roll when food <= 50): if hunger > 50, food -3 and hunger -3. Otherwise (no food, or the missed roll): 30.03% chance of health -1 (cause 1) | 0x48BDFB..0x48BE55 |
+| unit | **Waste**: food >= 1,000 and hunger > 50: 76.05% chance of 3 more food used | 0x48BE5A |
+| unit | **No food** (food <= 0): health -1 (cause 1) with 76.05%, or **always** when the villager's name index (rec +0x10) is a multiple of 6; then, at health <= 20 with an odd name index not a multiple of 6, a 31.03% chance of +1 | 0x48BE8A..0x48BF22 |
+| unit | **Sick**: 61.06% chance of health -1 (cause 0); at health <= 20 it also needs a 31.03% roll (18.95% in all) | 0x48BF27 |
+| unit | **Recovery** (food > 0, not sick): 50.05% chance of +1 health; at age 55+ (`IsNotOld` 0x4897E0 false, age >= 1,100 units) 50.05% x 20.02% = 10.02% | 0x48BF6A |
+| birthday unit (n % 20 = 0) | **Old age** (section 4) | 0x48BFC6 |
+| unit | **Birth** when pregnant (section 6) | 0x48C073 |
+| unit, catch-up only (more than 2 units behind), adult with a career, not sick, not pregnant | `0x488F80` unwatched work (section 7) | 0x48C307 |
+| unit | Age 700 / 900 / 1,000 / 1,200 / 1,300 units advance achievements 0x5D..0x61 | 0x48C391 |
+
+**Health limits** (`AdjustHealth` 0x48F860, VERIFIED-E): a loss below 15 health and a gain above 90 are halved
+(C truncation), and a +1 above 90 is zeroed outright. So **-1 losses never take health below 14**, and **+1 recovery
+never takes health above 91** (health 95: 0% recovery). Starvation (cause 1) and disease (cause 0) only ever pass
+-1, so they cannot kill on their own; health reaches 0 through the health-state step (-5..-2 below 15 becomes -2..-1,
+cause -1 "Unknown") or event damage. `SetHealth` stores the cause only when health <= 0; otherwise cause = -1.
+
+Record offsets (file = 0xE7A0 + slot x 0x6B8 + offset; section 19): energy +0xDC, happiness +0xE0, happiness trend
++0xE4, hunger +0xE8, dirtiness +0xEC, poo +0xF0. Info-panel labels: the panel sets bar 0xA from happiness, 0xB from
+100 - hunger ("Fed"), 0xC from energy and 8 from health (0x44B927..0x44B976); the label strings Happiness 0x2F, Fed
+0x31, Energy 0x32 and Health 0x431 are created at 0x44B307..0x44B499. Which bar each label sits beside: UNCONFIRMED
+(layout not traced).
+
+### Health state (every 3 units, `UpdateHealthState` 0x48FE80) VERIFIED-C
+Delta = 0; -1 if happiness <= 10; -1 if hunger >= 90; another -1 if hunger >= 100; -1 if exactly 1 food group is
+active; +1 if exactly 4 are active (5 counts as neither); if sick: -1 with 15.01% (symptoms only) or 40.04% (with an
+infection). Clamped to -5..+5, applied with cause -1 through the health limits above.
+
+### Energy (`0x490570`) VERIFIED-C
+Delta: -4 if energy >= 10 and the PC clock is >= 20:00 or < 05:00; +8 if energy <= 70 and the clock is
+05:06..17:00; -1 each for happiness <= 10, health <= 25, health <= 10, hunger >= 90; -3 if sick; clamped -6..+10;
+applied by `AdjustEnergy` 0x48F910 (halved when falling below 10 or rising above 80; energy kept 1..100).
+
+### Happiness (every 3 units, `0x48FF30`) VERIFIED-C
+A trend (rec +0xE4, -500..500) collects: happiness < 25: +100 / > 85: -100; food groups: 10 x groups - 20;
+`UpdateInterest`, then money < 1,000: -30, < 100: another -75, > 8,000: +35; food <= 250: -100, <= 50: another -100;
+sick: -150; mess (socks + weeds + wrappers + smudges): >= 10: -40, >= 20: another -40, 0: +50, 1..4: +25;
+**+10 per owned house upgrade** (15 flags gs+0x2C..0x10C); like-specific bonuses for owned upgrades (+10..+45 per
+match); for each liked career room (likes 0x27 / 0x51 / 0x50), 500 x (room level - 1); the head couple's own career
+level x 10 (everyone else +50); population 1: -75, else 40 x population - 60; for the couple, 30 x (2 - |desire
+difference / 20|); hunger >= 90: -100; health <= 10: -100. Then happiness += clamp(trend/100, -5, +5) (-2 instead
+of a gain when food <= 5 or sick; halved below 20 / above 80) and the trend is halved.
+
+### Food groups (nutrition) VERIFIED-E
+Four groups: Grains, Dairy, Meats, Fruits and Veggies (item short names 4..7 / 8..11). Putting a bag in the kitchen
+(0x446DEC..0x446E70, player drop) runs `0x48A680(group, organic)`: every present, at-home, living villager gets that
+group until **real time + 86,400 s (24 real hours, any speed)**; organics also add trend +5..+14 and happiness
++0..2. Food: groceries +150, organics +250. `FoodGroupsActive` 0x48FE30 loops over **five** slots: the fifth flag
+is the low byte of group 1's expiry and its expiry is the career id. Emulated (`t_groups.py`): a **careerless**
+villager with N >= 1 groups counts **N + 1**; an employed villager counts N, and each call clears that low byte
+(group 1 then ends up to 255 s earlier). Code as built (see section 20).
+
+## 3. Sickness and symptoms (every 3 units, `UpdateDisease` 0x490640) VERIFIED-E
+
+Seven symptoms (rec +0x104..+0x10A, expiries +0x10C..) and two infections, mild (rec +0x128) and serious (+0x129).
+Symptom names and the medicine for each: UNCONFIRMED (the store sells Throat Lozenges, Peptic Syrup,
+Anti-inflammatory Pill, Antitussive Syrup, Cortisone Cream, Antihistamine, Penicillin, Vancomycin; the mapping was
+not traced).
+
+- Healthy villager, per check: rand(1000) < base, base 10, **25 when anyone at home has a symptom** (`0x48B1F0`;
+  that villager's first symptom is passed on), -2 with exactly 3 food groups, -5 with a count of 5. If hit:
+  rand(100) < 3 serious infection, < 10 mild infection, else one symptom.
+
+| Case | Any | Symptom | Mild | Serious |
+|---|---|---|---|---|
+| employed, 0 or 4 groups | 1.007% | 0.906% | 0.071% | 0.030% |
+| employed, 3 groups | 0.806% | 0.725% | 0.056% | 0.024% |
+| careerless, 4 groups (counted as 5) | 0.504% | 0.453% | 0.035% | 0.015% |
+| a sick housemate | 2.518% | 2.266% | 0.176% | 0.076% |
+
+  Every 60 / 30 / 15 real minutes.
+- A symptom lasts until **real time + 6..17 h** (`0x48FD80`: (rand(12) + 6) x 3,600 s; emulated 21,600..61,200 s,
+  any speed); a symptoms-only villager loses its first symptom when that time passes (`0x48FDC0`).
+- Mild infection: 50.05% chance to add a random symptom when it has none; ends with rand(100) < 3 (3.00%).
+- Serious infection: 50.05% chance to add a new symptom while it has fewer than 2; ends with rand(250) < 3 (1.21%).
+- Effects of being sick: section 2 (61% health loss per unit, no recovery, trend -150, energy -3, unwatched work / 8,
+  health-state roll).
+- Medicines, the Doctor Consultation and Baby Boost are player actions: UNCONFIRMED.
+
+## 4. Death
+
+| Cause | Rule | Status |
+|---|---|---|
+| Old age | Birthday units only (n % 20 = 0). Threshold T = 1,100 + 20 x food groups counted + 20 Air Purifier (gs+0x4C) + 20 Bathroom Upgrade (gs+0x8C) + 60 if health > 90. If n > T: death chance = 10% x (years - T/20), SetHealth(0, cause 2). | VERIFIED-E (`t_life.py`, `t_groups.py`) |
+| Disease, starvation | -1 steps stop at 14 health (section 2), so they lower health but cannot reach 0 by themselves | VERIFIED-E |
+| Unknown (-1) | the health-state step or other damage reaching 0 | VERIFIED-C |
+| Work accident (3), Act of Nature (4) | no VF1 call site passes them | VERIFIED-C (absence in the AdjustHealth / SetHealth callers listed in time.md) |
+| Body removal | a dead villager stays present until **240 units of real time** after its last upkeep stamp, then `ReportDeath` 0x481CF0 and present = 0 (0x489D31..0x489D8F): **80 h / 40 h / 20 h** (emulated at 239 / 240). The death behaviour's own end (0x48E1D4) usually removes it first: UNCONFIRMED timing | VERIFIED-E (timer) |
+
+Old-age table (employed villager, health <= 90, no upgrades; % per birthday):
+
+| Food groups | 10% at | 50% at | 100% at |
+|---|---|---|---|
+| 0 | 56 | 60 | 65 |
+| 1 | 57 | 61 | 66 |
+| 2 | 58 | 62 | 67 |
+| 3 | 59 | 63 | 68 |
+| 4 | 60 | 64 | 69 |
+
+Each extra +20 (Air Purifier, Bathroom Upgrade, health 91) moves the table one year later. Best case (careerless,
+4 groups counted as 5, both upgrades, health 91): 10% at 66 ... 100% at 75. **No villager can live past 75** in stock
+VF1. A birthday that falls inside a catch-up is rolled like any other.
+
+Cause names (string ids 0x507 + cause + 1): -1 Unknown causes, 0 Disease, 1 Starvation, 2 Old age, 3 Work accident,
+4 Act of Nature; the code that picks the string was not found: UNCONFIRMED. Save: rec +0xB4 health, +0xB8 cause.
+
+## 5. Aging and life stages
+
+| Stage | Age units (years) | Source | Status |
+|---|---|---|---|
+| Newborn | created at 40 units (2 y) | `Impregnate` passes 0x28 to the spawner (0x48661E) | VERIFIED-C |
+| Child / adult split | 280 (14) | adult count 0x48ACD0, interactions 0x4410C9 | VERIFIED-C |
+| No career at creation | age/20 <= 16 (< 340) | `CVillager::Init` 0x4852C3 | VERIFIED-C |
+| Adult-adult interactions | 360 (18) | 0x441142 | VERIFIED-C |
+| Leaves home | crossing 380 (19) with no career | section 9 | VERIFIED-E |
+| Older head sprites | 900 (45) | 0x48B5AE | VERIFIED-C |
+| Old (`IsNotOld` false) | 1,100 (55) | 0x4897E0 | VERIFIED-E |
+| Maximum | none in code; old age ends every life by 75 | section 4 | VERIFIED-E |
+
+Oldest-ever statistic GameStats+0x20 (file 0xDA60) in years (0x489EE4, VERIFIED-E). Children are drawn scaled by
+(age/14 + 80)% below 280 units (0x48B5FF, VERIFIED-C).
+
+## 6. Pregnancy and birth
+
+- **Who**: only the Matriarch (first present, at-home, living woman with a career) with the Patriarch. Plan step 0x41
+  in `ProcessCurrentPlan` 0x48E350 (0x48EB33..0x48EBB2) needs both, needs the acting villager to be female, rolls
+  `ChanceOfPregnancy` on the mother and calls `Impregnate` 0x4864D0. The step is queued by behaviours 0xD6, 0xDE and
+  0xE8; the player's drop starts "try for a baby" behaviours 0x127 / 0x128 (0x4412E7, 0x441305), and the villager
+  AI at 0x494472 can start 0x127 too. How often the AI does so: UNCONFIRMED. VERIFIED-C (call sites).
+- **Conception odds** `ChanceOfPregnancy` 0x48FC10 (VERIFIED-E, `t_misc.py`; father 30, both fertility F):
+
+| Mother age | F 1 | F 25 | F 50 | F 75 | F 100 |
+|---|---|---|---|---|---|
+| 18-30 | 39.0% | 55.1% | 73.1% | 89.0% | 100% |
+| 31 | 17.0% | 33.0% | 51.0% | 67.1% | 83.0% |
+| 35 | 9.0% | 25.0% | 43.0% | 59.1% | 75.1% |
+| 40 | 0% | 15.0% | 33.0% | 49.0% | 65.1% |
+| 45 | 0% | 5.0% | 23.0% | 39.0% | 55.1% |
+| 50 | 0% | 0% | 13.0% | 29.0% | 45.0% |
+| 51+ | 0% | 0% | 0% | 0% | 0% |
+
+  Formula: rand(100) < 105 - (100 - motherF)/3 - (100 - fatherF)/3; fathers over 40 lose (years - 40)/5 (45: -1,
+  50: -2, 60: -4, 70: -6 points); mothers 31..50 lose 2 x (years - 20); over 50: 0. Fertility is 15..89 at creation
+  (rand(75) + 15), kept 1..100. VF1 has no "first try always succeeds" tip rule (VF2 has).
+- **Twins / triplets** (`Impregnate`, VERIFIED-C): bonus = (Matriarch fertility - 85 if > 85) + (Patriarch
+  fertility - 85 if > 85). Twins if rand(100) < 7 + bonus and at least 2 free child slots; then triplets if
+  rand(100) < 25 + bonus and 3 free slots. With no bonus: single 93.0%, twins 5.25%, triplets 1.75%. Needs at least
+  1 free slot (6 children per generation). When population <= 6 the baby's sex balances the house (0x48BBF0).
+- **Length**: delivered on the unit after conception + 20: **21 units = 7 h / 3 h 30 m / 1 h 45 m**
+  (emulated: stamp 600, still pregnant processing units 618..620, delivered at 621). Babies are spawned hidden at
+  conception (gs+0x1B120/24/28, file 0x1B130) and shown at birth. VERIFIED-E
+- **Cooldown** gs+0x1B150 (real seconds, file 0x1B160):
+  - set at a birth processed live: real time + 600 x (5 - motherDesire/20) x (5 - fatherDesire/20) s (desire =
+    "Wants kids?" rec +0xF8, 5..94 at creation): **10 min .. 4 h 10 min, any speed**; 1 when there is no Patriarch;
+  - a failed conception roll: real time + 1,200 s (20 min), mother's trend -50 (0x48EC55);
+  - Marry sets 1.
+  - It is read only by the drop handler (0x4412D2): before it passes, a drop gives the "too soon" behaviour and moves
+    the cooldown to now + 3,300 s if it was under an hour away. VERIFIED-C.
+- Save: rec +0xCC conception age, +0xD0 babies expected; GameStats+0x08 babies born.
+
+## 7. Careers and salary
+
+- **Assignment** `CVillagerSkills::Reset` 0x48EFF0: career = rand(108), level 0, salary from the table. 108 careers
+  with names (string 0x112 + id) and 8 level salaries: `careers.tsv` (`careers.py`). `CareerType` 0x48F080: ids
+  0..29 type 1, 30..78 type 2, 79..107 type 3 (the three career rooms; which room is which: UNCONFIRMED). Levels
+  Beginner, Novice, Apprentice, Licensed, Practiced, Accomplished, Exceptional, Master (0x1C1..0x1C8). VERIFIED-C
+- **Work roll** 0x48F050: success if rand(160) < 10 x level + 90: emulated **56.30% / 62.56% / 68.82% / 75.07% /
+  81.32% / 87.55% / 93.77% / 100%** for levels 0..7. Called from work behaviours (0x45D45F, 0x4711D4, 0x47EEB0);
+  how often a villager works: UNCONFIRMED. VERIFIED-E (the roll)
+- **Advance** 0x48F590 (VERIFIED-E, `t_career.py`): pay = salary x 3 x 0.01 per success; progress +
+  (20 / (level + 1)) x 7 / 3 / 2 / 1 (levels 0 / 1 / 2 / 3-6) x the career room's level (1..3; none at Master).
+  Progress 3,000 = promotion (level + 1, new salary, progress 0, life event 3, everyone celebrates). Successes per
+  promotion at room level 1: 22, 100, 250, 600, 750, 1,000, 1,500 (room 2: half; room 3: 8, 34, 84, 200, 250, 334,
+  500). Award events force progress 3,001.
+- **Unwatched work** 0x488F80 (catch-up units only): count = an AI value (villager +0x6D44 / +0x537C / +0x7384 by
+  career type) / 400, 0 if pregnant, / 8 if sick; each count has a 1-in-6 (16.67%) chance of a **paid** advance.
+  The AI value's meaning: UNCONFIRMED. VERIFIED-C
+- **Salary** every 3 units: salary / 8 (section 2) = **salary / 8, / 4, / 2 per real hour** on Slow / Normal /
+  Fast, whether or not the villager is at work. VERIFIED-E
+- Room upgrades: CTech levels cost 0 / 5,000 / 15,000 (`CTech::GetPrice` 0x4229D0); purchase path UNCONFIRMED.
+- Save: rec +0x140 career, +0x144 level, +0x148 progress, +0x14C salary.
+
+## 8. Money, interest and the Special Upgrades
+
+| Item | Rule | Save | Status |
+|---|---|---|---|
+| Balance | float CMoney 0x50C60C; a payment that would go below 0 leaves 0 (emulated: -500 + interest -> 0) | 0xDBC8 | VERIFIED-E |
+| Interest | `UpdateInterest` 0x422830: whole game days (86,400 game s) since the due date; pays balance x 0.1 x days (+0.005) and moves the date on by those days. **No cap on days** (emulated 1, 2, 3, 7 days: +100, +200, +300, +700 on $1,000). Differs from VF2 (max 2 days). | next due 0xDBCC | VERIFIED-E |
+| Rate | the double 0.1 at 0x4B4520 (10% per game day: 48 h / 24 h / 12 h real); the Bank dialog's "10%" label reads the float 10.0 at 0x4B4528 | | VERIFIED-C |
+| When paid | called by the happiness state (every 3 units), the Bank and store dialogs and events, so a gap is paid in one lump | | VERIFIED-C |
+| New game money | $50..189 (`Money.Set(rand(140) + 50)` in the adoption scene) | | VERIFIED-C |
+| Patcher: Brokerage Account | bank rate 11% (`BankInterestPercent`), applied through `ApplyInterestRate` | Slot N.ini | UNCONFIRMED (patcher source) |
+| Patcher: Food Club | +500 food per game day missed (no cap), half price on groceries 4..11 | Slot N.ini `FoodClubLastDelivery` | UNCONFIRMED (patcher source) |
+| Patcher: Health Plan | medicines 20..29 at 1/4 price | Slot N.ini | UNCONFIRMED (patcher source) |
+| Patcher: Lucky Rock | collectible rarity thresholds 4 / 17 become 8 / 34 (section 15) | Slot N.ini | UNCONFIRMED (patcher source) |
+| Patcher: Maid / Gardener | hourly visits (game s) that clear the house mess / the weeds | Slot N.ini | UNCONFIRMED (patcher source) |
+
+## 9. Leaving home
+
+| Route | Rule | Status |
+|---|---|---|
+| Age 19 | `AllVillagersTimeflowUpkeep` 0x489E96: when age crosses **380 units** and `CareerType` is 0 (no career): plans dropped, `SetLeftHome` (rec +0x001 = 1, +0x004 = game s), life event 5. Children get no career (`Init` below 340), so every child not made heir leaves at 19. Emulated: age 379 -> 380 leaves with no career, stays with a career, nothing while paused. | VERIFIED-E |
+| Talent Scout (event 58) | pop-up, needs a child; choice A sends the event's target away | UNCONFIRMED (the harness had no target villager) |
+| After leaving | the villager keeps its slot, is saved, never ages or updates again, is not Matriarch / Patriarch, but `Population` 0x48AC90 still counts it (it checks only present and health) | VERIFIED-C |
+
+The game's own name for this (college / boarding school): UNCONFIRMED (no reader of the college strings traced).
+
+## 10. Dating, marriage, adoption, next generation
+
+| Item | Rule | Status |
+|---|---|---|
+| Marriage e-mail timer | gs+0x1B154 (game s, file 0x1B164). **now + 180 s** after the founder or heir is adopted (0x436931); when the dating scene opens (0x4385B0): now + 300 x proposals so far (gs+0x1B158) + 600 per year the single head is over 26. When due, with exactly one present living at-home 14+ villager and a family record that `CanMarry`: e-mail 2 (dating). The first one comes 6 / 3 / 1.5 real min after the adoption. | VERIFIED-C |
+| Candidate | `GeneratePeepCandidate` 0x4383D0: age = head's age + 20 x (rand(6) - 3) units (**-3..+2 years**), **opposite sex** (`sete dl` 0x43844D); dowry rand(175) + 35 = **$35..209**, doubled with 15.01% (0x4384F9). Reroll discards the previous candidate. | VERIFIED-C |
+| Marry | only when both Matriarch and Patriarch exist (0x4382BF): cooldown 1, dowry paid, `UpdateParents` (spouse in record parent 2), life event 1 | VERIFIED-C |
+| Founder | `CAdoptionScene::GeneratePeepCandidate` 0x436540: sex rand(2), age 20 x (24 + rand(6)) units (**24..29 years**) | VERIFIED-C |
+| Next generation | `ReportDeath` sets "next generation" when a parent with children dies while a child survives; the family-tree screen offers it; choosing an heir runs `StartNextGeneration` 0x481B30 and **hides every other villager** (0x4368F0). No remarriage while children are in the record. | VERIFIED-C (code); heir choice is player input |
+| Child limit | 6 per generation (`EmptyOffspringSlots` 0x4816E0); 30 villager slots; 30 generations | VERIFIED-C |
+| Little Visitor (events 49 / 50) | pop-up; choice A adds a child (`AddOffspring` with no parents in the bio, save doc) | UNCONFIRMED (the harness had no target villager) |
+| Adoption Day (41) | everyone runs behaviour 0x48AB50 group action; no family change | VERIFIED-E |
+
+## 11. Island events
+
+**Timing** (`UpdateScene` 0x445271..0x445358, every frame, VERIFIED-C): when game seconds >= gs+0x1B14C (file
+0x1B15C; first one 900 game s after a new village, 0x424368) and Population > 0, a random villager is picked
+(0x48A490); if that villager is alive, fully caught up (age = processed age) and no e-mail is pending: **66.02%**
+queue an island-event e-mail, **33.98%** fire a pop-up event now; either way the next check is **now + 3,600 game s
+= 2 h / 1 h / 30 min real** (paused: 99.9 h real). Otherwise nothing happens and the check repeats next frame.
+Selection (`0x41B1F0`, VERIFIED-C): uniform (rand(count)) among events 1..71 whose `CanFire` (vtable +4) is true and
+whose e-mail flag (vtable +0x14) matches; the "fired" byte 0x502048+i is written and never read, so events repeat.
+Opening the e-mail fires an e-mail event (0x41B3A0). Island state is not saved.
+
+**Registry** (71 events, built by running the constructor 0x419EE0: `t_events.py` -> `events_registry.tsv`). Effects
+from running CanFire / CalcAward / ImpactGame as linked in a test house (mother 30, father 31, child 10, baby 3,
+$1,000, 500 food): `t_evfx.py` -> `events_emulated.txt`. Award ranges are exact (every roll forced to 0 and N-1).
+"target" = the event acts on a villager the dialog supplies; those rows are UNCONFIRMED.
+
+| # | Event | Kind | Effect (choice A / B) | Status |
+|---|---|---|---|---|
+| 1 | A Secret Admirer | e-mail | none (CanFire false in the test house) | VERIFIED-E |
+| 2 / 3 | Electric Bill Correction (error / gift) | e-mail | -$5..24 / +$5..24 | VERIFIED-E |
+| 4 | Spam "Funny" | (never) | CanFire is the shared `return false`: never fires | VERIFIED-C |
+| 5 / 6 | Professional Association Fee / Rebate | e-mail | -$5..7 / +$5..14 | VERIFIED-E |
+| 7, 8 | Professional Network, Professional Association Award | e-mail | career advances on a target | UNCONFIRMED |
+| 9 | Infringement Complaint | e-mail | none seen | UNCONFIRMED (target) |
+| 10 / 11 | Tax Audit (fee / gift) | e-mail | -$100 / +$100 | VERIFIED-E |
+| 12-15 | Spam (Bigger Brain, Nigerian Lottery, Car Insurance, What's What) | e-mail | none | VERIFIED-E |
+| 16-18 | Old Friend (good / bad / angry) | e-mail | none | VERIFIED-E |
+| 19 | Oh! A collectible! | e-mail | a forced-rare collectible (`Add(-1, .., true)`) | VERIFIED-C |
+| 20 | My Weather Machine | e-mail | visual weather only (VF1 has no weather type) | UNCONFIRMED |
+| 21 | An extra hammock | e-mail | everyone runs to the yard (behaviour) | VERIFIED-E |
+| 22, 23, 24 | Birthday present, Preferred Customer Rebate, Craft Fair | e-mail | +$10..50 / +$5..79 / +$35..45 | VERIFIED-E |
+| 25 / 26 | The Rebate (deny / accept) | e-mail | none / +$50 (CanFire false in the test house) | VERIFIED-E |
+| 27, 28 | Helpful Child, Bad Cookies | e-mail | +$5..54 / -$5..100 | VERIFIED-E |
+| 29, 30, 33, 35 | Office Collection x2, Overdue Book, Bake Sale | e-mail | -$4..40 / -$5..50 / -$5..50 / -$6..60 | VERIFIED-E |
+| 31, 32, 34 | Best Landscape Award, Kite Contest, Hot Dog Contest | e-mail | +$5..50 / +$8..80 / +$5..50 | VERIFIED-E |
+| 36 | Neighborhood Children's Association | pop-up | -$20 (2 children) | VERIFIED-E |
+| 37, 38 | Earthquake, Aesthetic Society | pop-up | CanFire false in the test house | UNCONFIRMED |
+| 39 | Birdwatcher Society | pop-up | +$25 / 50 / 75 / 100 | VERIFIED-E (CanFire false in the test house) |
+| 40 | Allergy Season | pop-up | random villagers get symptom 6 | VERIFIED-E (count UNCONFIRMED) |
+| 41 | Adoption Day | pop-up | everyone celebrates | VERIFIED-E |
+| 42, 43 | TV Night, BBQ Party | pop-up | everyone does the activity (CanFire needs the item) | VERIFIED-E |
+| 44 | The Broken Window | pop-up | +$1..30 (rand(30) + 1) | VERIFIED-E |
+| 45, 46 | Photo Contest, Community Association | pop-up | +$25..125 / -$20..100 | VERIFIED-E |
+| 47, 48 | Blowing Trash, Free Lawn Service | pop-up | 5..12 wrappers in the house / 5..12 weeds in the yard | VERIFIED-E |
+| 49, 50 | The Little Visitor | pop-up | A: a child joins | UNCONFIRMED (target) |
+| 51-53 | Small Package, Medium Brown Box, Sealed Green Bag | pop-up | A: a tray item | UNCONFIRMED (target) |
+| 54 | A Tiny White Box | pop-up | A: food x 2/3 (500 -> 334) | VERIFIED-E |
+| 55 | Scratch-Off Lottery Ticket | pop-up | none seen | UNCONFIRMED |
+| 56 | The Wrong Address | pop-up | A: -$100 | VERIFIED-E (what you get: UNCONFIRMED) |
+| 57 | The Delivery Truck | pop-up | none seen | UNCONFIRMED |
+| 58 | The Talent Scout | pop-up | A: the target child leaves | UNCONFIRMED (target) |
+| 59 | The Beauty Contest | pop-up | A: -$10 | VERIFIED-E (any prize UNCONFIRMED) |
+| 60-62 | Landscaping / Housekeeping / Total House Care | pop-up | A: -$20 weeds removed / -$20 socks, wrappers, cobwebs, smudges removed / -$50 all (house_store.md) | VERIFIED-E (money) |
+| 63 | The Mysterious Collector | pop-up | resets collections (house_store.md); CanFire false in the test house | UNCONFIRMED |
+| 64 | Water Pressure Surge | pop-up | B: five leaks (props 0x1B, 0x1C, 0x1E, 0x19, 0x1A) | VERIFIED-C (emulation stopped in `SetProp`) |
+| 65 | Professional Career Training | pop-up | A: -$250 and a promotion of the target | VERIFIED-E (money) |
+| 66 | The Trainer | pop-up | A: -$5 and **food set to 0** | VERIFIED-E |
+| 67 | The Cooking Class | pop-up | A: a kitchen mess (props) | VERIFIED-C (stopped in `SetProp`) |
+| 68 | The Power Failure | pop-up | A: food reset to 50..99 (`CFoodStore::Init`); B: a random villager gets symptom 2 | VERIFIED-E |
+| 69 | Career Change Counselor | pop-up | A: a new career for the target | UNCONFIRMED (target) |
+| 70 | The Rare Bird | pop-up | none seen | UNCONFIRMED |
+| 71 | School Fund-raiser | pop-up | A: -$25, +100 food | VERIFIED-E |
+
+Per-event odds of firing = 1 / (number of eligible events of its kind) at each check.
+
+**Roll the Dice** (patcher, `vf1fun.cpp`): $500, then `FireEvent` 0x41B360 (pop-up events, the same uniform pick);
+if no pop-up event can fire the $500 is refunded. The button is patcher UI: UNCONFIRMED (source read); the pick
+itself is VERIFIED-C.
+
+## 12. Weather
+
+VF1 has **no weather system** (no CWeather class; day and night follow the PC clock, section 1). The Weather Machine
+e-mail exists (event 20); what it changes: UNCONFIRMED.
+
+## 13. Messes and house malfunctions
+
+| Item | Rule | Real time | Status |
+|---|---|---|---|
+| Mess spawn | `CCollectableItem::Update` 0x414BF0 (every frame, skipped while speed >= 999): every 300 game minutes (population < 4) or **150** (4+), the elapsed count of items spawn in free junk slots (30 shared, house and yard): rand(100) < 20 and no cobweb: **a cobweb** at (0x3DE, 0x2D9); < 30: weed (yard); < 55: sock; < 80: candy wrapper; else dirt smudge (house). With a cobweb already out, rolls below 20 give a weed. The population >= 6 rate (k = 3) is never taken because the >= 4 test comes first. | every 10 h / 5 h / 2.5 h, or 5 h / 2.5 h / 1.25 h with 4+ people | VERIFIED-C |
+| Spawn odds per item | cobweb 20% (if none out), weed 10% (30% with a cobweb out), sock 25%, wrapper 25%, smudge 20% | | VERIFIED-C |
+| Counts | socks +0x6F8, weeds +0x6FC, wrappers +0x700, smudges +0x704, cobwebs +0x708 of CCollectableItem 0x501858; feed happiness (section 2) | | VERIFIED-C |
+| Blue sock (0x7E) | the expiry check (0x414C71) removes types <= 0x7E once their expiry passes; whether a spawned 0x7E sock vanishes at once (house_store.md) | | UNCONFIRMED (not emulated) |
+| House malfunction | 2-second step 0x444ECD: rand(800) == 1 (**1 in 800 per 2 s, mean 26.7 real min, any speed and also while paused**), none of props 0x16, 0x19, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F, 0x20 active: rand(8) picks one; each is skipped while its permanent-fix flag is set (gs+0x25C/0x20C/0x21C/0x27C/0x22C/0x23C/0x26C/0x24C) | | VERIFIED-C |
+| Kitchen garbage | gs+0x188 level, full at >= 20 (`AddGarbage` 0x423C50) | | VERIFIED-C |
+
+Prop names (sink and toilet leaks, clogged shower, dryer lint fire, power): the FreakOut strings 0x80..0x84 exist;
+the prop-to-name pairing is UNCONFIRMED.
+
+## 14. Food
+
+| Item | Rule | Save | Status |
+|---|---|---|---|
+| Store | `CFoodStore` 0x50C550, int, floor 0, no ceiling (`Adjust` 0x4221B0) | 0xDA3C | VERIFIED-C |
+| Start | 50..99 (`Init` 0x422160: 50 + rand(50)) | | VERIFIED-C |
+| Groceries | +150 per bag (items 4..7), organics +250 (8..11); food groups 24 real h (section 2) | | VERIFIED-C |
+| Eating / waste / starvation | section 2: 3 food per hungry villager per unit | | VERIFIED-E |
+| No daily food tick | food changes only through eating, bags, events and the patcher's Food Club | | VERIFIED-C |
+
+## 15. Collectibles
+
+| Item | Rule | Real time | Status |
+|---|---|---|---|
+| Spawn | every frame while speed < 999: rand(6,600) < 3 (0x414DF4) -> `Add(-1)` | at 30 fps: mean **73 s**, any speed | VERIFIED-C |
+| What | `Add` 0x414A20: a random registered area, base + rand(4); rarity rand(100): **rare (+8) 4.00%, uncommon (+4) 13.01%, common 82.99%**; patcher Lucky Rock 8% / 26% / 66%; `force` gives rare. Nothing spawns if that item is out, carried, or (photo pieces) owned. Insect areas need a garden state, photo areas gs+0x16C. | | VERIFIED-C |
+| Lifetime | 120 real s on the ground (+0x354) | | UNCONFIRMED (house_store.md reading, not re-traced) |
+| Sell | duplicates $5 / $15 / $50 | | VERIFIED-C (house_store.md) |
+
+## 16. Store rotation and sales
+
+| Item | Rule | Real time | Status |
+|---|---|---|---|
+| Specials | store slots 8..13 refresh every 0x3840 = 14,400 game s (0x496D80) | 8 h / 4 h / 2 h | VERIFIED-C (house_store.md reading) |
+| On Sale | one grocery (4 + rand(8)) at half price every 0xA8C0 = 43,200 game s (0x496CD0) | 24 h / 12 h / 6 h | VERIFIED-C (house_store.md reading) |
+| Prices | `GetPrice` 0x4968C0 (labels, buy, refund); upgrades `CTech::GetPrice` | | VERIFIED-C |
+
+## 17. Timers (every timer found on the traced paths)
+
+Clock: **R** real seconds since the save's start (runs while closed and paused), **G** game seconds (10/speed of
+real; paused 1/99.9), **U** age units, **F** frames, **S** the 2-second step (runs while paused).
+
+| Timer | Field (file offset) | Clock | Length | Slow / Normal / Fast | Status |
+|---|---|---|---|---|---|
+| Upkeep step | scene+0x30 | S | 2 s | 2 s | VERIFIED-C |
+| Age unit | rec +0xA8 / +0xAC | R | 60 x speed s | 20 / 10 / 5 min | VERIFIED-E |
+| Catch-up cap | | R | section 1 | | VERIFIED-E |
+| Dead body removal | rec +0xAC | R | 240 units | 80 / 40 / 20 h | VERIFIED-E |
+| Pregnancy | rec +0xCC | U | 21 units | 7 h / 3 h 30 m / 1 h 45 m | VERIFIED-E |
+| Baby cooldown | gs+0x1B150 (0x1B160) | R | 600 x (5-d1/20)(5-d2/20) s; failed try 1,200 s; drop 3,300 s | 10 min .. 4 h 10 m, any speed | VERIFIED-C |
+| Symptom | rec +0x10C.. | R | 6..17 h | same at every speed | VERIFIED-E |
+| Food group | rec +0x130.. | R | 86,400 s | 24 h | VERIFIED-C |
+| Interest | 0xDBCC | G | 86,400 s, every missed day paid | 48 / 24 / 12 h | VERIFIED-E |
+| Island event | gs+0x1B14C (0x1B15C) | G | 3,600 s (first: 900 s) | 2 h / 1 h / 30 min | VERIFIED-C |
+| Marriage e-mail | gs+0x1B154 (0x1B164) | G | 180 s, then 300 x proposals + 600 x years over 26 | 6 / 3 / 1.5 min first | VERIFIED-C |
+| Messes | CCollectableItem+0x6F4 | G | 300 / 150 game min | 10 h / 5 h / 2.5 h (or half) | VERIFIED-C |
+| Collectible spawn | per frame | F | 3 / 6,600 | mean 73 s at 30 fps | VERIFIED-C |
+| Collectible lifetime | slot +8 | R | 120 s | 2 min | UNCONFIRMED (house_store.md) |
+| House malfunction | per step | S | 1 / 800 | mean 26.7 min, also paused | VERIFIED-C |
+| Store specials / sale | Inventory | G | 14,400 / 43,200 s | 8 h / 4 h / 2 h; 24 / 12 / 6 h | VERIFIED-C |
+| Villager positions refresh | gs+0x1B314 | R | 40 s (pushed while paused) | 40 s | VERIFIED-C |
+| Autosave | gs+0x1B318 | R | 600 s (`AutoSaveGame` 0x423920 from GameUpdate) | 10 min | VERIFIED-C (time.md reading) |
+| Day / night | PC clock | wall | | follows the PC | VERIFIED-C |
+| "Where have you been?" | CGameTime+0x30 | R | shown when away > 23 h (0x4160A8) | | VERIFIED-C |
+
+## 18. Chance index (every rand call)
+
+`rindex.py` -> `rand_sites.tsv` (address, function, N, next instructions) and `timer_sites.tsv`. Reached code holds
+**5,087 of the 5,088** `GetRandom` call sites in .text (the one not reached is 0x44CAC4) and all 178 clock sites.
+
+| Class | Sites | Meaning |
+|---|---|---|
+| behaviour | 4,492 | the 217 registered behaviours (action lengths, variants, walk targets); rewards not decoded: UNCONFIRMED |
+| island events | 67 | section 11 |
+| other | 528 in 135 functions | frame path, upkeep, setup, UI, input |
+
+Gameplay rolls covered above (exact odds over the game's rand): `UpdateScene` rand(800) malfunction, rand(8) which,
+rand(100) < 66 island-event e-mail; upkeep 0x48BC90 rand(25) poo, rand(100) x 10 eating / waste / starvation /
+sickness / recovery / old age, rand(64) x 6 newborn positions; `AdjustHealth` rand(100) (+1 damping), hunger
+rand(100); `UpdateDisease` rand(1000), rand(100), rand(7), rand(250); `UpdateHealthState` rand(100) x 2;
+`SetSymptom` rand(12); `ChanceOfPregnancy` rand(100); `Impregnate` rand(100) x 2; unwatched work rand(6); work
+rand(160); career rand(108); nutrition rand(10), rand(3); `CCollectableItem::Update` rand(6600), rand(100), rand(4 /
+6 / 3); `Add` rand(4), rand(100); `FireEvent` rand(eligible); dating rand(6), rand(175), rand(100); founder rand(6),
+rand(2), money rand(140); food start rand(50); villager creation (`Init` 0x484EE0, 16 sites: looks, names, voice,
+fertility rand(75)+15, desire rand(90)+5, career level 8%). The rest of the "other" class is cosmetic or UI: the 58
+in 0x442B30 and 57 in 0x493210 are the largest groups, not decoded (UNCONFIRMED).
+
+## 19. Per-save values the window can read (file offsets, 24-byte header; file = gs + 0x10)
+
+| Value | File offset | Section |
+|---|---|---|
+| Header epoch (real-time base) | 0x08 (i64) | 1 |
+| Speed (10; +999 paused) | 0x1B190 | 1 |
+| Reverse Day/Night | 0x1B194 | 1 |
+| CGameTime (speed, previous, real stamp, banked game s, real s at save) | 0xDA74 | 1 |
+| Villager record n | 0xE7A0 + n x 0x6B8: present +0, left home +1, left-home game s +4, age +8, sex +0xC, name index +0x10, name +0x18, bank +0xA8, last pass +0xAC, processed +0xB0, health +0xB4, cause +0xB8, pregnant +0xCC, babies +0xD0, energy +0xDC, happiness +0xE0, trend +0xE4, hunger +0xE8, dirtiness +0xEC, poo +0xF0, fertility +0xF4, desire +0xF8, symptoms +0x104, symptom expiries +0x10C, infections +0x128 / +0x129, food-group flags +0x12C, expiries +0x130, career +0x140, level +0x144, progress +0x148, salary +0x14C | 2-9 |
+| Money, next interest | 0xDBC8, 0xDBCC | 8 |
+| Food | 0xDA3C | 14 |
+| GameStats (start, babies born +8, max population +0x18, oldest age +0x20) | 0xDA40 | 5, 6 |
+| Pending babies | 0x1B130 / 34 / 38 | 6 |
+| Next island event, baby cooldown, next proposal, proposals | 0x1B15C, 0x1B160, 0x1B164, 0x1B168 | 17 |
+| Owned upgrades (Air Purifier gs+0x4C, Bathroom gs+0x8C) | 0x5C, 0x9C (flag k at 0x1C + 16k) | 4 |
+| Family tree (30 records x 0x6C8) | 0xECC | 10 |
+
+The symptom, infection and food-group fields lie inside the saved 0x98-byte CVillagerState copy; their meaning is
+from the code above. The mess counts' saved position inside the CCollectableItem section (gs+0x754): UNCONFIRMED.
+The patcher's Special Upgrades live in `Virtual Families 1 Patcher Data\Slot N.ini`.
+
+## 20. Open questions for the owner (nothing changed)
+
+1. **Food groups**: `FoodGroupsActive` counts a fifth slot built from group 1's expiry byte and the career id, so a
+   careerless villager (children, unemployed adults) with any group counts one extra (one more old-age year, a
+   lower sickness chance at 5). Stock code; how should the window present it?
+2. **No-food health loss** is certain (instead of 76%) for villagers whose name index is a multiple of 6, and the
+   +1 recovery at health <= 20 needs an odd index. Stock code; show it, or describe it as "for some villagers"?
+3. **Starvation and disease cannot kill by themselves** (-1 losses stop at 14; deaths record cause -1). Should the
+   window say so, given the cause strings "Starvation" / "Disease" exist?
+4. **Catch-up on Slow** credits 8 h 36 m 40 s for any absence between 6 h 37 m and 24 h, more than the time away
+   below 8 h 37 m. Only reachable with the patcher's Slow speed, and the patcher saves at Normal, so loads use the
+   Normal column. Confirm the window should show the Normal column for closed-game time.
+5. **Interest has no day cap** in VF1 (VF2 caps at 2 days): a long absence pays 10% per missed game day in one lump.
+6. House malfunctions roll while the game is paused (the 2-second step has no pause check).
+
+## 21. Scripts and data (the analysis scripts are kept outside the repo; careers.tsv, events_registry.tsv, events_emulated.txt, rand_sites.tsv and timer_sites.tsv are in this folder)
+
+`vdis.py` (disassembler), `rd.py`, `xref.py` (+ `ins.pkl`), `strings.py`, `reach.py` (+ `reach.pkl`), `rindex.py`
+-> `rand_sites.tsv`, `timer_sites.tsv`, `behaviours.py`, `vf1emu.py` (unicorn harness), `t_timeflow.py` (aging,
+clamp, leaving home, body removal; `out_clamp.txt`), `t_phys.py` + `t_life.py` (upkeep odds; `out_life*.txt`),
+`t_groups.py` (food groups, old-age table; `out_groups.txt`), `t_misc.py` (sickness, conception, interest;
+`out_misc.txt`), `t_career.py` (`out_career.txt`), `careers.py` -> `careers.tsv`, `t_events.py` ->
+`events_registry.tsv`, `t_evfx.py` -> `events_emulated.txt`, disassembly dumps `d_*.txt`.
