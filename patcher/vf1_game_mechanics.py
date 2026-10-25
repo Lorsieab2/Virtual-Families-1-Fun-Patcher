@@ -25,11 +25,12 @@ The owner's four decisions were each re-checked in the stock exe before going in
     3 age units from the happiness update 0x48FFB2 <- upkeep 0x48BD57 <- 0x424F93 <- UpdateScene 0x444E9A).
   * Malfunctions roll while paused: shown (the 2-second step 0x444E28..0x444FEC run at speed 1009 rolls
     rand(800) and calls SetProp 0x4938C0; GameUpdate 0x422D90 and Run 0x402CC0 call the scene with no pause test).
-  * The hidden fifth food-group slot: NOT shown.  FoodGroupsActive 0x48FE30 counts the extra group for a
-    family member without a career only while the low byte of the Grains slot's expiry is non-zero: one with
-    only Dairy counts 1, not 2, and one whose Grains ran out still counts 1 with no group at all.  "Any food
-    group counts one extra" is therefore not the game's rule; the tables below are for family members with
-    a career, who count each active group once.
+  * The hidden fifth food-group slot: shown in its accurate form, not as proposed.  FoodGroupsActive 0x48FE30
+    counts the extra group for a family member without a career only while the low byte of the Grains slot's
+    expiry is non-zero: one with only Dairy counts 1, not 2, and one whose Grains ran out still counts 1 with no
+    group at all.  So the rule shown is "once they have had Grains", not "any food group" (EXTRA_GROUP).  Old age
+    at 61 with 4 groups: 10.01% without a career, 20.02% with one; sickness with 4 groups and no career: 0.504%.
+    The tables stay for family members with a career, who count each active group once.
   * The health floor ("starvation and disease cannot kill"): NOT shown.  The per-unit Starvation and Disease
     losses are 1 point and stop at 14, but the 3-unit health check takes 2 points at hunger 100 (1 below 15):
     emulated, a starving family member at 14 health with every per-unit starvation roll missed reaches 0 in
@@ -374,6 +375,13 @@ def _health() -> list[Fact]:
     ]
 
 
+# FoodGroupsActive 0x48FE30 (emulated 2026-10-25): its fifth slot's flag is the low byte of the Grains expiry and
+# its expiry is the career id, which for no career (-1) never runs out.
+EXTRA_GROUP = ("A family member without a career (every child) counts one extra food group once they have had "
+               "Grains, even after those Grains run out (except about 1 time in 256). With a career the count is "
+               "exact.")
+
+
 def _sickness() -> list[Fact]:
     g, E, U = SICKNESS, VERIFIED_E, UNCONFIRMED
     return [
@@ -384,6 +392,8 @@ def _sickness() -> list[Fact]:
         Fact(g, "exactly 3 food groups: 0.806% / 0.725% / 0.056% / 0.024%.", E, sub=True),
         Fact(g, "anyone at home already has a symptom: 2.518% / 2.266% / 0.176% / 0.076%, and the symptom "
                 "caught is that person's first one.", E, sub=True),
+        Fact(g, EXTRA_GROUP + " Their chance of falling ill is as if they had one more group: with 4 groups and "
+                "no career, 0.504% / 0.453% / 0.035% / 0.015%; with 2 groups, the 3-group row.", E),
         Fact(g, "A symptom lasts 6 to 17 real hours, at any speed; with only symptoms, the first one goes when its "
                 "time is up.", E),
         Fact(g, "Mild infection: each check, 50.05% chance of a new symptom when there is none; it ends with a "
@@ -413,6 +423,8 @@ def _old_age() -> list[Fact]:
     facts += [
         Fact(g, "each upgrade moves those ages 1 year later, and health over 90 moves them 3 years later.", E,
              sub=True),
+        Fact(g, EXTRA_GROUP + " Their old-age odds are as if they had one more group: at 61 with 4 groups, "
+                "10.01% without a career against 20.02% with one.", E),
         Fact(g, "No family member can live past 75.", E),
         Fact(g, "A birthday that falls inside a catch-up is rolled like any other.", E),
         Fact(g, f"A body stays until 240 age units after the last update ({units_text(240)}), then is removed.",

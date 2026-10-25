@@ -107,11 +107,26 @@ def test_the_owners_checks_that_held_are_shown_as_the_games_own_behaviour():
 def test_the_owners_checks_that_failed_are_left_out():
     lowered = PAGE.lower()
     assert "cannot kill" not in lowered and "can't kill" not in lowered
-    assert "fifth" not in lowered and "one extra" not in lowered and "counted as 5" not in lowered
+    assert "fifth" not in lowered and "counted as 5" not in lowered
     # what the game does instead: a starving family member dies through the health check, as Unknown causes
     starving = find(r"A starving family member still dies", gm.HEALTH)[0]
     assert starving.label == gm.VERIFIED_E and "Unknown causes" in starving.text
     assert find(r"for a family member with a career: each active group", gm.NEEDS)[0].label == gm.VERIFIED_E
+
+
+def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
+    assert "Grains" in gm.EXTRA_GROUP and "even after those Grains run out" in gm.EXTRA_GROUP
+    assert "any food group" not in gm.EXTRA_GROUP.lower()
+    old = [f for f in FACTS if f.group == gm.OLD_AGE and f.text.startswith(gm.EXTRA_GROUP)]
+    ill = [f for f in FACTS if f.group == gm.SICKNESS and f.text.startswith(gm.EXTRA_GROUP)]
+    assert len(old) == len(ill) == 1
+    assert old[0].label == ill[0].label == gm.VERIFIED_E
+    assert "10.01% without a career against 20.02% with one" in old[0].text
+    assert "0.504% / 0.453% / 0.035% / 0.015%" in ill[0].text
+    # the tables still say they are for a family member with a career
+    find(r"^Chance of dying on a birthday, for a family member with a career", gm.OLD_AGE)
+    find(r"for a family member with a career \(any sickness", gm.SICKNESS)
+    find(r"as counted for a family member with a career", gm.NEEDS)
 
 
 def test_unconfirmed_lines_say_what_is_not_known():
