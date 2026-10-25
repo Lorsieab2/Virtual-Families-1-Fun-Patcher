@@ -132,6 +132,29 @@ a new folder under ".vf1_patch_backups" inside the modded folder. Choose one
 of those folders under "Restore backup" and click Restore Backup to put the
 modded folder back the way it was before that run.
 
+Tools tab: Back Up Saves / Restore Saves
+----------------------------------------
+Next to the Patches tab is a Tools tab for your family saves.
+
+  Back Up Saves     Tick the save folders (the modded game's own one is ticked
+                    for you) and click Back Up Selected. Everything in the
+                    save folder (your slot saves and the patcher's own files
+                    for each save) is copied into a new dated folder,
+                    "Backups\Backup <date and time>", inside that save folder.
+                    The game can stay open: it is paused for the copy, but the
+                    backup holds the family as of its last save, because the
+                    game saves only when you quit normally. Old backups are
+                    never replaced or deleted.
+  Restore Saves     Quit the game first. Choose a backup, choose the whole
+                    folder or one save slot, and click Restore. You are shown
+                    which files will change and asked to confirm. Your saves as
+                    they are now are backed up first (as "Backup <date>
+                    (before restore)"), so a restore can be undone.
+                    Delete Backup removes a backup you no longer want.
+
+Every button and every patch has a small "?" beside it with a short guide.
+Back up your saves before trying the Experimental patch (Up to 28 Children).
+
 Existing saves:
 Vanilla Virtual Families saves are compatible with the modded version!
 The modded game uses its own save folder under Documents/LDW using the modded

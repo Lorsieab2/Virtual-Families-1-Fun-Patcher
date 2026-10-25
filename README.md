@@ -96,7 +96,58 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
+- **Family Logs** (also in the **Experimental** section, off by default): the Virtual Villagers Fun
+  Patcher's logs for your family, written as things happen: a Family History (every event, one line
+  each), Births and Conceptions, Deaths (with the game's own cause of death), Events (the patcher's own:
+  Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding
+  School), and at each save the Family Population and Family Statistics. One folder per save slot,
+  `Virtual Families 1 Patcher\Save N\Logs` (data files in `Save N\Data`). An existing family's past
+  generations come from its Family Tree, marked "backfilled, no date", once; a new family or Start Over
+  clears that slot's folder (Backups kept). Its own DLL, `vf1logs.dll`. **Not live tested yet** -- see
+  `docs/FAMILY_LOGS.md`.
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
+
+## The patcher window: Patches and Tools
+
+The window has two tabs, as in the Virtual Villagers Fun Patcher:
+- **Patches:** the patch selection (Patch Input, Patch Settings, Dry Run, Enable/Disable
+  Patches, Restore Backup) exactly as before, with Check for updates in the header.
+- **Tools:** things that are not patches. For now:
+  - **Back Up Saves:** copies the modded game's save folder
+    (`Documents\LDW\Virtual Families - Modded`: the `Virtual Families<N>.ldw` slot saves, plus the patcher's own
+    `Virtual Families 1 Patcher Data` folder with each save's Slot files and the Children
+    files) into a new `Backups\Backup <date and time>` folder inside it. The save folders are found
+    automatically (Documents is read from Windows, so a OneDrive-redirected Documents works). A running game is
+    paused for the copy and resumed; every copy is checked against the original (size and SHA-256); an existing
+    backup is never replaced, and a copy that fails is kept as `... INCOMPLETE` and never offered for restore.
+  - **Restore Saves:** lists the backups (newest first) and puts one back, the whole folder or one save slot.
+    The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
+    confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
+    part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
+  - **Rename Family...:** renames a family in a closed game's saves (the game must not be running). Pick a save
+    slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
+    family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
+    slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
+    Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
+    the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+  - **Check Saves...:** reads one slot's save and its two older copies (`patcher/vf1_check_saves.py`, no log is
+    read or written) and lists each finding as OK, WRONG (impossible), NOTE or UNCHECKED, using only the save
+    fields `docs/vf1-save-format.md` marks VERIFIED: health 0 to 100 and a living villager's cause of death -1
+    (SetHealth 0x48F820, AdjustHealth 0x48F860), the other clamped values (section 2.7), ages, looks, sex,
+    pregnancies, a dead body kept past 240 age units, family tree generations that link, the current family
+    pointing at the right villagers, and the unborn babies' slots. A value outside a clamp the game itself
+    applies (and a living villager's cause of death) can be **fixed**, only when ticked, with its evidence shown;
+    the game must be closed, the folder is backed up first as `Backup <date> (before repair)`, the save is
+    written atomically, read back and put back if anything fails. Everything whose right value is not certain
+    is only reported. It writes no log and no data file. Tests: `tests/test_check_saves.py`.
+  - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
+    in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
+    Tools tab's *Getting started* link opens the overview.
+
+The save tools live in `patcher/vf1_save_backup.py` (no Tk; tested with temporary copies only, see
+`tests/test_save_backup.py` and `tests/test_tools_tab.py`) and the guides in `patcher/vf1_how_to_use.py`.
 
 ## Planned
 
@@ -121,7 +172,7 @@ If that DLL is missing, the game runs exactly as normal.
 
 The patcher program is a port of the Virtual Families 2 patcher's: the same
 window (Patch Input, Patch Settings, Run Log, Dry Run, Enable/Disable Patches,
-Restore Backup), the same `apply` / `settings` / `restore` commands, backups
+Restore Backup; the Patches tab, plus a Tools tab as in the Virtual Villagers patcher), the same `apply` / `settings` / `restore` commands, backups
 under `.vf1_patch_backups` in the modded folder, and JSON patch logs.
 - **Settings** come from [patcher/manifest.json](patcher/manifest.json): one
   row per patch with its id, label, description, default, category and,
@@ -152,8 +203,9 @@ copies as arguments.
 
 ## Building
 
-- **DLLs:** `native\build.bat` builds `build\vf1fun.dll` and
-  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children).
+- **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
+  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
+  `native\build_logs.bat` builds `build\vf1logs.dll` (Family Logs).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.
