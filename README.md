@@ -96,16 +96,6 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
-- **Family Logs** (also in the **Experimental** section, off by default): the Virtual Villagers Fun
-  Patcher's logs for your family, written as things happen: a Family History (every event, one line
-  each), Births and Conceptions, Deaths (with the game's own cause of death), Events (the patcher's own:
-  Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding
-  School), and at each save the Family Population and Family Statistics. One folder per save slot,
-  `Virtual Families 1 Patcher\Save N\Logs` (data files in `Save N\Data`). An existing family's past
-  generations come from its Family Tree, marked "backfilled, no date", once; a new family or Start Over
-  clears that slot's folder (Backups kept). Its own DLL, `vf1logs.dll`. **Not live tested yet** -- see
-  `docs/FAMILY_LOGS.md`.
-
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## The patcher window: Patches and Tools
@@ -129,9 +119,8 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
     family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
-    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
-    Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
-    the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. The module
+    is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for
@@ -146,16 +135,6 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     Normal (or Paused) and loads any save holding one of them at Normal (theGameState Save / Load wrappers, since
     v0.3.0), so no installed game can produce one in a save. A save the old v0.2.0 left at one is named in words
     and refused. Module `patcher/vf1_game_speed.py`, tests `tests/test_game_speed.py`.
-  - **Check Saves...:** reads one slot's save and its two older copies (`patcher/vf1_check_saves.py`, no log is
-    read or written) and lists each finding as OK, WRONG (impossible), NOTE or UNCHECKED, using only the save
-    fields `docs/vf1-save-format.md` marks VERIFIED: health 0 to 100 and a living villager's cause of death -1
-    (SetHealth 0x48F820, AdjustHealth 0x48F860), the other clamped values (section 2.7), ages, looks, sex,
-    pregnancies, a dead body kept past 240 age units, family tree generations that link, the current family
-    pointing at the right villagers, and the unborn babies' slots. A value outside a clamp the game itself
-    applies (and a living villager's cause of death) can be **fixed**, only when ticked, with its evidence shown;
-    the game must be closed, the folder is backed up first as `Backup <date> (before repair)`, the save is
-    written atomically, read back and put back if anything fails. Everything whose right value is not certain
-    is only reported. It writes no log and no data file. Tests: `tests/test_check_saves.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.
@@ -218,8 +197,7 @@ copies as arguments.
 ## Building
 
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
-  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
-  `native\build_logs.bat` builds `build\vf1logs.dll` (Family Logs).
+  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

@@ -79,17 +79,6 @@ def differing_bytes(a: bytes, b: bytes) -> list[int]:
     return [i for i in range(len(a)) if a[i] != b[i]]
 
 
-def add_history(folder: Path, slot: int, *numbers: int, text="Smith history\r\n") -> list[Path]:
-    root = folder / rf.LOGS_ROOT / f"Save {slot}" / "Logs" / "Family History"
-    root.mkdir(parents=True, exist_ok=True)
-    paths = []
-    for number in numbers:
-        path = root / f"Family History {number}.txt"
-        path.write_bytes(text.encode("ascii"))
-        paths.append(path)
-    return paths
-
-
 # ------------------------------------------------------------------ the name rule
 
 
@@ -252,47 +241,18 @@ def test_a_failed_backup_changes_nothing(save, monkeypatch):
     assert tree(save) == before
 
 
-# ------------------------------------------------------------------ the logs
+# ------------------------------------------------------------------ files beside the saves
 
 
-def test_the_family_history_gets_one_line_and_nothing_is_rewritten(save):
-    older, newest = add_history(save, 1, 1, 2)
-    other = save / rf.LOGS_ROOT / "Save 2" / "Logs" / "Family History" / "Family History 1.txt"
-    other.parent.mkdir(parents=True)
-    other.write_bytes(b"Family: Jones (Save 2)\r\n")
-    births = save / rf.LOGS_ROOT / "Save 1" / "Logs" / "Births and Conceptions" / "Virtual Families 1 Births and Conceptions Log 1.txt"
-    births.parent.mkdir(parents=True)
-    births.write_bytes(b"Family: Smith (Save 1)\r\n")
-    snapshot = {p: p.read_bytes() for p in (older, other, births)}
-    result = rf.rename_family(save, 1, "Brand New", Processes(), NOW)
-    assert result.notes == [newest]
-    assert newest.read_bytes() == (
-        b"Smith history\r\n[2026-10-24 12:30:05] Family renamed from Smith to Brand New\r\n")
-    assert {p: p.read_bytes() for p in snapshot} == snapshot       # the old logs keep their history and header
-
-
-def test_a_line_that_ended_without_a_newline_is_continued_properly(save):
-    (path,) = add_history(save, 1, 1, text="[2026-01-01 00:00:00] Event")
-    rf.rename_family(save, 1, "New", Processes(), NOW)
-    assert path.read_bytes() == (
-        b"[2026-01-01 00:00:00] Event\r\n[2026-10-24 12:30:05] Family renamed from Smith to New\r\n")
-
-
-def test_a_family_with_no_history_file_gets_no_line(save):
-    result = rf.rename_family(save, 1, "New", Processes(), NOW)
-    assert result.notes == []
-    assert not (save / rf.LOGS_ROOT).exists()                     # nothing is invented
-
-
-def test_a_family_with_no_name_is_logged_as_such(save):
-    (save / "Virtual Families1.ldw").write_bytes(slot_bytes(""))
-    (path,) = add_history(save, 1, 1)
-    rf.rename_family(save, 1, "Named", Processes(), NOW)
-    assert path.read_bytes().endswith(b"Family renamed from (no name) to Named\r\n")
+def test_files_an_earlier_build_left_beside_the_saves_are_left_as_they_are(save):
+    old = save / "Virtual Families 1 Patcher" / "Save 1" / "Logs" / "Family History" / "Family History 1.txt"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"Family: Smith (Save 1)\r\n")
+    rf.rename_family(save, 1, "Brand New", Processes(), NOW)
+    assert old.read_bytes() == b"Family: Smith (Save 1)\r\n"
 
 
 def test_a_failure_part_way_puts_every_file_back(save, monkeypatch):
-    (path,) = add_history(save, 1, 1)
     before = tree(save)
     real = rf._write_atomically
     options = rf.options_path(save)
@@ -307,25 +267,7 @@ def test_a_failure_part_way_puts_every_file_back(save, monkeypatch):
         rf.rename_family(save, 1, "New", Processes(), NOW)
     monkeypatch.undo()
     assert tree(save) == before
-    assert path.read_bytes() == before[path.relative_to(save).as_posix()]
     assert len(sb.list_backups(save)) == 1                        # the backup stays
-
-
-def test_a_log_that_fails_after_the_saves_are_written_rolls_everything_back(save, monkeypatch):
-    (path,) = add_history(save, 1, 1)
-    before = tree(save)
-    real_open = Path.open
-
-    def open_fail(self, mode="r", *a, **k):
-        if self == path and "a" in mode:
-            raise OSError("log is locked")
-        return real_open(self, mode, *a, **k)
-
-    monkeypatch.setattr(Path, "open", open_fail)
-    with pytest.raises(rf.RenameError, match="put back"):
-        rf.rename_family(save, 1, "New", Processes(), NOW)
-    monkeypatch.undo()
-    assert tree(save) == before
 
 
 def test_a_file_changed_after_it_was_planned_is_not_overwritten(save, monkeypatch):

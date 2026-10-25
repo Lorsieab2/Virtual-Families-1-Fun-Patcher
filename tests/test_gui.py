@@ -124,7 +124,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert app.load_manifest_settings()
     assert {k: v.get() for k, v in app.setting_vars.items()} == {
         "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-        "UpTo28Children": False, "FamilyLogs": False, "AllowOlderPregnancies": True, "ClampMoneyAndFood": True, "SpecialUpgrades": True,
+        "UpTo28Children": False, "AllowOlderPregnancies": True, "ClampMoneyAndFood": True, "SpecialUpgrades": True,
         "CheatUpgrades": True, "FleaMarket": True, "RollTheDice": True, "CustomMapImages": True,
         "VF2Songs": True, "GlowingCollectables": True, "BehaviorLabelVariants": True}
     text = labels_on_screen(app.settings_inner)
@@ -154,9 +154,8 @@ def test_the_experimental_section_has_its_heading_and_warning(app):
     texts = [getattr(w, "_vf1_description_text", "") for w in app.description_widgets]
     warning = "**" + gui.EXPERIMENTAL_WARNING + "**"
     assert warning in texts
-    assert texts.index(warning) == len(texts) - 3, "the warning sits under the heading, before its settings"
-    assert texts[-2].startswith("UpTo28Children - default off - ")
-    assert texts[-1].startswith("FamilyLogs - default off - ")
+    assert texts.index(warning) == len(texts) - 2, "the warning sits under the heading, before its setting"
+    assert texts[-1].startswith("UpTo28Children - default off - ")
 
 
 def test_dependencies_tick_and_untick_together(app, tmp_path):

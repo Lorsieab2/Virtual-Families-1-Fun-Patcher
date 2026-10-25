@@ -35,11 +35,8 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted([
         "Launch_GUI.bat", f"Apply_{VERSION}_Patcher.bat", "How to Use.txt", f"README-{VERSION}-PATCHER.txt",
         "Transparency Log.txt", "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
-        "vf1_save.py", "vf1_rename_family.py", "vf1_game_speed.py", "vf1_check_saves.py",
+        "vf1_save.py", "vf1_rename_family.py", "vf1_game_speed.py",
         "vf1_how_to_use.py", "how_to_use.json", "stub.json",
-        "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
-        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_line_colours.py", "vf1_tree_editor_tools.py",
-        "vf1_gdiplus.py",
         "payload/vf1fun.dll"] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])])
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))

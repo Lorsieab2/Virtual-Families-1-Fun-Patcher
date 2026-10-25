@@ -177,6 +177,21 @@ def test_list_backups_newest_first_with_slots_and_without_unfinished_copies(save
     assert sb.describe_size(500) == "500 bytes" and sb.describe_size(2048) == "2.0 KB"
 
 
+def test_other_files_beside_the_saves_are_backed_up_and_restored(save):
+    """Files in folders beside the saves are ordinary files: backed up and restored with everything else."""
+    log = save / "Virtual Families 1 Patcher" / "Save 1" / "Logs" / "Family History" / "Family History 1.txt"
+    log.parent.mkdir(parents=True)
+    log.write_bytes(b"Family: Smith (Save 1)\r\n")
+    original = tree(save)
+    made = sb.back_up_save_folder(save, FakeProcesses(), NOW).backup_folder
+    (listed,) = sb.list_backups(save)
+    assert listed.path == made
+    backup = made
+    log.unlink()
+    sb.restore_backup(save, backup, None, FakeProcesses(), NOW + timedelta(minutes=5))
+    assert tree(save) == original
+
+
 def test_files_belong_to_slots_by_name(save):
     slot = lambda name: sb.file_slot(Path(name))
     assert slot("Virtual Families - Modded3.ldw") == 3

@@ -116,16 +116,6 @@
         "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself.",
         "Back up your saves before using it: use Back Up Saves on the Tools tab."
       ]
-    },
-    {
-      "ids": ["FamilyLogs"],
-      "guide": [
-        "Keeps logs of your family as you play: Family History, Births and Conceptions, Deaths with their cause, Events, Population and Statistics.",
-        "Each save slot gets its own folder, Virtual Families 1 Patcher\\Save N, beside your saves.",
-        "A family started before this patch gets its earlier generations added once from the family tree, marked \"backfilled, no date\".",
-        "Starting over or a new family clears that slot's logs (backups are kept); evicting the family keeps them.",
-        "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself."
-      ]
     }
   ],
   "controls": {
@@ -264,24 +254,13 @@
         "Delete Backup... removes a backup you no longer want (it asks first)."
       ]
     },
-    "check_saves": {
-      "title": "Check Saves",
-      "guide": [
-        "Looks through one family's save, and its two older copies, for values the game itself could never produce. Checking changes nothing.",
-        "Click Check Saves..., then pick the save. Each finding says OK, WRONG (impossible), NOTE (unusual, not an error) or UNCHECKED.",
-        "A few values can be fixed. Each is shown with the reason, and nothing is fixed unless you tick it. Leave it unticked if you don't know.",
-        "To fix, quit the game first. Your saves are backed up first, as \"Backup <date> (before repair)\", so Restore Saves can undo it.",
-        "Anything the right answer isn't certain for, such as an age below 0 or a broken family tree link, is only reported."
-      ]
-    },
     "rename_family": {
       "title": "Rename Family",
       "guide": [
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
         "Quit the game first, from its own menu. Click Rename Family..., pick the save, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
-        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly.",
-        "Old logs keep their history and their old name. New log files use the new name, and the Family History gets one line saying the family was renamed."
+        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly."
       ]
     },
     "game_speed": {
@@ -294,17 +273,6 @@
         "Your saves are backed up first, as \"Backup <date> (before speed change)\", so Restore Saves can undo it.",
         "Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a save and loads every family at Normal or Paused.",
         "A save at any other speed is shown but not changed here; change it in the game instead."
-      ]
-    },
-    "family_tree": {
-      "title": "Family Tree Maker",
-      "guide": [
-        "Draws a family's tree from its save: every generation's parents and children, with each face from the game.",
-        "Click Family Tree Maker, choose the save folder and the family, then Open. Pick the game folder too, or each face shows a letter.",
-        "Click a portrait to edit its words, shape, colour and marks. Save keeps your tree for next time; Export as Picture saves a PNG or JPG.",
-        "The game forgets a divorced spouse, a first spouse after a new marriage, and a parent who died with no children. The tree remembers them, but only if it was opened while they were still in the save.",
-        "With the Family Logs patch on, twins, causes of death and past marriages show too. Without it the tree says what is not known.",
-        "Your saves are only read, never changed."
       ]
     }
   }
