@@ -116,6 +116,15 @@
         "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself.",
         "Back up your saves before using it: use Back Up Saves on the Tools tab."
       ]
+    },
+    {
+      "ids": ["FamilyLogs"],
+      "guide": [
+        "Keeps logs of your family as you play: Family History (one line for every event), Births and Conceptions, Deaths with their cause, Events, and Family Population and Family Statistics, written when the game saves.",
+        "Each save slot gets its own folder, Virtual Families 1 Patcher\\Save N, beside your saves. A family started before this patch has its earlier generations added once from the family tree, marked \"backfilled, no date\".",
+        "Starting over or starting a new family clears that slot's logs (your backups are kept); evicting the family keeps them and records the eviction.",
+        "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself."
+      ]
     }
   ],
   "controls": {
