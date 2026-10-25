@@ -59,30 +59,23 @@ class Person:
     father: int | None = None
     mother: int | None = None
     litter: int | None = None           # babies born together share one number
-    family: int | None = None
     expecting: bool = False             # a living mother-to-be
-    heathen: bool = False               # (Virtual Villagers only; always False here)
-    runner: bool = False                # (Virtual Villagers only; always False here)
+    runner: bool = False                # likes running (the Family Tree's likes words, is_runner)
     likes: list[str] | None = None      # the words they like, as the Family Tree keeps them; None = not known
     dislikes: list[str] | None = None
     arrived: bool = False               # joined the family from outside: married in or adopted
-    how: str = ""                       # "Founder", "Married in", "Adopted", "Adopt New Person"
+    how: str = ""                       # "Founder", "Married in", "Adopted", "Adopt New Person", "Spawn Child"
     first_seen: str | None = None
     upcoming: bool = False              # a baby on the way (conceived, not born yet)
     birth_record: int | None = None     # its place in the family, record by record (birth order)
     generation: int = 1
     number: int | None = None           # its place in the whole tree, oldest first (number_people)
     old_looks: list[tuple[int, int]] = field(default_factory=list)
-    placeholder: bool = False
-    likes_seen: set = field(default_factory=set)
-    former: list[str] = field(default_factory=list)
-    statuses: list[str] = field(default_factory=list)
-    converted: bool = False
-    faction_seen: tuple | None = None
-    left_heathen: bool = False
-    masters: list[str] = field(default_factory=list)
-    hidden_parents: dict = field(default_factory=dict)
+    former: list[str] = field(default_factory=list)     # names they had before (a rename the tree file saw)
+    statuses: list[str] = field(default_factory=list)   # (the renderer's automatic marks: none in Virtual Families)
     # Virtual Families 1
+    seat: str = ""                      # where the save's Family Tree holds them: "g2.p1", "g2.p2", "g2.c3", "house.7"
+    event: str = ""                     # "Event names": the event that brought them in ("Married in", "Spawn Child"...)
     left_home: bool = False             # alive and left home (the save's left-home flag, VERIFIED)
     adopted: bool = False               # joined as an adopted child (no parents in their bio)
     heir: bool = False                  # inherited the house: parent 1 of a later generation
@@ -133,6 +126,7 @@ class Village:
     rename_questions: list = field(default_factory=list)
     identity_questions: list = field(default_factory=list)
     generations: int = 0                # the save's Family Tree records
+    couples: dict = field(default_factory=dict)          # generation -> its parents' ids (as the save holds them)
     sources: list[str] = field(default_factory=list)     # the files read
 
     def living(self) -> list[Person]:
@@ -258,13 +252,29 @@ def make_children_sidecar(save_bytes: bytes, generations: int, parent_slot: int,
 # Reading the family
 # ---------------------------------------------------------------------------
 
+RUNNING = "running"                     # the likes word (the game's own, as the Family Tree records it)
+NATURAL_BIRTH_FATHER = "Joey"           # Impregnate's father name for every natural birth (docs 2.4, bio +0x34)
+LITTLE_VISITOR = "The Little Visitor"   # CEventTheLittleVisitor1/2 (0x418828 / 0x4188D8): the only stock AddOffspring
+                                        # callers besides the babies (Impregnate 0x48665B / 0x486712 / 0x48677B)
+
+
+def is_runner(likes: list[str] | None) -> bool:
+    """Likes running: the word in the likes the save's Family Tree keeps for them (SPeepRecord +0x34, written by
+    UpdatePeepRecord from the villager's own likes; VERIFIED).  Shared with Virtual Families 2 (same words)."""
+    return any(w.strip().lower() == RUNNING for w in likes or [])
+
+
+def _words(text: str) -> list[str] | None:
+    words = [w.strip() for w in re.split(r"[,\n]", text or "") if w.strip()]
+    return words or None
+
+
 def _peep_person(pid: int, peep: vf1_save.PeepRecord) -> Person:
     p = Person(pid, peep.name, peep.head, peep.body, sex=SEX_WORDS.get(peep.sex))
     p.career = peep.career
-    likes = [w.strip() for w in re.split(r"[,\n]", peep.likes_text) if w.strip()]
-    dislikes = [w.strip() for w in re.split(r"[,\n]", peep.dislikes_text) if w.strip()]
-    p.likes = likes or None
-    p.dislikes = dislikes or None
+    p.likes = _words(peep.likes_text)
+    p.dislikes = _words(peep.dislikes_text)
+    p.runner = is_runner(p.likes)
     return p
 
 
@@ -272,6 +282,21 @@ def _matching_villager(save: vf1_save.VF1Save, peep: vf1_save.PeepRecord) -> vf1
     """The villager record a Family Tree entry is, if its slot still holds them: the slot, sex and head as the
     game's own FindPeepRecord matches them, and the name.  Older records' slots are stale (reused)."""
     return save.villager_for(peep)
+
+
+def _dead_record(save: vf1_save.VF1Save, peep: vf1_save.PeepRecord) -> vf1_save.Villager | None:
+    """A dead member's own villager record, when the save still holds it (a record is never cleared, only reused,
+    docs 2.4): the one record with their name, sex, head and body and health 0.  None when there is not exactly
+    one (reused, or two alike: never a guess)."""
+    hits = [v for v in save.villagers if v.health <= 0 and v.name == peep.name and v.sex == peep.sex
+            and v.head == peep.head and v.body == peep.body]
+    return hits[0] if len(hits) == 1 else None
+
+
+def cause_words(cause: int) -> str:
+    word = vf1_save.DEATH_CAUSES_UNCONFIRMED.get(cause)
+    # The save keeps the cause as a number; its words follow the game's string order only (docs 2.4).
+    return f"{word} (the save's cause number {cause}; the wording is unconfirmed)" if word else ""
 
 
 def _apply_villager(p: Person, v: vf1_save.Villager, unborn: set[int]) -> None:
@@ -289,11 +314,7 @@ def _apply_villager(p: Person, v: vf1_save.Villager, unborn: set[int]) -> None:
     elif v.health <= 0:
         p.alive = False
         p.gone = "died"
-        if not p.cause:
-            word = vf1_save.DEATH_CAUSES_UNCONFIRMED.get(v.death_cause)
-            if word:
-                # The save keeps the cause as a number; its words follow the game's string order only.
-                p.cause = f"{word} (the save's cause number {v.death_cause}; the wording is unconfirmed)"
+        p.cause = p.cause or cause_words(v.death_cause)
     else:
         p.alive = False
         p.gone = "left"
@@ -301,9 +322,14 @@ def _apply_villager(p: Person, v: vf1_save.Villager, unborn: set[int]) -> None:
 
 def load_village(folder: Path, game: int = GAME, slot: int = 1, full_names: bool = True,
                  rename_answers: dict | None = None, identity_answers: dict | None = None,
-                 save_file: Path | None = None) -> Village:
-    """The slot's family: every person the save's Family Tree and the Children sidecar name.
-    `save_file` reads another file than Virtual Families<slot>.ldw (a backup copy)."""
+                 save_file: Path | None = None, remember: bool = False) -> Village:
+    """The slot's family: every person the save's Family Tree and the Children sidecar name, filled in from the
+    Family History log when the Family Logs patch wrote one (vf1_family_history), and -- with `remember` -- from
+    and into the Family Tree Maker's own tree file, which keeps every member it has seen in this save
+    (vf1_tree_memory).  The save and the logs are only read.  `save_file` reads another file than
+    Virtual Families<slot>.ldw (a backup copy)."""
+    import vf1_family_history
+    import vf1_tree_memory
     folder = Path(folder)
     path = Path(save_file) if save_file is not None else save_path(folder, slot)
     try:
@@ -316,6 +342,12 @@ def load_village(folder: Path, game: int = GAME, slot: int = 1, full_names: bool
         raise GenealogyError(f"{path.name} is not a Virtual Families save the patcher can read: {exc}") from exc
     family = build_family(save, slot, data=data, sidecar=_sidecar(folder, slot, data))
     family.sources.insert(0, str(path))
+    if remember:
+        vf1_tree_memory.remember(folder, slot, save, family)
+    history = vf1_family_history.read(folder, slot)
+    if history is not None:
+        vf1_family_history.apply(family, history)
+    finish(family)
     return family
 
 
@@ -335,26 +367,33 @@ def build_family(save: vf1_save.VF1Save, slot: int, data: bytes | None = None,
     notes: list[str] = []
     unborn = {s for s in save.pending_babies if 0 <= s < vf1_save.VILLAGER_SLOTS}
     order = 0
-    # (generation, role) -> person: role "p1", "p2", or child index
-    seat: dict[tuple, int] = {}
     couple_of: dict[int, list[int]] = {}           # generation -> its parents' ids
+    by_seat: dict[str, int] = {}
 
-    def new(peep: vf1_save.PeepRecord) -> Person:
+    def new(peep: vf1_save.PeepRecord, seat: str) -> Person:
         nonlocal order
         pid = len(people)
         p = _peep_person(pid, peep)
         p.birth_record = order
+        p.seat = seat
         order += 1
         people[pid] = p
+        by_seat[seat] = pid
         return p
 
-    def settle(p: Person, peep: vf1_save.PeepRecord, current: bool) -> None:
+    def settle(p: Person, peep: vf1_save.PeepRecord) -> None:
         """Alive, dead or gone, from the tree's slot and the villager record (a later record of the same person,
         the heir's, is newer than their entry among the children)."""
         p.unknowns = [u for u in p.unknowns if not u.startswith("Not in the house now")]
         if peep.slot == -1:
+            # ReportDeath 0x481CF0 sets the slot of a parent with children, or of a child, to -1 (the current
+            # record only): a death.
             p.alive, p.gone = False, "died"
             p.sources.append("The Family Tree records the death (its slot is -1).")
+            dead = _dead_record(save, peep)
+            if dead is not None:
+                p.age = dead.age_units
+                p.cause = p.cause or cause_words(dead.death_cause)
             return
         v = _matching_villager(save, peep)
         if v is not None:
@@ -364,54 +403,77 @@ def build_family(save: vf1_save.VF1Save, slot: int, data: bytes | None = None,
         p.unknowns.append("Not in the house now: the save no longer holds them, and does not say whether they "
                           "died or moved away.")
 
+    def bio_event(c: Person, peep: vf1_save.PeepRecord) -> None:
+        """How a child of the current generation joined, from their own bio (only the living's records are
+        current): no parents -- adopted (The Little Visitor, or the patcher's Adopt Outside Child); the couple's
+        names instead of "Joey" -- the patcher's Spawn Child (vf1fun SpawnChild passes the parents' names)."""
+        if c.slot is None or c.upcoming or not 0 <= peep.slot < vf1_save.VILLAGER_SLOTS:
+            return
+        v = save.villagers[peep.slot]
+        if not v.parent1_name and not v.parent2_name:
+            c.adopted, c.arrived, c.how = True, True, "Adopted"
+            c.event = "Adopted"
+            c.unknowns.append(f"Adopted: {LITTLE_VISITOR} event, or the patcher's Adopt Outside Child -- the save "
+                              "does not say which.")
+        elif v.parent1_name and v.parent1_name != NATURAL_BIRTH_FATHER:
+            c.how = c.event = "Spawn Child"
+
     records = save.family_records
     for rec in records:
         g = rec.generation
-        current = g == len(records)
         # Parent 1: the heir (a child of the generation before), or the founder / an Adopt New Person.
         p1 = None
         if rec.parent1.used:
             idx = rec.parent1.parent_child_index
-            prev = seat.get((g - 1, idx)) if g > 1 and idx >= 0 else None
-            if prev is not None and people[prev].name == rec.parent1.name:
+            prev = by_seat.get(f"g{g - 1}.c{idx}") if g > 1 and idx >= 0 else None
+            # ReportDeath 0x481D44 copies parent 2's whole record over a parent 1 who died with no children, and
+            # parent 2's child index was never written (0): a founder's is -1, an heir's names their own place.
+            # A renamed heir keeps their sex and head (a new name never makes two people of one).
+            shifted = (g == 1 and idx == 0) or (prev is not None and people[prev].name != rec.parent1.name and (
+                people[prev].sex != SEX_WORDS.get(rec.parent1.sex) or people[prev].head != rec.parent1.head))
+            if prev is not None and not shifted:
                 p1 = people[prev]
                 p1.heir = True
+                if p1.name != rec.parent1.name:
+                    p1.former.append(p1.name)
+                    p1.name = rec.parent1.name
+                by_seat[f"g{g}.p1"] = p1.id
             else:
-                p1 = new(rec.parent1)
-                if g == 1:
+                p1 = new(rec.parent1, f"g{g}.p1")
+                if shifted:
+                    p1.arrived, p1.how, p1.event = True, "Married in", "Married in"
+                    p1.unknowns.append("Married in: the one they married died with no children, and the game's Family "
+                                       "Tree put them in that place (the save no longer names who that was).")
+                elif g == 1:
                     p1.how = "Founder"
                 elif idx >= 0:
                     # A child the previous record could not hold (Up to 28 Children: child 7 or later).
                     p1.heir = True
                     p1.father, p1.mother = _parents_by_sex(people, couple_of.get(g - 1, []))
-                    p1.generation = g
                     p1.unknowns.append(f"Child number {idx + 1} of generation {g - 1}: the save's Family Tree "
                                        "keeps only six children, so they are known from this generation's record.")
                 else:
-                    p1.arrived, p1.how = True, "Adopt New Person"
-            p1.likes = _peep_person(-1, rec.parent1).likes or p1.likes
-            p1.dislikes = _peep_person(-1, rec.parent1).dislikes or p1.dislikes
-            settle(p1, rec.parent1, current)
-            seat[(g, "p1")] = p1.id
+                    # StartNextGeneration with no child index: vf1fun's Adopt New Person.
+                    p1.arrived, p1.how, p1.event = True, "Adopt New Person", "Adopt New Person"
+            fresh = _peep_person(-1, rec.parent1)
+            p1.likes, p1.dislikes = fresh.likes or p1.likes, fresh.dislikes or p1.dislikes
+            p1.runner = is_runner(p1.likes)
+            settle(p1, rec.parent1)
         p2 = None
         if rec.parent2.used:
-            p2 = new(rec.parent2)
-            p2.arrived, p2.how = True, "Married in"
-            settle(p2, rec.parent2, current)
-            seat[(g, "p2")] = p2.id
+            p2 = new(rec.parent2, f"g{g}.p2")
+            p2.arrived, p2.how, p2.event = True, "Married in", "Married in"
+            settle(p2, rec.parent2)
         couple = [p.id for p in (p1, p2) if p is not None]
         couple_of[g] = couple
         for k, peep in enumerate(rec.children):
             if not peep.used:
                 continue
-            c = new(peep)
+            c = new(peep, f"g{g}.c{k}")
             c.father, c.mother = _parents_by_sex(people, couple)
-            settle(c, peep, current)
-            v = save.villagers[peep.slot] if current and 0 <= peep.slot < vf1_save.VILLAGER_SLOTS else None
-            if c.slot is not None and v is not None and not v.parent1_name and not v.parent2_name and not c.upcoming:
-                # Joined with no parents in their bio: The Little Visitor or Adopt Outside Child (docs 2.5).
-                c.adopted, c.arrived, c.how = True, True, "Adopted"
-            seat[(g, k)] = c.id
+            settle(c, peep)
+            if g == len(records):
+                bio_event(c, peep)
     generations = len(records)
 
     # Children 7 to 28 of the current generation (vf1kids), only from the sidecar of this very save file.
@@ -425,13 +487,14 @@ def build_family(save: vf1_save.VF1Save, slot: int, data: bytes | None = None,
             couple = couple_of.get(generations, [])
             for k, extra in enumerate(sidecar.children, start=6):
                 peep = vf1_save.PeepRecord(extra.name, True, extra.sex, extra.head, extra.body, extra.slot, 0, -1, "", "")
-                c = new(peep)
+                c = new(peep, f"g{generations}.c{k}")
                 c.father, c.mother = _parents_by_sex(people, couple)
                 c.sources.append("Children 7 to 28: the Up to 28 Children file.")
                 if extra.state == "alive":
                     v = _matching_villager(save, peep)
                     if v is not None:
                         _apply_villager(c, v, unborn)
+                        bio_event(c, peep)
                     else:
                         c.alive = True
                         c.age = extra.age
@@ -439,24 +502,34 @@ def build_family(save: vf1_save.VF1Save, slot: int, data: bytes | None = None,
                     c.alive, c.gone, c.age = False, "died", extra.age
                 else:
                     c.alive, c.gone, c.age = False, "left", extra.age
-                seat[(generations, k)] = c.id
 
     # Anyone in the house the tree does not hold (alive, present): shown, with no family recorded.
     held = {p.slot for p in people.values() if p.slot is not None}
     for v in save.villagers:
         if v.present and v.health > 0 and v.slot not in held and v.name:
             peep = vf1_save.PeepRecord(v.name, True, v.sex, v.head, v.body, v.slot, 0, v.career, "", "")
-            p = new(peep)
+            p = new(peep, f"house.{v.slot}")
             _apply_villager(p, v, unborn)
             p.unknowns.append("In the house, but the save's Family Tree does not record them, so their family is "
                               "not known.")
 
+    # The babies of one pregnancy (theGameState +0x1B120..0x1B128, up to three, VERIFIED): twins or triplets on the way.
+    coming = [q for q in people.values() if q.upcoming]
+    if len(coming) > 1:
+        for q in coming:
+            q.litter = 1
+
     village = Village(GAME, slot, save.family_name, people, notes, generations=generations)
-    _generations(village, seat, couple_of)
-    number_people(village)
-    village.notes.append("The save keeps no history: twins and triplets, causes of death (beyond a body still in "
-                         "the house), birthdays and earlier marriages are not recorded, so the tree does not show them.")
+    village.couples = couple_of
+    village.notes.append("The save keeps no history: births of twins and triplets, causes of death (beyond a dead "
+                         "member's own record), birthdays, divorces and earlier marriages are not recorded in it.")
     return village
+
+
+def finish(village: Village) -> None:
+    """Each member's generation and number (after the Family History and the tree file added what they know)."""
+    _generations(village)
+    number_people(village)
 
 
 def _parents_by_sex(people: dict[int, Person], couple: list[int]) -> tuple[int | None, int | None]:
@@ -475,16 +548,23 @@ def _parents_by_sex(people: dict[int, Person], couple: list[int]) -> tuple[int |
     return father, mother
 
 
-def _generations(village: Village, seat: dict, couple_of: dict[int, list[int]]) -> None:
+def seat_row(seat: str) -> int | None:
+    """The tree row a Family Tree seat is drawn in: generation g's parents in row g, its children in row g + 1."""
+    m = re.fullmatch(r"g(\d+)\.(p1(?:#\w+)?|p2(?:#\w+)?|c\d+)", seat or "")
+    if not m:
+        return None
+    return int(m.group(1)) + (1 if m.group(2).startswith("c") else 0)
+
+
+def _generations(village: Village) -> None:
     """Row g holds generation g's parents (the game's generation g); their children are in row g + 1, where
     the heir among them is generation g + 1's parent 1 and is joined by the one who married them."""
     people = village.people
     base: dict[int, int] = {}
-    for (g, role), pid in seat.items():
-        if role in ("p1", "p2"):
-            base.setdefault(pid, g)
-        else:
-            base.setdefault(pid, g + 1)
+    for pid, p in sorted(people.items(), key=lambda kv: kv[1].birth_record if kv[1].birth_record is not None else 0):
+        row = seat_row(p.seat)
+        if row is not None:
+            base.setdefault(pid, row)
     # Anyone else: below the later of their parents, else beside their partner, else generation 1.
     for _round in range(4):
         for pid, p in people.items():

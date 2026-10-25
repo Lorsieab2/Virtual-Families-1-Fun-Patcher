@@ -22,7 +22,9 @@ def fixture_bytes(name: str) -> bytes:
 
 
 def family(data: bytes, **kw) -> gen.Village:
-    return gen.build_family(vs.parse_save(data), 1, data=data, **kw)
+    village = gen.build_family(vs.parse_save(data), 1, data=data, **kw)
+    gen.finish(village)
+    return village
 
 
 def by_name(village: gen.Village, name: str) -> gen.Person:
@@ -343,7 +345,7 @@ def test_editor_opens_selects_and_saves_a_tree_file(tk_root, tmp_path):
         assert "Cal" in info and "Heir" in info and "Partners" in info
         assert [ed.village.people[q].name for q in w.find_villagers(ed.village, ed.edits, "adopted")] == ["Ivy"]
         assert ed._save_tree()
-        tree = ft.data_folder(tmp_path, 1) / f"Testfamily (Save 1) Family Tree{ft.TREE_SUFFIX}"
+        tree = ft.data_folder(tmp_path, 1) / f"Virtual Families 1 Family Tree - Save 1{ft.TREE_SUFFIX}"
         data = json.loads(tree.read_text("utf-8"))
         assert data["format"] == ft.TREE_FORMAT and data["slot"] == 1 and data["family"] == "Testfamily"
         assert ft.Edits.path(tmp_path, gen.GAME, 1).is_file()
@@ -418,3 +420,25 @@ def test_tools_tab_has_the_family_tree_maker(tk_root, tmp_path, monkeypatch):
         for pending in tk_root.tk.splitlist(tk_root.tk.call("after", "info")):
             tk_root.tk.call("after", "cancel", pending)
         top.destroy()
+
+
+def test_runner_from_the_family_trees_likes_and_twins_on_the_way():
+    villagers = {0: villager_record(name="Ma", sex=1, age=600, head=1, preg=590, babies=2),
+                 1: villager_record(name="Pa", age=620, head=2),
+                 2: villager_record(name="B1", present=0, age=0, head=3), 3: villager_record(name="B2", present=0, head=4)}
+    data = build_save(villagers, [family_record(peep("Ma", sex=1, head=1, slot=0, index=-1, likes=" running, art"),
+                                                peep("Pa", head=2, slot=1, likes=" exercising", dislikes=" running"),
+                                                [peep("B1", head=3, slot=2), peep("B2", head=4, slot=3)])],
+                      pending=(2, 3, -1))
+    v = family(data)
+    ma, pa = by_name(v, "Ma"), by_name(v, "Pa")
+    assert ma.runner and ma.likes == ["running", "art"] and not pa.runner      # a dislike is no runner
+    babies = [p for p in v.people.values() if p.upcoming]
+    assert len(babies) == 2 and babies[0].litter == babies[1].litter is not None
+    edits = ft.Edits()
+    ft.arrange(v, edits)
+    lay = ft.layout(v, edits)
+    assert "Runner" in ft.default_text(lay, ma) and "Runner" not in ft.default_text(lay, pa)
+    assert ft.default_text(lay, babies[0]) == ["Upcoming child", "(twins)"]
+    edits.show_runner = False
+    assert "Runner" not in ft.default_text(ft.layout(v, edits), ma)

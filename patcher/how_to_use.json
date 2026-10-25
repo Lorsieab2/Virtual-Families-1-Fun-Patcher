@@ -270,7 +270,8 @@
         "Draws a family's tree from its save: every generation's parents and children, with each face from the game.",
         "Click Family Tree Maker, choose the save folder and the family, then Open. Pick the game folder too, or each face shows a letter.",
         "Click a portrait to edit its words, shape, colour and marks. Save keeps your tree for next time; Export as Picture saves a PNG or JPG.",
-        "The game keeps no history, so the tree says plainly what is not known (an age, or what became of someone).",
+        "The game forgets a divorced spouse, a first spouse after a new marriage, and a parent who died with no children. The tree remembers them, but only if it was opened while they were still in the save.",
+        "With the Family Logs patch on, twins, causes of death and past marriages show too. Without it the tree says what is not known.",
         "Your saves are only read, never changed."
       ]
     }

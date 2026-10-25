@@ -413,7 +413,8 @@ class Edits:
     # False whether or not the player ever unticked them, so an earlier file's False reads as the new default.
     show_runner: bool = True            # "Runner" for a villager who likes running (the owner, 2026-10-10)
     show_founder: bool = True           # "Founder" for each founder of the village (the owner, 2026-10-09)
-    show_arrived: bool = True           # "Arrived: <how>" for a villager who came later (an Arrived record)
+    show_arrived: bool = True           # "Event names": the event that brought them in (arrival_words)
+    show_left_home: bool = True         # "Left home" for a living family member who left home (Virtual Families)
     show_masters: bool = True           # "Master Farmer"... (the save's skills now; a grave's for the dead)
     fit_width: int = 0                  # 0, or shrink every portrait so the widest row fits this many pixels
     # The canvas (the owner, 2026-10-09): 0 x 0 is Automatic, the page as large as the tree; else every
@@ -486,9 +487,6 @@ class Edits:
     # now), and the statuses whose mark the player removed from everyone (never given again).
     mark_names: dict[str, str] = field(default_factory=dict)
     marks_off: list[str] = field(default_factory=list)
-    # "Hide unconverted Heathens" (the owner, 2026-10-22; off unless ticked): New Believers' Heathens who never
-    # converted left off this tree, its pictures and its page (gen.without_heathens); their edits are kept.
-    hide_heathens: bool = False
     # entry key -> {"lines", "runs" (those lines formatted word by word: clean_runs), "marks" (every mark
     # they have, in order; "mark" the first, as older builds read it), "unmarked" (automatic marks the
     # player took off them), ...}
@@ -616,6 +614,7 @@ class Edits:
         out.show_founder = data.get("show_founder") is not False if kept else True
         out.show_runner = data.get("show_runner") is not False if kept else True
         out.show_arrived = data.get("show_arrived") is not False
+        out.show_left_home = data.get("show_left_home") is not False
         out.show_masters = data.get("show_masters") is not False
         out.page_generations = int(_number(data.get("page_generations"), PAGE_GENS_MIN, PAGE_GENS_MAX, PAGE_GENS))
         fit = data.get("fit_width")
@@ -664,7 +663,6 @@ class Edits:
             if isinstance(label, str) and label.strip():
                 out.mark_names[str(status)] = label.strip()
         out.marks_off = _clean_labels(data.get("marks_off"))
-        out.hide_heathens = data.get("hide_heathens") is True
         for key, entry in dict(data.get("entries", {})).items():
             if not isinstance(entry, dict):     # damaged: that villager's edits are passed over
                 continue
@@ -800,7 +798,7 @@ class Edits:
         return {"format": 1, "page_edits": clean_page_edits(self.page_edits), "title": self.title, "subtitle": self.subtitle,
                 "centre_heads": self.text_valign == "middle", "text_align": self.text_align, "text_inside": self.text_inside, "fixed_face_size": self.fixed_face_size, "turn_words": self.turn_words, "flip_words": self.flip_words, "text_room": self.text_room, "special_mode": self.special_mode, "special_pick": self.special_pick, "special_palette": self.special_palette, "special_count": self.special_count, "hibiscus": self.hibiscus, "special_opacity": self.special_opacity, "rainbow_strength": self.rainbow_strength, "schemes": self.schemes, "detail_lines": self.detail_lines, "detail_colour": self.detail_colour, "detail_opacity": self.detail_opacity, "detail_width": self.detail_width, "text_box_colour": self.text_box_colour, "text_box_opacity": self.text_box_opacity, "text_box_over": self.text_box_over, "text_box_border": self.text_box_border, "text_box_border_colour": self.text_box_border_colour, "text_box_border_width": self.text_box_border_width, "text_valign": self.text_valign, "text_wrap": self.text_wrap, "row_align": self.row_align, "row_valign": self.row_valign, "row_limit": self.row_limit, "keep_families": self.keep_families, "others_columns": self.others_columns, "others_side": self.others_side, "packing": self.packing, "lines_behind": self.lines_behind, "outline_lines": self.outline_lines, "line_mode": self.line_mode, "line_order": self.line_order, "line_reverse": self.line_reverse, "gradient_start": self.gradient_start, "gradient_end": self.gradient_end, "range_colours": self.range_colours, "picture_size": self.picture_size, "text_size": self.text_size, "portrait_gap": self.portrait_gap, "row_gap": self.row_gap, "show_founder": self.show_founder, "fit_width": self.fit_width, "canvas_w": self.canvas_w, "canvas_h": self.canvas_h,"page_generations": self.page_generations, "diagonal_lines": self.diagonal_lines,
                 "show_units": self.show_units, "show_years": self.show_years, "show_twins": self.show_twins, "show_runner": self.show_runner, "number_names": self.number_names,
-                "number_names_v2": True, "descriptors_v2": True, "show_arrived": self.show_arrived,
+                "number_names_v2": True, "descriptors_v2": True, "show_arrived": self.show_arrived, "show_left_home": self.show_left_home,
                 "show_masters": self.show_masters,
                 "number_order": self.number_order,
                 "sort": self.sort, "positioning": self.positioning,
@@ -819,7 +817,7 @@ class Edits:
                 "label_line_reach": self.label_line_reach,
                 "line_moves": self.line_moves, "free_lines": self.free_lines,
                 "generations": self.generations, "words": self.words, "marks": self.marks,
-                "mark_names": self.mark_names, "marks_off": self.marks_off, "hide_heathens": self.hide_heathens,
+                "mark_names": self.mark_names, "marks_off": self.marks_off,
                 "entries": self.entries,
                 "font": self.font, "styles": self.styles, "stickers": self.stickers,
                 "group_opts": self.group_opts, "equal_sizes": self.equal_sizes, "monstera_v2": self.monstera_v2,
@@ -830,7 +828,7 @@ class Edits:
 # one portrait.  Each is checked as the tree's own is (_group_value).
 GROUP_FIELDS = ("text_align", "text_valign", "centre_heads", "text_room", "flip_words", "turn_words",
                 "text_inside", "fixed_face_size", "picture_size", "text_size", "text_wrap", "show_units", "show_years",
-                "show_twins", "show_founder", "show_runner", "show_arrived", "show_masters", "detail_lines",
+                "show_twins", "show_founder", "show_runner", "show_arrived", "show_masters", "show_left_home", "detail_lines",
                 "detail_colour", "detail_opacity", "detail_width", "portrait_fill", "text_box_colour", "text_box_opacity",
                 "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width")
 TEXT_BOX_BORDER_WIDTHS = (0.0, 20.0)    # a text box border's weight: 0 draws none
@@ -1190,17 +1188,8 @@ def entry_marks(entry: dict) -> list[str]:
     return [entry["mark"]] if entry.get("mark") else []
 
 
-# The marks the tree gives by itself (the owner, 2026-10-22: every Tribal Chief, then every special or custom
-# status a villager has or ever had, in all five games): each status's preset colour, the Tribal Chief's,
-# Esteemed Elder's, Scholar's and Golden Child's as they were; a Custom title's from CUSTOM_MARK_COLOURS.
-STATUS_COLOURS = {
-    "Tribal Chief": "#d4a017", "Esteemed Elder": "#7b68ee", "Scholar": "#1e90ff", "Golden Child": "#ffb000",
-    "Retired Heathen Chief": "#4b0082", "Heathen Chief": "#b22222", "Heathen Mommy": "#ff69b4",
-    "Heathen Doctor": "#00ced1", "Heathen Master Scientist": "#008080", "Heathen Master Builder": "#a0522d",
-    "Heathen Master Farmer": "#9acd32", "Heathen": "#8b0000", "Former Heathen Master": "#800080", "Former Heathen": "#708090",
-    "Converted Purple Mask Heathen": "#ba55d3", "Converted Red Mask Heathen": "#e0301e",
-    "Converted Orange Mask Heathen": "#ff8c00", "Converted Blue Mask Heathen": "#0000cd",
-}
+# The marks the tree gives by itself: Virtual Families has no special titles, so only the player's own marks.
+STATUS_COLOURS: dict[str, str] = {}     # Virtual Families has no special titles
 CUSTOM_MARK_COLOURS = ("#c71585", "#2e8b57", "#4169e1", "#d2691e", "#6a5acd", "#228b22", "#dc143c", "#008b8b",
                        "#b8860b", "#8b008b")
 
@@ -1234,7 +1223,7 @@ def apply_auto_marks(edits: "Edits", village: gen.Village) -> bool:
     Whether anything changed."""
     changed = False
     for p in village.people.values():
-        if p.upcoming or p.placeholder:
+        if p.upcoming:
             continue
         labels = auto_labels(edits, p)
         if not labels:
@@ -1493,7 +1482,8 @@ def reports_folder(folder: Path, slot: int) -> Path:
 STYLE_KEYS = (
     "centre_heads", "text_align", "text_inside", "fixed_face_size", "turn_words", "flip_words", "text_room", "special_mode", "special_pick", "special_palette",
     "special_count", "hibiscus", "special_opacity", "rainbow_strength", "schemes", "detail_lines", "detail_colour", "detail_opacity", "detail_width", "text_box_colour", "text_box_opacity", "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width", "text_valign", "text_wrap", "row_align", "row_valign", "row_limit", "keep_families", "others_columns", "others_side", "packing", "lines_behind", "picture_size", "text_size", "portrait_gap", "row_gap", "show_founder", "fit_width", "canvas_w", "canvas_h", "page_generations", "diagonal_lines",
-    "show_units", "show_years", "show_twins", "show_runner", "show_arrived", "show_masters", "descriptors_v2",
+    "show_units", "show_years", "show_twins", "show_runner", "show_arrived", "show_masters", "show_left_home",
+    "descriptors_v2",
     "number_names", "number_names_v2", "number_order", "sort", "positioning", "numbering",
     "background", "background2", "rainbow", "background_image", "background_fit", "background_opacity",
     "ink", "font", "styles", "portrait_fill", "shapes", "borders", "plate_colour", "opacity", "sizes",
@@ -5031,21 +5021,12 @@ def is_founder(village: gen.Village, p: gen.Person) -> bool:
 
 
 def arrival_words(village: gen.Village, p: gen.Person) -> str:
-    """How they joined the family from outside: "Married in", "Adopted", "Adopted (Adopt New Person)"; "" for the
-    founder and anyone born into the family."""
-    if p.upcoming or not p.arrived:
+    """The event that brought them into the family or changed it for them ("Event names"), as the save (or the
+    Family History log) proves it: "Married in", "The Little Visitor", "Spawn Child", "Adopt New Person"...;
+    "" for the founder and anyone born into the family, or when no record names the event."""
+    if p.upcoming:
         return ""
-    return {"Married in": "Married in", "Adopted": "Adopted",
-            "Adopt New Person": "Adopted (Adopt New Person)"}.get(p.how, "")
-
-
-def _vv_arrival_words(village: gen.Village, p: gen.Person) -> str:
-    """ "Arrived: <how>" for a family member an Arrived record says came later (an island event, a visitor, a Custom
-    Island Event...); "" for a founder, a birth, or a backfilled "How: unknown"."""
-    how = (p.how or "").strip()
-    if p.upcoming or not p.arrived or not how or how.lower() in ("founder", "unknown", "golden child"):
-        return ""
-    return f"Arrived: {how}"
+    return getattr(p, "event", "") or ""
 
 
 def status_descriptors(lay: Layout, p: gen.Person) -> list[str]:
@@ -5059,24 +5040,26 @@ def descriptors(lay: Layout, p: gen.Person) -> list[str]:
     """The descriptors after the age (the owner, 2026-10-22: "family members get auto-denoted with special descriptors
     if applicable"): Founder, Runner, twins and triplets, how they arrived, the jobs they are a Master of, and
     their special family member statuses -- each where it applies and its option is ticked."""
-    # Virtual Families 1: "show_runner" is the "Left home" option and "show_masters" the "Heir" option (the
-    # Virtual Villagers fields kept, so every per-group setting and saved look works as there).
+    # Virtual Families 1: "show_masters" (the Virtual Villagers field, kept so every per-group setting and saved
+    # look works as there) is the "Heir" option; "show_left_home" is new.
     v = lay.village
     out = ["Founder"] if lay.opt(p, "show_founder") and is_founder(v, p) else []
     out += ["Heir"] if lay.opt(p, "show_masters") and getattr(p, "heir", False) else []
+    out += ["Runner"] if lay.opt(p, "show_runner") and p.runner else []
     out += born_with(lay, p)
     arrived = arrival_words(v, p) if lay.opt(p, "show_arrived") else ""
     out += [arrived] if arrived else []
-    out += ["Left home"] if lay.opt(p, "show_runner") and getattr(p, "left_home", False) and p.alive else []
+    out += ["Left home"] if lay.opt(p, "show_left_home") and getattr(p, "left_home", False) and p.alive else []
     return out + [s for s in status_descriptors(lay, p) if s not in out]
 
 
 # The descriptor options (the Faces & Text tab's tick boxes): (Edits field, words).
 DESCRIPTOR_OPTIONS = (("show_founder", "Founder (the one who started the family)"),
                       ("show_masters", "Heir (inherited the house)"),
+                      ("show_runner", "Runner (likes running)"),
                       ("show_twins", "Twins and triplets (\"Happi's twin\")"),
-                      ("show_arrived", "How they joined (\"Married in\", \"Adopted\")"),
-                      ("show_runner", "Left home"))
+                      ("show_arrived", "Event names (\"Married in\", \"The Little Visitor\")"),
+                      ("show_left_home", "Left home"))
 
 
 def status_options(edits: Edits, village: gen.Village) -> list[tuple[str, bool]]:
@@ -5341,15 +5324,14 @@ def bold_italic_aux(lines: list, runs) -> list | None:
 
 
 def status_label(p: gen.Person) -> str:
-    """The saved record's status for a portrait, as default_text words it: "(deceased)", "(disappeared)",
-    "(left the family)", "Heathen" for a living Heathen, else "" (a living family member, or a baby on the way)."""
+    """The saved record's status for a portrait, as default_text words it: "(deceased)", "(no longer in the
+    house)", else "" (a living family member, or a baby on the way)."""
     return gen.status_words(p)
 
 
 def shows_status(lines: list) -> bool:
-    """Whether portrait lines (as drawn) already say a status: a "(deceased)" / "(disappeared)" / "(left the
-    family)" anywhere in a line, or a line that is "Heathen" alone."""
-    return any(isinstance(line, str) and (STATUS_WORDS.search(line) or line.strip() == "Heathen") for line in lines)
+    """Whether portrait lines (as drawn) already say a status: "(deceased)" or "(no longer in the house)"."""
+    return any(isinstance(line, str) and STATUS_WORDS.search(line) for line in lines)
 
 
 def with_status_label(p: gen.Person, lines: list, runs, shown: list | None = None) -> tuple[list, list | None] | None:
@@ -8549,8 +8531,6 @@ def build(folder: Path, game: int, slot: int, edits: Edits | None = None) -> tup
     village = gen.load_village(folder, game, slot, rename_answers=edits.renames)
     edits = full_name_edits(edits, village)
     apply_auto_marks(edits, village)            # every special villager marked, as the editor shows them
-    if edits.hide_heathens:                     # "Hide unconverted Heathens": the pictures as the editor shows it
-        village = gen.without_heathens(village)
     arrange(village, edits)
     return village, edits, layout(village, edits)
 

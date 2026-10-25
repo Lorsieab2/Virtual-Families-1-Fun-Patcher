@@ -44,6 +44,7 @@ import vf1_line_colours
 import vf1_member_info
 import vf1_save
 import vf1_save_backup as save_backup
+import vf1_tree_memory
 from vf1_tree_editor_tools import BOLD_ROLES, CanvasTools, ScrollingTab, picture_scene, panel_colour, scrollable_frame
 
 SELECT = "#1f6fd1"
@@ -837,7 +838,8 @@ def ask_identities(editor, questions: list | None = None):
 def _open_editor(app, parent, folder: Path, game: int, info, title: str, images: Path | None) -> None:
     try:
         village = app._run_with_wait("Reading the family from the save...\n\nNothing is changed.",
-                                     lambda: gen.load_village(folder, game, info.slot, rename_answers=_saved_renames(
+                                     lambda: gen.load_village(folder, game, info.slot, remember=True,
+                                                              rename_answers=_saved_renames(
                                          folder, game, info.slot)))
     except (gen.GenealogyError, OSError) as exc:
         messagebox.showerror("Family Tree Maker", str(exc), parent=parent)
@@ -869,11 +871,9 @@ def find_villagers(village: gen.Village, edits: ft.Edits, query: str) -> list[in
     people = village.people
     hits = []
     for pid, p in people.items():
-        if p.placeholder:
-            continue
         status = ["alive" if p.alive else "", "baby on the way upcoming" if p.upcoming else "",
                   {"died": "died dead deceased", "disappeared": "disappeared gone", "left": "left gone"}.get(p.gone, p.gone),
-                  "expecting pregnant" if p.expecting else "", "heathen" if p.heathen else "",
+                  "expecting pregnant" if p.expecting else "", "runner running" if p.runner else "",
                   "adopted" if getattr(p, "adopted", False) else "", "heir" if getattr(p, "heir", False) else "",
                   "left home" if getattr(p, "left_home", False) else "",
                   (p.how or "").lower(), (getattr(p, "cause", "") or "").lower()]
@@ -893,7 +893,7 @@ def unknown_preferences(village: gen.Village) -> list[int]:
     """The family members whose likes and dislikes neither the save nor the logs give, so a search by them cannot
     find (or rule out) these."""
     return [pid for pid, p in village.people.items()
-            if not p.placeholder and (p.likes is None or p.dislikes is None)]
+            if p.likes is None or p.dislikes is None]
 
 
 class TreeEditor(CanvasTools, tk.Toplevel):
@@ -933,9 +933,6 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         # the tree -- the tree only; the logs keep them until Repair Saves & Logs removes them.
         self.full_village = village
         self.hide_gone = tk.BooleanVar(value=self.window.get("hide_not_in_save", True) is not False)
-        # "Hide unconverted Heathens" (the owner, 2026-10-22; off by default): kept with the tree (Edits.hide_heathens).
-        self.hide_heathens = tk.BooleanVar(value=edits.hide_heathens)
-        self.heathens_hidden = edits.hide_heathens
         self.village = self._shown_village(village)
         self.geometry(self.window.get("geometry", "1400x860"))
         install_tips(self)
@@ -2277,7 +2274,6 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         self.canvas.yview_moveto(max(0.0, (py * self.z - sy) / height))
 
     def redraw(self, rescene: bool = True) -> None:
-        self._sync_heathens()
         anchor = self._view_anchor()
         self._same_scene = not rescene
         self._draw_tree()
@@ -3015,10 +3011,19 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         """This tree deleted -- its tree file and its edits -- and drawn as the patcher first draws it
         (the pictures already exported stay; Ctrl+Z brings the edits back while the editor is open, and
         Ctrl+S saves them again)."""
-        if not self._sure("Delete this family tree -- its tree file, and every mark, colour, move, picture, text box "
-                          "and page -- and start again from the save?  (Exported pictures are kept.)"):
+        if not self._sure("Delete this family tree's look -- every mark, colour, move, picture, text box and page -- "
+                          "and start again from the save?  (Exported pictures, and the family members the tree "
+                          "remembers, are kept.)"):
             return
-        for path in (self._tree_file(), ft.Edits.path(self.folder, self.game, self.slot)):
+        tree = self._tree_file()
+        try:
+            data = vf1_tree_memory.read_tree_file(tree) if tree is not None else {}
+            if data.pop("edits", None) is not None:
+                vf1_tree_memory.write_tree_file(tree, data)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Family Tree Maker", f"The tree file could not be changed: {exc}", parent=self)
+            return
+        for path in (ft.Edits.path(self.folder, self.game, self.slot),):
             try:
                 if path is not None:
                     path.unlink(missing_ok=True)
@@ -3122,27 +3127,7 @@ class TreeEditor(CanvasTools, tk.Toplevel):
     def _shown_village(self, village: gen.Village) -> gen.Village:
         """The family as the tree shows it: with "Hide family members not in the current save" on, without the
         family members of a family started over that src/vv_history_revision.py proves gone."""
-        self.heathens_hidden = self.edits.hide_heathens
-        if self.edits.hide_heathens:            # "Hide unconverted Heathens" (Edits.hide_heathens)
-            village = gen.without_heathens(village)
         return village
-
-    def _toggle_hide_heathens(self) -> None:
-        """New Believers' Heathens who never converted off the tree (and its pictures), or back on.  Kept with
-        the tree; their marks and edits are kept either way."""
-        self.edits.hide_heathens = bool(self.hide_heathens.get())
-        self._saved()                           # a change to the tree, to undo and save (redraws, after _sync_heathens)
-        self.status.set("Unconverted Heathens are hidden." if self.edits.hide_heathens
-                        else "Unconverted Heathens are shown.")
-
-    def _sync_heathens(self) -> None:
-        """The family shown as the edits say (after the switch, an undo, or a tree file opened)."""
-        if getattr(self, "heathens_hidden", None) is None or self.heathens_hidden == self.edits.hide_heathens:
-            return
-        self.village = self._shown_village(self.full_village)
-        self.selected = [q for q in self.selected if q in self.village.people]
-        if hasattr(self, "hide_heathens"):
-            self.hide_heathens.set(self.edits.hide_heathens)
 
     def _toggle_hide_gone(self) -> None:
         self.village = self._shown_village(self.full_village)
@@ -3167,7 +3152,8 @@ class TreeEditor(CanvasTools, tk.Toplevel):
                 parent=self):
             return
         try:
-            village = gen.load_village(self.folder, self.game, self.slot, rename_answers=self.edits.renames)
+            village = gen.load_village(self.folder, self.game, self.slot, rename_answers=self.edits.renames,
+                                       remember=True)
         except gen.GenealogyError as exc:
             messagebox.showerror("Family Tree Maker", str(exc), parent=self)
             return
@@ -5759,10 +5745,10 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         return f"{tribe} (Save {self.slot}) family tree {datetime.now():%Y-%m-%d %H-%M-%S}"
 
     def _tree_file(self) -> Path | None:
-        """The editable tree file: in the save folder's Family Trees folder, named after the family and slot."""
+        """The editable tree file, one per save: Virtual Families 1 Family Tree - Save <N>.tree in the patcher's
+        own folder for the save (it also keeps every member the tree has seen: vf1_tree_memory)."""
         folder = self._trees_folder()
-        tribe = "".join(ch for ch in (self.village.tribe or "Family") if ch not in '\\/:*?"<>|')
-        return folder / f"{tribe} (Save {self.slot}) Family Tree{TREE_SUFFIX}" if folder else None
+        return vf1_tree_memory.tree_file(self.folder, self.slot) if folder else None
 
     def _save_tree(self) -> bool:
         """The tree saved to be worked on later (the owner: "Save to Save Folder - should save the
@@ -5772,12 +5758,14 @@ class TreeEditor(CanvasTools, tk.Toplevel):
             messagebox.showerror("Family Tree Maker", f"The folder {ft.data_folder(self.folder, self.slot)} could not be made.",
                                  parent=self)
             return False
-        data = {"format": TREE_FORMAT, "game": self.game, "slot": self.slot, "family": self.village.tribe,
-                "edits": self.edits.to_data()}
-        temp = path.with_name(path.name + ".tmp")
         try:
-            temp.write_text(json.dumps(data, indent=1), encoding="utf-8")
-            os.replace(temp, path)
+            data = vf1_tree_memory.read_tree_file(path)       # the members it remembers are kept
+        except ValueError:
+            data = {}
+        data.update({"format": TREE_FORMAT, "game": self.game, "slot": self.slot, "family": self.village.tribe,
+                     "edits": self.edits.to_data()})
+        try:
+            vf1_tree_memory.write_tree_file(path, data)
             self.edits.save(ft.Edits.path(self.folder, self.game, self.slot))
         except OSError as exc:
             messagebox.showerror("Family Tree Maker", f"The tree could not be saved: {exc}", parent=self)
