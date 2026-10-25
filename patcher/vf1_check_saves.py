@@ -476,9 +476,11 @@ def apply(folder: Path, slot: int, chosen: set[str],
     except save_backup.BackupError as exc:
         raise CheckError(f"The backup before repairing failed, so nothing was changed. {exc}") from exc
     _refuse_if_running(folder, controller)        # the backup took a moment
+    written = False
     try:
         if path.read_bytes() != data:
             raise CheckError(f"{path.name} changed while it was being repaired.")
+        written = True
         _write_atomically(path, bytes(new))
         again = check_save(path.read_bytes(), path)[1]
         left = sorted(chosen & {f.repair.key for f in again if f.repair is not None})
@@ -490,7 +492,7 @@ def apply(folder: Path, slot: int, chosen: set[str],
             raise CheckError("the repair changed more than it should")
     except (OSError, CheckError) as exc:
         try:
-            if path.read_bytes() != data:
+            if written and path.read_bytes() != data:
                 _write_atomically(path, data)
         except (OSError, CheckError) as undo:
             raise CheckError(f"The repair failed ({exc}) and the save could not be put back ({undo}). Your backup "
