@@ -67,6 +67,7 @@ from __future__ import annotations
 import os
 import struct
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -300,7 +301,7 @@ def read_slots(folder: Path) -> list[SlotSpeed]:
 
 def _write_atomically(path: Path, data: bytes) -> None:
     """Replace ``path`` with ``data`` through a temporary file, then verify."""
-    temporary = path.with_name(path.name + ".speed-tmp")
+    temporary = path.with_name(f"{path.name}.speed-{uuid.uuid4().hex[:12]}.tmp")   # a leftover never blocks the next one
     try:
         with temporary.open("xb") as handle:
             handle.write(data)
