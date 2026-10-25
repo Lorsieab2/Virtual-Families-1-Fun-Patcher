@@ -51,6 +51,30 @@ What this tool writes, in the slot save "Virtual Families<N>.ldw" only (the game
     Nothing else changes: not the header, not the options file. Any other combination (another speed, or a speed
     option and a clock that disagree) is shown with its raw values and refused.
 
+The patcher's own Time Controls speeds, and why they are not offered here (VERIFIED)
+    Source native/vf1fun (features.inc, pages.inc); bytes checked in the v1.1 build of vf1fun.dll (SHA-256
+    BF294E09...3401), image base 0x10000000.
+    * The page's buttons store the wanted speed in a DLL global (0x10034048) and call the game's SetSpeed 0x422450
+      and store the same value in gs+0x1B180: Slow 20 (0x10008B4C), Normal 10 (0x10008B02), Fast 5 (0x10008B6F),
+      5x 2 (0x10008B92), 10x 1 (0x10008BB5). Pause is the Space bar's (SetSpeed(999), += 999, 0x10008A5F..0x10008A73),
+      so the speed to come back to rides along as option - 999; Resume (0x10008AC3..0x10008AE3) restores it (10
+      when it is 0). The 15-second helper tick re-applies a wanted speed other than 10 while unpaused.
+    * SetSpeed for these speeds is the same as for 10 (stock 0x4224A4..0x422574; the timer loop counted by 0x50C5C8
+      never runs, that count is zero-initialised and never written): +0xC = Seconds(), +8 = now, +4 = old, +0x20 =
+      the speed. Seconds() then counts (now - +8) / (speed / 10.0): Slow half speed, Fast 2x, 5x and 10x.
+    * The time-flow upkeep (0x489E08) caps a villager's banked real seconds at 0x9538 for option 5, 0x5CF8 for 20 and
+      0x7918 for 10 and for every other value (2 and 1 included), always setting 0x7918 when over; ageing ticks are
+      banked / 60 / option (0x489E86), and a dead body goes once (now - stamp) / 60 / option reaches 240 (0x489D59).
+    * NONE OF THEM IS EVER SAVED. theGameState::Save is wrapped (vtable slot 7, 0x10003CA0): any option other than
+      10 or 1009 is written as 10 (running, after SetSpeed(10)) or 1009 (paused), and the live speed is put back
+      after the save (0x10003CCE..0x10003D4A). Load (slot 6, 0x10003B80) turns any such value into 10 with
+      SetSpeed(10), or 1009 when paused (0x10003BB2..0x10003BFC), before the closed-game catch-up. Since v0.3.0
+      (commit 1f96b1b, live-tested then: a family saved at 10x had aged 26 years on load); v0.2.0 still saved them.
+    So no installed game can produce a Time Controls speed in a save, and one written there would be turned back to
+    Normal at the next load: this tool offers only Paused and Normal. A save left at one by v0.2.0 is named in words
+    and refused (loading it in the game brings it back at Normal). A paused save holding 999 + a Time Controls speed
+    is Paused: the patched game loads it as 1009, so Normal is what its unpause gives.
+
 Safety
     * The game must be closed: it saves when it quits, which would put the old speed straight back. Nothing here
       ever closes or pauses a game.
@@ -85,6 +109,8 @@ BODY_REMOVED_AT = 240       # age units a dead body stays (0x489D5F cmp eax, 0xF
 PAUSED = "Paused"
 NORMAL_NAME = "Normal"
 TARGETS = (PAUSED, NORMAL_NAME)
+# The Time Controls page's own names for its speed values (pages.inc; see the module notes). Never offered.
+TIME_CONTROLS_SPEEDS = {20: "Slow", 5: "Fast", 2: "5x", 1: "10x"}
 CLOCK_SIZE = 0x14
 _U32 = 0xFFFFFFFF
 # Villager record (gs+0xE790 + k * 0x6B8), the fields AllVillagersTimeflowUpkeep 0x489D00 reads and writes.
@@ -132,7 +158,14 @@ class SpeedState:
             return PAUSED
         if self.kind == "normal":
             return NORMAL_NAME
+        if self.time_controls:
+            return f"{TIME_CONTROLS_SPEEDS[self.option]} (a Time Controls speed)"
         return f"other (speed value {self.option}, clock speed {self.clock_speed})"
+
+    @property
+    def time_controls(self) -> bool:
+        """True for a running save at one of Time Controls' speeds (only the old v0.2.0 patcher saved them)."""
+        return self.option in TIME_CONTROLS_SPEEDS and self.clock_speed == self.option
 
 
 @dataclass(frozen=True)
@@ -287,7 +320,10 @@ def read_slots(folder: Path) -> list[SlotSpeed]:
             slots.append(SlotSpeed(slot, None, None, f"{path.name} is not a Virtual Families save this tool can read."))
             continue
         info = SlotSpeed(slot, rename_family.save_name(data), state)
-        if state.kind == "other":
+        if state.time_controls:
+            info.problem = (f"Its speed is {state.label}, from an older patcher. Time Controls speeds are never kept "
+                            "in a save: load this family in the game and it comes back at Normal.")
+        elif state.kind == "other":
             info.problem = (f"Its speed is {state.label}, which this tool does not change. Change it in the game "
                             "(Options, Pause Game).")
         slots.append(info)

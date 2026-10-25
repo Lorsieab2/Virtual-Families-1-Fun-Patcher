@@ -132,8 +132,8 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
     Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
     the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
-  - **Game Speed...:** shows each save's speed (Paused, Normal, or any other value raw) and sets a family to
-    **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
+  - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
+    value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for
     999): the speed option gs+0x1B180 (10, or +999 when paused) and the saved CGameTime. Paused acts as if the game
     was paused just before it saved; Normal as if the paused family were unpaused now, so the clock carries on from
@@ -141,8 +141,11 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     update keeps it (0x489E6B): the paused time is never aged in. Any other speed is refused, as is an unpause that
     would have removed a dead body meanwhile. It backs up first as `Backup <date> (before speed change)`, writes
     only the slot save, reads it back, checks that no other byte changed and puts it back if anything fails. It
-    writes no log and no data file. Slow and Fast are not offered: no code in the game sets any speed but 10 and
-    the +999 pause. Module `patcher/vf1_game_speed.py`, tests `tests/test_game_speed.py`.
+    writes no log and no data file. The stock game sets no speed but 10 and the +999 pause. The patcher's own
+    Time Controls speeds (Slow 20, Fast 5, 5x 2, 10x 1) are not offered either: vf1fun.dll saves every family at
+    Normal (or Paused) and loads any save holding one of them at Normal (theGameState Save / Load wrappers, since
+    v0.3.0), so no installed game can produce one in a save. A save the old v0.2.0 left at one is named in words
+    and refused. Module `patcher/vf1_game_speed.py`, tests `tests/test_game_speed.py`.
   - **Check Saves...:** reads one slot's save and its two older copies (`patcher/vf1_check_saves.py`, no log is
     read or written) and lists each finding as OK, WRONG (impossible), NOTE or UNCHECKED, using only the save
     fields `docs/vf1-save-format.md` marks VERIFIED: health 0 to 100 and a living villager's cause of death -1

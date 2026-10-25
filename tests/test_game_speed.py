@@ -91,6 +91,56 @@ def test_other_values_are_shown_raw_and_refused(folder):
     assert gs.read_state(bytes(data)).kind == "other"
 
 
+@pytest.mark.parametrize("value,name", [(20, "Slow"), (5, "Fast"), (2, "5x"), (1, "10x")])
+def test_a_time_controls_speed_is_named_in_words_and_never_offered(folder, value, name):
+    """Time Controls never keeps these in a save (it saves and loads them as Normal), so none is a target."""
+    data = bytearray(fixture(NORMAL_SAVE))
+    at = gs._layout(bytes(data))
+    struct.pack_into("<i", data, at.option, value)             # what the v0.2.0 patcher could save
+    struct.pack_into("<i", data, at.clock, value)
+    state = gs.read_state(bytes(data))
+    assert state.time_controls and state.kind == "other"
+    assert state.label == f"{name} (a Time Controls speed)"
+    (folder / "Virtual Families3.ldw").write_bytes(bytes(data))
+    info = {s.slot: s for s in gs.read_slots(folder)}[3]
+    assert info.label.endswith(f"- {name} (a Time Controls speed)")
+    assert "comes back at Normal" in info.problem
+    assert name not in gs.TARGETS
+    for target in gs.TARGETS:
+        with pytest.raises(gs.SpeedError, match="Time Controls speed"):
+            gs.changed_bytes(bytes(data), target, unix_after(bytes(data), 60))
+    with pytest.raises(gs.SpeedError, match="not a speed this tool sets"):
+        gs.set_speed(folder, 3, name, Processes(), NOW)
+    struct.pack_into("<i", data, at.clock, 10)                 # option and clock disagree: raw, as before
+    assert gs.read_state(bytes(data)).label == f"other (speed value {value}, clock speed 10)"
+
+
+@pytest.mark.parametrize("value", [20, 5, 2, 1])
+def test_paused_from_a_time_controls_speed_is_paused_and_unpauses_to_normal(value):
+    """999 + speed with a stopped clock: the patched game loads it as 1009, so its unpause gives Normal."""
+    data = bytearray(fixture(PAUSED_SAVE))
+    at = gs._layout(bytes(data))
+    struct.pack_into("<i", data, at.option, 999 + value)
+    struct.pack_into("<i", data, at.clock + 4, value)          # the clock's previous speed
+    assert gs.read_state(bytes(data)).label == "Paused"
+    out = gs.read_state(gs.changed_bytes(bytes(data), gs.NORMAL_NAME, unix_after(bytes(data), 60)))
+    assert (out.option, out.clock_speed, out.clock_previous) == (10, 10, 0)
+
+
+def test_a_round_trip_through_every_offered_speed_comes_back_with_no_jump():
+    data = fixture(NORMAL_SAVE)
+    paused = gs.changed_bytes(data, gs.PAUSED)
+    unix = unix_after(paused, 0)
+    normal = gs.changed_bytes(paused, gs.NORMAL_NAME, unix)
+    again = gs.changed_bytes(normal, gs.PAUSED)
+    seconds = vs.parse_save(data).time.seconds_at_save()
+    for out, label in ((paused, "Paused"), (normal, "Normal"), (again, "Paused")):
+        assert gs.read_state(out).label == label
+        assert vs.parse_save(out).time.seconds_at_save() == seconds
+        assert gs.only_speed_fields_differ(data, out)
+    assert gs.TARGETS == ("Paused", "Normal")
+
+
 # ------------------------------------------------------------------ the values written
 
 

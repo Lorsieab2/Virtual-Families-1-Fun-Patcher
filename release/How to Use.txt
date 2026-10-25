@@ -156,7 +156,9 @@ Next to the Patches tab is a Tools tab for your family saves.
                     paused just before the game last saved; Normal as if you
                     unpaused it right now, so the paused time is never aged
                     in. Your saves are backed up first (as "Backup <date>
-                    (before speed change)").
+                    (before speed change)"). Time Controls' Slow, Fast, 5x
+                    and 10x are not offered: the game never keeps them in a
+                    save and loads every family at Normal or Paused.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).
