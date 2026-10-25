@@ -1,0 +1,178 @@
+0x401f27	0x401f20	_time64	mov eax, dword ptr [esp + 4] ; add esp, 0xc ; ret  ; int3 
+0x401f47	0x401f40	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4981ba ; fild dword ptr [eax + 4]
+0x401f78	0x401f70	_time64	lea ecx, [esp + 8] ; push ecx ; call 0x4984a3 ; fild dword ptr [eax + 4]
+0x401fc7	0x401fc0	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4984a3 ; fild dword ptr [eax + 4]
+0x401ff8	0x401ff0	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4981ba ; mov eax, dword ptr [eax + 0x1c]
+0x402018	0x402010	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4984a3 ; mov eax, dword ptr [eax + 0x1c]
+0x402038	0x402030	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4984a3 ; mov eax, dword ptr [eax + 0x14]
+0x402f7a	0x402f60	_time64	push 0 ; call 0x4984c7 ; push eax ; call 0x498bcb
+0x402f81	0x402f60	_time64	push eax ; call 0x498bcb ; add esp, 0xc ; mov eax, esi
+0x4036d8	0x4036d0	_time64	mov ecx, dword ptr [0x4e9234] ; mov edx, dword ptr [0x4e9230] ; mov eax, dword ptr [esp + 0xc] ; push ecx
+0x40b8c7	0x40b8b0	_time64	lea ecx, [esp + 0xc] ; push ecx ; call 0x4984a3 ; add esp, 8
+0x413193	0x413170	CGameTime::Seconds	push 1 ; push 0x62 ; mov ecx, edi ; mov dword ptr [ebx + 8], eax
+0x413ff0	0x413f80	SecondsFromGameStart	pop edi ; mov dword ptr [esi + 0x18], eax ; mov eax, dword ptr [esi + 4] ; pop esi
+0x4143d0	0x414370	CGameTime::Seconds	push 0x5a ; sub esp, 0x10 ; mov dword ptr [esi + 0x6f4], eax ; mov eax, esp
+0x414bc5	0x414a20	SecondsFromGameStart	add eax, 0x78 ; mov dword ptr [edi + 0x354], eax ; mov dword ptr [edi + 0x360], 0xffffffff ; pop ebx
+0x414c7e	0x414bf0	SecondsFromGameStart	cmp dword ptr [edi + 8], eax ; jae 0x414c99 ; mov edx, dword ptr [esp + 0x14] ; push edx
+0x414db0	0x414bf0	SecondsFromGameStart	cmp eax, dword ptr [edi + 0x18] ; jbe 0x414dc1 ; mov dword ptr [edi + 0x14], 0xffffffff ; mov eax, dword ptr [esp + 0x14]
+0x414e1b	0x414bf0	CGameTime::Seconds	mov ecx, eax ; sub ecx, dword ptr [esi + 0x6f4] ; mov eax, 0x88888889 ; mul ecx
+0x414e7e	0x414bf0	CGameTime::Seconds	mov dword ptr [esi + 0x6f4], eax ; mov dword ptr [esp + 0x1c], 0 ; lea edi, [esi + 8] ; test ebp, ebp
+0x415e9b	0x415e80	CGameTime::Seconds	xor ecx, ecx ; lea edx, [ebp + 0x20] ; cmp dword ptr [esp + 0x14], 3 ; jne 0x415ebb
+0x415f05	0x415e80	CGameTime::Seconds	mov dword ptr [esi + 0x20], eax ; mov eax, dword ptr [esp + 0x1c] ; cmp eax, ebx ; je 0x415f43
+0x415f90	0x415f50	CGameTime::Seconds	cmp eax, edi ; jb 0x415fc1 ; mov edi, dword ptr [esi] ; mov ecx, 0x50c5d0
+0x415fa0	0x415f50	CGameTime::Seconds	mov ecx, eax ; sub ecx, edi ; mov eax, 0x57619f1 ; mul ecx
+0x41610b	0x416050	SecondsFromGameStart	push 1 ; lea ecx, [esp + 0x2a64] ; push ecx ; push 0
+0x41ef58	0x41ebd0	wall-seconds	mov dword ptr [esi + 0x94], eax ; add eax, 1 ; mov dword ptr [esi + 0x98], eax ; mov ecx, dword ptr [esp + 0x2c]
+0x41f070	0x41f050	wall-seconds	cmp dword ptr [esi + 0x98], eax ; jae 0x41f0d7 ; mov eax, dword ptr [esi + 0x54] ; push eax
+0x41f0a7	0x41f050	wall-seconds	sub eax, edi ; cmp eax, 3 ; jge 0x41f0bf ; add edi, 3
+0x41f0dd	0x41f050	wall-seconds	cmp eax, dword ptr [esi + 0x50] ; jbe 0x41f0fc ; mov ecx, esi ; mov byte ptr [esi + 0x4d], 0
+0x42229f	0x422280	SecondsFromGameStart	mov dword ptr [esi + 0x28], eax ; xor eax, eax ; mov dword ptr [esi + 0x2c], eax ; mov dword ptr [esi + 0x30], eax
+0x4222e3	0x4222c0	SecondsFromGameStart	mov dword ptr [esi + 0x10], eax ; mov al, 1 ; pop esi ; ret 4
+0x42234e	0x422320	SecondsFromGameStart	mov ecx, dword ptr [esi + 0x28] ; cmp eax, ecx ; jbe 0x422360 ; sub eax, ecx
+0x4223c0	0x4223b0	SecondsFromGameStart	sub eax, dword ptr [esi + 0x28] ; pop esi ; ret  ; xor eax, eax
+0x422416	0x4223f0	SecondsFromGameStart	sub eax, dword ptr [edi + 0x10] ; mov ecx, esi ; mov dword ptr [esi + 0x30], eax ; call 0x4223b0
+0x4224ac	0x422450	SecondsFromGameStart	mov ecx, eax ; mov eax, dword ptr [esi + 0x20] ; test eax, eax ; mov dword ptr [esp + 0x10], eax
+0x422557	0x422450	CGameTime::Seconds	mov dword ptr [esi + 0x2c], eax ; call 0x423660 ; mov ecx, eax ; call 0x4036d0
+0x422566	0x422450	SecondsFromGameStart	mov dword ptr [esi + 0x28], eax ; mov eax, dword ptr [esi + 0x20] ; mov dword ptr [esi + 0x24], eax ; mov dword ptr [esi + 0x20], ebp
+0x4225f0	0x4225d0	SecondsFromGameStart	cmp dword ptr [esi], eax ; pop esi ; setb al ; ret 
+0x42262c	0x422620	CGameTime::Seconds	mov dword ptr [esi + 4], eax ; pop esi ; ret  ; int3 
+0x422839	0x422830	CGameTime::Seconds	cmp eax, dword ptr [edi + 4] ; jbe 0x4228a4 ; push esi ; mov ecx, 0x50c5d0
+0x422849	0x422830	CGameTime::Seconds	mov ecx, eax ; sub ecx, dword ptr [edi + 4] ; mov eax, 0xc22e4507 ; mul ecx
+0x423923	0x423920	wall-seconds	cmp dword ptr [esi + 0x1b318], eax ; jae 0x423948 ; call 0x401f20 ; add eax, 0x258
+0x423930	0x423920	wall-seconds	add eax, 0x258 ; mov dword ptr [esi + 0x1b318], eax ; mov ecx, esi ; pop esi
+0x423a46	0x4239a0	_time64	mov eax, dword ptr [esp + 0xc] ; add esp, 4 ; cmp byte ptr [esi + 0x1b190], bl ; mov dword ptr [esi + 0x1b208], eax
+0x423a9b	0x423a90	SecondsFromGameStart	mov ecx, eax ; mov eax, 0x91a2b3c5 ; mul ecx ; mov edi, edx
+0x423b35	0x423b20	SecondsFromGameStart	mov dword ptr [esi + 0x1b168], eax ; mov ecx, esi ; mov byte ptr [esi + 0x1bc], 1 ; call 0x4036d0
+0x423b49	0x423b20	SecondsFromGameStart	mov ecx, eax ; mov eax, 0x91a2b3c5 ; mul ecx ; shr edx, 0xb
+0x423b85	0x423b70	SecondsFromGameStart	mov dword ptr [esi + 0x1b168], eax ; mov ecx, esi ; mov byte ptr [esi + 0x1ac], 1 ; call 0x4036d0
+0x423b99	0x423b70	SecondsFromGameStart	mov ecx, eax ; mov eax, 0x91a2b3c5 ; mul ecx ; shr edx, 0xb
+0x423bc3	0x423bc0	SecondsFromGameStart	mov ecx, eax ; mov eax, 0x91a2b3c5 ; mul ecx ; xor al, al
+0x423c1c	0x423bc0	SecondsFromGameStart	mov edx, eax ; sub edx, dword ptr [esi + 0x1b168] ; mov eax, 0xc22e4507 ; mul edx
+0x423c43	0x423bc0	SecondsFromGameStart	mov dword ptr [esi + 0x1b168], eax ; pop esi ; ret  ; cmp byte ptr [ecx + 0x18c], 0
+0x423cb3	0x423cb0	SecondsFromGameStart	cmp dword ptr [edi + 0x1b160], eax ; jae 0x423ce6 ; push esi ; push 0x10
+0x423cd8	0x423cb0	SecondsFromGameStart	add eax, esi ; mov dword ptr [edi + 0x1b160], eax ; pop esi ; pop edi
+0x42435c	0x424110	CGameTime::Seconds	add eax, 0x384 ; mov ecx, esi ; mov dword ptr [esi + 0x1b14c], eax ; mov dword ptr [esi + 0x1b154], ebx
+0x424386	0x424110	SecondsFromGameStart	add eax, 0x1a4 ; pop edi ; mov dword ptr [esi + 0x1b160], ebx ; mov byte ptr [esi + 0x1b16c], bl
+0x42446f	0x424460	SecondsFromGameStart	mov ecx, eax ; mov eax, 0x91a2b3c5 ; mul ecx ; shr edx, 0xb
+0x424a0c	0x424a00	SecondsFromGameStart	cmp dword ptr [esi + 0x1b160], eax ; jae 0x424a42 ; mov ecx, 0x5b8898 ; call 0x48a600
+0x424e64	0x424a50	CGameTime::Seconds	lea esi, [eax + 0xb4] ; call 0x423660 ; mov dword ptr [eax + 0x1b154], esi ; mov al, 1
+0x424f26	0x424ea0	wall-seconds	add eax, 0x258 ; mov ecx, esi ; mov dword ptr [esi + 0x1b318], eax ; call 0x423960
+0x424ff3	0x424f80	SecondsFromGameStart	mov ecx, dword ptr [edi] ; pop edi ; mov dword ptr [ecx + 0x1b164], eax ; pop esi
+0x432c9f	0x432b50	SecondsFromGameStart	cmp edi, eax ; ja 0x432cdb ; mov dword ptr [ebp + 0x1770], 0 ; mov eax, 0x10
+0x432ce6	0x432b50	SecondsFromGameStart	pop edi ; add eax, ebx ; pop esi ; mov dword ptr [ebp + 0x1770], eax
+0x43493c	0x434920	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, dword ptr [esp + 8] ; add esi, 4 ; push esi
+0x43495c	0x434920	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov eax, dword ptr [esi + 8] ; mov ecx, dword ptr [esi + 0xc] ; mov edx, dword ptr [esi + 4]
+0x4349b3	0x434920	SecondsFromGameStart	mov ecx, dword ptr [esp + 8] ; add dword ptr [esi + 0x2c], eax ; call 0x431310 ; pop esi
+0x4349cf	0x434920	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, dword ptr [esp + 8] ; add esi, 4 ; push esi
+0x4349ef	0x434920	SecondsFromGameStart	fld dword ptr [esi + 0xc] ; add dword ptr [esi + 0x2c], eax ; movzx eax, byte ptr [esi + 8] ; push ecx
+0x434cf0	0x434ce0	SecondsFromGameStart	cmp dword ptr [esi + 0x2c], eax ; jae 0x434cfe ; mov al, 1 ; pop esi
+0x434ff0	0x434fe0	SecondsFromGameStart	mov dword ptr [esi + 4], eax ; mov eax, dword ptr [esp + 8] ; mov dword ptr [esi + 8], eax ; pop esi
+0x43691d	0x436780	CGameTime::Seconds	lea esi, [eax + 0xb4] ; call 0x423660 ; push 0 ; mov ecx, ebp
+0x438622	0x4385b0	CGameTime::Seconds	add eax, edi ; add esi, eax ; call 0x423660 ; mov ecx, ebx
+0x43a7ec	0x43a790	SecondsFromGameStart	mov dword ptr [0x50c560], eax ; call 0x423660 ; mov ecx, eax ; call 0x4238e0
+0x43fdd7	0x43fc90	wall-seconds	mov ecx, esi ; mov dword ptr [esi + 0x398], eax ; call 0x43cd10 ; pop esi
+0x44097d	0x4408f0	SecondsFromGameStart	mov edx, dword ptr [esi + 0x14] ; add eax, 0x28 ; mov dword ptr [edx + 0x1b314], eax ; mov ecx, 0x503b68
+0x440ffd	0x440ff0	wall-seconds	sub eax, 1 ; mov dword ptr [esi + 0x30], eax ; mov eax, dword ptr [esi + 0xb8] ; push eax
+0x4412ca	0x441070	SecondsFromGameStart	mov ecx, dword ptr [ebx + 0x14] ; cmp dword ptr [ecx + 0x1b150], eax ; jae 0x441320 ; push esi
+0x441322	0x441070	SecondsFromGameStart	add eax, 0xe10 ; cmp eax, dword ptr [ebp + 0x1b150] ; jae 0x441349 ; mov ecx, ebp
+0x441336	0x441070	SecondsFromGameStart	mov ecx, dword ptr [ebx + 0x14] ; add eax, 0xce4 ; mov dword ptr [ecx + 0x1b150], eax ; push esi
+0x444de8	0x444db0	SecondsFromGameStart	mov ecx, dword ptr [esi + 0x14] ; add eax, 0x28 ; mov dword ptr [ecx + 0x1b314], eax ; mov edi, dword ptr [esi + 0x14]
+0x444dfe	0x444db0	SecondsFromGameStart	cmp dword ptr [edi + 0x1b314], eax ; jae 0x444e28 ; mov ecx, edi ; call 0x4036d0
+0x444e0d	0x444db0	SecondsFromGameStart	mov edx, dword ptr [esi + 0x14] ; add eax, 0x28 ; mov ecx, 0x5b8898 ; mov dword ptr [edx + 0x1b314], eax
+0x444e28	0x444db0	wall-seconds	cmp dword ptr [esi + 0x30], eax ; jb 0x444e3c ; cmp byte ptr [esi + 0x20], 0 ; je 0x4454ee
+0x444e6c	0x444db0	wall-seconds	mov ecx, dword ptr [esi + 0x14] ; add eax, 2 ; mov dword ptr [esi + 0x30], eax ; call 0x4036d0
+0x444e7a	0x444db0	SecondsFromGameStart	mov ecx, dword ptr [esi + 0x14] ; add eax, 0x28 ; mov dword ptr [ecx + 0x1b314], eax ; push 0
+0x44504b	0x444db0	CGameTime::Seconds	mov edx, dword ptr [esi + 0x14] ; mov dword ptr [edx + 0x1b14c], eax ; mov eax, dword ptr [esi + 0x14] ; add dword ptr [eax + 0x1b14c], 0xe10
+0x445200	0x444db0	CGameTime::Seconds	mov edx, dword ptr [esi + 0x14] ; cmp dword ptr [edx + 0x1b154], eax ; ja 0x445271 ; mov ecx, 0x5b8898
+0x445276	0x444db0	CGameTime::Seconds	mov ecx, dword ptr [esi + 0x14] ; cmp dword ptr [ecx + 0x1b14c], eax ; ja 0x44535a ; mov ecx, 0x5b8898
+0x445306	0x444db0	CGameTime::Seconds	mov ecx, dword ptr [esi + 0x14] ; add eax, 0xe10 ; mov dword ptr [ecx + 0x1b14c], eax ; mov ecx, dword ptr [esi + 0x14]
+0x445338	0x444db0	CGameTime::Seconds	mov edx, dword ptr [esi + 0x14] ; add eax, 0xe10 ; push esi ; mov dword ptr [edx + 0x1b14c], eax
+0x44535a	0x444db0	wall-seconds	mov ecx, dword ptr [esi + 0x30] ; sub ecx, eax ; cmp ecx, 3 ; jbe 0x44537c
+0x447399	0x447320	SecondsFromGameStart	cmp dword ptr [esi + 0x5c], eax ; jae 0x4473b6 ; mov ecx, dword ptr [esi + 0x10] ; push 1
+0x4473cf	0x447320	SecondsFromGameStart	cmp dword ptr [esi + 0x5c], eax ; jae 0x4473f8 ; mov ecx, dword ptr [esi + 0x10] ; push 1
+0x447726	0x447590	SecondsFromGameStart	push 0x320 ; mov dword ptr [esi + 0x5c], eax ; call 0x403650 ; sub eax, 0x64
+0x4480b0	0x447f80	SecondsFromGameStart	add eax, 7 ; mov dword ptr [esi + 0x5c], eax ; mov dword ptr [esi + 0x64], edi ; mov dword ptr [esi + 0x68], ebp
+0x4487db	0x448730	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; mov byte ptr [esi + 0x18], 1 ; cmp dword ptr [esi + 0x14], ebx
+0x4487f7	0x448730	SecondsFromGameStart	cmp eax, dword ptr [esi + 8] ; jae 0x448819 ; cmp byte ptr [esi + 0x19], bl ; jne 0x44884e
+0x448828	0x448730	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; pop esi ; pop ebx
+0x4488fe	0x4488a0	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x448923	0x4488a0	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x448948	0x4488a0	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x4489b1	0x448980	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x4489d6	0x448980	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x4489fc	0x448980	SecondsFromGameStart	add eax, 4 ; mov dword ptr [esi + 8], eax ; xor al, al ; pop esi
+0x44c15f	0x44c030	SecondsFromGameStart	mov ecx, dword ptr [esi - 0x10] ; add ecx, dword ptr [esi + 0x10] ; cmp eax, ecx ; jbe 0x44c1c2
+0x44c1a9	0x44c030	SecondsFromGameStart	mov dword ptr [esi - 0x10], eax ; jmp 0x44c1b5 ; fstp st(0) ; cmp dword ptr [esi - 4], 2
+0x44e8a3	0x44e890	SecondsFromGameStart	cmp dword ptr [esi + 0x100], eax ; jae 0x44e8bd ; mov dword ptr [esi + 0x100], 0 ; mov byte ptr [esi], 0
+0x44e91a	0x44e8c0	SecondsFromGameStart	add eax, 5 ; mov dword ptr [esi + 0x100], eax ; pop esi ; ret 8
+0x44e991	0x44e930	SecondsFromGameStart	add eax, 5 ; mov dword ptr [esi + 0x100], eax ; pop esi ; ret 8
+0x44e9e8	0x44e9b0	SecondsFromGameStart	add eax, 5 ; mov dword ptr [esi + 0x100], eax ; pop esi ; ret 0x10
+0x44ea1d	0x44ea00	SecondsFromGameStart	add eax, 5 ; mov dword ptr [esi + 0x100], eax ; pop esi ; ret 4
+0x4857ff	0x4857f0	CGameTime::Seconds	mov dword ptr [esi + 0x1357c], eax ; pop esi ; ret  ; int3 
+0x485821	0x485810	CGameTime::Seconds	cmp eax, dword ptr [esi + 0x1357c] ; jb 0x485855 ; mov ecx, 0x50c5d0 ; call 0x422320
+0x485833	0x485810	CGameTime::Seconds	mov ecx, eax ; sub ecx, dword ptr [esi + 0x1357c] ; mov eax, 0x57619f1 ; mul ecx
+0x487055	0x486f20	CGameTime::Seconds	sub eax, dword ptr [esi + 0x14] ; mov ecx, dword ptr [esi + 4] ; mov edx, dword ptr [ebx] ; push eax
+0x487076	0x486f20	SecondsFromGameStart	cmp eax, dword ptr [esi + 0x10] ; jb 0x487098 ; mov edx, dword ptr [esi] ; mov eax, dword ptr [esi + 4]
+0x48872b	0x4886e0	SecondsFromGameStart	cmp dword ptr [esi + 0x1b15c], eax ; jae 0x488780 ; push 0x6f ; mov ecx, 0x5b8898
+0x4895cb	0x489540	SecondsFromGameStart	cmp ebp, eax ; ja 0x48960a ; mov dword ptr [edi + 0x2a30], 0 ; push esi
+0x489615	0x489540	SecondsFromGameStart	add eax, 1 ; pop ebp ; mov dword ptr [edi + 0x2a30], eax ; pop edi
+0x489d42	0x489d00	SecondsFromGameStart	mov ecx, eax ; sub ecx, edi ; mov eax, 0x88888889 ; mul ecx
+0x489dc4	0x489d00	SecondsFromGameStart	cmp edi, eax ; jbe 0x489dda ; mov ecx, ebx ; call 0x4036d0
+0x489dcf	0x489d00	SecondsFromGameStart	mov dword ptr [esi - 0x10aa0], eax ; mov edi, dword ptr [esi - 0x10aa0] ; mov ecx, ebx ; call 0x4036d0
+0x489de2	0x489d00	SecondsFromGameStart	sub eax, edi ; add dword ptr [esi - 0x10aa4], eax ; mov eax, dword ptr [esi - 0x10aa4] ; cmp eax, 0x15180
+0x489e54	0x489d00	SecondsFromGameStart	mov ebp, dword ptr [esi - 0x10b44] ; mov ebx, dword ptr [esi - 0x10aa4] ; lea edi, [esi - 0x10b44] ; mov dword ptr [esi - 0x10aa0], eax
+0x48a6c3	0x48a680	SecondsFromGameStart	add eax, 0x15180 ; cmp byte ptr [esp + 0x18], 0 ; mov dword ptr [ebp], eax ; je 0x48a704
+0x48b829	0x48b4d0	SecondsFromGameStart	and eax, 3 ; push eax ; push ebx ; lea eax, [edi - 0x20]
+0x48c103	0x48bc90	SecondsFromGameStart	imul edi, ebp ; imul edi, edi, 0x258 ; add eax, edi ; mov dword ptr [ebx + 0x1b150], eax
+0x48c18d	0x48bc90	SecondsFromGameStart	mov ecx, dword ptr [esp + 0x10] ; sub edi, ebx ; imul edi, dword ptr [ecx + 0x1b180] ; mov edx, edi
+0x48c229	0x48bc90	SecondsFromGameStart	mov edx, dword ptr [esp + 0x10] ; sub edi, ebx ; imul edi, dword ptr [edx + 0x1b180] ; mov ecx, edi
+0x48c2c1	0x48bc90	SecondsFromGameStart	mov ecx, dword ptr [esp + 0x10] ; sub edi, ebx ; imul edi, dword ptr [ecx + 0x1b180] ; mov edx, edi
+0x48de7d	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; add esi, 4 ; push esi ; mov ecx, edi
+0x48de9d	0x48de50	SecondsFromGameStart	mov ecx, dword ptr [esi + 0xc] ; mov edx, dword ptr [esi + 8] ; add dword ptr [esi + 0x2c], eax ; mov eax, dword ptr [esi + 4]
+0x48defc	0x48de50	SecondsFromGameStart	movzx ecx, byte ptr [esi + 4] ; add dword ptr [esi + 0x2c], eax ; push ecx ; mov ecx, edi
+0x48df1d	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x4870b0 ; pop edi
+0x48df39	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x4861f0 ; pop edi
+0x48dfa7	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485e10 ; pop edi
+0x48dfd0	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x486100 ; pop edi
+0x48dfec	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485e40 ; pop edi
+0x48e008	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485e70 ; pop edi
+0x48e024	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485ea0 ; pop edi
+0x48e040	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485fc0 ; pop edi
+0x48e05c	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485ed0 ; pop edi
+0x48e078	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485f00 ; pop edi
+0x48e094	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485f30 ; pop edi
+0x48e0b0	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485f60 ; pop edi
+0x48e0cc	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485f90 ; pop edi
+0x48e0e8	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x485ff0 ; pop edi
+0x48e104	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov ecx, edi ; call 0x486220 ; pop edi
+0x48e129	0x48de50	SecondsFromGameStart	fld dword ptr [esi + 0xc] ; add dword ptr [esi + 0x2c], eax ; movzx eax, byte ptr [esi + 8] ; push ecx
+0x48e16b	0x48de50	SecondsFromGameStart	fld dword ptr [esi + 0xc] ; movzx edx, byte ptr [esi + 8] ; add dword ptr [esi + 0x2c], eax ; mov eax, dword ptr [esi + 4]
+0x48e19b	0x48de50	SecondsFromGameStart	fld dword ptr [esi + 0xc] ; mov edx, dword ptr [esi + 4] ; add dword ptr [esi + 0x2c], eax ; push ecx
+0x48e1db	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov eax, dword ptr [edi + 0x13538] ; push -1 ; push eax
+0x48e246	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov edx, dword ptr [esi + 0x28] ; pop edi ; pop esi
+0x48e269	0x48de50	SecondsFromGameStart	add dword ptr [esi + 0x2c], eax ; mov eax, dword ptr [esi + 0x28] ; pop edi ; pop esi
+0x48ec5c	0x48e350	SecondsFromGameStart	lea edi, [eax + 0x4b0] ; call 0x423660 ; push -0x32 ; mov ecx, esi
+0x48f7df	0x48f780	SecondsFromGameStart	mov dword ptr [esi + 4], eax ; mov eax, dword ptr [esp + 0xc] ; mov byte ptr [esi + 0x14], bl ; mov dword ptr [esi + 0x18], ebx
+0x48fd95	0x48fd80	SecondsFromGameStart	push 0xc ; mov ebx, eax ; call 0x403650 ; add eax, 6
+0x48fdd7	0x48fdc0	SecondsFromGameStart	xor ebx, ebx ; cmp dword ptr [esi + edi*4 + 0x64], eax ; jbe 0x48fe1b ; cmp edi, ebx
+0x48fe4c	0x48fe30	SecondsFromGameStart	cmp dword ptr [edi], eax ; jae 0x48fe5a ; mov byte ptr [esi], 0 ; jmp 0x48fe62
+0x490745	0x490640	SecondsFromGameStart	cmp dword ptr [edi + esi*4 + 0x64], eax ; jae 0x490801 ; push esi ; mov ecx, edi
+0x491f81	0x491f10	CGameTime::Seconds	push 4 ; mov ebp, eax ; call 0x403650 ; lea eax, [eax + ebp + 1]
+0x491f9b	0x491f10	CGameTime::Seconds	cmp eax, dword ptr [esi + 4] ; jb 0x491feb ; mov byte ptr [esi + 8], bl ; jmp 0x491feb
+0x4921bf	0x4921b0	CGameTime::Seconds	add eax, 0x1e ; mov dword ptr [esi + 8], eax ; pop esi ; ret 4
+0x492202	0x4921d0	CGameTime::Seconds	fld dword ptr [esi + 0x28] ; fstp dword ptr [esi + 0x2c] ; mov dword ptr [esi + 0x30], eax ; fld dword ptr [esi + 0x1c]
+0x492238	0x492230	_time64	lea ecx, [esp + 4] ; push ecx ; call 0x4984a3 ; mov eax, dword ptr [eax + 4]
+0x492357	0x492280	CGameTime::Seconds	add ebx, edi ; mov edi, dword ptr [esp + 0x14] ; add eax, ebx ; test edi, edi
+0x492371	0x492280	CGameTime::Seconds	sub eax, edi ; mov dword ptr [esi + 0xc], eax ; mov dword ptr [esi + 0x30], eax ; mov eax, dword ptr [esi + 0x14]
+0x492389	0x492280	CGameTime::Seconds	mov ecx, dword ptr [esi + 0x14] ; pop edi ; mov dword ptr [esi + 0xc], eax ; mov dword ptr [esi + 0x10], ecx
+0x49245d	0x492420	CGameTime::Seconds	fldz  ; fcom dword ptr [esi + 0x24] ; mov edi, eax ; fnstsw ax
+0x49248f	0x492420	CGameTime::Seconds	sub eax, dword ptr [esi + 0x30] ; test eax, eax ; mov dword ptr [esp + 0xc], eax ; fild dword ptr [esp + 0xc]
+0x4925ea	0x492420	CGameTime::Seconds	cmp dword ptr [esi + 8], eax ; jae 0x49268c ; mov eax, dword ptr [esi] ; cmp eax, 2
+0x493b8a	0x4938c0	CGameTime::Seconds	add eax, esi ; mov ecx, 0x502278 ; mov dword ptr [ebp + edi*8 + 8], eax ; call 0x420bc0
+0x493f2b	0x493f10	CGameTime::Seconds	cmp dword ptr [edi + esi*8 + 8], eax ; ja 0x493f66 ; cmp esi, 3 ; mov dword ptr [edi + esi*8 + 8], ebx
+0x496c7f	0x496c70	CGameTime::Seconds	cmp eax, dword ptr [esi + 0x118] ; jbe 0x496cbe ; push 0x32 ; call 0x403650
+0x496cae	0x496c70	CGameTime::Seconds	add eax, 0x3840 ; mov dword ptr [esi + 0x118], eax ; pop esi ; ret 4
+0x496cd8	0x496cd0	CGameTime::Seconds	cmp eax, dword ptr [esi + 0x120] ; jbe 0x496d0d ; push 8 ; call 0x403650
+0x496cfd	0x496cd0	CGameTime::Seconds	add eax, 0xa8c0 ; mov dword ptr [esi + 0x120], eax ; pop esi ; ret 
+0x496d8a	0x496d80	SecondsFromGameStart	cmp eax, dword ptr [esi + 0x13c] ; jbe 0x496da6 ; add eax, 0x3840 ; mov dword ptr [esi + 0x13c], eax
+0x496dba	0x496db0	SecondsFromGameStart	mov ecx, dword ptr [esi + 0x13c] ; lea edx, [eax + 0x2a30] ; cmp edx, ecx ; ja 0x496ddd
