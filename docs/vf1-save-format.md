@@ -254,7 +254,10 @@ native divorce or evict). A log must therefore be written by the DLL as things h
 
 The sites below are calls or vtable entries. The save-side facts above were traced for this document;
 the in-game behaviour at each site (delivery, the death behaviour, the body timer, the Marry handler)
-comes from `research/villagers.md` / `research/time.md` and was not re-traced or run live here.
+comes from `research/villagers.md` / `research/time.md`. **Since re-traced for vf1logs.dll** (Family Logs):
+see docs/FAMILY_LOGS.md for the sites actually hooked (the delivery is seen at the physiology pass's only
+call, 0x424F93; the cause is read at ReportDeath instead of hooking SetHealth), proved by
+tools/vf1_logs_sites.py and emulated in tests/test_family_logs.py; not yet run live.
 
 | Event | Hook | What is known there |
 |---|---|---|

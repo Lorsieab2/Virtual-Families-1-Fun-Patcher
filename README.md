@@ -96,6 +96,16 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
+- **Family Logs** (also in the **Experimental** section, off by default): the Virtual Villagers Fun
+  Patcher's logs for your family, written as things happen: a Family History (every event, one line
+  each), Births and Conceptions, Deaths (with the game's own cause of death), Events (the patcher's own:
+  Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding
+  School), and at each save the Family Population and Family Statistics. One folder per save slot,
+  `Virtual Families 1 Patcher\Save N\Logs` (data files in `Save N\Data`). An existing family's past
+  generations come from its Family Tree, marked "backfilled, no date", once; a new family or Start Over
+  clears that slot's folder (Backups kept). Its own DLL, `vf1logs.dll`. **Not live tested yet** -- see
+  `docs/FAMILY_LOGS.md`.
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## Planned
@@ -152,8 +162,9 @@ copies as arguments.
 
 ## Building
 
-- **DLLs:** `native\build.bat` builds `build\vf1fun.dll` and
-  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children).
+- **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
+  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
+  `native\build_logs.bat` builds `build\vf1logs.dll` (Family Logs).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

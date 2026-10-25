@@ -33,7 +33,7 @@ COUNT = re.compile(r"(\d+) (passed|failed|skipped|errors?|xfailed|xpassed|desele
 # Measured with pytest --durations on 2026-10-23 (serial, 148 tests, 342 s): test_up_to_28_children.py took 258 s
 # (each job pays its ~31 s vf1kids.dll builds once, then ~9-19 s per source mutation) and test_engine.py 45 s;
 # every other file is under 25 s and runs as one job.
-SPLIT = {"test_up_to_28_children.py": 12, "test_engine.py": 3}
+SPLIT = {"test_up_to_28_children.py": 12, "test_engine.py": 3, "test_family_logs.py": 4}
 
 
 def env() -> dict:
