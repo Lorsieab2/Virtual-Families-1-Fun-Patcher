@@ -80,7 +80,6 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_rename_family.py": (ROOT / "patcher" / "vf1_rename_family.py").read_bytes(),
         "vf1_check_saves.py": (ROOT / "patcher" / "vf1_check_saves.py").read_bytes(),
         "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
-        "vf1_save.py": (ROOT / "patcher" / "vf1_save.py").read_bytes(),
         "vf1_genealogy.py": (ROOT / "patcher" / "vf1_genealogy.py").read_bytes(),
         "vf1_family_history.py": (ROOT / "patcher" / "vf1_family_history.py").read_bytes(),
         "vf1_tree_memory.py": (ROOT / "patcher" / "vf1_tree_memory.py").read_bytes(),
