@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
 import vf1_rename_family as rename_family  # noqa: E402
+import vf1_game_mechanics as game_mechanics  # noqa: E402
 import vf1_game_speed as game_speed  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
 
@@ -1335,6 +1336,8 @@ class VF1PatcherGUI:
         self._help_button(links, "rename_family").pack(side="left", padx=(3, 0))
         self._link(links, "Game Speed...", self.game_speed).pack(side="left", padx=(18, 0))
         self._help_button(links, "game_speed").pack(side="left", padx=(3, 0))
+        self._link(links, "Game Mechanics...", self.game_mechanics).pack(side="left", padx=(18, 0))
+        self._help_button(links, "game_mechanics").pack(side="left", padx=(3, 0))
         self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
@@ -1646,6 +1649,22 @@ class VF1PatcherGUI:
             f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".\n\n"
             f"Backup: {result.backup.backup_folder}")
         return result
+
+    # ------------------------------------------------------------------ Game Mechanics
+
+    def game_mechanics(self) -> tk.Toplevel:
+        """Show how the game works underneath (patcher/vf1_game_mechanics.py). It only reads: no save, game file or
+        install is opened or written. One window at a time; asking again brings it to the front."""
+        window = getattr(self, "_game_mechanics_window", None)
+        if window is not None and window.winfo_exists():
+            window.deiconify()
+            window.lift()
+            return window
+        window = game_mechanics.open_window(self.root, link_factory=self._link)
+        window.transient(self.root)
+        self._center_dialog(window)
+        self._game_mechanics_window = window
+        return window
 
     # ------------------------------------------------------------------ Game Speed
 
