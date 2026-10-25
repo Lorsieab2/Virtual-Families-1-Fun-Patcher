@@ -268,8 +268,9 @@
       "title": "Rename Family",
       "guide": [
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
-        "Quit the game first, from its own menu. Click Rename Family..., pick the save, type the new name (up to 19 letters, digits, spaces and symbols on a keyboard), then Rename.",
+        "Quit the game first, from its own menu. Click Rename Family..., pick the save, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
+        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly.",
         "Old logs keep their history and their old name. New log files use the new name, and the Family History gets one line saying the family was renamed."
       ]
     }

@@ -57,6 +57,20 @@ the payload start 0x1B188), 0x15 bytes each; in every checked folder it equals t
 own save (gs+0x1B12C, section 2.3). `patcher/vf1_rename_family.py` (Rename Family) writes exactly these two fields,
 and the same field of the slot's N+20 / N+40 copies when they hold the old name.
 
+**The family-name entry rule (VERIFIED in the vanilla exe, 1.01.00, traced for Rename Family).** The new-family
+dialog's constructor (the code before 0x41C6A0) makes its text box and calls `0x40D6F0(editable = 1, max = 0x14)`
+at 0x41C67A..0x41C67C, which is the control's `0x40D370` and stores the limit 20 at control+0x28 (clamped to
+0x4B0, 0x40D3B3). The control's character handler (message 5, 0x40DA70) stops adding characters when the text
+already has `control+0x28` = 20 characters (0x40DB03 `cmp eax, [ecx+0x28]`; `jge` ignores the key), accepts a
+key from 0x20 to 0xFF unless the control is numeric-only (0x40DB0F..0x40DB1A; this one is not), deletes on 8
+(0x40DAD2), and ends the entry on 9 or 13 (0x40DAF9..0x40DB43). The OK handler (0x41C6D0, button 1) reads the text
+with `GetText(buffer = gs+0x1B12C, 0x14)` (call 0x41C72B): 0x40D740 does `strncpy(buffer, text, 0x14)` (0x4993C0) and
+then `buffer[0x13] = 0` (0x40D75B). So **20 characters can be typed but at most 19 are stored; the 20th is cut
+off**, and the name is then copied byte by byte to gs+0x1B192 (0x41C736..0x41C74A), which fits the 21-byte menu
+field. Rename Family therefore accepts 1 to 19 characters (exactly what the game itself can store) and, of the
+0x20..0xFF the entry accepts, only printable ASCII 0x20..0x7E (a subset). UNCONFIRMED (not traced, cosmetic only,
+and the guide says so): whether non-ASCII keys ever reach the entry, and which symbols the game's font can draw.
+
 ### 1.3 Where the Back Up / Restore tool's rule (feat/tools-tab, `patcher/vf1_save_backup.py`) is wrong
 
 - **21..25 and 41..45 are filed under slots 21..25 / 41..45**, not under slots 1..5. `_SLOT_LDW` takes the

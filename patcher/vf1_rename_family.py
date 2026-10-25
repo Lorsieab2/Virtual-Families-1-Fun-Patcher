@@ -17,11 +17,13 @@ slots' own family names)
     checks the "ldwg" magic and the payload size.
 
 The limit
-    The name entry takes 20 characters and stores them with GetText(buffer, 0x14). The Virtual Villagers
-    games of the same engine keep one character fewer than the entry lets you type, so 19 is the limit
-    here (every name the game itself makes fits, and it fits the 21-byte menu field with its NUL).
-    Only printable ASCII is accepted. Spaces are kept as typed. A name that breaks the rule is refused,
-    never truncated. (Which characters the font cannot draw was not traced for this game.)
+    Traced in the vanilla exe (docs/vf1-save-format.md, "The family-name entry rule"): the entry box lets
+    you type 20 characters (0x41C67A, 0x40DB03) and the OK handler stores them with GetText(buffer, 0x14)
+    (0x41C72B), which strncpy's 20 bytes and forces buffer[19] = 0 (0x40D740): at most 19 characters are
+    ever stored, so 19 is the limit, exactly what the game itself can make. The box accepts keys 0x20..0xFF
+    (0x40DB0F); only printable ASCII 0x20..0x7E is accepted here. Spaces are kept as typed. A name that
+    breaks the rule is refused, never truncated. UNCONFIRMED (not traced): whether non-ASCII keys ever
+    reach the box, and which symbols the game's font can draw (cosmetic only).
 
 Safety
     * The game must be closed: a running game rewrites its saves when it quits, which would put the old
