@@ -270,7 +270,7 @@
       "title": "Rename Family",
       "guide": [
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
-        "Quit the game first, from its own menu. Click Rename Family..., pick the save, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
+        "Quit the game first, from its own menu. Click Rename Family..., pick the family, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
         "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly.",
         "The Family History log, if the family has one, gets a record saying the family was renamed. Old log files keep their old name."
@@ -280,7 +280,7 @@
       "title": "Game Speed",
       "guide": [
         "Pauses or unpauses a family in its save, the same way the game's own Pause Game option does.",
-        "Quit the game first, from its own menu. Click Game Speed..., pick the save (each shows its speed now), choose Paused or Normal, then Set Speed.",
+        "Quit the game first, from its own menu. Click Game Speed..., pick the family (each shows its speed now), choose Paused or Normal, then Set Speed.",
         "Paused works as if you paused just before the game last saved. Normal works as if you unpaused it right now, so the time it spent paused is never aged in.",
         "Set Normal just before you play: like any family at normal speed, it catches up on the time the game is closed after that.",
         "Your saves are backed up first, as \"Backup <date> (before speed change)\", so Restore Saves can undo it.",
@@ -292,7 +292,7 @@
       "title": "Game Mechanics",
       "guide": [
         "Shows how Virtual Families works underneath: ageing, time away, needs, health, sickness, old age, babies, careers, money, events, messes and more.",
-        "Click Game Mechanics... and pick a topic at the top to jump to it. Every time is a real time, for Normal speed, with Slow and Fast beside it.",
+        "Click Game Mechanics... and click a topic's button at the top to jump to it. Every time is a real time, for Normal speed, with Slow and Fast beside it.",
         "Each line says how sure it is: VERIFIED-E (the game's own code was run), VERIFIED-C (read in the game's own code) or UNCONFIRMED.",
         "It only reads: no save or game file is opened or changed, so the game can stay open."
       ]
@@ -301,7 +301,7 @@
       "title": "Family Tree Maker",
       "guide": [
         "Draws a family's tree from its save: every generation's parents and children, with each face from the game.",
-        "Click Family Tree Maker, choose the save folder and the family, then Open. Pick the game folder too, or each face shows a letter.",
+        "Click Family Tree Maker..., choose the save folder and the family, then Open. Pick the game folder too, or each face shows a letter.",
         "Click a portrait to edit its words, shape, colour and marks. Save keeps your tree for next time; Export as Picture saves a PNG or JPG.",
         "Labels under each portrait (each can be unticked): Husband 1 or Wife 2, Remarried, Divorced, Deceased, Adopted, the Random Event, the career.",
         "With the Family History Log patch on, the tree shows what the save forgets: lost spouses, twins, causes of death. Without it, it says what is not known.",
