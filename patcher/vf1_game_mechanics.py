@@ -80,6 +80,7 @@ PATCH_SETTINGS = {
     "SpecialUpgrades": ("Add visible mobile version purchases", True),
     "CheatUpgrades": ("Cheat Upgrades", True),
     "RollTheDice": ("Roll the Dice", True),
+    "FixVanillaGameBugs": ("Fix Vanilla Game Bugs", True),
 }
 
 
@@ -788,7 +789,7 @@ _TIMERS = (
     ("Half-price grocery", game_text(43_200), VERIFIED_C),
     ("Collectible", "3 in 6,600 each frame", VERIFIED_C),
     ("House malfunction", "1 in 800 every 2 real seconds, also while paused", VERIFIED_E),
-    ("Autosave", "every 10 real minutes", VERIFIED_C),
+    ("Autosave", "every 10 real minutes, also while paused, to the same save file a quit writes", VERIFIED_E),
     ("Day and night", "your PC's clock", VERIFIED_C),
 )
 
@@ -802,13 +803,16 @@ def _index() -> list[Fact]:
         "Wait between babies": [f"{PATCHER_PREFIX}: none after a failed try with a parent of 50 or older "
                                 f"({setting('AllowOlderPregnancies')}) or a couple that cannot have a baby "
                                 f"({setting('PrivateRomanticTime')})."],
+        "Autosave": [(f"{PATCHER_PREFIX}: also a save right after you adopt ({setting('FixVanillaGameBugs')}); "
+                      "the 10-minute autosave is unchanged.", C)],
         "Interest": [upgrade("Food Club", "$10,000", f"Food Club delivery: {game_text(86_400)}, every missed "
                                                      "day delivered.")],
     }
     facts = [Fact(g, "Timers (real time):", C)]
     for name, length, label in _TIMERS:
         facts.append(Fact(g, f"{name}: {length}.", label, sub=True))
-        facts += [Fact(g, text, E, sub=True) for text in patched.get(name, ())]
+        facts += [Fact(g, *(item if isinstance(item, tuple) else (item, E)), sub=True)
+                  for item in patched.get(name, ())]
     facts += [
         Fact(g, "The game has 5,088 places that roll a random number; 5,087 are in code the game reaches. The gameplay ones are on "
                 "this page: hunger, eating, waste, starvation, sickness, recovery, old age, conception, twins, "

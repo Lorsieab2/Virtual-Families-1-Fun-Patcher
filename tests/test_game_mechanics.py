@@ -214,7 +214,7 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 29
+    assert len(lines) == 30
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text
@@ -224,6 +224,17 @@ def test_every_patcher_line_names_its_setting_and_is_verified():
     for name in ("Brokerage Account", "Food Club", "Health Plan", "Lucky Rock", "Maid", "Gardener", "Roll the Dice"):
         assert any(name in f.text for f in lines), name
         assert not any(name in f.text and f.label == gm.UNCONFIRMED for f in FACTS), name
+
+
+def test_autosave_line_and_the_adopt_save():
+    # AutoSaveGame 0x423920, from theGame::GameUpdate every frame: 600 s on the PC clock, no pause check,
+    # SaveCurrentGame writes the slot file a quit writes (spec section 17, emulated)
+    [stock] = find(r"^Autosave: every 10 real minutes, also while paused, to the same save file a quit writes\.$",
+                   gm.INDEX)
+    assert stock.sub and stock.label == gm.VERIFIED_E
+    adopt = pin(gm.INDEX, "also a save right after you adopt (Fix Vanilla Game Bugs, on by default)",
+                "the 10-minute autosave is unchanged")
+    assert adopt.sub and adopt.label == gm.VERIFIED_C
 
 
 def test_time_controls_and_time_warp():

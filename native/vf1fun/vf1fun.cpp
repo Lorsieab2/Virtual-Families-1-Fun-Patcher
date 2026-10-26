@@ -830,7 +830,9 @@ static void InstallOldestRecordGuard() {
 // FIX: A NEW FAMILY IS LOST IF THE GAME IS CLOSED WITHOUT QUITTING.
 // The stock game saves when the intro story starts (CStoryScene::Activate
 // calls theGameState::SaveCurrentGame), which is BEFORE anyone is adopted, and
-// not again until the player quits through the menu. Those saves are an empty
+// not again until its autosave comes due (AutoSaveGame 0x423920, every 600 real
+// seconds, from theGame::GameUpdate each frame) or the player quits through the
+// menu. Those saves are an empty
 // game (live 2026-10-10: 108,718 of 111,000 bytes zero, no villager), so a game
 // closed any other way reloads with nobody in it and shows "All of your little
 // family members died". The same gap follows Start Over and Next Generation,

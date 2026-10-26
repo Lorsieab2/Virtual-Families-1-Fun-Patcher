@@ -67,9 +67,10 @@ Money and food cheats do not count toward the money achievements.
 
 Fix Vanilla Game Bugs (on by default): in the original game, a brand-new
 family was lost if the game was closed any way other than Quit (for example a
-crash or Task Manager). It came back as "All of your little family members
-died". The game only saved before the adoption. The patched game saves right
-after you adopt, so the new family is kept. The same applies after Start Over
+crash or Task Manager) before its next autosave, which comes every 10 minutes.
+It came back as "All of your little family members died": the game's last
+save was from before the adoption. The patched game saves right after you
+adopt, so the new family is kept. The same applies after Start Over
 and Next Generation. Quitting through the menu is still the best way to keep
 everything since then.
 
@@ -142,9 +143,10 @@ Next to the Patches tab is a Tools tab for your family saves.
                     for each save) is copied into a new dated folder,
                     "Backups\Backup <date and time>", inside that save folder.
                     The game can stay open: it is paused for the copy, but the
-                    backup holds the family as of its last save, because the
-                    game saves only when you quit normally. Old backups are
-                    never replaced or deleted.
+                    backup holds the family as of its last save: the game
+                    saves by itself every 10 minutes while it runs, and when
+                    you quit normally. Old backups are never replaced or
+                    deleted.
   Restore Saves     Quit the game first. Choose a backup, choose the whole
                     folder or one save slot, and click Restore. You are shown
                     which files will change and asked to confirm. Your saves as
@@ -187,9 +189,10 @@ Good to know
   doesn't appear in fullscreen, set Options > Fullscreen to Off.
 * Fix Vanilla Game Bugs (on): in the original game, a brand-new family was
   lost if the game was closed any way other than Quit (for example a crash or
-  Task Manager). It came back as "All of your little family members died".
-  The game only saved before the adoption. The patched game saves right
-  after you adopt, so the new family is kept. The same applies after Start
+  Task Manager) before its next autosave, which comes every 10 minutes. It
+  came back as "All of your little family members died": the game's last
+  save was from before the adoption. The patched game saves right after you
+  adopt, so the new family is kept. The same applies after Start
   Over and Next Generation. Quitting through the menu is still the best way to
   keep everything since then.
 * The patcher's files live in the "Virtual Families 1 Patcher Files" folder
