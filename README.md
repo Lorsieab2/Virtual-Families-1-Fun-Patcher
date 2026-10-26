@@ -58,7 +58,7 @@ patch settings you can switch off):
   Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), kept per village on their own page. The game's
   Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
-- **Roll the Dice:** costs $500, and an island event happens right away,
+- **Roll the Dice:** costs $500, and a Popup Event happens right away,
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 

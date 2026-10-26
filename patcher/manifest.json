@@ -80,7 +80,7 @@
     {
       "id": "RollTheDice",
       "label": "Roll the Dice",
-      "description": "$500: an island event happens right away.",
+      "description": "$500: a Popup Event happens right away.",
       "default": true,
       "category": "optional"
     },
