@@ -4,6 +4,7 @@ The page is VF1's own facts only (docs/game-mechanics/spec.md and the re-checks 
 evidence label beside it, in family words, real times at Normal with Slow and Fast beside them. The window only
 reads: no save, game file or install is opened or written.
 """
+import json
 import re
 from pathlib import Path
 
@@ -57,6 +58,8 @@ def test_every_group_has_lines_and_they_come_in_order():
 
 def test_family_words_and_no_virtual_villagers_systems():
     lowered = PAGE.lower().replace("my weather machine", "")       # a VF1 e-mail's own title
+    for label, _on in gm.PATCH_SETTINGS.values():                  # the patcher's own setting names, as it shows them
+        lowered = lowered.replace(label.lower(), "")
     for word in ("villager", "tribe", "village", "island", "weather", "mushroom", "tech point", "god power",
                  "heathen", "faith", "puzzle", "golden child"):
         assert word not in lowered, word
@@ -67,7 +70,7 @@ def test_the_notes_explain_the_labels_and_the_speeds():
     for label in gm.LABELS:
         assert label in gm.LABEL_NOTE
     assert "Normal" in gm.SPEED_NOTE and "Slow" in gm.SPEED_NOTE and "Fast" in gm.SPEED_NOTE
-    assert PAGE.startswith(gm.INTRO + "\n\n" + gm.LABEL_NOTE + "\n\n" + gm.SPEED_NOTE)
+    assert PAGE.startswith(gm.INTRO + "\n\n" + gm.PATCHER_NOTE + "\n\n" + gm.LABEL_NOTE + "\n\n" + gm.SPEED_NOTE)
 
 
 def test_real_times_follow_the_speed_divisor():
@@ -132,8 +135,7 @@ def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
 def test_unconfirmed_lines_say_what_is_not_known():
     for pattern in (r"Which label sits beside which bar", r"symptoms' names", r"Which cause the game shows",
                     r"How often a family member goes to work", r"Which of the three career rooms",
-                    r"What the game calls leaving home", r"Roll the Dice", r"Lucky Rock",
-                    r"Whether game time .* while the game is closed"):
+                    r"What the game calls leaving home", r"Whether game time .* while the game is closed"):
         assert find(pattern)[0].label == gm.UNCONFIRMED, pattern
 
 
@@ -180,6 +182,157 @@ def test_printing_the_page(capsys):
     assert capsys.readouterr().out == PAGE
 
 
+# ------------------------------------------------------------------ the game with the patcher
+
+
+def patched(group=None):
+    return [f for f in FACTS if gm.PATCHER_PREFIX in f.text and (group is None or f.group == group)]
+
+
+def pin(group, *words):
+    """the one "With the patcher" line in `group` holding every one of `words`; returns it"""
+    hits = [f for f in patched(group) if all(w in f.text for w in words)]
+    assert len(hits) == 1, (group, words, [f.text for f in patched(group)])
+    return hits[0]
+
+
+def test_the_page_says_it_is_the_unpatched_game_with_the_patchers_changes_beside_it():
+    assert "describes the game without the patcher" in gm.PATCHER_NOTE
+    assert '"With the patcher"' in gm.PATCHER_NOTE and "on by default" in gm.PATCHER_NOTE
+    assert gm.PATCHER_NOTE in PAGE
+
+
+def test_every_named_setting_is_the_manifests_label_and_default():
+    manifest = json.loads((ROOT / "patcher" / "manifest.json").read_text(encoding="utf-8-sig"))
+    settings = {s["id"]: (s["label"], s["default"]) for s in manifest["settings"]}
+    for key, (label, on) in gm.PATCH_SETTINGS.items():
+        assert settings[key] == (label, on), key
+    assert gm.setting("UpTo28Children") == "Up to 28 Children, off by default"
+    assert gm.setting("ClampMoneyAndFood") == "Clamp Max Money and Food, on by default"
+
+
+def test_every_patcher_line_names_its_setting_and_is_verified():
+    named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
+    lines = patched()
+    assert len(lines) == 29
+    for fact in lines:
+        assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
+        assert any(n in fact.text for n in named), fact.text
+        assert fact.label in (gm.VERIFIED_E, gm.VERIFIED_C), fact.text
+    # the old UNCONFIRMED "patcher upgrades" lines are gone: every upgrade is now a verified line
+    assert "The patcher's" not in PAGE
+    for name in ("Brokerage Account", "Food Club", "Health Plan", "Lucky Rock", "Maid", "Gardener", "Roll the Dice"):
+        assert any(name in f.text for f in lines), name
+        assert not any(name in f.text and f.label == gm.UNCONFIRMED for f in FACTS), name
+
+
+def test_time_controls_and_time_warp():
+    assert find(r"^Game speed: the game only ever runs at Normal\.$", gm.TIME)[0].label == gm.VERIFIED_C
+    speeds = pin(gm.TIME, "(Cheat Upgrades, on by default)", "Slow (half speed), Fast (double speed), 5x and 10x")
+    assert speeds.sub and speeds.label == gm.VERIFIED_C
+    assert pin(gm.TIME, "never reach a save", "loads any other saved speed as Normal").label == gm.VERIFIED_C
+    warp = pin(gm.TIME, "Time Warp", "61 age units (3 years and 1 unit)", "past the time-away limits",
+               "stops at $750 more", "works while paused too")
+    assert warp.label == gm.VERIFIED_E
+
+
+def test_food_wraps_without_the_clamp_and_is_held_with_it():
+    find(r"never goes below 0 when food is taken away and has no top limit", gm.NEEDS)
+    find(r"only changes through eating, bags and events - there is no daily use", gm.NEEDS)
+    wrap = find(r"^Food added past 2,147,483,647 wraps round", gm.NEEDS)[0]
+    assert wrap.label == gm.VERIFIED_E and "-2,147,483,546" in wrap.text and gm.PATCHER_PREFIX not in wrap.text
+    clamp = pin(gm.NEEDS, "(Clamp Max Money and Food, on by default)", "put back to 2,147,483,647")
+    assert clamp.label == gm.VERIFIED_E and clamp.sub
+    money = pin(gm.MONEY, "(Clamp Max Money and Food, on by default)", "$4,000,000,000", "no top limit")
+    assert money.label == gm.VERIFIED_E
+
+
+def test_food_club():
+    deliveries = pin(gm.NEEDS, "Food Club", "+500 food and all four food groups", "once a game day",
+                     "every missed game day is delivered at once", "500, 1,000, 15,000 and 50,000 food")
+    assert deliveries.label == gm.VERIFIED_E and "(a Special Upgrade, $10,000" in deliveries.text
+    assert "Add visible mobile version purchases, on by default" in deliveries.text
+    guard = pin(gm.NEEDS, "Food Club", "less than 60 food", "60 food is added first", "30 food becomes 87")
+    assert guard.label == gm.VERIFIED_E and guard.sub
+    prices = pin(gm.MONEY, "Food Club", "cost half, rounded down", "$20 for $10", "$160 for $80")
+    assert prices.label == gm.VERIFIED_E
+
+
+def test_bank_and_store_upgrades():
+    find(r"^Interest: 10% of the money a game day", gm.MONEY)
+    brokerage = pin(gm.MONEY, "Brokerage Account", "11% a game day ($110 on $1,000)", "drops the rate to 1%",
+                    "adds 2 points, up to 11%")
+    assert brokerage.label == gm.VERIFIED_E and "$10,000" in brokerage.text
+    cheat = pin(gm.MONEY, "(Cheat Upgrades, on by default)", "from 1% to 11% for every family",
+                "5% pays $50 on $1,000, also with the Brokerage Account")
+    assert cheat.label == gm.VERIFIED_E
+    health = pin(gm.MONEY, "Health Plan", "cost a quarter, rounded down", "Penicillin $45 for $11",
+                 "Baby Boost $500 for $125", "Doctor Consultation $175 for $43")
+    assert health.label == gm.VERIFIED_E
+
+
+def test_older_villager_mortality_curve():
+    find(r"^No family member can live past 75\.$", gm.OLD_AGE)        # the stock rule stays
+    curve = pin(gm.OLD_AGE, "(Older Villager Mortality Curve, on by default)", "less the food groups counted (at most 4)",
+                "Air Purifier, the Bathroom Upgrade and health over 90 no longer count", "0.37% at 56",
+                "3.59% at 65", "7.04% at 75", "15.15% at 100", "18.19% at 110", "23.23% at 111", "56.71% at 120",
+                "93.59% at 150", "99.73% at 200")
+    assert curve.label == gm.VERIFIED_E and not curve.sub
+    top = pin(gm.OLD_AGE, "no top age", "1 birthday roll in 32,768 is survived")
+    assert top.label == gm.VERIFIED_E
+
+
+def test_allow_older_pregnancies_and_the_failed_try_wait():
+    find(r"^mother over 50: 0%\.$", gm.BABIES)                         # the stock table stays
+    older = pin(gm.BABIES, "(Allow Older Pregnancies, on by default)", "without the mother-over-50 cut-off",
+                "at most 10.07% at 50", "5.04% at 55", "1.01% at 59", "0.91% at 60", "0.10% from 68",
+                "never below 0.10%", "father 50 71.06% without the patch, 10.07% with it", "father 60 69.06% and 0.91%")
+    assert older.label == gm.VERIFIED_E
+    wait = pin(gm.BABIES, "no wait after a failed try", "(Allow Older Pregnancies, on by default)",
+               "six children already, or a same-sex couple (Private Adult Romantic Time, on by default)")
+    assert wait.label == gm.VERIFIED_E and wait.sub
+    index = pin(gm.INDEX, "none after a failed try", "(Private Adult Romantic Time, on by default)")
+    assert index.label == gm.VERIFIED_E
+
+
+def test_up_to_28_children():
+    find(r"Needs free child places \(6 children per generation\)", gm.BABIES)
+    find(r"^At most 6 children per generation", gm.MARRIAGE)
+    places = pin(gm.BABIES, "(Up to 28 Children, off by default)", "experimental", "28 child places per generation")
+    limit = pin(gm.MARRIAGE, "(Up to 28 Children, off by default)", "at most 28 children per generation",
+                "family tree still holds only the first 6")
+    assert places.label == limit.label == gm.VERIFIED_E
+
+
+def test_marriage_and_next_generation():
+    find(r"Each candidate is the opposite sex", gm.MARRIAGE)
+    same = pin(gm.MARRIAGE, "(Cheat Upgrades, on by default)", "Enable Same-Sex Marriage", "same sex as the head")
+    nextgen = pin(gm.MARRIAGE, "(Allow Older Pregnancies, on by default)", "with no death",
+                  "oldest family member at home is 60 or older")
+    assert same.label == nextgen.label == gm.VERIFIED_E
+
+
+def test_roll_the_dice():
+    dice = pin(gm.EVENTS, "(Roll the Dice, on by default)", "costs $500", "pop-up event at once",
+               "the $500 is given back")
+    assert dice.label == gm.VERIFIED_C and not dice.sub
+
+
+def test_maid_gardener_and_lucky_rock():
+    maid = pin(gm.MESSES, "Maid", "every game hour (1 hour on Normal", "daytime only",
+               "every sock, candy wrapper, cobweb and dirt smudge", "at night is skipped")
+    garden = pin(gm.MESSES, "Gardener", "every weed in the yard")
+    assert maid.label == garden.label == gm.VERIFIED_E and "$1,000" in maid.text
+    find(r"3 in 6,600 chance", gm.COLLECTIBLES)
+    find(r"rare 4\.00%, uncommon 13\.01%", gm.COLLECTIBLES)
+    rate = pin(gm.COLLECTIBLES, "Lucky Rock", "3 in 3,300 chance")
+    rarity = pin(gm.COLLECTIBLES, "Lucky Rock", "rare 8.01%, uncommon 26.03%, common 65.97%")
+    assert rate.label == rarity.label == gm.VERIFIED_E and "$77,777" in rate.text
+    for words in (("Lucky Rock", "Collectible: 3 in 3,300 each frame"), ("Maid's visit", "daytime only"),
+                  ("Gardener's visit",), ("Food Club delivery", "every missed day delivered")):
+        assert pin(gm.INDEX, *words).label == gm.VERIFIED_E
+
+
 # ------------------------------------------------------------------ the window
 
 
@@ -199,6 +352,7 @@ def test_the_window_shows_the_page_read_only_and_changes_no_file(app, save):
     for group in gm.GROUPS:
         assert f"\n{group}\n" in shown
         assert text.index(f"group:{group}")
+    assert gm.PATCHER_NOTE in shown
     for fact in FACTS:
         assert gm.line(fact).strip() in shown
     for label in gm.LABELS:

@@ -12,6 +12,14 @@ EVIDENCE.  Every line carries one label, always shown (docs/game-mechanics/spec.
                meaning the code does not show, or the patcher's own features read from its source.
 Nothing is inferred from save values, and code that is in the exe but not shown to run is never presented.
 
+UNPATCHED AND PATCHED.  The page describes the game without the patcher.  Wherever the Fun Patcher changes what a
+line says, a line starting "With the patcher" follows it, naming the patch setting (manifest.json label) and
+whether it is on by default (PATCH_SETTINGS; the test checks both against manifest.json).  Where the two are the same
+nothing is added.  Those lines were verified with the patcher's own vf1fun.dll (and vf1kids.dll), built from
+native/ and mapped beside the vanilla exe in the same unicorn harness: its VF1Fun_Startup ran first with the
+manifest defaults, so every hook it installs was in the emulated image as it writes it, then the game's routines
+(and the DLL's per-frame VF1Fun_Tick) ran with the inputs the game supplies (docs/game-mechanics/spec.md section 22).
+
 SPEEDS.  VF1's speed value is a divisor (10 = Normal, the only speed the stock game sets).  One age unit takes
 60 x speed real seconds and a game second takes speed / 10 real seconds.  The patcher's Time Controls patch adds
 Slow (20) and Fast (5), and 5x (2) and 10x (1); it always saves a family at Normal (or Paused) and loads any other
@@ -50,14 +58,48 @@ LABELS = (VERIFIED_E, VERIFIED_C, UNCONFIRMED)
 
 INTRO = ("For the curious: how Virtual Families works underneath, worked out from the game's own code. All times "
          "are real times. It only reads: no save or game file is opened or changed, so the game may be running.")
+PATCHER_PREFIX = "With the patcher"
+PATCHER_NOTE = ("This page describes the game without the patcher. Wherever the Fun Patcher changes something, the "
+                "line after it starts \"With the patcher\", names the patch setting that does it and says whether "
+                "that setting is on by default.")
 LABEL_NOTE = ("Every line says what stands behind it. VERIFIED-E: the game's own code was run with the values the "
               "game gives it, and the chances counted exactly. VERIFIED-C: read in the game's own code, on a path the "
-              "running game is shown to take. UNCONFIRMED: not yet shown either way.")
-SPEED_NOTE = ("Times are for Normal speed, the only speed the stock game has; Slow and Fast are the Time Controls "
-              "patch's speeds (Slow is half speed, Fast double). Chances are the game's exact odds: its random "
-              "numbers make \"less than 30 in 100\" 30.03%, not 30%.")
+              "running game is shown to take. UNCONFIRMED: not yet shown either way. For a \"With the patcher\" "
+              "line the patcher's own code was run or read together with the game's in the same way.")
+SPEED_NOTE = ("Times are for Normal speed, the only speed the stock game has; Slow and Fast are the speeds the "
+              "patcher's Time Controls add (Slow is half speed, Fast double). Chances are the game's exact odds: its "
+              "random numbers make \"less than 30 in 100\" 30.03%, not 30%.")
 
-BULLET, SUB_BULLET = "• ", "    – "
+# The patch settings the page names (patcher/manifest.json: id -> the label the patcher shows, on by default).
+PATCH_SETTINGS = {
+    "OlderVillagerMortalityCurve": ("Older Villager Mortality Curve", True),
+    "PrivateRomanticTime": ("Private Adult Romantic Time", True),
+    "UpTo28Children": ("Up to 28 Children", False),
+    "AllowOlderPregnancies": ("Allow Older Pregnancies", True),
+    "ClampMoneyAndFood": ("Clamp Max Money and Food", True),
+    "SpecialUpgrades": ("Add visible mobile version purchases", True),
+    "CheatUpgrades": ("Cheat Upgrades", True),
+    "RollTheDice": ("Roll the Dice", True),
+}
+
+
+def setting(key: str) -> str:
+    """'Allow Older Pregnancies, on by default': a setting as a "With the patcher" line names it."""
+    label, on = PATCH_SETTINGS[key]
+    return f"{label}, {'on' if on else 'off'} by default"
+
+
+def with_patcher(key: str, text: str) -> str:
+    """'With the patcher (Allow Older Pregnancies, on by default): ...'."""
+    return f"{PATCHER_PREFIX} ({setting(key)}): {text}"
+
+
+# A Special Upgrade, bought per family on the Upgrades menu's Special Upgrades page.
+def upgrade(name: str, price: str, text: str) -> str:
+    return (f"{PATCHER_PREFIX}'s {name} (a Special Upgrade, {price}, bought for the family; "
+            f"{setting('SpecialUpgrades')}): {text}")
+
+BULLET, SUB_BULLET = "â€¢ ", "    â€“ "
 
 # The game's speed values: real seconds per 10 game seconds; one age unit = 60 x speed real seconds.
 SLOW, NORMAL, FAST = 20, 10, 5
@@ -284,11 +326,13 @@ CAREER_LIST: tuple[Career, ...] = tuple(
 def _time() -> list[Fact]:
     g, E, C, U = TIME, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
-        Fact(g, "Game speed: the stock game only ever runs at Normal. The Time Controls patch adds Slow (half "
-                "speed), Fast (double speed), 5x and 10x.", C),
-        Fact(g, "Time Controls speeds never reach a save: the game saves a family at Normal (or Paused) and loads "
-                "any other saved speed as Normal. So the time while the game is closed is always counted at "
-                "Normal.", C),
+        Fact(g, "Game speed: the game only ever runs at Normal.", C),
+        Fact(g, with_patcher("CheatUpgrades", "the Time Controls page adds Slow (half speed), Fast (double speed), "
+                                              "5x and 10x."), C, sub=True),
+        Fact(g, with_patcher("CheatUpgrades", "Time Controls speeds never reach a save: the game saves a family at "
+                                              "Normal (or Paused) and loads any other saved speed as Normal. So the "
+                                              "time while the game is closed is always counted at Normal."),
+             C, sub=True),
         Fact(g, f"Ageing: one age unit every {units_text(1)}. Twenty age units are one year: "
                 f"{units_text(YEAR_UNITS)}.", E),
         Fact(g, "Ageing runs on real time: each family member counts the real seconds since their last update, "
@@ -309,6 +353,10 @@ def _time() -> list[Fact]:
         Fact(g, "a gap is caught up all at once: every counted age unit runs its hunger, health, sickness, "
                 "birthday and birth checks before the house is drawn again.", E, sub=True),
         Fact(g, "\"Where have you been?\" is shown after more than 23 hours away.", C, sub=True),
+        Fact(g, with_patcher("CheatUpgrades", "Time Warp on the Time Controls page ages everyone at home 61 age "
+                                              "units (3 years and 1 unit) at once, past the time-away limits above, "
+                                              "running every unit's checks; the money gained in a warp stops at $750 "
+                                              "more than before it. It works while paused too."), E),
         Fact(g, "Whether game time (interest, events, the store) also runs while the game is closed.", U),
     ]
 
@@ -323,6 +371,10 @@ def _needs() -> list[Fact]:
         Fact(g, "Hunger never goes above 100.", C),
         Fact(g, "Eating, each age unit: a hungry family member (hunger over 50) eats 3 food and loses 3 hunger - "
                 "always with more than 50 food in the house, 50.05% of the time with 50 or less.", E),
+        Fact(g, upgrade("Food Club", "$10,000", "when a hungry family member is about to eat and there is less than "
+                                                "60 food in the house, 60 food is added first, so they always eat "
+                                                "(checked: 30 food becomes 87 after the meal, 0 becomes 57)."),
+             E, sub=True),
         Fact(g, "Not eating (no food, or the missed 50.05%) when there is some food: 30.03% chance of losing 1 "
                 "health (recorded as Starvation).", E),
         Fact(g, "Waste: with 1,000 food or more, a hungry family member has a 76.05% chance each age unit of "
@@ -345,8 +397,18 @@ def _needs() -> list[Fact]:
         Fact(g, "Food groups: Grains, Dairy, Meats, Fruits and Veggies. Putting a bag in the kitchen gives that "
                 "group to every family member at home for 24 real hours, at any speed. Groceries add 150 food, "
                 "organics 250 food and a little happiness.", E),
-        Fact(g, "Food in the house starts at 50 to 99, never goes below 0 and has no top limit. Food only changes "
-                "through eating, bags, events and the patcher's Food Club - there is no daily use.", C),
+        Fact(g, "Food in the house starts at 50 to 99, never goes below 0 when food is taken away and has no top "
+                "limit. Food only changes "
+                "through eating, bags and events - there is no daily use.", C),
+        Fact(g, "Food added past 2,147,483,647 wraps round to a large negative number (checked: 2,147,483,600 "
+                "plus 150 gives -2,147,483,546).", E),
+        Fact(g, with_patcher("ClampMoneyAndFood", "food that has wrapped below 0 is put back to 2,147,483,647 in the "
+                                                  "next frame, so food stays at most 2,147,483,647."), E, sub=True),
+        Fact(g, upgrade("Food Club", "$10,000", "+500 food and all four food groups for every family member at home "
+                                                "(for 24 real hours) once a game day, every "
+                                                f"{game_text(86_400)}; every missed game day is delivered at once, "
+                                                "with no limit (checked: 1, 2, 30 and 100 days give 500, 1,000, "
+                                                "15,000 and 50,000 food)."), E),
         Fact(g, "The info panel's bars show happiness, 100 minus hunger (\"Fed\"), energy and health.", C),
         Fact(g, "Which label sits beside which bar on the info panel.", U),
     ]
@@ -426,6 +488,14 @@ def _old_age() -> list[Fact]:
         Fact(g, EXTRA_GROUP + " Their old-age odds are as if they had one more group: at 61 with 4 groups, "
                 "10.01% without a career against 20.02% with one.", E),
         Fact(g, "No family member can live past 75.", E),
+        Fact(g, with_patcher("OlderVillagerMortalityCurve", "the birthday roll follows the patcher's curve instead, "
+                             "by years past 55 less the food groups counted (at most 4); the Air Purifier, the "
+                             "Bathroom Upgrade and health over 90 no longer count. Chance of dying on a birthday "
+                             "with 0 food groups: 0.37% at 56, 3.59% at 65, 7.04% at 75, 15.15% at 100, 18.19% at "
+                             "110, then faster: 23.23% at 111, 56.71% at 120, 93.59% at 150, 99.73% at 200. Each food "
+                             "group moves those ages 1 year later."), E),
+        Fact(g, with_patcher("OlderVillagerMortalityCurve", "there is no top age: even at the highest ages 1 "
+                             "birthday roll in 32,768 is survived."), E, sub=True),
         Fact(g, "A birthday that falls inside a catch-up is rolled like any other.", E),
         Fact(g, f"A body stays until 240 age units after the last update ({units_text(240)}), then is removed.",
              E),
@@ -452,9 +522,17 @@ def _babies() -> list[Fact]:
         Fact(g, "mother 50: 0% / 0% / 13.0% / 29.0% / 45.0%.", E, sub=True),
         Fact(g, "mother over 50: 0%.", E, sub=True),
         Fact(g, "fathers over 40 lose 1 point for every 5 years over 40 (45: -1, 60: -4, 70: -6).", E, sub=True),
+        Fact(g, with_patcher("AllowOlderPregnancies", "when either parent is 50 or older the chance is the same sum "
+                             "without the mother-over-50 cut-off, but capped by the older parent's age: at most 10.07% "
+                             "at 50, 5.04% at 55, 1.01% at 59, 0.91% at 60, falling to 0.10% from 68, and never below "
+                             "0.10%. This also lowers the chance for a younger mother when the father is 50 or older "
+                             "(mother 30, fertility 50: father 50 71.06% without the patch, 10.07% with it; father 60 "
+                             "69.06% and 0.91%). Younger couples keep the chances above."), E),
         Fact(g, "Fertility is 15 to 89 when a family member is made, and kept 1 to 100.", E),
         Fact(g, "Twins and triplets: single 93.0%, twins 5.25%, triplets 1.75%; each parent's fertility over 85 "
                 "adds its excess to both chances. Needs free child places (6 children per generation).", C),
+        Fact(g, with_patcher("UpTo28Children", "experimental: 28 child places per generation instead of 6, as long "
+                                               "as the house has a free place among its 30."), E, sub=True),
         Fact(g, f"Pregnancy lasts 21 age units: {units_text(21)}.", E),
         Fact(g, "A baby joins the family at age 2 (40 age units). While the family is 6 or fewer, the baby's sex "
                 "is chosen to balance the house.", C),
@@ -462,6 +540,9 @@ def _babies() -> list[Fact]:
                 "minutes, longer the less both parents want children; after a try that fails, 20 minutes and a "
                 "dip in the mother's happiness; marrying clears it. Trying too soon gives the \"too soon\" "
                 "response and moves the wait to 55 minutes if it was under an hour.", C),
+        Fact(g, f"{PATCHER_PREFIX}: no wait after a failed try when the head or the spouse is 50 or older "
+                f"({setting('AllowOlderPregnancies')}), or when the couple cannot have a baby - six children "
+                f"already, or a same-sex couple ({setting('PrivateRomanticTime')}).", E, sub=True),
     ]
 
 
@@ -499,7 +580,16 @@ def _money() -> list[Fact]:
     return [
         Fact(g, "A new family starts with $50 to $189.", C),
         Fact(g, "Money never goes below $0: a payment that would leaves $0.", E),
+        Fact(g, with_patcher("ClampMoneyAndFood", "money is kept at no more than $4,000,000,000, checked every "
+                                                  "frame; without it there is no top limit."), E, sub=True),
         Fact(g, f"Interest: 10% of the money a game day, every {game_text(86_400)}.", C),
+        Fact(g, upgrade("Brokerage Account", "$10,000", "interest is 11% a game day ($110 on $1,000). Buying it again "
+                                                        "drops the rate to 1%, and each purchase after that adds 2 "
+                                                        "points, up to 11%."), E, sub=True),
+        Fact(g, with_patcher("CheatUpgrades", "the interest-rate cheat sets any rate from 1% to 11% for every family; "
+                                              "while it is set it is used instead of the Brokerage Account's "
+                                              "(checked: 5% pays $50 on $1,000, also with the Brokerage Account)."),
+             E, sub=True),
         Fact(g, "Interest has no limit on missed days: every whole game day since it was last due is paid at "
                 "once, 10% of the money for each day (checked: 1, 2, 3, 7, 30 and 100 days on $1,000 pay $100, "
                 "$200, $300, $700, $3,000 and $10,000).", E),
@@ -508,9 +598,12 @@ def _money() -> list[Fact]:
         Fact(g, "Paused, no interest builds up: it runs on game time.", C),
         Fact(g, f"The store: the specials change every {game_text(14_400)}; one grocery bag is half price, "
                 f"changing every {game_text(43_200)}.", C),
-        Fact(g, "The patcher's Brokerage Account (11% interest), Food Club (+500 food a game day missed, half-price "
-                "groceries), Health Plan (medicines at a quarter price), Maid and Gardener (hourly visits that "
-                "clear the mess and the weeds).", U),
+        Fact(g, upgrade("Food Club", "$10,000", "the eight grocery and organic bags cost half, rounded down "
+                                                "(Grains groceries $20 for $10, Meats organics $160 for $80)."),
+             E, sub=True),
+        Fact(g, upgrade("Health Plan", "$10,000", "the eight medicines, Baby Boost and the Doctor Consultation cost a "
+                                                  "quarter, rounded down (Penicillin $45 for $11, Baby Boost $500 for "
+                                                  "$125, Doctor Consultation $175 for $43)."), E, sub=True),
     ]
 
 
@@ -538,11 +631,19 @@ def _marriage() -> list[Fact]:
         Fact(g, "Each candidate is the opposite sex, 3 years younger to 2 years older than the head, with a "
                 "dowry of $35 to $209, doubled 15.01% of the time. Asking for another candidate loses this "
                 "one.", C),
+        Fact(g, with_patcher("CheatUpgrades", "once Enable Same-Sex Marriage is switched on for the family on the "
+                                              "Family page, every candidate is the same sex as the head."),
+             E, sub=True),
         Fact(g, "Marrying pays the dowry, puts the spouse in the family tree and clears the wait for a baby.", C),
         Fact(g, "The next generation: when a parent with children dies and a child is still alive, the family "
                 "tree offers it. Choosing an heir hides every other family member. Nobody remarries while "
                 "there are children in the record.", C),
+        Fact(g, with_patcher("AllowOlderPregnancies", "the family tree also offers the next generation, with no "
+                                                      "death, while a child is alive and the oldest family member "
+                                                      "at home is 60 or older."), E, sub=True),
         Fact(g, "At most 6 children per generation, 30 family members in a save and 30 generations.", C),
+        Fact(g, with_patcher("UpTo28Children", "experimental: at most 28 children per generation; the family tree "
+                                               "still holds only the first 6."), E, sub=True),
         Fact(g, "Adoption Day (a pop-up): everyone celebrates; nobody joins or leaves.", E),
         Fact(g, "The Little Visitor pop-up: its first choice adds a child to the family.", U),
     ]
@@ -617,12 +718,14 @@ def _events() -> list[Fact]:
     ]
     facts += [Fact(g, f"{title}{f' ({kind})' if kind else ''}: {effect}.", label, sub=True)
               for title, kind, effect, label in _EVENTS]
-    facts.append(Fact(g, "The patcher's Roll the Dice: $500 for a pop-up event (refunded if none can come).", U))
+    facts.append(Fact(g, with_patcher("RollTheDice", "Roll the Dice on the Upgrades menu costs $500 and brings a "
+                                                     "pop-up event at once, picked from those that can happen as "
+                                                     "above; when none can, the $500 is given back."), C))
     return facts
 
 
 def _messes() -> list[Fact]:
-    g, C, U = MESSES, VERIFIED_C, UNCONFIRMED
+    g, E, C, U = MESSES, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
         Fact(g, f"With fewer than 4 in the family a mess appears every {game_text(18_000)}; with 4 or more, "
                 f"every {game_text(9_000)}. None while paused. Up to 30 at once, house and yard "
@@ -631,23 +734,29 @@ def _messes() -> list[Fact]:
                 "a sock 25%, a candy wrapper 25%, a dirt smudge 20%.", C),
         Fact(g, "Socks, weeds, wrappers and smudges together lower happiness at 10 and at 20; a clean house (0) "
                 "or 1 to 4 raises it.", C),
+        Fact(g, upgrade("Maid", "$1,000", f"every game hour ({game_text(3_600)}), in the daytime only, every sock, "
+                                          "candy wrapper, cobweb and dirt smudge is removed; a visit that falls at "
+                                          "night is skipped."), E),
+        Fact(g, upgrade("Gardener", "$1,000", "every game hour, in the daytime only, every weed in the yard is "
+                                              "removed."), E),
         Fact(g, "The kitchen garbage is full at 20.", C),
         Fact(g, "Whether a blue sock vanishes as soon as it appears.", U),
     ]
 
 
 def _collectibles() -> list[Fact]:
-    g, C, U = COLLECTIBLES, VERIFIED_C, UNCONFIRMED
+    g, E, C, U = COLLECTIBLES, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
         Fact(g, "A collectible may appear every frame with a 3 in 6,600 chance, at any speed; none while "
                 "paused.", C),
+        Fact(g, upgrade("Lucky Rock", "$77,777", "a 3 in 3,300 chance, so twice as often."), E, sub=True),
         Fact(g, "How that turns into real time (about one every 73 seconds if the game draws 30 frames a "
                 "second).", U),
         Fact(g, "Rarity: rare 4.00%, uncommon 13.01%, common 82.99%. Nothing appears if that item is already "
                 "out or being carried, or (photo pieces) already owned.", C),
+        Fact(g, upgrade("Lucky Rock", "$77,777", "rare 8.01%, uncommon 26.03%, common 65.97%."), E, sub=True),
         Fact(g, "Selling a duplicate: $5 common, $15 uncommon, $50 rare.", C),
         Fact(g, "A collectible stays on the ground for 2 real minutes.", U),
-        Fact(g, "The patcher's Lucky Rock: rare 8%, uncommon 26%, common 66%.", U),
     ]
 
 
@@ -685,9 +794,21 @@ _TIMERS = (
 
 
 def _index() -> list[Fact]:
-    g, C, U = INDEX, VERIFIED_C, UNCONFIRMED
+    g, E, C, U = INDEX, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    patched = {   # timers the patcher adds or changes, after the stock timer they sit beside
+        "Collectible": [upgrade("Lucky Rock", "$77,777", "Collectible: 3 in 3,300 each frame.")],
+        "Mess": [upgrade("Maid", "$1,000", f"Maid's visit: {game_text(3_600)}, daytime only."),
+                 upgrade("Gardener", "$1,000", f"Gardener's visit: {game_text(3_600)}, daytime only.")],
+        "Wait between babies": [f"{PATCHER_PREFIX}: none after a failed try with a parent of 50 or older "
+                                f"({setting('AllowOlderPregnancies')}) or a couple that cannot have a baby "
+                                f"({setting('PrivateRomanticTime')})."],
+        "Interest": [upgrade("Food Club", "$10,000", f"Food Club delivery: {game_text(86_400)}, every missed "
+                                                     "day delivered.")],
+    }
     facts = [Fact(g, "Timers (real time):", C)]
-    facts += [Fact(g, f"{name}: {length}.", label, sub=True) for name, length, label in _TIMERS]
+    for name, length, label in _TIMERS:
+        facts.append(Fact(g, f"{name}: {length}.", label, sub=True))
+        facts += [Fact(g, text, E, sub=True) for text in patched.get(name, ())]
     facts += [
         Fact(g, "The game has 5,088 places that roll a random number; 5,087 are in code the game reaches. The gameplay ones are on "
                 "this page: hunger, eating, waste, starvation, sickness, recovery, old age, conception, twins, "
@@ -715,7 +836,7 @@ def line(fact: Fact) -> str:
 def render(page: list[Fact] | None = None) -> str:
     """The whole page as text: the intro notes, then each group's heading and lines."""
     page = facts() if page is None else page
-    parts = [INTRO, LABEL_NOTE, SPEED_NOTE]
+    parts = [INTRO, PATCHER_NOTE, LABEL_NOTE, SPEED_NOTE]
     for group in GROUPS:
         lines = [line(f) for f in page if f.group == group]
         if lines:
@@ -763,7 +884,7 @@ def open_window(parent, link_factory=None):
     for label, colour in LABEL_COLOURS.items():
         text.tag_configure(label, foreground=colour, font=("Segoe UI", 9, "bold"))
 
-    for note in (LABEL_NOTE, SPEED_NOTE):
+    for note in (PATCHER_NOTE, LABEL_NOTE, SPEED_NOTE):
         text.insert("end", note + "\n", "note")
     page = facts()
     for group in GROUPS:

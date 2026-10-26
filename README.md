@@ -139,7 +139,9 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     the stock game works underneath, grouped by topic with a link to each at the top: time and ageing (with the
     emulated time-away limits), needs and upkeep, health, sickness, old age and death, pregnancy and babies,
     careers (all 108 with their salaries), money and interest, leaving home, dating and marriage, the 71 e-mail
-    and pop-up events, messes, collectibles, malfunctions, and a chance and timer index. Every time is real time
+    and pop-up events, messes, collectibles, malfunctions, and a chance and timer index. Wherever the patcher
+    changes what a line says, a "With the patcher" line follows it, naming the patch setting and whether it is on
+    by default (verified with the patcher's own DLLs run beside the vanilla exe). Every time is real time
     at Normal with the Time Controls Slow and Fast beside it, and every line carries its evidence label:
     **VERIFIED-E** (the game's own routine emulated with the game's inputs, odds counted exactly),
     **VERIFIED-C** (the game's own code on a traced call path) or **UNCONFIRMED**. The facts are VF1's own, from
