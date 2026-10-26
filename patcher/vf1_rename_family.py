@@ -1,4 +1,4 @@
-"""Rename Family: change a family's name inside a closed game's saves.
+﻿"""Rename Family: change a family's name inside a closed game's saves.
 
 Ported from the Virtual Villagers Fun Patcher's Rename Tribe (src/vv_tribe_rename.py).
 
@@ -33,6 +33,14 @@ Safety
     * Every file is written beside itself and swapped in with os.replace, then read back. Any failure puts
       every file already changed back exactly as it was.
 
+The Family History log (the Family History Log patch)
+    The log belongs to a slot, not to a name, and a new log file opens with the family's name as the game
+    holds it, so every file made from now on says "Family: <new name> (Save N)". Old files are never
+    rewritten (they keep their history and their header). One record is added to the slot's newest Family
+    History file, in the log's own layout: "[YYYY-MM-DD HH:MM:SS] Family Renamed <n>", "  Old name: <old>",
+    "  New name: <new>", numbered after every earlier rename in the slot's files. The Children files and the
+    slot settings are addressed by slot and never by name, so a rename leaves them exactly as they are.
+
 Nothing here touches Tk; the GUI runs it on a worker thread, and the tests drive it against a temporary
 copy of a save folder with a fake process list.
 """
@@ -40,6 +48,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -55,6 +64,9 @@ FAMILY_NAME_FIELD = 0x1C                 # bytes reserved at theGameState+0x1B12
 OPTIONS_FIRST_NAME = 0x1B192             # theGameState offset of slot 1's menu name
 OPTIONS_NAME_STRIDE = 0x15               # bytes per slot-menu name
 GENERATIONS = (20, 40)                   # slot N's older copies: file numbers N+20 and N+40
+LOGS_ROOT = "Virtual Families 1 Patcher"
+HISTORY_FOLDER = "Family History"
+_HISTORY_FILE = re.compile(r"^Family History (\d+)\.txt$", re.IGNORECASE)
 PRINTABLE = frozenset(chr(code) for code in range(0x20, 0x7F))
 
 
@@ -229,6 +241,13 @@ class FileChange:
 
 
 @dataclass
+class LogNote:
+    path: Path
+    original_size: int
+    text: bytes
+
+
+@dataclass
 class RenameResult:
     folder: Path
     slot: int
@@ -236,6 +255,7 @@ class RenameResult:
     new_name: str
     backup: save_backup.BackupResult
     changed: list[Path] = field(default_factory=list)
+    notes: list[Path] = field(default_factory=list)
 
 
 def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -> None:
@@ -291,7 +311,52 @@ def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list
     return old, changes
 
 
-def _restore(changes: list[FileChange]) -> list[str]:
+def history_folder(folder: Path, slot: int) -> Path:
+    return folder / LOGS_ROOT / f"Save {slot}" / "Logs" / HISTORY_FOLDER
+
+
+def newest_history(folder: Path, slot: int) -> Path | None:
+    """The slot's newest Family History file, or None when it has none."""
+    best: tuple[int, Path] | None = None
+    try:
+        entries = list(history_folder(folder, slot).iterdir())
+    except OSError:
+        return None
+    for entry in entries:
+        match = _HISTORY_FILE.match(entry.name)
+        if match and entry.is_file() and (best is None or int(match.group(1)) > best[0]):
+            best = (int(match.group(1)), entry)
+    return None if best is None else best[1]
+
+
+_RENAMED = re.compile(r"^\[[^\]]*\] Family Renamed (\d+)\r?$", re.MULTILINE)
+
+
+def history_record(old: str, new: str, when: datetime, number: int) -> str:
+    """The record the Family History log's own layout gives a rename (vf1logs.dll writes the others)."""
+    return (f"[{when.strftime('%Y-%m-%d %H:%M:%S')}] Family Renamed {number}\r\n"
+            f"  Old name: {old or '(no name)'}\r\n  New name: {new}\r\n\r\n")
+
+
+def plan_log_notes(folder: Path, slot: int, old: str, new: str, when: datetime) -> list[LogNote]:
+    """The record to add to the slot's newest Family History (none when the slot has no history file)."""
+    path = newest_history(folder, slot)
+    if path is None:
+        return []
+    number = 1
+    try:
+        for entry in history_folder(folder, slot).iterdir():
+            if _HISTORY_FILE.match(entry.name) and entry.is_file():
+                text = entry.read_bytes().decode("cp1252", errors="replace")
+                number = max([number] + [int(n) + 1 for n in _RENAMED.findall(text)])
+        data = path.read_bytes()
+    except OSError as exc:
+        raise RenameError(f"Could not read the log {path.name}: {exc}") from exc
+    prefix = b"" if not data or data.endswith(b"\n") else b"\r\n"
+    return [LogNote(path, len(data), prefix + history_record(old, new, when, number).encode("ascii"))]
+
+
+def _restore(changes: list[FileChange], notes: list[LogNote]) -> list[str]:
     """Put every changed file back; the reasons any could not be."""
     problems: list[str] = []
     for change in reversed(changes):
@@ -300,6 +365,13 @@ def _restore(changes: list[FileChange]) -> list[str]:
                 _write_atomically(change.path, change.original)
         except (OSError, RenameError) as exc:
             problems.append(f"{change.path.name}: {exc}")
+    for note in reversed(notes):
+        try:
+            if note.path.stat().st_size != note.original_size:
+                with note.path.open("r+b") as handle:
+                    handle.truncate(note.original_size)
+        except OSError as exc:
+            problems.append(f"{note.path.name}: {exc}")
     return problems
 
 
@@ -325,6 +397,7 @@ def rename_family(
     when = now or datetime.now()
     _refuse_if_running(folder, controller)
     old, changes = plan_save_changes(folder, slot, new_name)
+    notes = plan_log_notes(folder, slot, old, new_name, when)
     try:
         backup = save_backup.copy_save_folder(folder, when, suffix=BACKUP_LABEL)
     except save_backup.BackupError as exc:
@@ -332,12 +405,25 @@ def rename_family(
     # The backup took a moment; the game may have been started meanwhile.
     _refuse_if_running(folder, controller)
     done: list[FileChange] = []
+    appended: list[LogNote] = []
     try:
         for change in changes:
             if change.path.read_bytes() != change.original:
                 raise RenameError(f"{change.path.name} changed while it was being renamed.")
             done.append(change)
             _write_atomically(change.path, change.updated)
+        for note in notes:
+            appended.append(note)
+            with note.path.open("ab") as handle:
+                if handle.tell() != note.original_size:
+                    raise RenameError(f"{note.path.name} changed while it was being renamed.")
+                handle.write(note.text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            with note.path.open("rb") as handle:
+                handle.seek(note.original_size)
+                if handle.read() != note.text:
+                    raise RenameError(f"{note.path.name} did not read back as written.")
         # Read every file back through the same readers the listing uses.
         options = options_path(folder)
         for change in changes:
@@ -346,7 +432,7 @@ def rename_family(
             if not holds:
                 raise RenameError(f"{change.path.name} does not hold the new name.")
     except (OSError, RenameError) as exc:
-        problems = _restore(done)
+        problems = _restore(done, appended)
         if problems:
             raise RenameError(
                 f"The rename failed ({exc}) and these files could not be put back: "
@@ -355,4 +441,5 @@ def rename_family(
         raise RenameError(
             f"The rename failed ({exc}); every file was put back as it was. A backup is in {backup.backup_folder}."
         ) from exc
-    return RenameResult(folder, slot, old, new_name, backup, [change.path for change in changes])
+    return RenameResult(folder, slot, old, new_name, backup,
+                        [change.path for change in changes], [note.path for note in notes])

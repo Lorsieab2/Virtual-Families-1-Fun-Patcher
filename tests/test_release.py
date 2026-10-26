@@ -9,6 +9,7 @@ import pytest
 
 import package_release
 import vf1_patcher as vp
+from conftest import ROOT
 
 VERSION = "v9.9.9-test"
 TOP = f"Virtual-Families-1-Fun-Patcher-{VERSION}"
@@ -37,7 +38,10 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         "Transparency Log.txt", "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
         "vf1_save.py", "vf1_rename_family.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
         "vf1_how_to_use.py", "how_to_use.json", "stub.json",
-        "payload/vf1fun.dll"] + [f"payload/{row['source']}" for setting in json.loads(
+        "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
+        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_line_colours.py", "vf1_tree_editor_tools.py",
+        "vf1_gdiplus.py",
+        "payload/vf1fun.dll"] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])])
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == VERSION
@@ -65,3 +69,17 @@ def test_bundled_patcher_builds_and_checks_its_payload(bundle, vanilla_unchanged
     (folder / "payload" / "vf1fun.dll").write_bytes(b"tampered")
     result = run_bundled(folder, "apply", "--output-dir", str(out))
     assert result.returncode == 2 and "does not match manifest.json" in result.stderr
+
+
+def test_the_tree_pictures_ship_byte_for_byte(bundle):
+    """The Family Tree Maker's backgrounds and logos (the owner's pictures): every one a ready-made background or a
+    logo, shipped unchanged beside the patcher and named in the Transparency Log."""
+    import vf1_family_tree as ft
+    folder, _names = bundle
+    shipped = sorted(p.name for p in (ROOT / "patcher" / "tree_pictures").glob("*.png"))
+    used = sorted([p[3][6:] for p in ft.PRESETS if p[3].startswith("asset:")] + [r[6:] for _n, r in ft.LOGOS])
+    assert shipped == used and len(shipped) == 20
+    log = (folder / "Transparency Log.txt").read_text(encoding="utf-8")
+    for name in shipped:
+        assert (folder / "tree_pictures" / name).read_bytes() == (ROOT / "patcher" / "tree_pictures" / name).read_bytes()
+        assert f"  {name}\r\n" in log or f"  {name}\n" in log

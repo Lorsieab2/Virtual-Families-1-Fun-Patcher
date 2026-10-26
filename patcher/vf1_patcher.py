@@ -1379,6 +1379,9 @@ def restore_backup(args: argparse.Namespace) -> int:
 
 # ---------------------------------------------------------- transparency log
 
+TREE_PICTURES = Path(__file__).resolve().parent / "tree_pictures"   # vf1_family_tree.PICTURES
+
+
 def transparency_log_text(manifest: dict[str, Any]) -> str:
     """The Transparency Log: what the patcher does and every file it writes."""
     settings = manifest_settings(manifest)
@@ -1464,6 +1467,22 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
         f"- {PATCHER_FOLDER}\\{SETTINGS_INI}: the DLL saves cheat values it remembers between sessions there.",
         f"- Saves: Documents\\LDW\\{Path(exe).stem}, separate from the vanilla game's",
         f"  Documents\\LDW\\{VANILLA_SAVE_FOLDER}.",
+    ]
+    if "FamilyHistory" in settings:
+        lines += [
+            f"- Only while {settings['FamilyHistory'].label} is on (vf1logs.dll), beside the saves:",
+            "  Virtual Families 1 Patcher\\Save <N>\\Logs\\Family History\\Family History <k>.txt, one line per event.",
+            "  A new family or Start Over in a slot deletes that slot's Save <N> folder, except a Backups folder in it.",
+        ]
+    lines += [
+        "",
+        "Shipped beside the patcher, never copied into the game",
+        "------------------------------------------------------",
+        "- tree_pictures\\: the Family Tree Maker's ready-made backgrounds and logos (the owner's pictures),",
+        "  used only when picked:",
+    ]
+    lines += [f"  {path.name}" for path in sorted(TREE_PICTURES.glob("*.png"))]
+    lines += [
         "",
         "Settings and defaults",
         "---------------------",
