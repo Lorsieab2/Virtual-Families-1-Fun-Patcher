@@ -21,6 +21,17 @@ clamp_verify method. Nothing in any repo, save or install was changed; no game w
 - **UNCONFIRMED**: not on a traced path, reached only from player input that was not traced, a meaning the code does
   not show, or a patcher DLL behaviour read from its source but not run. Stated as such.
 - Nothing is inferred from save values alone. No design choice is called a bug.
+- **The game with the patcher** (section 22): the same three labels. The patcher's own `vf1fun.dll` (and, for Up to
+  28 Children, `vf1kids.dll`), built from `native/` exactly as `native/build.bat` / `build_kids.bat` build them, is
+  mapped beside the vanilla exe in the same harness (`dllemu.py`). Its own `VF1Fun_Startup` runs first with the
+  manifest defaults (settings.ini answered from `manifest.json`), so every byte patch, jump, retargeted call and
+  vtable slot it installs is in the emulated image as it writes it; then the game's routine (or the DLL's
+  per-frame `VF1Fun_Tick`) runs with the inputs the game supplies. Only Windows itself is answered by stubs
+  (VirtualProtect, the settings file, message boxes, the isolation-aware dialog and LoadLibrary wrappers).
+- `GetRandom(N)` for **N > 32,767** takes another path (0x403671): **floor(rand() x (N - 1) / 32,767)**, 0 when
+  rand() is 0 (the doubles 32,767.0 at 0x4B2748 and 2^32 at 0x4B2750; emulated for all 32,768 raw values,
+  `t_getrandom.py`: monotone, every value distinct). The Mortality Curve's `GetRandom(1000000)` uses it, so its odds
+  are weighted through that path, not as rand() % N.
 
 **Speeds.** VF1's speed value (theGameState+0x1B180) is a divisor: one age unit takes 60 x speed real seconds, and
 CGameTime game seconds run at 10/speed of real time (`CGameTime::Seconds` 0x422320). Stock VF1 only ever writes 10;
@@ -65,6 +76,7 @@ CRT static-initializer tables (`_initterm` 0x4B2464..0x4B2540 and 0x4B2544..0x4B
 | While paused | speed >= 999: bank set to 0 every step: **no aging, and the paused time is never credited** | | | VERIFIED-E (1005 / 1009 / 1020: 0 units after 3 days) |
 | A villager with stamp 0 | skipped (never ages) | | | VERIFIED-E |
 | Day / night | `CNight::GetTimeOfDay` 0x4912C0 = **PC local clock** hour + min/60 + CNight+0x680 (always 0), +12 h with Reverse Day/Night (gs+0x1B184) | follows the PC clock | 0x1B194 | VERIFIED-C |
+| Patcher: Time Warp | Cheat Upgrades (on by default), Time Controls page: moves the saved start (0x4E9230) back 3,660 x speed s and CGameTime by 36,600 game s, runs `AllVillagersTimeflowUpkeep` with the per-speed catch-up cap jumped over (0x489E08 -> 0x489E3C) and the realtime update 0x424F80; money above (money before + $750) is cut back. Emulated (`t_warp.py`): **61 units** at Normal, also while paused (speed 1009 restored after); salary 10,000 gains exactly +$750, salary 48 +$126 | | | VERIFIED-E |
 
 **Time away, emulated** (`t_timeflow.py`, `out_clamp.txt`; credited = units x 60 x speed + bank). This settles the
 two readings: **reading B is what the code does.**
@@ -182,6 +194,7 @@ not traced).
 | Cause | Rule | Status |
 |---|---|---|
 | Old age | Birthday units only (n % 20 = 0). Threshold T = 1,100 + 20 x food groups counted + 20 Air Purifier (gs+0x4C) + 20 Bathroom Upgrade (gs+0x8C) + 60 if health > 90. If n > T: death chance = 10% x (years - T/20), SetHealth(0, cause 2). | VERIFIED-E (`t_life.py`, `t_groups.py`) |
+| Old age, patcher | Older Villager Mortality Curve (on by default): a jump at 0x48BFC6 (`mov ecx,ebx; call 0x48FE30`) runs `FoodGroupsActive` and then the DLL's `VF1RollMortality(unit, groups)`, which ends at the stock block's end 0x48C073: birthdays only; effective age = years - min(groups, 4); hazard = 1 - exp(-(0.00365 x years past 55 + 0.06 x years past 110)) in millionths (capped 999,999); death (SetHealth(0, cause 2)) if `GetRandom(1000000)` < hazard. Air Purifier, Bathroom Upgrade and health > 90 no longer count. Emulated in the full upkeep (`t_oldage2.py`: the threshold found by bisection on the forced roll and both sides re-run, odds through the large-range GetRandom): 0 groups **0.37% at 56, 3.59% at 65, 7.04% at 75, 15.15% at 100, 18.19% at 110, 23.23% at 111, 56.71% at 120, 77.09% at 130, 93.59% at 150, 99.73% at 200**; 4 groups the same 4 years later; careerless 4 groups = 4 groups; upgrades and health 95 = no upgrades; from effective 317 every roll except raw rand 32,767 dies (1 in 32,768 survives) | VERIFIED-E |
 | Disease, starvation | -1 steps stop at 14 health (section 2), so they lower health but cannot reach 0 by themselves | VERIFIED-E |
 | Unknown (-1) | the health-state step or other damage reaching 0 | VERIFIED-C |
 | Work accident (3), Act of Nature (4) | no VF1 call site passes them | VERIFIED-C (absence in the AdjustHealth / SetHealth callers listed in time.md) |
@@ -242,6 +255,24 @@ Oldest-ever statistic GameStats+0x20 (file 0xDA60) in years (0x489EE4, VERIFIED-
   Formula: rand(100) < 105 - (100 - motherF)/3 - (100 - fatherF)/3; fathers over 40 lose (years - 40)/5 (45: -1,
   50: -2, 60: -4, 70: -6 points); mothers 31..50 lose 2 x (years - 20); over 50: 0. Fertility is 15..89 at creation
   (rand(75) + 15), kept 1..100. VF1 has no "first try always succeeds" tip rule (VF2 has).
+- **Patcher: Allow Older Pregnancies** (on by default): the call at 0x48EB8C is retargeted to the DLL's
+  `ChanceWrapper`. When the older parent (mother age / 20, father age / 20 as passed) is **50 or older**: chance =
+  the same sum without the mother-over-50 cut-off, x 10 tenths, capped at (60 - age) x 10 up to 59, 69 - age from 60
+  to 68, then 1; at least 1 tenth; success if `GetRandom(1000)` < tenths. Otherwise the stock call. Emulated
+  (`t_preg.py`, every roll value, MSVC weights): cap **10.07% at 50, 9.06% at 51, 5.04% at 55, 1.01% at 59, 0.91% at
+  60, 0.40% at 65, 0.10% from 68**, floor 0.10%; mother 30 F50 with father 50: **71.06% off, 10.07% on**; father 60:
+  69.06% / 0.91%; father 70: 67.07% / 0.10%; mother 45 F25 father 50: 3.00% / 3.02%; under 50 both: unchanged.
+  VERIFIED-E
+- **Patcher: no failed-try wait** (the store at 0x48EC70 jumps to the DLL): skipped while Allow Older Pregnancies is
+  on and the head (family record parent 1) or spouse (parent 2) is 50 or older, or while Private Adult Romantic Time
+  (on by default) is on and the couple cannot conceive (six children recorded; or same sex with Enable Same-Sex
+  Marriage on). Emulated (`t_family.py`): 49/50 and 50/30 not stored; 50/30 with Allow Older Pregnancies off stored;
+  six children not stored, stored with Private Adult Romantic Time off; five children stored. The mother's trend -50
+  (0x48EC76) still runs. VERIFIED-E
+- **Patcher: Up to 28 Children** (off by default, experimental): vf1fun.dll loads vf1kids.dll, whose Startup checks
+  its pins and hooks `EmptyOffspringSlots` 0x4816E0 = min(28 - children, free villager slots) and `AddOffspring`
+  0x481AA0 (children 7..28 kept outside the tree record). Emulated (`t_kids.py`): with 6 children 22 places, each
+  added child one fewer, 0 at 28; the tree record still counts 6; off: stock 6. VERIFIED-E
 - **Twins / triplets** (`Impregnate`, VERIFIED-C): bonus = (Matriarch fertility - 85 if > 85) + (Patriarch
   fertility - 85 if > 85). Twins if rand(100) < 7 + bonus and at least 2 free child slots; then triplets if
   rand(100) < 25 + bonus and 3 free slots. With no bonus: single 93.0%, twins 5.25%, triplets 1.75%. Needs at least
@@ -289,11 +320,13 @@ Oldest-ever statistic GameStats+0x20 (file 0xDA60) in years (0x489EE4, VERIFIED-
 | Rate | the double 0.1 at 0x4B4520 (10% per game day: 48 h / 24 h / 12 h real); the Bank dialog's "10%" label reads the float 10.0 at 0x4B4528 | | VERIFIED-C |
 | When paid | called by the happiness state (every 3 units), the Bank and store dialogs and events, so a gap is paid in one lump | | VERIFIED-C |
 | New game money | $50..189 (`Money.Set(rand(140) + 50)` in the adoption scene) | | VERIFIED-C |
-| Patcher: Brokerage Account | bank rate 11% (`BankInterestPercent`), applied through `ApplyInterestRate` | Slot N.ini | UNCONFIRMED (patcher source) |
-| Patcher: Food Club | +500 food per game day missed (no cap), half price on groceries 4..11 | Slot N.ini `FoodClubLastDelivery` | UNCONFIRMED (patcher source) |
-| Patcher: Health Plan | medicines 20..29 at 1/4 price | Slot N.ini | UNCONFIRMED (patcher source) |
-| Patcher: Lucky Rock | collectible rarity thresholds 4 / 17 become 8 / 34 (section 15) | Slot N.ini | UNCONFIRMED (patcher source) |
-| Patcher: Maid / Gardener | hourly visits (game s) that clear the house mess / the weeds | Slot N.ini | UNCONFIRMED (patcher source) |
+| Patcher: Clamp Max Money and Food | on by default: every frame (`VF1Fun_Tick`, any scene) money > 4,000,000,000 is set to 4,000,000,000. Emulated: $5,000,000,000 -> $4,000,000,000; off: stays | | VERIFIED-E |
+| Patcher: Brokerage Account | Special Upgrade, $10,000 (setting "Add visible mobile version purchases", on by default): the four interest operands (0x422815, 0x422869, 0x415A80, 0x415887) point at the DLL's rate. Emulated `UpdateInterest`: bankRate 11 -> **+$110.01 a day on $1,000** (3 days $330.01), 1 -> $10.01. `BuyBrokerage` run: 10 -> 11, again -> 1, again -> 3 | Slot N.ini `BankInterestPercent` | VERIFIED-E |
+| Patcher: interest-rate cheat | Cheat Upgrades (on by default): settings.ini [Cheats] `InterestRate` 1..11 read at Startup, used instead of the family's rate. Emulated: 5 -> $50.01 a day, also with bankRate 11; 12 ignored (10%) | settings.ini | VERIFIED-E |
+| Patcher: Food Club | Special Upgrade, $10,000: `VF1Fun_Tick` (main scene) delivers n = whole game days since the last, each +500 food (saturating) and `UpdateNutritionAllVillagers` for groups 0, 2, 1, 3 (24 real h); last += n days. Emulated: 1 / 2 / 30 / 100 days -> +500 / 1,000 / 15,000 / 50,000, groups set, next due in 1 day; a second frame adds nothing. Eating guard (jump at 0x48BDFB): hunger > 50 and food < 60 -> food + 60 before the stock block; emulated food 30 -> 87, 0 -> 57, 59 -> 116, 60 -> 57; hunger 50: no change. Prices (`GetPrice` 0x4968C0 jumps to the DLL): items 4..11 half, rounded down (emulated: $20 -> $10, $160 -> $80) | Slot N.ini `FoodClubLastDelivery` | VERIFIED-E |
+| Patcher: Health Plan | Special Upgrade, $10,000: items 20..29 (the eight medicines, Baby Boost, Doctor Consultation) a quarter, rounded down. Emulated: $5 -> $1, $45 -> $11, $75 -> $18, $500 -> $125, $175 -> $43; other items unchanged | Slot N.ini | VERIFIED-E |
+| Patcher: Lucky Rock | Special Upgrade, $77,777: section 15 | Slot N.ini | VERIFIED-E |
+| Patcher: Maid / Gardener | Special Upgrades, $1,000 each: section 13 | Slot N.ini | VERIFIED-E |
 
 ## 9. Leaving home
 
@@ -315,6 +348,9 @@ The game's own name for this (college / boarding school): UNCONFIRMED (no reader
 | Founder | `CAdoptionScene::GeneratePeepCandidate` 0x436540: sex rand(2), age 20 x (24 + rand(6)) units (**24..29 years**) | VERIFIED-C |
 | Next generation | `ReportDeath` sets "next generation" when a parent with children dies while a child survives; the family-tree screen offers it; choosing an heir runs `StartNextGeneration` 0x481B30 and **hides every other villager** (0x4368F0). No remarriage while children are in the record. | VERIFIED-C (code); heir choice is player input |
 | Child limit | 6 per generation (`EmptyOffspringSlots` 0x4816E0); 30 villager slots; 30 generations | VERIFIED-C |
+| Patcher: Up to 28 Children | off by default, experimental: 28 per generation, the tree record keeps 6 (section 6) | VERIFIED-E |
+| Patcher: Next Generation at 60 | Allow Older Pregnancies (on by default): the Family Tree's flag call at 0x439390 is retargeted to the DLL's gate: the stock flag, or a surviving child (`CountSurvivingChildren` 0x481850 > 0) and the oldest present, at-home, living villager 60 or older. Emulated (`t_family.py`): oldest 59 no, 60 yes (either parent), no surviving child no, setting off: the stock call | VERIFIED-E |
+| Patcher: same-sex candidates | Cheat Upgrades (on by default), the Family page's Enable Same-Sex Marriage (per family, off until switched on): the spawn call at 0x43845F is retargeted; the candidate gets the head's own sex. Emulated `GeneratePeepCandidate` up to the spawn: stock / off opposite sex, on same sex, for either head | VERIFIED-E |
 | Little Visitor (events 49 / 50) | pop-up; choice A adds a child (`AddOffspring` with no parents in the bio, save doc) | UNCONFIRMED (the harness had no target villager) |
 | Adoption Day (41) | everyone runs behaviour 0x48AB50 group action; no family change | VERIFIED-E |
 
@@ -383,9 +419,10 @@ $1,000, 500 food): `t_evfx.py` -> `events_emulated.txt`. Award ranges are exact 
 
 Per-event odds of firing = 1 / (number of eligible events of its kind) at each check.
 
-**Roll the Dice** (patcher, `vf1fun.cpp`): $500, then `FireEvent` 0x41B360 (pop-up events, the same uniform pick);
-if no pop-up event can fire the $500 is refunded. The button is patcher UI: UNCONFIRMED (source read); the pick
-itself is VERIFIED-C.
+**Roll the Dice** (patcher setting Roll the Dice, on by default; `vf1fun.cpp`): $500, then `FireEvent` 0x41B360
+(pop-up events, the same uniform pick); if no pop-up event can fire the $500 is refunded. Emulated (`t_dice.py`: the
+DLL's store HandleMessage with the Upgrades dialog answered "Roll the Dice, yes"): FireEvent true -> -$500; false ->
+$0 and the refund message. The money is VERIFIED-E, the pick VERIFIED-C, so the page line is VERIFIED-C.
 
 ## 12. Weather
 
@@ -402,6 +439,7 @@ e-mail exists (event 20); what it changes: UNCONFIRMED.
 | Blue sock (0x7E) | the expiry check (0x414C71) removes types <= 0x7E once their expiry passes; whether a spawned 0x7E sock vanishes at once (house_store.md) | | UNCONFIRMED (not emulated) |
 | House malfunction | 2-second step 0x444ECD: rand(800) == 1 (**1 in 800 per 2 s, mean 26.7 real min, any speed and also while paused**), none of props 0x16, 0x19, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F, 0x20 active: rand(8) picks one; each is skipped while its permanent-fix flag is set (gs+0x25C/0x20C/0x21C/0x27C/0x22C/0x23C/0x26C/0x24C) | | VERIFIED-C |
 | Kitchen garbage | gs+0x188 level, full at >= 20 (`AddGarbage` 0x423C50) | | VERIFIED-C |
+| Patcher: Maid / Gardener | Special Upgrades ($1,000 each): `VF1Fun_Tick` (main scene): when the game seconds pass the visit time it moves on 3,600 game s and, only if `CNight::IsDayTime` 0x491630, `RemoveAll` 0x413B80 for 0x7E, 0x84, 0x8C, 0x8E (Maid: socks, wrappers, cobwebs, smudges) or 0x88 (Gardener: weeds). Emulated (`t_house.py`, IsDayTime answered day / night): day: every listed type removed, the other kept; night: nothing removed, the timer still moves an hour; not due: nothing. The counts follow on the next `Update` (it recounts every frame, 0x414C03) | 2 h / 1 h / 30 min | VERIFIED-E |
 
 Prop names (sink and toilet leaks, clogged shower, dryer lint fire, power): the FreakOut strings 0x80..0x84 exist;
 the prop-to-name pairing is UNCONFIRMED.
@@ -414,14 +452,17 @@ the prop-to-name pairing is UNCONFIRMED.
 | Start | 50..99 (`Init` 0x422160: 50 + rand(50)) | | VERIFIED-C |
 | Groceries | +150 per bag (items 4..7), organics +250 (8..11); food groups 24 real h (section 2) | | VERIFIED-C |
 | Eating / waste / starvation | section 2: 3 food per hungry villager per unit | | VERIFIED-E |
-| No daily food tick | food changes only through eating, bags, events and the patcher's Food Club | | VERIFIED-C |
+| No daily food tick | food changes only through eating, bags and events (and, with the patcher, the Food Club, section 8) | | VERIFIED-C |
+| Overflow | `Adjust` checks the floor only for a loss (amount <= 0), so food added past 2,147,483,647 wraps negative. Emulated: 2,147,483,600 + 150 -> -2,147,483,546 | | VERIFIED-E |
+| Patcher: Clamp Max Money and Food | on by default: every frame a negative food count becomes 2,147,483,647. Emulated: the wrapped value above -> 2,147,483,647 after one `VF1Fun_Tick`, also in another scene; off: stays negative | | VERIFIED-E |
 
 ## 15. Collectibles
 
 | Item | Rule | Real time | Status |
 |---|---|---|---|
 | Spawn | every frame while speed < 999: rand(6,600) < 3 (0x414DF4) -> `Add(-1)` | at 30 fps: mean **73 s**, any speed | VERIFIED-C |
-| What | `Add` 0x414A20: a random registered area, base + rand(4); rarity rand(100): **rare (+8) 4.00%, uncommon (+4) 13.01%, common 82.99%**; patcher Lucky Rock 8% / 26% / 66%; `force` gives rare. Nothing spawns if that item is out, carried, or (photo pieces) owned. Insect areas need a garden state, photo areas gs+0x16C. | | VERIFIED-C |
+| What | `Add` 0x414A20: a random registered area, base + rand(4); rarity rand(100): **rare (+8) 4.00%, uncommon (+4) 13.01%, common 82.99%**; `force` gives rare. Nothing spawns if that item is out, carried, or (photo pieces) owned. Insect areas need a garden state, photo areas gs+0x16C. | | VERIFIED-C |
+| Patcher: Lucky Rock | Special Upgrade, $77,777: `ApplyVillageEffects` writes the compares at 0x414B6F / 0x414B7C (4 / 17 -> 8 / 34) and the spawn push at 0x414DF5 (6,600 -> 3,300); removing it writes the stock bytes back. Emulated (`t_house.py`, 0x414B6D..0x414B87 for every roll value; the spawn roll's N read from the run): **rare 8.01%, uncommon 26.03%, common 65.97%**; spawn **rand(3300) < 3 = 30 / 32,768 (0.0916%)**, stock 15 / 32,768 (0.0458%) | twice as often | VERIFIED-E |
 | Lifetime | 120 real s on the ground (+0x354) | | UNCONFIRMED (house_store.md reading, not re-traced) |
 | Sell | duplicates $5 / $15 / $50 | | VERIFIED-C (house_store.md) |
 
@@ -453,6 +494,10 @@ real; stopped while paused), **U** age units, **F** frames, **S** the 2-second s
 | Marriage e-mail | gs+0x1B154 (0x1B164) | G | 180 s, then 300 x proposals + 600 x years over 26 | 6 / 3 / 1.5 min first | VERIFIED-C |
 | Messes | CCollectableItem+0x6F4 | G | 300 / 150 game min | 10 h / 5 h / 2.5 h (or half) | VERIFIED-C |
 | Collectible spawn | per frame | F | 3 / 6,600 | mean 73 s at 30 fps | VERIFIED-C |
+| Patcher: Lucky Rock spawn | per frame | F | 3 / 3,300 | twice as often | VERIFIED-E |
+| Patcher: Food Club delivery | Slot N.ini `FoodClubLastDelivery` | G | 86,400 s, every missed day delivered | 48 / 24 / 12 h | VERIFIED-E |
+| Patcher: Maid / Gardener visit | Slot N.ini `MaidNextVisit` / `GardenerNextVisit` | G | 3,600 s, daytime only | 2 h / 1 h / 30 min | VERIFIED-E |
+| Patcher: failed-try wait | gs+0x1B150 | R | not stored with a parent 50+ or a couple that cannot conceive | | VERIFIED-E |
 | Collectible lifetime | slot +8 | R | 120 s | 2 min | UNCONFIRMED (house_store.md) |
 | House malfunction | per step | S | 1 / 800 | mean 26.7 min, also paused | VERIFIED-C |
 | Store specials / sale | Inventory | G | 14,400 / 43,200 s | 8 h / 4 h / 2 h; 24 / 12 / 6 h | VERIFIED-C |
@@ -521,9 +566,52 @@ The patcher's Special Upgrades live in `Virtual Families 1 Patcher Data\Slot N.i
 
 ## 21. Scripts and data (the analysis scripts are kept outside the repo; careers.tsv, events_registry.tsv, events_emulated.txt, rand_sites.tsv and timer_sites.tsv are in this folder)
 
+The patched-game runs (section 22) are in a `patched` folder beside the other scripts: `build.bat` /
+`build_kids.bat` (scratch builds with a link map), `dllemu.py` (the DLLs in the harness), `t_startup.py`,
+`t_oldage*.py`, `t_getrandom.py`, `t_preg.py`, `t_family.py`, `t_store.py`, `t_foodclub.py`, `t_house.py`,
+`t_dice.py`, `t_warp.py`, `t_kids*.py`, `t_samesex.py`, with their `out_*.txt`.
+
 `vdis.py` (disassembler), `rd.py`, `xref.py` (+ `ins.pkl`), `strings.py`, `reach.py` (+ `reach.pkl`), `rindex.py`
 -> `rand_sites.tsv`, `timer_sites.tsv`, `behaviours.py`, `vf1emu.py` (unicorn harness), `t_timeflow.py` (aging,
 clamp, leaving home, body removal; `out_clamp.txt`), `t_phys.py` + `t_life.py` (upkeep odds; `out_life*.txt`),
 `t_groups.py` (food groups, old-age table; `out_groups.txt`), `t_misc.py` (sickness, conception, interest;
 `out_misc.txt`), `t_career.py` (`out_career.txt`), `careers.py` -> `careers.tsv`, `t_events.py` ->
 `events_registry.tsv`, `t_evfx.py` -> `events_emulated.txt`, disassembly dumps `d_*.txt`.
+
+## 22. The game with the patcher
+
+The page describes the game without the patcher; a "With the patcher" line follows each line the patcher changes,
+naming the setting by its manifest label and default (`PATCH_SETTINGS`, checked against `manifest.json` by the test).
+Every hook `VF1Fun_Startup` installs with the defaults was listed by running it in the harness (`t_startup.py`: 86
+changed runs in the image) and each was matched to the page; Up to 28 Children was run with the setting on.
+
+| Setting (default) | What changes on the page | Evidence | Status |
+|---|---|---|---|
+| Cheat Upgrades (on) | Time Controls speeds; saves at Normal (section 1); Time Warp (section 1); interest-rate cheat (section 8); same-sex candidates (section 10) | `t_warp.py`, `t_store.py`, `t_samesex.py`; speeds as before | VERIFIED-C (speeds), VERIFIED-E (rest) |
+| Clamp Max Money and Food (on) | money cap, food overflow (sections 8, 14) | `t_store.py` | VERIFIED-E |
+| Add visible mobile version purchases (on): Special Upgrades | Food Club, Health Plan, Brokerage Account (8), Maid, Gardener (13), Lucky Rock (15) | `t_store.py`, `t_foodclub.py`, `t_house.py` | VERIFIED-E |
+| Older Villager Mortality Curve (on) | the birthday roll (section 4) | `t_oldage2.py`, `t_oldage3.py`, `t_getrandom.py` | VERIFIED-E |
+| Allow Older Pregnancies (on) | conception with a parent 50+, no failed-try wait at 50+, Next Generation at 60 (sections 6, 10) | `t_preg.py`, `t_family.py` | VERIFIED-E |
+| Private Adult Romantic Time (on) | no failed-try wait for a couple that cannot conceive (section 6) | `t_family.py` | VERIFIED-E |
+| Up to 28 Children (off, experimental) | 28 child places (sections 6, 10) | `t_kids.py`, `t_kids2.py` | VERIFIED-E |
+| Roll the Dice (on) | $500 pop-up event, refunded when none (section 11) | `t_dice.py` | VERIFIED-C |
+
+Checked and left off the page, because the page says nothing they change or the result is the same:
+
+- Fix Vanilla Game Bugs (on): the Power Failure's "keep the food" makes the same GetRandom(GetRandom(4)) villagers
+  sick with symptom 2 as the stock `ImpactGame` 0x4198E0 (only the result text now matches); the Oldest Villager
+  record guard (a statistic the page does not show); the save right after Adopt (the page does not describe saving
+  beyond the autosave timer).
+- Private Adult Romantic Time's six-children drop (0x441287 `je` -> `jmp`): the page does not describe the stock
+  "They have enough kids already!" refusal.
+- Behavior Label Variants (captions; the computer's browse / video-game 50:50, 0x495558 and 0x488CA9), VF1 + VF2
+  Songs, Custom Map/Game Images, Glowing Collectables: behaviour choice, sound and pictures, none on the page.
+- Cheat Upgrades' one-shot buttons (money, food, villager cheats, pregnancy one-shots, Evict, Adopt New Person,
+  store price multipliers, house and yard), Flea Market: player actions, not rules the page describes.
+
+Found while checking, not changed (for the owner):
+
+- Section 6 / the page's wait line say the "too soon" drop "moves the wait to 55 minutes if it was under an hour".
+  The code at 0x441320..0x441343 sets now + 3,300 s only when the wait is **more** than an hour away (`now + 3,600 >=
+  wait` skips the store).
+- Section 15 / the page give common collectibles 82.99%; 1 - 4.00% - 13.01% exactly is 82.98% (27,192 / 32,768).
