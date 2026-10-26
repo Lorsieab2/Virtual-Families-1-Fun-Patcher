@@ -96,6 +96,16 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
+- **Family Logs** (also in the **Experimental** section, off by default): the Virtual Villagers Fun
+  Patcher's logs for your family, written as things happen: a Family History (every event, one line
+  each), Births and Conceptions, Deaths (with the game's own cause of death), Events (the patcher's own:
+  Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding
+  School), and at each save the Family Population and Family Statistics. One folder per save slot,
+  `Virtual Families 1 Patcher\Save N\Logs` (data files in `Save N\Data`). An existing family's past
+  generations come from its Family Tree, marked "backfilled, no date", once; a new family or Start Over
+  clears that slot's folder (Backups kept). Its own DLL, `vf1logs.dll`. **Not live tested yet** -- see
+  `docs/FAMILY_LOGS.md`.
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## The patcher window: Patches and Tools
@@ -119,8 +129,9 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
     family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
-    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. The module
-    is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
+    Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
+    the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for
@@ -211,7 +222,8 @@ copies as arguments.
 ## Building
 
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
-  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children).
+  `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
+  `native\build_logs.bat` builds `build\vf1logs.dll` (Family Logs).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

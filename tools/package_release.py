@@ -13,7 +13,9 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
   vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
   vf1_save.py, vf1_rename_family.py (Rename Family), vf1_game_speed.py (Game Speed),
   vf1_game_mechanics.py (Game Mechanics),
-  vf1_how_to_use.py and how_to_use.json (the "?" guides), stub.json, payload/vf1fun.dll
+  vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
+  Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
+  vf1_member_info.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
 file, which the patcher checks before it installs them. No game files.
@@ -80,6 +82,15 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
         "vf1_game_mechanics.py": (ROOT / "patcher" / "vf1_game_mechanics.py").read_bytes(),
         "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
+        "vf1_genealogy.py": (ROOT / "patcher" / "vf1_genealogy.py").read_bytes(),
+        "vf1_family_history.py": (ROOT / "patcher" / "vf1_family_history.py").read_bytes(),
+        "vf1_tree_memory.py": (ROOT / "patcher" / "vf1_tree_memory.py").read_bytes(),
+        "vf1_family_tree.py": (ROOT / "patcher" / "vf1_family_tree.py").read_bytes(),
+        "vf1_family_tree_window.py": (ROOT / "patcher" / "vf1_family_tree_window.py").read_bytes(),
+        "vf1_member_info.py": (ROOT / "patcher" / "vf1_member_info.py").read_bytes(),
+        "vf1_line_colours.py": (ROOT / "patcher" / "vf1_line_colours.py").read_bytes(),
+        "vf1_tree_editor_tools.py": (ROOT / "patcher" / "vf1_tree_editor_tools.py").read_bytes(),
+        "vf1_gdiplus.py": (ROOT / "patcher" / "vf1_gdiplus.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }
