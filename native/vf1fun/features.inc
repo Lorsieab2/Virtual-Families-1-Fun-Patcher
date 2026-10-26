@@ -59,8 +59,6 @@ typedef unsigned (__thiscall *SecondsFn)(void *time);
 static const SecondsFn GameSeconds = (SecondsFn)0x422320;  // CGameTime::Seconds
 static void *const GameTime = (void *)0x50C5D0;
 
-static int CurrentSlot() { return *(int *)((unsigned char *)GameStateGet() + 0x1B188); }
-
 static bool SidecarPath(int slot, wchar_t *out, int cap) {
     wchar_t docs[MAX_PATH], exe[MAX_PATH];
     if (FAILED(SHGetFolderPathW(0, CSIDL_PERSONAL, 0, 0, docs)))

@@ -953,18 +953,17 @@ static void LoadKidsCompanion() {
     KidsLimit = (KidsIntFn)GetProcAddress(kids, "VF1Kids_Limit");
 }
 
-// ---------------------------------------------------------------- Family Logs
-// The feature is its own DLL, vf1logs.dll, installed beside this one only while the FamilyLogs setting is
+// ---------------------------------------------------------------- Family History log
+// The feature is its own DLL, vf1logs.dll, installed beside this one only while the FamilyHistory setting is
 // on (patcher/manifest.json). It is loaded after vf1kids.dll, so it can chain the function entries that one
-// hooked. This DLL only loads it and tells it about its own events (Roll the Dice, Divorce Spouse, Evict
-// Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding School); the logs are its own.
-typedef void (__cdecl *LogsEventFn)(int kind, int a, int b, int amount);
+// hooked. This DLL only loads it and tells it about the family changes it makes itself (Divorce Spouse, Evict
+// Family, Spawn Child, Adopt Outside Child); the log is that DLL's own.
+typedef void (__cdecl *LogsEventFn)(int kind, int who, int parentA, int parentB);
 static LogsEventFn LogsEvent;
-enum { LOGS_ROLL_DICE = 1, LOGS_DIVORCE = 2, LOGS_EVICT = 3, LOGS_ADOPT_NEW_PERSON = 4, LOGS_SPAWN_CHILD = 5,
-       LOGS_ADOPT_CHILD = 6, LOGS_BOARDING_SCHOOL = 7 };
+enum { LOGS_DIVORCE = 1, LOGS_EVICT = 2, LOGS_SPAWN_CHILD = 3, LOGS_ADOPT_CHILD = 4 };
 
-static void LogFamilyEvent(int kind, int villagerSlot, int amount) {
-    if (LogsEvent) LogsEvent(kind, villagerSlot, -1, amount);
+static void LogFamilyEvent(int kind, int who, int parentA = -1, int parentB = -1) {
+    if (LogsEvent) LogsEvent(kind, who, parentA, parentB);
 }
 
 static void LoadLogsCompanion() {
@@ -978,7 +977,7 @@ static void LoadLogsCompanion() {
     if (!logs) return;
     typedef int (__cdecl *StartupFn)();
     StartupFn startup = (StartupFn)GetProcAddress(logs, "VF1Logs_Startup");
-    if (!startup || !startup()) return;   // not installed: no logs, the game is unchanged
+    if (!startup || !startup()) return;   // not installed: no log, the game is unchanged
     LogsEvent = (LogsEventFn)GetProcAddress(logs, "VF1Logs_Event");
 }
 
@@ -1014,8 +1013,6 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
             if (!FireEvent(IslandEventsGet(), scene)) {
                 MoneyAdjust(Money, (float)RollTheDicePrice, false);
                 Message(GameWindow(), L"No island event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
-            } else {
-                LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);
             }
         }
         if (gFamilyAction) {
@@ -1096,7 +1093,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     }
     if (SettingOn(L"UpTo28Children", false))
         LoadKidsCompanion();
-    if (SettingOn(L"FamilyLogs", false))   // after vf1kids.dll: it chains that DLL's hooks
+    if (SettingOn(L"FamilyHistory", false))   // after vf1kids.dll: it chains that DLL's hooks
         LoadLogsCompanion();
 }
 

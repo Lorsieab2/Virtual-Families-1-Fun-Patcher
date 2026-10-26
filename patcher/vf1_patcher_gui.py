@@ -1357,8 +1357,9 @@ class VF1PatcherGUI:
         tree_box.pack(fill="x", pady=(10, 0))
         ttk.Label(
             tree_box,
-            text=("Draws a family's tree from its save, with each family member's face from the "
-                  "game, and lets you mark, colour and arrange it and save it as a picture. Saves are only read."),
+            text=("Draws a family's tree from its save (and its Family History log, when the Family History Log "
+                  "patch wrote one), with each family member's face from the game, and lets you mark, colour and "
+                  "arrange it and save it as a picture. Saves and logs are only read."),
             style="Muted.TLabel", wraplength=760, justify="left",
         ).pack(anchor="w")
         tree_row = ttk.Frame(tree_box)
@@ -1691,13 +1692,11 @@ class VF1PatcherGUI:
             messagebox.showerror("Rename Family", error)
             return None
         self.status_var.set(f"Rename Family: Save {slot} is now called {result.new_name}.")
-        note = (f" A line was added to the Family History ({result.notes[0].name})." if result.notes
-                else " The family has no Family History yet, so no line was added.")
         self._append_log(f"Rename Family: {folder.name} Save {slot}: {result.old_name} -> {result.new_name}; "
                          f"backup {result.backup.backup_folder}\n")
         messagebox.showinfo(
             "Rename Family",
-            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
+            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".\n\n"
             f"Backup: {result.backup.backup_folder}")
         return result
 

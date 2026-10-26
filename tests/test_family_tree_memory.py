@@ -143,29 +143,25 @@ def test_remembering_never_writes_the_save_and_keeps_the_edits(tmp_path):
 
 # ---------------------------------------------------------------- the Family History log
 HISTORY = """Family: Testfamily (Save 1)
-[2026-10-20 10:00:00] Generation 1 began: Ann (Female, 20) was adopted and started the family
-[2026-10-20 10:05:00] Ann (Female, 21) married Bob (Male, 22), generation 1
-[2026-10-20 11:00:00] Conception 1: Ann and Bob (babies Nursing: 2)
-[2026-10-20 12:00:00] Birth 1: Cal (Male) was born to Ann and Bob (Twins)
-[2026-10-20 12:00:00] Birth 2: Cia (Female) was born to Ann and Bob (Twins)
-[2026-10-20 13:00:00] Event 1: Divorce Spouse: Bob
-[2026-10-20 14:00:00] Ann (Female, 25) married Dan (Male, 30), generation 1
-[2026-10-20 15:00:00] Kim (Female, 3) joined the family as a child, adopted, generation 1
-[2026-10-20 15:01:00] Lou (Male, 4) joined the family as a child, adopted, generation 1
-[2026-10-20 15:01:00] Event 2: Adopt Outside Child: Lou
-[2026-10-20 16:00:00] Death 1: Cia (Female, 2) died: Starvation
+[2026-10-20 10:05:00] Married: Ann (Female, 21) and Bob (Male, 22), generation 1
+[2026-10-20 12:00:00] Twins born to Ann and Bob, generation 1: Cal (Male) and Cia (Female)
+[2026-10-20 13:00:00] Divorced: Bob (Male, 23) left the family, divorced from Ann, generation 1 (Divorce Spouse)
+[2026-10-20 14:00:00] Remarried: Ann (Female, 25) and Dan (Male, 30), generation 1; earlier spouse: Bob
+[2026-10-20 15:00:00] Pop-up: "The Little Visitor"; Kim (Female, 3) joined the family as a child, generation 1
+[2026-10-20 15:01:00] Joined: Lou (Male, 4), adopted, generation 1 (Adopt Outside Child)
+[2026-10-20 15:30:00] E-mail: "Subject: Tax Audit"
+[2026-10-20 16:00:00] Died: Cia (Female, 2), child, generation 1: Starvation
 """
 
 
-def history_folder(tmp_path):
+def history_folder(tmp_path, text=HISTORY):
     path = gen.slot_root(tmp_path, 1) / "Logs" / "Family History" / "Family History 1.txt"
     path.parent.mkdir(parents=True)
-    path.write_text(HISTORY, encoding="cp1252")
+    path.write_text(text, encoding="cp1252")
     return path
 
 
-def test_the_family_history_fills_in_what_the_save_lost(tmp_path):
-    history_folder(tmp_path)
+def divorced_family(tmp_path):
     kids = [peep("Cal", head=4, body=4, slot=2), peep("Cia", sex=1, head=6, body=6, slot=-1),
             peep("Kim", sex=1, head=7, body=7, slot=5), peep("Lou", head=8, body=8, slot=6)]
     (tmp_path / "Virtual Families1.ldw").write_bytes(build_save(
@@ -173,22 +169,87 @@ def test_the_family_history_fills_in_what_the_save_lost(tmp_path):
          5: villager_record(name="Kim", sex=1, age=60, head=7, body=7),
          6: villager_record(name="Lou", sex=0, age=80, head=8, body=8)},
         [family_record(p_ann(), peep("Dan", head=3, body=3, slot=3), kids)]))
+
+
+def test_the_family_history_fills_in_what_the_save_lost(tmp_path):
+    history_folder(tmp_path)
+    divorced_family(tmp_path)
     before = snapshot(tmp_path)
     v = gen.load_village(tmp_path, gen.GAME, 1)
     assert snapshot(tmp_path) == before
     bob, cal, cia = by_name(v, "Bob"), by_name(v, "Cal"), by_name(v, "Cia")
-    assert bob.how == "Married in" and bob.event == "Divorce Spouse" and bob.generation == 1
+    assert bob.how == "Married in" and bob.event == "Divorce Spouse" and bob.generation == 1 and not bob.alive
+    assert any("Divorced from Ann" in u for u in bob.unknowns)
     assert cal.father == bob.id and cia.father == bob.id and cal.litter is not None and cal.litter == cia.litter
     assert cia.cause == "Starvation" and cia.years == 2
-    assert by_name(v, "Kim").event == gen.LITTLE_VISITOR and by_name(v, "Lou").event == "Adopt Outside Child"
-    assert by_name(v, "Dan").event == "Married in"
+    assert by_name(v, "Kim").event == "The Little Visitor" and by_name(v, "Kim").adopted
+    assert by_name(v, "Lou").event == "Adopt Outside Child"
+    dan = by_name(v, "Dan")
+    assert dan.event == "Married in" and any("married to Bob before" in s for s in dan.sources)
+    assert v.history_events == ['2026-10-20 15:00:00: Pop-up "The Little Visitor"',
+                                '2026-10-20 15:30:00: E-mail "Subject: Tax Audit"']
+    assert not any(n.startswith("The save keeps no history") for n in v.notes)
+    assert 'E-mail "Subject: Tax Audit"' in gen.report(v)
+
+
+def test_without_the_log_the_tree_says_what_is_unknown(tmp_path):
+    divorced_family(tmp_path)
+    v = gen.load_village(tmp_path, gen.GAME, 1)
+    assert "Bob" not in {p.name for p in v.people.values()}
+    assert by_name(v, "Cal").litter is None and by_name(v, "Cia").cause == ""
+    assert by_name(v, "Cal").father == by_name(v, "Dan").id      # the save's only couple: no earlier spouse known
+    assert any(n.startswith("The save keeps no history") for n in v.notes)
+    assert any(u.startswith("Adopted:") for u in by_name(v, "Kim").unknowns)
+
+
+def test_a_spouse_who_died_before_any_child_is_kept(tmp_path):
+    history_folder(tmp_path, """Family: Testfamily (Save 1)
+[2026-10-20 10:05:00] Married: Ann (Female, 21) and Bob (Male, 22), generation 1
+[2026-10-20 11:00:00] Died: Bob (Male, 23), spouse, generation 1: Old age
+[2026-10-20 12:00:00] Remarried: Ann (Female, 25) and Dan (Male, 30), generation 1; earlier spouse: Bob
+""")
+    (tmp_path / "Virtual Families1.ldw").write_bytes(build_save(
+        {0: villager_record(**ANN), 3: villager_record(**DAN)},
+        [family_record(p_ann(), peep("Dan", head=3, body=3, slot=3), [])]))
+    v = gen.load_village(tmp_path, gen.GAME, 1)
+    bob = by_name(v, "Bob")
+    assert bob.gone == "died" and bob.cause == "Old age" and bob.years == 23 and bob.generation == 1
+    assert bob.seat.startswith("g1.p2#log")
+
+
+def test_backfilled_lines_say_the_log_began_late(tmp_path):
+    history_folder(tmp_path, """Family: Testfamily (Save 1)
+[backfilled, no date] Married: Ann (Female) and Dan (Male), generation 1
+[backfilled, no date] Child: Cal (Male), generation 1
+""")
+    (tmp_path / "Virtual Families1.ldw").write_bytes(build_save(
+        {0: villager_record(**ANN), 3: villager_record(**DAN), 2: villager_record(**CAL)},
+        [family_record(p_ann(), peep("Dan", head=3, body=3, slot=3), [peep("Cal", head=4, body=4, slot=2)])]))
+    v = gen.load_village(tmp_path, gen.GAME, 1)
+    assert len(v.people) == 3 and any("backfilled, no date" in n for n in v.notes)
+
+
+def test_an_eviction_starts_the_next_familys_history(tmp_path):
+    h = fh.parse("""Family: Testfamily (Save 1)
+[2026-10-20 10:05:00] Married: Zoe (Female, 21) and Yan (Male, 22), generation 1
+[2026-10-20 11:00:00] Evicted: Zoe, Yan left the house (Evict Family); the next family's history follows
+[2026-10-20 12:00:00] Married: Ann (Female, 25) and Dan (Male, 30), generation 1
+""")
+    assert [m.head for m in h.marriages] == ["Ann"] and h.evictions == 1
 
 
 def test_history_lines_parse_and_the_tree_works_without_them(tmp_path):
     h = fh.parse(HISTORY)
-    assert [b[1] for b in h.births] == ["Cal", "Cia"] and h.births[0][5] == "Twins"
-    assert h.deaths == [(1, "Cia", "Female", 2, "Starvation")]
-    assert [m[3] for m in h.marriages] == ["Bob", "Dan"]
-    assert [(e[1], e[2]) for e in h.events] == [("Divorce Spouse", "Bob"), ("Adopt Outside Child", "Lou")]
-    assert [(j[0], j[3]) for j in h.joined] == [("Kim", True), ("Lou", True)]
+    assert [(b.mother, b.father, b.babies) for b in h.births] == [("Ann", "Bob", [("Cal", "Male"), ("Cia", "Female")])]
+    assert h.deaths == [("Cia", "Female", 2, "child", 1, "Starvation")]
+    assert [(m.again, m.spouse, m.earlier) for m in h.marriages] == [(False, "Bob", None), (True, "Dan", "Bob")]
+    assert h.divorces == [("Bob", "Male", 23, "Ann", 1)]
+    assert [(e.kind, e.title, e.changes) for e in h.events] == [
+        ("Pop-up", "The Little Visitor", [("Kim", "Female", 3, "joined the family as a child")]),
+        ("E-mail", "Subject: Tax Audit", [])]
+    assert [(j[0], j[3]) for j in h.joined] == [("Lou", "Adopt Outside Child")]
+    unknown = fh.parse("[x] Born to Ann and an unknown father, generation 2: Cal (Male)")
+    assert unknown.births[0].father is None and unknown.births[0].generation == 2
+    triplets = fh.parse("[x] Triplets born to Ann and Bob, generation 1: A (Male), B (Female) and C (Male)")
+    assert [n for n, _s in triplets.births[0].babies] == ["A", "B", "C"]
     assert fh.read(tmp_path, 1) is None

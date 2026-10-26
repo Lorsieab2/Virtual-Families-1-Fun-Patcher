@@ -43,9 +43,9 @@
       ]
     },
     {
-      "id": "FamilyLogs",
-      "label": "Family Logs",
-      "description": "Writes the Virtual Villagers Fun Patcher's logs for your family, in the same format, as things happen: a Family History (every event, one line each), Births and Conceptions (twins and triplets included), Deaths (with the game's own cause of death), Events (Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding School), and at each save the Family Population and Family Statistics. Each save slot has its own folder beside the save (Virtual Families 1 Patcher\\Save N\\Logs, and its data files in Save N\\Data). A family that already exists gets its past generations from its Family Tree, marked \"backfilled, no date\", once. A new family or Start Over clears that slot's folder (a Backups folder in it is kept). The save file itself is not changed. Experimental: not yet tested in a running game. Back up your saves before using it. Installs its own small DLL, vf1logs.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.",
+      "id": "FamilyHistory",
+      "label": "Family History Log",
+      "description": "Writes a Family History log for the Family Tree Maker, one line per event as it happens: marriages and remarriages (the current spouse), divorces (Divorce Spouse), deaths with the game's own cause, births (twins and triplets together), children who join, and the subject line or title of every e-mail and pop-up event with what it did to the family. The save forgets a spouse who leaves or dies before any child, earlier spouses and twins; the log keeps them. Each save slot has its own log beside the save (Virtual Families 1 Patcher\\Save N\\Logs\\Family History). A family that already exists gets what its Family Tree holds, marked \"backfilled, no date\", once. A new family or Start Over clears that slot's folder (a Backups folder in it is kept). The save file itself is not changed. Experimental: not yet tested in a running game. Back up your saves before using it. Installs its own small DLL, vf1logs.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.",
       "default": false,
       "category": "experimental",
       "files": [

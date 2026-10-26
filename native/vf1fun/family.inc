@@ -244,7 +244,7 @@ static const wchar_t *DivorceSpouse() {
     unsigned char *r = CurrentFamily();
     int spouse = SpouseSlot();
     if (!r || spouse < 0) return L"Nobody in the house is married.";
-    LogFamilyEvent(LOGS_DIVORCE, spouse, 0);   // Family Logs: logged while the spouse is still in the house
+    LogFamilyEvent(LOGS_DIVORCE, spouse);   // Family History: logged while the spouse is still in the house
     // As VF2DivorceSpouse: allowed at any time, even while expecting. VF1 (unlike VF2) creates the babies at
     // conception and reserves their villager slots (theGameState +0x1B120..0x1B128), so when the spouse who
     // leaves is the one expecting, that pregnancy ends with them and the reserved slots are freed, as Evict
@@ -295,7 +295,7 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
     if (slot < 0) return L"The house is full.";
     SetName(slot, name);
     AddOffspring(FamilyTree, Villager(slot));
-    LogFamilyEvent(LOGS_SPAWN_CHILD, slot, 0);
+    LogFamilyEvent(LOGS_SPAWN_CHILD, slot, a, b);
     return 0;
 }
 
@@ -333,7 +333,7 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
     }
     SetName(slot, fit);
     AddOffspring(FamilyTree, Villager(slot));
-    LogFamilyEvent(LOGS_ADOPT_CHILD, slot, 0);
+    LogFamilyEvent(LOGS_ADOPT_CHILD, slot);
     IncrementProgress(Achievements, 0xC, 1);
     IncrementProgress(Achievements, 0xD, 1);
     return 0;
@@ -365,8 +365,8 @@ static void __fastcall AdoptMoneySet(void *money, void *, float amount) {
 
 static void OpenNewFamilyAdoption(void *storeScene, int mode) {
     unsigned char *gs = GameStateBytes();
-    // Family Logs: logged before anything changes (Evict names the household it sends away).
-    LogFamilyEvent(mode == ADOPT_EVICT ? LOGS_EVICT : LOGS_ADOPT_NEW_PERSON, -1, 0);
+    // Family History: logged before anything changes (it names the household Evict sends away).
+    if (mode == ADOPT_EVICT) LogFamilyEvent(LOGS_EVICT, -1);
     gAdoptionMode = mode;
     SetSceneActive(storeScene, false);
     ClearFocus(VillagerManager);

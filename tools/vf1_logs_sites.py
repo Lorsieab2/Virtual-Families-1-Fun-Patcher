@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Family Logs for Virtual Families 1: every site the companion DLL vf1logs.dll relies on, proved against
-the vanilla executable, and the C header the DLL is built from.
+"""The Family History log for Virtual Families 1: every site the companion DLL vf1logs.dll relies on, proved
+against the vanilla executable, and the C header the DLL is built from.
 
     vf1_logs_sites.py --exe "<vanilla>\\Virtual Families.exe" [--write]
 
@@ -12,30 +12,36 @@ before it writes anything and installs nothing on a difference. Wildcards (the D
 * at a hooked function's entry, a 5-byte `jmp rel32` to code outside the executable: another companion
   (vf1kids.dll) hooked that entry first. The DLL then chains to that jmp's target.
 
-How each event is seen (every site traced in the vanilla disassembly; see docs/FAMILY_LOGS.md):
+How each event is seen (every site traced in the vanilla disassembly; see docs/FAMILY_HISTORY.md):
 
-* conception: the one call of CVillager::Impregnate, 0x48EBB2 (the try-for-a-baby plan step; ecx = the
-  matriarch, args (1, "Joey", patriarch head, patriarch body, false), ret 14h). vf1fun may have retargeted
-  it to its own wrapper; the DLL chains to whatever the call reaches.
-* birth: the one call of CVillagerManager's physiology pass 0x48BC90, 0x424F93 (theGameState realtime
-  update). The only code that delivers a baby is inside it (0x48C073..0x48C2FD): reserved slot
-  gs+0x1B120/24/28 -> present 1 and -1, the mother's +0x2AF8 -> 0 (the only writer of 0 in the game), +0x2AFC
-  -> 0. The DLL compares before and after the pass.
+* birth (single, twins, triplets): the one call of CVillagerManager's physiology pass 0x48BC90, 0x424F93
+  (theGameState realtime update). The only code that delivers a baby is inside it (0x48C073..0x48C307):
+  reserved slot gs+0x1B120/24/28 -> present 1 and -1, the mother's +0x2AF8 -> 0 (the only writer of 0 in the
+  game). The DLL compares before and after the pass. The father: CVillager::Impregnate 0x4864D0 stores the
+  head and body it is given at +0x2AD0 / +0x2ACC of the mother (0x48654B, 0x486559), and the one call of it
+  (0x48EBB2, the try-for-a-baby step) gives the patriarch's head +0x2A60 and body +0x2A64 (0x48EB99..0x48EBA8);
+  the name it gives is the constant "Joey" (0x48EBA9), so the father is the current generation's other parent
+  whose head and body are those.
 * death: both calls of CFamilyTree::ReportDeath, 0x48E200 (the death behaviour's end) and 0x489D8F (the
-  body's removal). The cause is the villager's own CVillagerState+0x10, which SetHealth 0x48F820 and
-  AdjustHealth 0x48F860 store when health reaches 0 (their only writers). Logged once per villager.
-* marriage: CFamilyTree::UpdateParents 0x4819C0 (entry; the Marry button's call 0x438337 and vf1fun's
-  same-sex wedding).
-* next generation / a new family / Adopt New Person: CFamilyTree::StartNextGeneration 0x481B30 (entry; the
-  adoption scene's accept 0x4368E6, StartFamilyTree 0x481E11, vf1fun's Adopt New Person).
-* a child who joins (The Little Visitor 0x418828 / 0x4188D8, vf1fun's Spawn Child and Adopt Outside
-  Child): CFamilyTree::AddOffspring 0x481AA0 (entry). Calls from Impregnate (0x48665B, 0x486712,
-  0x48677B: the babies, at conception) are told apart by the return address.
-* leaving home: CVillager::SetLeftHome 0x4857F0 (entry; the age-19 leaving 0x489EC5, the island event
-  0x418F46, vf1fun's Boarding School).
+  body's removal). Each sets the villager's present byte to 0 (0x48E233, 0x489D8B), so a villager is reported
+  once. The cause is the villager's own CVillagerState+0x10, which SetHealth 0x48F820 and AdjustHealth
+  0x48F860 store when health reaches 0 (their only writers).
+* marriage and remarriage: CFamilyTree::UpdateParents 0x4819C0 (entry; the Marry button's call 0x438337 and
+  vf1fun's same-sex wedding).
+* a new family: CFamilyTree::StartNextGeneration 0x481B30 (entry; StartFamilyTree 0x481E11 calls it with no
+  generation before it).
+* the e-mail and pop-up events: the one call of the event dialog's modal run (ldwDialog::DoModal 0x401B10) in
+  the event chooser 0x41B1F0, at 0x41B2C5. The chooser is the only caller of the dialog's constructor
+  0x41A970 (0x41B2A1), which stores the event at +0x50 and the title text GetString(event->GetTitle()) at
+  +0x54 (0x41AA2C..0x41AA3D); the dialog's draw 0x419D70 prints +0x54 as the title and lays it out as an
+  e-mail when the event's vtable +0x14 is true. The chooser's only callers are FireEvent 0x41B360 (pop-up,
+  e-mail flag 0) and FireEmailEvent 0x41B3A0 (e-mail, flag 1). DoModal is called with "update the parent"
+  = 0 (0x41B2C2): its update 0x401C60 then never runs the scene behind it, so nothing but the dialog changes
+  the family during the call. The dialog's handler 0x41B0A0 runs the event's ImpactGame (vtable +0x30 with
+  the choice +0x830, or +0x34) when OK is pressed, inside DoModal.
 * Start Over: the one call of theGameState::Restart, 0x448426 (the menu's confirmed Start Over).
-* after a save / load: theGameState's vtable slots Load 0x4B5E68 and Save 0x4B5E6C (vf1fun hooks them
-  first; the DLL chains to what is there).
+* after a load: theGameState's vtable slot Load 0x4B5E68 (vf1fun hooks it first; the DLL chains to what is
+  there).
 """
 from __future__ import annotations
 
@@ -58,11 +64,6 @@ VANILLA_EXE_SHA256 = "5db828c3f53c68696c18719aec0eb114be3fd4458ae2cbf185d8d4ef7e
 FAMILY_TREE = 0x5AB908
 VILLAGER_MANAGER = 0x5B8898
 GAME_STATE_INSTANCE = 0x50025C
-STRINGS_INSTANCE_GET = 0x450530
-MONEY = 0x50C60C
-FOOD = 0x50C550
-STATS_BABIES = 0x50C568          # CGameStats+8: babies (counted at conception, Impregnate 0x48678D)
-STATS_OLDEST = 0x50C580          # CGameStats+0x20: oldest age ever, years
 FAMILY_RECORD_SIZE = 0x6C8
 FAMILY_RECORD_BASE = 0x6C4       # record of generation g = tree + g * 0x6C8 - 0x6C4
 TREE_GENERATIONS = 30
@@ -89,36 +90,36 @@ VILLAGER_NAME = 0x2A44
 VILLAGER_NAME_LEN = 25
 VILLAGER_HEAD = 0x2A60
 VILLAGER_BODY = 0x2A64
-VILLAGER_BIO_PARENT1 = 0x2A68
-VILLAGER_BIO_PARENT2 = 0x2A82
+VILLAGER_FATHER_BODY = 0x2ACC    # what Impregnate was given as the father's body
+VILLAGER_FATHER_HEAD = 0x2AD0    # ... and head
 VILLAGER_STATE = 0x2AD4
 VILLAGER_HEALTH = 0x2AE0
 VILLAGER_CAUSE = 0x2AE4
 VILLAGER_PREGNANT = 0x2AF8
 VILLAGER_CARRIED = 0x2AFC
-VILLAGER_CAREER = 0x2B6C
 GAME_STATE_RESERVED_BABY = 0x1B120
 GAME_STATE_FAMILY_NAME = 0x1B12C
 GAME_STATE_FAMILY_NAME_LEN = 0x1C
 GAME_STATE_SLOT = 0x1B188
 GS_VTABLE_LOAD = 0x4B5E68
-GS_VTABLE_SAVE = 0x4B5E6C
 LDW_PATH_VSLOT = 0x0C
 UNITS_PER_YEAR = 20
+EVENT_DIALOG_VTABLE = 0x4B5A70
+EVENT_DIALOG_EVENT = 0x50         # the island event the dialog shows
+EVENT_DIALOG_TITLE = 0x54         # the title text it draws
+EVENT_VSLOT_EMAIL = 0x14          # the event's "is an e-mail" virtual
+ISLAND_EVENTS = 0x502090          # the 71 events, index 1..71
+EVENT_COUNT = 71
 # The exe's own words (string ids; the text is the exe's, read at run time with GetString).
 STR_MALE = 0x464
 STR_FEMALE = 0x465
-STR_NURSING = 0x630
-STR_COLLEGE_TITLE = 0x3AE         # "{name} is going to college!"
 STR_CAUSE_UNKNOWN = 0x507         # 0x507 + 1 + cause: -1 Unknown causes, 0 Disease, 1 Starvation, 2 Old age,
 STR_CAUSE_LAST = 0x50C            # 3 Work accident, 4 Act of Nature
-STR_FAMILY_TREE = 0x1C9
-STR_NEW_GENERATION = 0x1CA
 
 # name, VA, length, note
 PINS = [
-    ("v_impregnate", 0x4864D0, 0x2D4, "CVillager::Impregnate, whole (two ret 14h)"),
-    ("plan_conception", 0x48EB33, 0xB8, "the try-for-a-baby plan step: GetMatriarch / GetPatriarch, the Impregnate call"),
+    ("v_impregnate", 0x4864D0, 0x2D4, "CVillager::Impregnate, whole: the father's head/body kept at +0x2AD0/+0x2ACC"),
+    ("plan_conception", 0x48EB33, 0xB8, "the try-for-a-baby step: the patriarch's head and body, \"Joey\", the Impregnate call"),
     ("vm_physiology_call", 0x424F80, 0x18, "theGameState realtime update head: AllVillagersTimeflowUpkeep, the physiology pass"),
     ("vm_delivery", 0x48C073, 0x294, "the delivery inside the physiology pass (0x48C073..0x48C307)"),
     ("ft_report_death", 0x481CF0, 0x101, "CFamilyTree::ReportDeath(villager)"),
@@ -127,69 +128,73 @@ PINS = [
     ("vs_set_health", 0x48F820, 0x32, "CVillagerState::SetHealth(health, cause)"),
     ("vs_adjust_health", 0x48F860, 0x74, "CVillagerState::AdjustHealth(delta, cause)"),
     ("ft_update_parents", 0x4819C0, 0xDB, "CFamilyTree::UpdateParents(a, b)"),
-    ("ft_add_offspring", 0x481AA0, 0x90, "CFamilyTree::AddOffspring(villager)"),
     ("ft_start_next_gen", 0x481B30, 0xE5, "CFamilyTree::StartNextGeneration(villager, source)"),
     ("ft_start_family_tree", 0x481E00, 0x1A, "CFamilyTree::StartFamilyTree = Reset + StartNextGeneration(v, -1)"),
-    ("v_set_left_home", 0x4857F0, 0x1C, "CVillager::SetLeftHome"),
     ("menu_restart_call", 0x448423, 0x8, "theMenuScene: the confirmed Start Over calls theGameState::Restart"),
     ("gs_restart", 0x4243C0, 0x74, "theGameState::Restart: keep the name, Init, SaveCurrentGame, ret"),
     ("vm_physiology_tail", 0x48C464, 0xB, "the physiology pass returns with a plain ret (thiscall, no arguments)"),
-    ("vm_get_matriarch", 0x489950, 0x61, "CVillagerManager::GetMatriarch"),
-    ("vm_get_patriarch", 0x4899C0, 0x61, "CVillagerManager::GetPatriarch"),
     ("strings_get_string", 0x44FD90, 0x3F, "theStringManager::GetString(id)"),
     ("ldw_make_path", 0x4035F0, 0x59, "ldwGameState::MakeGameStatePath(slot): \"%s%d.ldw\""),
+    ("ie_choose", 0x41B1F0, 0x138, "the event chooser: pick, the dialog's constructor, DoModal(scene, 0), destructor"),
+    ("ie_fire_popup", 0x41B360, 0x31, "FireEvent(scene): the chooser with e-mail flag 0"),
+    ("ie_fire_email", 0x41B3A0, 0x31, "FireEmailEvent(scene): the chooser with e-mail flag 1"),
+    ("ie_dialog_ctor", 0x41A970, 0xD3, "the event dialog's constructor: +0x50 the event, +0x54 its title text"),
+    ("ie_dialog_handler", 0x41B0A0, 0xC7, "the event dialog's handler: OK runs ImpactGame (+0x30 / +0x34)"),
+    ("ie_dialog_draw", 0x419D70, 0xDB, "the event dialog's draw: +0x54 is the title, an e-mail when +0x14 is true"),
+    ("dlg_do_modal", 0x401B10, 0x89, "ldwDialog::DoModal(parent, update parent): the modal loop"),
+    ("dlg_update", 0x401C60, 0x21, "ldwDialog::Update: the parent scene only when the flag is set"),
 ]
 PIN = {p[0]: p for p in PINS}
 
 # Functions the DLL calls, hooks or tells apart.
 FUNCTIONS = {
     "V_IMPREGNATE": 0x4864D0, "VM_PHYSIOLOGY": 0x48BC90, "FT_REPORT_DEATH": 0x481CF0,
-    "FT_UPDATE_PARENTS": 0x4819C0, "FT_ADD_OFFSPRING": 0x481AA0, "FT_START_NEXT_GEN": 0x481B30,
-    "V_SET_LEFT_HOME": 0x4857F0, "GS_RESTART": 0x4243C0, "VM_GET_MATRIARCH": 0x489950,
-    "VM_GET_PATRIARCH": 0x4899C0, "STRINGS_GET": 0x450530, "STRINGS_GET_STRING": 0x44FD90,
-    "GS_LOAD": 0x424A50, "GS_SAVE": 0x423790, "V_IMPREGNATE_END": 0x4867A4,
+    "FT_UPDATE_PARENTS": 0x4819C0, "FT_START_NEXT_GEN": 0x481B30, "GS_RESTART": 0x4243C0,
+    "STRINGS_GET": 0x450530, "STRINGS_GET_STRING": 0x44FD90, "GS_LOAD": 0x424A50,
+    "IE_CHOOSE": 0x41B1F0, "IE_DIALOG_CTOR": 0x41A970, "IE_DIALOG_HANDLER": 0x41B0A0, "IE_DIALOG_DRAW": 0x419D70,
+    "DLG_DO_MODAL": 0x401B10,
 }
 
 # Calls the DLL retargets: (pin, VA of the E8 byte, the stock target).
 CALL_HOOKS = (
-    ("plan_conception", 0x48EBB2, 0x4864D0),
     ("vm_physiology_call", 0x424F93, 0x48BC90),
     ("death_behaviour_end", 0x48E200, 0x481CF0),
     ("body_removal", 0x489D8F, 0x481CF0),
     ("menu_restart_call", 0x448426, 0x4243C0),
+    ("ie_choose", 0x41B2C5, 0x401B10),
 )
-CALL_HOOK_NAMES = ("CONCEPTION", "PHYSIOLOGY", "DEATH_END", "BODY_REMOVAL", "RESTART")
+CALL_HOOK_NAMES = ("PHYSIOLOGY", "DEATH_END", "BODY_REMOVAL", "RESTART", "EVENT_DIALOG")
 
 # Calls that must reach what the DLL expects (pin, VA, target).
 CALLS = (
-    ("v_impregnate", 0x4864DC, 0x4816E0),        # EmptyOffspringSlots
-    ("v_impregnate", 0x48665B, 0x481AA0),        # AddOffspring: the first baby
-    ("v_impregnate", 0x486712, 0x481AA0),        # the twin
-    ("v_impregnate", 0x48677B, 0x481AA0),        # the triplet
-    ("plan_conception", 0x48EB40, 0x489950),     # GetMatriarch
-    ("plan_conception", 0x48EB4C, 0x4899C0),     # GetPatriarch
+    ("v_impregnate", 0x48665B, 0x481AA0),        # AddOffspring: the babies join the tree at conception
+    ("plan_conception", 0x48EBB2, 0x4864D0),     # the one Impregnate
     ("ft_start_family_tree", 0x481E03, 0x481560),
     ("ft_start_family_tree", 0x481E11, 0x481B30),
     ("vm_delivery", 0x48C2F8, 0x486A10),
     ("death_behaviour_end", 0x48E1F5, 0x423E10),
     ("ft_update_parents", 0x4819D8, 0x4817B0),   # FindPeepRecord
     ("gs_restart", 0x42441E, 0x4238E0),          # SaveCurrentGame
+    ("ie_choose", 0x41B2A1, 0x41A970),           # the dialog's constructor
+    ("ie_choose", 0x41B2E3, 0x419CA0),           # its destructor, after DoModal
+    ("ie_fire_popup", 0x41B388, 0x41B1F0),
+    ("ie_fire_email", 0x41B3C8, 0x41B1F0),
+    ("ie_dialog_ctor", 0x41AA38, 0x44FD90),      # GetString(GetTitle())
+    ("dlg_update", 0x401C7C, 0x40C460),          # the jmp to the dialog's own update
 )
 
 # Entry hooks: (function, stolen bytes when the entry is stock).
 ENTRY_HOOKS = {
     "FT_UPDATE_PARENTS": ("ft_update_parents", 8),    # push ebx / push ebp / mov ebp,ecx / cmp dword [ebp],0
-    "FT_ADD_OFFSPRING": ("ft_add_offspring", 5),      # push ebx / mov ebx,ecx / mov eax,[ebx]
     "FT_START_NEXT_GEN": ("ft_start_next_gen", 6),    # push ecx / push edi / mov edi,ecx / mov eax,[edi]
-    "V_SET_LEFT_HOME": ("v_set_left_home", 8),        # push esi / mov esi,ecx / mov ecx,50C5D0h
 }
 
 NEG = lambda v: (-v) & 0xFFFFFFFF  # noqa: E731
 # Operands that must appear in a pin (the layout, cross-checked where the game uses it).
 CROSS = {
     "v_impregnate": {VILLAGER_PREGNANT, VILLAGER_CARRIED, GAME_STATE_RESERVED_BABY, GAME_STATE_RESERVED_BABY + 4,
-                     GAME_STATE_RESERVED_BABY + 8, FAMILY_TREE, VILLAGER_MANAGER,
-                     VILLAGER_MANAGER + VILLAGER_ARRAY_OFFSET + VILLAGER_PRESENT, STATS_BABIES},
+                     GAME_STATE_RESERVED_BABY + 8, FAMILY_TREE, VILLAGER_MANAGER, VILLAGER_FATHER_HEAD,
+                     VILLAGER_FATHER_BODY, VILLAGER_HEAD, VILLAGER_BODY, VILLAGER_NAME},
     "plan_conception": {VILLAGER_GENDER, VILLAGER_HEAD, VILLAGER_BODY, VILLAGER_AGE, VILLAGER_MANAGER},
     "vm_delivery": {NEG(VILLAGER_LEFT_HOME - VILLAGER_PREGNANT), NEG(VILLAGER_LEFT_HOME - VILLAGER_CARRIED),
                     GAME_STATE_RESERVED_BABY, GAME_STATE_RESERVED_BABY + 4, GAME_STATE_RESERVED_BABY + 8,
@@ -201,15 +206,17 @@ CROSS = {
     "vs_adjust_health": {0xC, 0x10},
     "ft_update_parents": {FAMILY_RECORD_SIZE, NEG(FAMILY_RECORD_BASE), VILLAGER_NAME, VILLAGER_GENDER, VILLAGER_HEAD,
                           VILLAGER_BODY, VILLAGER_SLOT, RECORD_PARENT2, RECORD_PARENT2 + PEEP_VALID},
-    "ft_add_offspring": {6, FAMILY_RECORD_SIZE, RECORD_CHILDREN, RECORD_CHILD_COUNT, VILLAGER_NAME, VILLAGER_GENDER,
-                         VILLAGER_SLOT, PEEP_RECORD_SIZE},
     "ft_start_next_gen": {TREE_GENERATIONS, FAMILY_RECORD_SIZE, VILLAGER_SLOT},
-    "v_set_left_home": {VILLAGER_LEFT_HOME},
     "gs_restart": {GAME_STATE_FAMILY_NAME},
-    "vm_get_matriarch": {NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER)},
-    "vm_get_patriarch": {NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER)},
     "strings_get_string": {0x674},
     "ldw_make_path": {0x14},
+    "ie_choose": {ISLAND_EVENTS, ISLAND_EVENTS - EVENT_COUNT - 1, EVENT_VSLOT_EMAIL, EVENT_COUNT + 1, 0x134,
+                  0x134 + 0x4C},
+    "ie_dialog_ctor": {EVENT_DIALOG_VTABLE, EVENT_DIALOG_EVENT, EVENT_DIALOG_TITLE, 8},
+    "ie_dialog_handler": {EVENT_DIALOG_EVENT, 0x10, 0x30, 0x34, 0x830},
+    "ie_dialog_draw": {EVENT_DIALOG_EVENT, EVENT_DIALOG_TITLE, EVENT_VSLOT_EMAIL},
+    "dlg_do_modal": {8, 0xC},
+    "dlg_update": {8, 0xC},
 }
 
 
@@ -280,8 +287,8 @@ def _operands(raw: bytes, va: int) -> set[int]:
 
 def call_target(exe: Exe, at: int) -> int:
     raw = exe.read(at, 5)
-    if raw[0] != 0xE8:
-        raise SiteError(f"{at:#x} is not a call rel32")
+    if raw[0] not in (0xE8, 0xE9):
+        raise SiteError(f"{at:#x} is not a call or jmp rel32")
     return (at + 5 + struct.unpack("<i", raw[1:])[0]) & 0xFFFFFFFF
 
 
@@ -329,8 +336,11 @@ def validate(data: bytes) -> dict:
             raise SiteError(f"{pin}: call {at:#x} outside the pin")
         if call_target(exe, at) != func:
             raise SiteError(f"{pin}+{at - va:#x}: calls {call_target(exe, at):#x}, not {func:#x}")
-    # Each retargeted call is the ONLY call (or jmp) of its function: nothing else reaches it unseen.
-    singles = {0x4864D0: [0x48EBB2], 0x48BC90: [0x424F93], 0x481CF0: [0x489D8F, 0x48E200], 0x4243C0: [0x448426]}
+    # Each retargeted call is the ONLY call (or jmp) of its function, and the chooser and the event dialog's
+    # constructor are reached only from the places named: nothing else reaches them unseen.
+    singles = {0x48BC90: [0x424F93], 0x481CF0: [0x489D8F, 0x48E200], 0x4243C0: [0x448426],
+               0x4864D0: [0x48EBB2], 0x41B1F0: [0x41B388, 0x41B3C8], 0x41A970: [0x41B2A1],
+               0x41B360: [0x445353], 0x41B3A0: [0x44507D]}
     found = all_callers(exe, singles)
     for target, sites in singles.items():
         if found[target] != sites:
@@ -351,21 +361,29 @@ def validate(data: bytes) -> dict:
             if (i.mnemonic.startswith("j") or i.mnemonic == "loop") and i.operands \
                     and i.operands[0].type == X86_OP_IMM and va < i.operands[0].imm < va + steal:
                 raise SiteError(f"{name}: a branch into the stolen bytes")
-    # The only writers of the cause (CVillagerState+0x10) and of 0 to the pregnancy field.
+    # The only writer of 0 to the pregnancy field is the delivery.
     va, raw, _m = pins["vm_delivery"]
     zeroes = [i for i in _md().disasm(raw, va) if i.mnemonic == "mov" and i.operands[0].type == X86_OP_MEM
               and (i.operands[0].mem.disp & 0xFFFFFFFF) == NEG(VILLAGER_LEFT_HOME - VILLAGER_PREGNANT)]
     if len(zeroes) != 1 or zeroes[0].address != 0x48C2EE:
         raise SiteError("the delivery does not clear the pregnancy exactly once, at 0x48C2EE")
-    # theGameState's vtable: Load, Save and MakeGameStatePath.
-    if struct.unpack("<I", exe.read(GS_VTABLE_LOAD, 4))[0] != FUNCTIONS["GS_LOAD"] or \
-            struct.unpack("<I", exe.read(GS_VTABLE_SAVE, 4))[0] != FUNCTIONS["GS_SAVE"]:
-        raise SiteError("theGameState Load / Save slots")
+    # The step gives Impregnate the constant "Joey" as the father's name: the name is never the father's.
+    if exe.read(0x48EBA9, 5) != b"\x68" + struct.pack("<I", 0x4B7060) or exe.cstr(0x4B7060) != "Joey":
+        raise SiteError("the conception step's father name is not the constant \"Joey\"")
+    # The event chooser runs the dialog with "update the parent" = 0 (push 0 at 0x41B2C2, push ebp = the scene).
+    if exe.read(0x41B2C2, 3) != b"\x6A\x00\x55":
+        raise SiteError("the event dialog is not run with 'update the parent' = 0")
+    # The event dialog's vtable: the handler (slot 3) and the draw (slot 12) are the pinned functions.
+    for slot, func in ((3, FUNCTIONS["IE_DIALOG_HANDLER"]), (12, FUNCTIONS["IE_DIALOG_DRAW"])):
+        if struct.unpack("<I", exe.read(EVENT_DIALOG_VTABLE + 4 * slot, 4))[0] != func:
+            raise SiteError(f"the event dialog's vtable slot {slot} is not {func:#x}")
+    # theGameState's vtable: Load and MakeGameStatePath.
+    if struct.unpack("<I", exe.read(GS_VTABLE_LOAD, 4))[0] != FUNCTIONS["GS_LOAD"]:
+        raise SiteError("theGameState Load slot")
     if struct.unpack("<I", exe.read(0x4B5E40, 4))[0] != PIN["ldw_make_path"][1]:
         raise SiteError("theGameState vtable +0Ch is not MakeGameStatePath")
     # The words: the exe's own.
-    for sid, want in ((STR_MALE, "Male"), (STR_FEMALE, "Female"), (STR_NURSING, "Nursing"),
-                      (STR_COLLEGE_TITLE, "{name} is going to college!"), (STR_CAUSE_UNKNOWN, "Unknown causes"),
+    for sid, want in ((STR_MALE, "Male"), (STR_FEMALE, "Female"), (STR_CAUSE_UNKNOWN, "Unknown causes"),
                       (STR_CAUSE_UNKNOWN + 3, "Old age"), (STR_CAUSE_LAST, "Act of Nature")):
         if exe.string_record(sid)[1] != want:
             raise SiteError(f"string {sid:#x} is not {want!r}")

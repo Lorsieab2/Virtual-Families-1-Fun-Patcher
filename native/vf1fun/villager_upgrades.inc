@@ -126,7 +126,6 @@ static const wchar_t *BoardingSchool(int i) {
     if (v[0x13578]) return L"Has already left home.";
     ForgetPlans(v, v);
     if (v[0x13575]) ClearFocus(VillagerManager);
-    LogFamilyEvent(LOGS_BOARDING_SCHOOL, i, 0);   // Family Logs (vf1logs.dll), before the departure itself
     ((SetLeftHomeFn)0x4857F0)(v);
     QueueLifeEventPending(GameStateGet(), 5, *(int *)(v + 0x13538), -1);
     return 0;

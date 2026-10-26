@@ -126,7 +126,7 @@ def test_synthetic_family_from_the_save_alone():
     assert ivy.adopted and ivy.how == "Adopted" and (ivy.father, ivy.mother) == (cal.id, gia.id)
     for name in ("Dee", "Eve", "Fay"):
         assert by_name(v, name).gone == "left" and by_name(v, name).unknowns
-    assert by_name(v, "Eve").litter is None                     # no Births log: twins are not known
+    assert by_name(v, "Eve").litter is None                     # no Family History log: twins are not known
     text = gen.report(v)
     assert "Family: Testfamily (Save 1)" in text and "unknown: Not in the house now" in text
 
@@ -137,8 +137,9 @@ def test_someone_in_the_house_the_tree_does_not_hold_is_shown_apart():
     assert zed.alive and zed.father is None and zed.mother is None and "does not record them" in zed.unknowns[0]
 
 
-def test_the_tree_comes_from_the_save_alone(tmp_path):
-    """The owner: no log or data file is read -- only the save (and the Children sidecar of that very save)."""
+def test_no_other_log_or_data_file_is_read(tmp_path):
+    """Only the save, the Children sidecar of that very save and the Family History log are read: the old Family
+    Logs' other files (which no patcher writes any more) are ignored."""
     (tmp_path / "Virtual Families1.ldw").write_bytes(two_generations())
     root = gen.slot_root(tmp_path, 1)
     for rel, text in (("Data/Parents/Virtual Families 1 Parents - Save 1.dat",
@@ -247,7 +248,7 @@ def test_descriptors_and_statuses_in_family_words():
     assert "(no longer in the house)" in text["Dee"]
     assert not any("game units" in line for lines in text.values() for line in lines)
     assert "30 years old" in text["Cal"]
-    edits.show_masters = False                       # the Heir option
+    edits.show_heir = False                       # the Heir option
     ft.arrange(v, edits)
     assert "Heir" not in ft.default_text(ft.layout(v, edits), by_name(v, "Cal"))
     assert ft.status_label(by_name(v, "Dee")) == "(no longer in the house)"

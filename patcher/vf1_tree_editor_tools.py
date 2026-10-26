@@ -629,9 +629,7 @@ class CanvasTools:
         ttk.Button(row, text="Add Text Box", command=self._add_text_box).pack(side="left", padx=(6, 0))
         row = ttk.Frame(tab)
         row.pack(fill="x", pady=(6, 0))
-        self.logos = [(f"{self.game_title.removeprefix('Virtual Families - ')} logo (this game)", "game:logo1.png")]
-        self.logos += [(name, ref) for name, ref in ft.LOGOS if ref[2:3] != str(self.game)]
-        self.logos = [(name, ref) for name, ref in self.logos
+        self.logos = [(name, ref) for name, ref in ft.LOGOS
                       if ft.picture_path(ref, self.images, self.library) is not None]
         if self.logos:
             ttk.Label(row, text="Click a logo to add it:").pack(anchor="w")
@@ -641,9 +639,6 @@ class CanvasTools:
             self._thumb_grid(grid, [(name, lambda r=ref: picture_scene(
                 ft.picture_path(r, self.images, self.library), 140, 80, back)) for name, ref in self.logos],
                 lambda k: self._add_logo(self.logos[k][1]), (140, 80), 2)
-        else:
-            ttk.Label(tab, text="Set each game's folder on the All 5 Games tab to add its logo.",
-                      wraplength=320).pack(anchor="w")
 
         self.obj_frame = ttk.LabelFrame(tab, text="Selected item", padding=6)
         self.obj_frame.pack(fill="x", pady=(10, 0))

@@ -15,7 +15,8 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
   vf1_game_mechanics.py (Game Mechanics),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
-  vf1_member_info.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py), stub.json, payload/vf1fun.dll
+  vf1_member_info.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
+  and logos in tree_pictures/), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
 file, which the patcher checks before it installs them. No game files.
@@ -94,6 +95,8 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }
+    for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
+        entries[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():
         entries[f"payload/{rel}"] = path.read_bytes()
     out_dir.mkdir(parents=True, exist_ok=True)

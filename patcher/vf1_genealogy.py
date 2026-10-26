@@ -17,7 +17,9 @@ Where the family comes from (docs/vf1-save-format.md, docs/UP_TO_28_CHILDREN.md)
   left home, pregnancy, likes and dislikes;
 * the Up to 28 Children sidecar (Virtual Families 1 Patcher Data\\Children\\<save file>.dat), children 7 to 28
   of the current generation, used only when its hash matches the save file;
-Nothing else is read: no log or data file of the patcher (the owner: the tree comes from the save alone).
+* when the Family History patch wrote one, the slot's Family History log (vf1_family_history): the spouses,
+  deaths, births and events the save forgets;
+* the Family Tree Maker's own tree file for the save (vf1_tree_memory), when the tree is opened to remember.
 
 What no record says is left unknown and labelled as such (Person.unknowns), never guessed.
 """
@@ -127,6 +129,7 @@ class Village:
     identity_questions: list = field(default_factory=list)
     generations: int = 0                # the save's Family Tree records
     couples: dict = field(default_factory=dict)          # generation -> its parents' ids (as the save holds them)
+    history_events: list[str] = field(default_factory=list)  # the Family History log's e-mail and pop-up events
     sources: list[str] = field(default_factory=list)     # the files read
 
     def living(self) -> list[Person]:
@@ -324,7 +327,7 @@ def load_village(folder: Path, game: int = GAME, slot: int = 1, full_names: bool
                  rename_answers: dict | None = None, identity_answers: dict | None = None,
                  save_file: Path | None = None, remember: bool = False) -> Village:
     """The slot's family: every person the save's Family Tree and the Children sidecar name, filled in from the
-    Family History log when the Family Logs patch wrote one (vf1_family_history), and -- with `remember` -- from
+    Family History log when the Family History patch wrote one (vf1_family_history), and -- with `remember` -- from
     and into the Family Tree Maker's own tree file, which keeps every member it has seen in this save
     (vf1_tree_memory).  The save and the logs are only read.  `save_file` reads another file than
     Virtual Families<slot>.ldw (a backup copy)."""
@@ -776,5 +779,9 @@ def report(village: Village, game_title: str = GAME_TITLE) -> str:
                 lines.append(f"    children: {', '.join(k.name for k in sorted(kids, key=lambda q: q.order_key()))}")
             for unknown in p.unknowns:
                 lines.append(f"    unknown: {unknown}")
+        lines.append("")
+    if village.history_events:
+        lines.append("== E-mail and pop-up events (Family History log) ==")
+        lines.extend(f"  {e}" for e in village.history_events)
         lines.append("")
     return "\n".join(lines)

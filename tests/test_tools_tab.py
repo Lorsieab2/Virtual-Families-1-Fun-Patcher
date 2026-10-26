@@ -361,3 +361,10 @@ def test_game_speed_with_the_game_running_changes_nothing(app, save, monkeypatch
     assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
     assert app.status_var.get() == "Game Speed: nothing was changed."
 
+
+# ------------------------------------------------------------------ Family Tree Maker
+
+
+def test_the_family_tree_maker_is_on_the_tools_tab_with_a_question_mark(app):
+    tools = app.root.nametowidget(app.sections.tabs()[1])
+    assert "Family Tree Maker" in text_of(tools) and "family_tree" in app.help_keys

@@ -177,7 +177,7 @@ SHEETS = {
 }
 
 BACKGROUND = "#e8f0e0"
-BACKGROUNDS = Path(__file__).resolve().parents[1] / "assets" / "genealogy" / "backgrounds"
+PICTURES = Path(__file__).resolve().parent / "tree_pictures"   # the owner's backgrounds and logos, shipped beside the patcher
 # The owner: "Generations should not necessarily be on the exact same row.  Feel free to vary
 # their position vertically/horizontally like my example for legibility.  (add a toggle: One
 # straight row vs dynamic positioning)".
@@ -210,9 +210,10 @@ FITS = {"contain": "Whole picture (nothing cut off)", "cover": "Fill the page (c
 RAINBOW = ["#ff0000", "#ff00ff", "#6000ff", "#0060ff", "#00ffff", "#00ff00", "#ffff00", "#ff8000", "#ff0000"]
 RAINBOWS = {"rainbow-across": "across", "rainbow-down": "down"}
 # Ready-made backgrounds: (name, colour, gradient's lower colour, a RAINBOWS key, or "", picture or "").  A picture
-# is one of the games' own, never shipped with the patcher: "game:" is in this game's Images folder,
-# "vvN:" in game N's (found through the game folders the patcher knows), so a preset is offered only
-# when its picture is there.
+# is "asset:" one of the owner's own, shipped beside the patcher in tree_pictures (the colour is the picture's
+# average middle, under its transparent edges), or one of the games' own, never shipped with the patcher: "game:"
+# is in this game's Images folder, "vvN:" in game N's (found through the game folders the patcher knows), so a
+# preset is offered only when its picture is there.
 PRESETS = [
     ("Leaf green (the patcher's own)", BACKGROUND, "", ""),
     ("Parchment", "#f3e7c9", "#e2cfa0", ""),
@@ -225,10 +226,23 @@ PRESETS = [
     ("White", "#ffffff", "", ""),
     ("Rainbow (across)", "#ffffff", "rainbow-across", ""),
     ("Rainbow (top to bottom)", "#ffffff", "rainbow-down", ""),
+    ("The tree in vines", "#abd0b1", "", "asset:tree-in-vines.png"),
+    ("The blue board on wood", "#5c8dcf", "", "asset:blue-board-on-wood.png"),
+    ("Wood and magnifying glass", "#dc6707", "", "asset:wood-and-magnifier.png"),
+    ("Sand in a black frame", "#a88c68", "", "asset:sand-in-black-frame.png"),
+    ("Canvas in a wooden frame", "#d0cfcd", "", "asset:canvas-in-wood-frame.png"),
+    ("The deck and the hose", "#8c5929", "", "asset:deck-and-hose.png"),
+    ("Autumn paving", "#a77647", "", "asset:autumn-paving.png"),
+    ("Grass and acorns", "#469f21", "", "asset:grass-and-acorns.png"),
+    ("The blue rose", "#767160", "", "asset:blue-rose.png"),
+    ("The garden gate", "#88844e", "", "asset:garden-gate.png"),
+    ("The stone patio", "#9198a5", "", "asset:stone-patio.png"),
+    ("Seeds and a trowel", "#837f70", "", "asset:seeds-and-trowel.png"),
+    ("The island map", "#426141", "", "asset:island-map.png"),
+    ("Aquarium with a rock arch", "#367f8a", "", "asset:aquarium-rock-arch.png"),
+    ("Aquarium with driftwood", "#53918d", "", "asset:aquarium-driftwood.png"),
+    ("Aquarium with coral", "#7994c6", "", "asset:aquarium-coral.png"),
 ]
-# How a ready-made picture fits the page when picked (any other picture: stretched to the page).  The
-# starry night is small and repeats without a seam, so it is tiled rather than blown up and blurred.
-PRESET_FITS = {"asset:starry-night.png": "tile"}
 INK = "#1d2a1d"
 LIGHT_INK = "#f4f1e6"
 GREY = "#8a8f88"
@@ -415,7 +429,7 @@ class Edits:
     show_founder: bool = True           # "Founder" for each founder of the village (the owner, 2026-10-09)
     show_arrived: bool = True           # "Event names": the event that brought them in (arrival_words)
     show_left_home: bool = True         # "Left home" for a living family member who left home (Virtual Families)
-    show_masters: bool = True           # "Master Farmer"... (the save's skills now; a grave's for the dead)
+    show_heir: bool = True              # "Heir" for whoever inherited the house (Virtual Families)
     fit_width: int = 0                  # 0, or shrink every portrait so the widest row fits this many pixels
     # The canvas (the owner, 2026-10-09): 0 x 0 is Automatic, the page as large as the tree; else every
     # page is this many pixels, the tree shrunk evenly to fit it or centred on it at its own size.
@@ -615,7 +629,7 @@ class Edits:
         out.show_runner = data.get("show_runner") is not False if kept else True
         out.show_arrived = data.get("show_arrived") is not False
         out.show_left_home = data.get("show_left_home") is not False
-        out.show_masters = data.get("show_masters") is not False
+        out.show_heir = data.get("show_heir") is not False
         out.page_generations = int(_number(data.get("page_generations"), PAGE_GENS_MIN, PAGE_GENS_MAX, PAGE_GENS))
         fit = data.get("fit_width")
         out.fit_width = int(_number(fit, FIT_MIN, FIT_MAX, 0)) if isinstance(fit, (int, float)) and fit else 0
@@ -799,7 +813,7 @@ class Edits:
                 "centre_heads": self.text_valign == "middle", "text_align": self.text_align, "text_inside": self.text_inside, "fixed_face_size": self.fixed_face_size, "turn_words": self.turn_words, "flip_words": self.flip_words, "text_room": self.text_room, "special_mode": self.special_mode, "special_pick": self.special_pick, "special_palette": self.special_palette, "special_count": self.special_count, "hibiscus": self.hibiscus, "special_opacity": self.special_opacity, "rainbow_strength": self.rainbow_strength, "schemes": self.schemes, "detail_lines": self.detail_lines, "detail_colour": self.detail_colour, "detail_opacity": self.detail_opacity, "detail_width": self.detail_width, "text_box_colour": self.text_box_colour, "text_box_opacity": self.text_box_opacity, "text_box_over": self.text_box_over, "text_box_border": self.text_box_border, "text_box_border_colour": self.text_box_border_colour, "text_box_border_width": self.text_box_border_width, "text_valign": self.text_valign, "text_wrap": self.text_wrap, "row_align": self.row_align, "row_valign": self.row_valign, "row_limit": self.row_limit, "keep_families": self.keep_families, "others_columns": self.others_columns, "others_side": self.others_side, "packing": self.packing, "lines_behind": self.lines_behind, "outline_lines": self.outline_lines, "line_mode": self.line_mode, "line_order": self.line_order, "line_reverse": self.line_reverse, "gradient_start": self.gradient_start, "gradient_end": self.gradient_end, "range_colours": self.range_colours, "picture_size": self.picture_size, "text_size": self.text_size, "portrait_gap": self.portrait_gap, "row_gap": self.row_gap, "show_founder": self.show_founder, "fit_width": self.fit_width, "canvas_w": self.canvas_w, "canvas_h": self.canvas_h,"page_generations": self.page_generations, "diagonal_lines": self.diagonal_lines,
                 "show_units": self.show_units, "show_years": self.show_years, "show_twins": self.show_twins, "show_runner": self.show_runner, "number_names": self.number_names,
                 "number_names_v2": True, "descriptors_v2": True, "show_arrived": self.show_arrived, "show_left_home": self.show_left_home,
-                "show_masters": self.show_masters,
+                "show_heir": self.show_heir,
                 "number_order": self.number_order,
                 "sort": self.sort, "positioning": self.positioning,
                 "numbering": self.numbering,
@@ -828,7 +842,7 @@ class Edits:
 # one portrait.  Each is checked as the tree's own is (_group_value).
 GROUP_FIELDS = ("text_align", "text_valign", "centre_heads", "text_room", "flip_words", "turn_words",
                 "text_inside", "fixed_face_size", "picture_size", "text_size", "text_wrap", "show_units", "show_years",
-                "show_twins", "show_founder", "show_runner", "show_arrived", "show_masters", "show_left_home", "detail_lines",
+                "show_twins", "show_founder", "show_runner", "show_arrived", "show_heir", "show_left_home", "detail_lines",
                 "detail_colour", "detail_opacity", "detail_width", "portrait_fill", "text_box_colour", "text_box_opacity",
                 "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width")
 TEXT_BOX_BORDER_WIDTHS = (0.0, 20.0)    # a text box border's weight: 0 draws none
@@ -923,8 +937,11 @@ def is_colour(value) -> bool:
 STICKER_MIN = 6.0                       # the smallest a sticker's side may be
 STICKER_MAX = 20000.0
 PICTURE_TYPES = (".png", ".jpg", ".jpeg", ".bmp", ".gif")
-# Each game's logo, in its own Images folder (never shipped with the patcher).
-LOGOS = [("Virtual Families logo", "game:logo1.png")]
+# The logos offered as stickers: the owner's own pictures, shipped beside the patcher in tree_pictures.
+LOGOS = [("Virtual Families logo", "asset:virtual-families-logo.png"),
+         ("Virtual Families 2 logo", "asset:virtual-families-2-logo.png"),
+         ("Fish Tycoon logo", "asset:fish-tycoon-logo.png"),
+         ("Plant Tycoon logo", "asset:plant-tycoon-logo.png")]
 
 
 def _number(value, low: float, high: float, default: float) -> float:
@@ -1482,7 +1499,7 @@ def reports_folder(folder: Path, slot: int) -> Path:
 STYLE_KEYS = (
     "centre_heads", "text_align", "text_inside", "fixed_face_size", "turn_words", "flip_words", "text_room", "special_mode", "special_pick", "special_palette",
     "special_count", "hibiscus", "special_opacity", "rainbow_strength", "schemes", "detail_lines", "detail_colour", "detail_opacity", "detail_width", "text_box_colour", "text_box_opacity", "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width", "text_valign", "text_wrap", "row_align", "row_valign", "row_limit", "keep_families", "others_columns", "others_side", "packing", "lines_behind", "picture_size", "text_size", "portrait_gap", "row_gap", "show_founder", "fit_width", "canvas_w", "canvas_h", "page_generations", "diagonal_lines",
-    "show_units", "show_years", "show_twins", "show_runner", "show_arrived", "show_masters", "show_left_home",
+    "show_units", "show_years", "show_twins", "show_runner", "show_arrived", "show_heir", "show_left_home",
     "descriptors_v2",
     "number_names", "number_names_v2", "number_order", "sort", "positioning", "numbering",
     "background", "background2", "rainbow", "background_image", "background_fit", "background_opacity",
@@ -5038,13 +5055,12 @@ def status_descriptors(lay: Layout, p: gen.Person) -> list[str]:
 
 def descriptors(lay: Layout, p: gen.Person) -> list[str]:
     """The descriptors after the age (the owner, 2026-10-22: "family members get auto-denoted with special descriptors
-    if applicable"): Founder, Runner, twins and triplets, how they arrived, the jobs they are a Master of, and
-    their special family member statuses -- each where it applies and its option is ticked."""
-    # Virtual Families 1: "show_masters" (the Virtual Villagers field, kept so every per-group setting and saved
-    # look works as there) is the "Heir" option; "show_left_home" is new.
+    if applicable"): Founder, Heir, Runner, twins and triplets, how they arrived, left home, and their special
+    family member statuses -- each where it applies and its option is ticked.  Never a job or skill line (the
+    Virtual Villagers Family Tree Maker dropped its "Master Farmer" lines, 555023e0; Virtual Families has none)."""
     v = lay.village
     out = ["Founder"] if lay.opt(p, "show_founder") and is_founder(v, p) else []
-    out += ["Heir"] if lay.opt(p, "show_masters") and getattr(p, "heir", False) else []
+    out += ["Heir"] if lay.opt(p, "show_heir") and getattr(p, "heir", False) else []
     out += ["Runner"] if lay.opt(p, "show_runner") and p.runner else []
     out += born_with(lay, p)
     arrived = arrival_words(v, p) if lay.opt(p, "show_arrived") else ""
@@ -5055,7 +5071,7 @@ def descriptors(lay: Layout, p: gen.Person) -> list[str]:
 
 # The descriptor options (the Faces & Text tab's tick boxes): (Edits field, words).
 DESCRIPTOR_OPTIONS = (("show_founder", "Founder (the one who started the family)"),
-                      ("show_masters", "Heir (inherited the house)"),
+                      ("show_heir", "Heir (inherited the house)"),
                       ("show_runner", "Runner (likes running)"),
                       ("show_twins", "Twins and triplets (\"Happi's twin\")"),
                       ("show_arrived", "Event names (\"Married in\", \"The Little Visitor\")"),
@@ -6870,7 +6886,7 @@ def picture_path(name: str, images: Path | None, library: dict | None = None) ->
         return None
     path = None
     if name.startswith("asset:"):
-        path = BACKGROUNDS / name[6:]
+        path = PICTURES / name[6:]
     elif name.startswith("game:"):
         path = Path(images) / name[5:] if images is not None else None
     elif name[:2] == "vv" and name[3:4] == ":" and name[2:3].isdigit():

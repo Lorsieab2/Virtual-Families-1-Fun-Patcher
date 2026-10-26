@@ -1689,7 +1689,7 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         # The special descriptors after the age, each where it applies (the owner, 2026-10-22: "villagers get
         # auto-denoted with special descriptors if applicable (tribal chief, founder, runner etc)"): ticked
         # unless the player unticks them.  "X's twin/triplet" (2026-10-09), Founder (2026-10-09), Runner
-        # (2026-10-10), how they arrived, Master of a skill; then each special villager status of this game.
+        # (2026-10-10), how they arrived; then each special villager status of this game.
         box = ttk.LabelFrame(words, text="Special descriptors (shown where they apply)", padding=4)
         box.pack(fill="x", anchor="w", pady=(4, 0))
         self.descriptor_vars: dict[str, tk.BooleanVar] = {}
@@ -5652,7 +5652,8 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         self.bg_field.set_quietly(colour)
         rainbow = colour2 if colour2 in ft.RAINBOWS else ""
         self.bg2_field.set_quietly("" if rainbow else colour2)
-        changes = {"background_fit": ft.PRESET_FITS.get(picture, "stretch")} if picture else {}
+        # Every ready-made picture is stretched to the page (the owner's default): the frames then run round it all.
+        changes = {"background_fit": "stretch"} if picture else {}
         if changes:
             self.fit_var.set(ft.FITS[changes["background_fit"]])
         self._change(background=colour, background2="" if rainbow else colour2, rainbow=rainbow,

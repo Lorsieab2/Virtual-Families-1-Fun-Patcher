@@ -96,15 +96,16 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
-- **Family Logs** (also in the **Experimental** section, off by default): the Virtual Villagers Fun
-  Patcher's logs for your family, written as things happen: a Family History (every event, one line
-  each), Births and Conceptions, Deaths (with the game's own cause of death), Events (the patcher's own:
-  Roll the Dice, Divorce Spouse, Evict Family, Adopt New Person, Spawn Child, Adopt Outside Child, Boarding
-  School), and at each save the Family Population and Family Statistics. One folder per save slot,
-  `Virtual Families 1 Patcher\Save N\Logs` (data files in `Save N\Data`). An existing family's past
-  generations come from its Family Tree, marked "backfilled, no date", once; a new family or Start Over
-  clears that slot's folder (Backups kept). Its own DLL, `vf1logs.dll`. **Not live tested yet** -- see
-  `docs/FAMILY_LOGS.md`.
+- **Family History Log** (also in the **Experimental** section, off by default, never ticked by Enable All): one
+  log, the Family History, for the Family Tree Maker, written as things happen with the game's own words:
+  marriages and remarriages (the current spouse), divorces (Divorce Spouse), deaths with their cause, births
+  (twins and triplets on one line, with both parents), children who join, and the subject line or title of every
+  e-mail and pop-up event with what it did to the family (The Little Visitor's child, the Talent Scout's). One
+  file per save slot, `Virtual Families 1 Patcher\Save N\Logs\Family History\Family History <k>.txt`, rolling
+  every 2000 lines. An existing family gets what its Family Tree holds, marked "backfilled, no date", once; a new
+  family or Start Over clears that slot's folder (Backups kept); Evict Family keeps it. Its own DLL,
+  `vf1logs.dll`; every hook is emulated from a live caller. **Not live tested yet** -- see
+  `docs/FAMILY_HISTORY.md`.
 
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
@@ -129,9 +130,8 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
     family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
-    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. Old
-    Family Logs keep their history; new log files open with `Family: <new name> (Save N)`, and one line is added to
-    the newest Family History. The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. The module
+    is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for
@@ -160,6 +160,16 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     proposed lines held and which were left out. It opens no save, game file or install and writes nothing.
     Module `patcher/vf1_game_mechanics.py` (`python patcher/vf1_game_mechanics.py` prints the page), tests
     `tests/test_game_mechanics.py`.
+  - **Family Tree Maker:** draws a family's tree from its save, with each face from the game, and lets you mark,
+    colour, arrange and export it (PNG or JPG); it is the Virtual Villagers Fun Patcher's Family Tree Maker
+    (matched to its main at cdcface3: no job or skill lines on portraits). With the Family History Log it also
+    shows what the save forgets: divorced and dead spouses, earlier spouses after a remarriage, causes and ages of
+    death, twins and triplets, each child's real parents, and the event that brought a child in (The Little
+    Visitor, Adopt Outside Child, Spawn Child); without a log it uses the save alone and says what is not known.
+    Saves and logs are only read; the tree keeps its own tree file per save. Its ready-made backgrounds and logos
+    are the owner's pictures in `patcher/tree_pictures`. Modules `patcher/vf1_genealogy.py`,
+    `vf1_family_history.py`, `vf1_tree_memory.py`, `vf1_family_tree*.py` and helpers; tests
+    `tests/test_family_tree.py`, `tests/test_family_tree_memory.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.
@@ -223,7 +233,7 @@ copies as arguments.
 
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
   `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
-  `native\build_logs.bat` builds `build\vf1logs.dll` (Family Logs).
+  `native\build_logs.bat` builds `build\vf1logs.dll` (the Family History Log).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

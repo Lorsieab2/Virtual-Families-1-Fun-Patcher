@@ -1,25 +1,44 @@
-"""Scenarios for the Family Logs DLL (vf1logs.dll), run under tests/kids_emu.py.
+"""Scenarios for the Family History log's DLL (vf1logs.dll), run under tests/kids_emu.py.
 
-A LogsWorld is the REAL vanilla Virtual Families executable and the REAL compiled test DLL in one unicorn
-address space. The DLL installs itself through its own VF1Logs_Startup (the real verify / plan / apply path),
-and every hook is then reached the way the game reaches it: by running the game's OWN instructions at each
-hooked call (the conception plan step 0x48EB99..0x48EBB7, the realtime update 0x424F8E..0x424F98, the death
-behaviour's end 0x48E1FA..0x48E205, the body removal 0x489D7F..0x489D94, the menu's Start Over
-0x448423..0x44842B, the age-19 leaving 0x489EC3..0x489ECA) or by a direct call of a hooked entry, as vf1fun.dll
-makes them.
+A HistoryWorld is the REAL vanilla Virtual Families executable and the REAL compiled DLL (the very file that
+ships) in one unicorn address space. The DLL installs itself through its own VF1Logs_Startup (the real
+verify / plan / apply path), and every hook is then reached the way the game reaches it: by running the
+game's OWN instructions from a live caller of each hooked site:
+
+* births: the conception step's own Impregnate call (0x48EB99..0x48EBB7), then theGameState's realtime
+  update calling the physiology pass (0x424F8E..0x424F98);
+* deaths: the death behaviour's end (0x48E1FA..0x48E205) and the body's removal (0x489D7F..0x489D94);
+* Start Over: the menu's confirmed Start Over (0x448423..0x44842B);
+* the pop-up events: the main scene's island-event branch (0x445333..0x445358: the next check's time, then
+  CIslandEvents::FireEvent 0x41B360, the real chooser 0x41B1F0 with every event's real CanFire, and the
+  hooked DoModal call 0x41B2C5);
+* the e-mail events: the main scene's opened-e-mail branch (0x44503E..0x445082: FireEmailEvent 0x41B3A0,
+  the same chooser with the e-mail flag);
+* marriage, a new family: direct calls of the hooked entries UpdateParents / StartFamilyTree, as the Marry
+  button and the adoption scene make them; a load: theGameState's Load slot, as the game calls it.
 
 Game code that runs for real: CVillager::Impregnate (whole), the delivery block of the physiology pass
 (0x48C073..0x48C307, entered with the pass's own frame), CFamilyTree::ReportDeath, CountSurvivingChildren,
-UpdateParents (with FindPeepRecord and the game's string copy), AddOffspring, StartFamilyTree, Reset,
-StartNextGeneration, CVillager::SetLeftHome.
+UpdateParents (with FindPeepRecord and the game's string copy), StartFamilyTree, Reset, StartNextGeneration,
+the island events' constructor 0x419EE0 (all 71 events), FireEvent / FireEmailEvent, the chooser and every
+event's CanFire, the event dialog's handler 0x41B0A0 (choice A, then OK), the chosen event's ImpactGame and
+what it calls (AddOffspring, SetLeftHome, the money).
 
-Stand-ins (each pops exactly what the real routine pops): theGameState::Load / ::Save (thiscall, ret 4),
-theGameState::Restart (ret), MakeGameStatePath (ret 4), theStringManager::Get (cdecl) and ::GetString (ret 4,
-answering with the address of the executable's OWN text for the id), GetMatriarch / GetPatriarch (ret),
-UpdatePeepRecord (ret 4), UpdateCurrentFamilyRecord (ret), CGameTime::Seconds (ret), GetSecondsFromGameStart
-(ret), ldwGameState::GetRandom (cdecl, scripted), the spawn calls Impregnate makes (ret 30h / ret 4), the
-achievement counter (ret 8), the gender chooser (ret), the baby behaviour call 0x486A10 (ret 4); the DLL's
-Win32 imports run over an in-memory file system.
+Stand-ins (each pops exactly what the real routine pops): theGameState::Load (ret 4), theGameState::Restart
+(ret), MakeGameStatePath (ret 4), theStringManager::Get (cdecl) and ::GetString (ret 4, answering with the
+address of the executable's OWN text for the id), GetMatriarch / GetPatriarch (ret), UpdatePeepRecord
+(ret 4), UpdateCurrentFamilyRecord (ret), CGameTime::Seconds (ret), GetSecondsFromGameStart (ret),
+ldwGameState::GetRandom (cdecl, scripted; the chooser's pick answers with the wanted event, and an event's
+own rolls each answer differently), the spawn calls
+(ret 30h / ret 4 / SpawnPeep ret 0Ch), the achievement counter (ret 8), the gender chooser (ret), the baby
+behaviour call 0x486A10 (ret 4), operator new (cdecl), the sound player (ret 4), the event's sparkle
+0x48C5A0 (ret 4), CCollectableItem::Add 0x414A20 (ret 10h: event 19 puts a collectible in the
+yard, nothing of the family's), the house's SetProp 0x4938C0 (ret 4: a mess or a leak, events 64, 67, 68); for the
+event dialog, which draws: its constructor 0x41A970 (ret 4; it sets what the real
+one sets for the hook: the vtable, +0x4C shown, +0x50 the event, +0x54 GetString(GetTitle()), +0x838 the
+event's villager), DoModal 0x401B10 (x86 code: the real handler with choice A when the event has choices,
+then OK; ret 8), the handler's button calls 0x40C530 / 0x40C4B0 / 0x419E50 (ret 4) and the destructor
+0x419CA0 (ret). The DLL's Win32 imports run over an in-memory file system.
 """
 from __future__ import annotations
 
@@ -36,17 +55,21 @@ from unicorn.x86_const import (UC_X86_REG_EAX, UC_X86_REG_EBP, UC_X86_REG_EBX, U
                                UC_X86_REG_EDI, UC_X86_REG_EDX, UC_X86_REG_EIP, UC_X86_REG_ESI, UC_X86_REG_ESP)
 
 STRIDE = L.VILLAGER_STRIDE
-SAVE_DIR = "C:\\Users\\Tester\\Documents\\LDW\\VF1 Logs Test"
+SAVE_DIR = "C:\\Users\\Tester\\Documents\\LDW\\VF1 History Test"
 DLL_PATH = "C:\\Game\\Virtual Families 1 Patcher Files\\vf1logs.dll"
 INVALID = 0xFFFFFFFF
 ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, ERROR_ALREADY_EXISTS, ERROR_DIR_NOT_EMPTY = 2, 3, 183, 145
 FILE_APPEND_DATA = 4
 
 UPDATE_PEEP_RECORD, UPDATE_CURRENT_FAMILY_RECORD = 0x4818F0, 0x481960
-GET_RANDOM, SPAWN_FULL, SPAWN_TWIN = 0x403650, 0x48B2E0, 0x48B350
+GET_RANDOM, SPAWN_FULL, SPAWN_TWIN, SPAWN_PEEP = 0x403650, 0x48B2E0, 0x48B350, 0x48BC60
 INCREMENT_PROGRESS, GENDER_CHOICE = 0x413210, 0x48BBF0
 GAME_SECONDS, SECONDS_FROM_START, BABY_BEHAVIOUR = 0x422320, 0x4036D0, 0x486A10
 START_FAMILY_TREE = 0x481E00
+OPERATOR_NEW, PLAY_SOUND, SPARKLE, COLLECTABLE_ADD, SET_PROP = 0x497B14, 0x44C560, 0x48C5A0, 0x414A20, 0x4938C0
+EVENTS_CONSTRUCTOR, EVENTS_INSTANCE = 0x419EE0, 0x502040
+DIALOG_REMOVE, DIALOG_ADD, DIALOG_TEXT, DIALOG_DESTRUCTOR = 0x40C530, 0x40C4B0, 0x419E50, 0x419CA0
+MONEY = 0x50C60C
 STAMP = "[2026-10-24 12:34:56] "
 
 
@@ -64,7 +87,6 @@ class FileSystem:
         self.finds = {}
         self.next = 0x100
         self.last_error = 0
-        self.log = []
 
     @staticmethod
     def key(path):
@@ -100,7 +122,6 @@ class FileSystem:
             path = e.cstr(e.arg(0))
             access, disposition = e.arg(1), e.arg(4)
             k = fs.key(path)
-            fs.log.append(("CreateFileA", path, disposition))
             if fs.parent(path) not in fs.dirs:
                 fs.last_error = ERROR_PATH_NOT_FOUND
                 return INVALID, 28
@@ -108,15 +129,14 @@ class FileSystem:
             if disposition == 3 and not exists:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return INVALID, 28
-            if disposition == 2 or (disposition == 4 and not exists):
+            if disposition == 4 and not exists:
                 fs.files[k] = b""
             elif disposition not in (3, 4):
                 raise EmuError(f"CreateFileA disposition {disposition}")
             h = fs.next
             fs.next += 4
             fs.handles[h] = {"key": k, "data": bytearray(fs.files[k]), "pos": 0,
-                             "append": bool(access & FILE_APPEND_DATA) and not access & 0x40000000,
-                             "write": disposition in (2, 4) or bool(access & 0x40000000)}
+                             "write": disposition == 4 or bool(access & (0x40000000 | FILE_APPEND_DATA))}
             return h, 28
 
         def read_file(e):
@@ -156,31 +176,15 @@ class FileSystem:
             return 1, 8
 
         def rmdir(e):
-            path = e.cstr(e.arg(0))
-            k = fs.key(path)
+            k = fs.key(e.cstr(e.arg(0)))
             if any(f.startswith(k + "\\") for f in fs.files) or any(d.startswith(k + "\\") for d in fs.dirs):
                 fs.last_error = ERROR_DIR_NOT_EMPTY
                 return 0, 4
             fs.dirs.discard(k)
-            fs.log.append(("RemoveDirectoryA", path))
             return 1, 4
 
-        def move(e):
-            src, dst, flags = e.cstr(e.arg(0)), e.cstr(e.arg(1)), e.arg(2)
-            ks, kd = fs.key(src), fs.key(dst)
-            if ks not in fs.files:
-                fs.last_error = ERROR_FILE_NOT_FOUND
-                return 0, 12
-            if kd in fs.files and not flags & 1:
-                fs.last_error = ERROR_ALREADY_EXISTS
-                return 0, 12
-            fs.files[kd] = fs.files.pop(ks)
-            return 1, 12
-
         def delete(e):
-            path = e.cstr(e.arg(0))
-            fs.log.append(("DeleteFileA", path))
-            if fs.files.pop(fs.key(path), None) is None:
+            if fs.files.pop(fs.key(e.cstr(e.arg(0))), None) is None:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return 0, 4
             return 1, 4
@@ -234,20 +238,19 @@ class FileSystem:
 
         emu.imports.update({
             "CreateFileA": create, "ReadFile": read_file, "WriteFile": write_file, "CloseHandle": close,
-            "FlushFileBuffers": lambda e: (1, 4), "CreateDirectoryA": mkdir, "RemoveDirectoryA": rmdir,
-            "MoveFileExA": move, "DeleteFileA": delete, "GetFileAttributesA": attributes,
-            "SetFileAttributesA": lambda e: (1, 8), "FindFirstFileA": find_first, "FindNextFileA": find_next,
+            "CreateDirectoryA": mkdir, "RemoveDirectoryA": rmdir, "DeleteFileA": delete,
+            "GetFileAttributesA": attributes, "SetFileAttributesA": lambda e: (1, 8),
+            "FindFirstFileA": find_first, "FindNextFileA": find_next,
             "FindClose": lambda e: (fs.finds.pop(e.arg(0), None), 1)[1:] + (4,),
             "GetLastError": lambda e: (fs.last_error, 0), "GetLocalTime": local_time,
             "lstrcmpiA": lambda e: (0 if e.cstr(e.arg(0)).lower() == e.cstr(e.arg(1)).lower() else 1, 8),
         })
 
 
-class LogsWorld:
-    """One emulated process: the vanilla Virtual Families executable + the Family Logs test DLL."""
+class HistoryWorld:
+    """One emulated process: the vanilla Virtual Families executable + the Family History DLL."""
 
     def __init__(self, exe, dll, setting=1, before_install=None, install=True):
-        self.exe_path = exe
         self.e = Emu(exe, dll, 0)
         self.exe = L.Exe(Path(exe).read_bytes())
         self.fs = FileSystem()
@@ -256,13 +259,14 @@ class LogsWorld:
         self.setting = setting
         self.rolls = []
         self.spawned = []
-        self.saves, self.loads, self.restarts = [], [], []
+        self.loads, self.restarts = [], []
         self.code_before = self._code()
         self.mother, self.father = 0, 1
         self._game_state()
         self._villagers()
         self._seams()
         self._win32()
+        self._island_events()
         if before_install:
             before_install(self)
         self.installed = self.startup() if install else 0
@@ -286,22 +290,19 @@ class LogsWorld:
 
     # ------------------------------------------------------------------ Win32 for the install
     def _win32(self):
-        e = self.e
-
         def module_file(emu):
-            buf, n = emu.arg(1), emu.arg(2)
-            emu.write(buf, (DLL_PATH + "\0").encode("utf-16-le"))
+            emu.write(emu.arg(1), (DLL_PATH + "\0").encode("utf-16-le"))
             return len(DLL_PATH), 12
 
         def profile_int(emu):
             key = emu.wstr(emu.arg(1))
-            return (self.setting if key == "FamilyLogs" and self.setting is not None else emu.arg(2)), 16
+            return (self.setting if key == "FamilyHistory" and self.setting is not None else emu.arg(2)), 16
 
         def protect(emu):
             emu.w32(emu.arg(3), 0x20)
             return 1, 16
 
-        e.imports.update({
+        self.e.imports.update({
             "GetModuleFileNameW": module_file, "GetPrivateProfileIntW": profile_int, "VirtualProtect": protect,
             "FlushInstructionCache": lambda emu: (1, 12), "GetCurrentProcess": lambda emu: (INVALID, 0),
             "DisableThreadLibraryCalls": lambda emu: (1, 4),
@@ -312,8 +313,7 @@ class LogsWorld:
 
     def status(self):
         st = self.e.dll_export("VF1Logs_Status")
-        names = ("magic", "version", "requested", "resolved", "installed", "writes", "records", "lastLoad",
-                 "lastSave", "wipes")
+        names = ("magic", "version", "requested", "resolved", "installed", "writes", "lines", "lastLoad", "wipes")
         return {n: self.e.r32(st + 4 * i) for i, n in enumerate(names)}
 
     # ------------------------------------------------------------------ the game's state
@@ -337,6 +337,9 @@ class LogsWorld:
             return self.path_buffer, 4
         e.seam_live(stub, make_path)
         self.strings = e.alloc(0x40)
+        self.scene = e.alloc(0x100)                        # theMainScene: +0x14 is theGameState
+        e.w32(self.scene + 0x14, self.state)
+        self.set_money(1000.0)
 
     def set_family_name(self, name):
         self.e.write(self.state + L.GAME_STATE_FAMILY_NAME, name.encode("latin-1")[:27].ljust(0x1C, b"\0"))
@@ -344,6 +347,12 @@ class LogsWorld:
     def set_slot(self, slot):
         self.slot = slot
         self.e.w32(self.state + L.GAME_STATE_SLOT, slot)
+
+    def set_money(self, amount):
+        self.e.write(MONEY, struct.pack("<f", amount))
+
+    def money(self):
+        return struct.unpack("<f", self.e.read(MONEY, 4))[0]
 
     def villager(self, slot):
         return L.VILLAGER_MANAGER + L.VILLAGER_ARRAY_OFFSET + slot * STRIDE
@@ -365,10 +374,9 @@ class LogsWorld:
         e.w32(v + L.VILLAGER_STATE + 8, years * 20)          # age units processed
         e.w32(v + L.VILLAGER_HEALTH, health)
         e.w32(v + L.VILLAGER_CAUSE, INVALID)
-        e.w32(v + L.VILLAGER_CAREER, career)
+        e.w32(v + 0x2B6C, career)
         e.write(v + L.VILLAGER_PRESENT, bytes([present]))
         e.write(v + L.VILLAGER_LEFT_HOME, b"\0")
-        e.write(v + L.VILLAGER_BIO_PARENT1, b"\0" * 52)
 
     def generations(self):
         return s32(self.e.r32(L.FAMILY_TREE))
@@ -377,31 +385,11 @@ class LogsWorld:
     def root(self, slot=None):
         return f"{SAVE_DIR}\\Virtual Families 1 Patcher\\Save {slot or self.slot}"
 
-    def log_path(self, sub, stem, n=1, slot=None):
-        return f"{self.root(slot)}\\Logs\\{sub}\\{stem} {n}.txt"
-
     def history(self, slot=None, n=1):
-        return self.fs.text(self.log_path("Family History", "Family History", n, slot))
+        return self.fs.text(f"{self.root(slot)}\\Logs\\Family History\\Family History {n}.txt")
 
-    def births(self, slot=None, n=1):
-        return self.fs.text(self.log_path("Births and Conceptions", "Virtual Families 1 Births and Conceptions Log", n, slot))
-
-    def deaths(self, slot=None, n=1):
-        return self.fs.text(self.log_path("Deaths", "Virtual Families 1 Deaths Log", n, slot))
-
-    def events(self, slot=None, n=1):
-        return self.fs.text(self.log_path("Events", "Virtual Families 1 Events Log", n, slot))
-
-    def snapshot(self, sub, slot=None):
-        s = slot or self.slot
-        return self.fs.text(f"{self.root(s)}\\Logs\\{sub}\\{sub} - Save {s}.txt")
-
-    def data(self, kind, stem, slot=None):
-        s = slot or self.slot
-        return self.fs.text(f"{self.root(s)}\\Data\\{kind}\\{stem} - Save {s}.dat")
-
-    def history_lines(self, slot=None):
-        text = self.history(slot) or ""
+    def history_lines(self, slot=None, n=1):
+        text = self.history(slot, n) or ""
         return [line for line in text.split("\r\n") if line.startswith("[")]
 
     # ------------------------------------------------------------------ seams
@@ -415,47 +403,59 @@ class LogsWorld:
             assert emu.ecx == self.strings, "GetString on something other than theStringManager"
             return self.exe.string_record(emu.arg(0))[0], 4
         e.seam_live(L.FUNCTIONS["STRINGS_GET_STRING"], get_string)
-        e.seam_live(L.FUNCTIONS["VM_GET_MATRIARCH"], lambda emu: (self.villager(self.mother) if self.mother is not None else 0, 0))
-        e.seam_live(L.FUNCTIONS["VM_GET_PATRIARCH"], lambda emu: (self.villager(self.father) if self.father is not None else 0, 0))
+        e.seam_live(0x489950, lambda emu: (self.villager(self.mother) if self.mother is not None else 0, 0))
+        e.seam_live(0x4899C0, lambda emu: (self.villager(self.father) if self.father is not None else 0, 0))
         e.seam_live(GAME_SECONDS, lambda emu: (4321, 0))
         e.seam_live(SECONDS_FROM_START, lambda emu: (5000, 0))
         e.seam_live(BABY_BEHAVIOUR, lambda emu: (0, 4))
+        self.picks = []                                    # the chooser's pick: the wanted event's number
+        self.eligible = []
 
         def get_random(emu):
-            return (self.rolls.pop(0) if self.rolls else 0), 0
+            ret = emu.r32(emu.reg(UC_X86_REG_ESP))
+            if ret == 0x41B28B and self.picks:             # the chooser: rand(eligible) at 0x41B286
+                want = self.picks.pop(0)
+                listed = emu.reg(UC_X86_REG_ESP) + 8 + 0x14
+                self.eligible = [emu.r32(listed + 4 * k) for k in range(emu.arg(0))]
+                if want not in self.eligible:
+                    raise EmuError(f"event {want} cannot fire here; eligible: {self.eligible}")
+                return self.eligible.index(want), 0
+            if self.rolls:
+                return self.rolls.pop(0), 0
+            if self.spread:                                 # inside an event: every roll a different answer, so
+                self.spread += 1                            # a search for a free place (a collectible) ends
+                return self.spread % max(emu.arg(0), 1), 0
+            return 0, 0
         e.seam_live(GET_RANDOM, get_random)
+        self.spread = 0
 
-        def spawn(pop):
+        def spawn(pop, years=0, names=None):
             def fn(emu):
+                pool = self.baby_names if names is None else names
                 reserved = {s32(e.r32(self.state + L.GAME_STATE_RESERVED_BABY + 4 * k)) for k in range(3)}
                 for slot in range(30):
                     v = self.villager(slot)
                     if not e.read(v + L.VILLAGER_PRESENT, 1)[0] and slot not in reserved and slot not in self.spawned:
-                        self.set_villager(slot, self.baby_names.pop(0) if self.baby_names else f"Baby{slot}",
-                                          slot % 2, years=0, career=INVALID)
-                        e.w32(v + L.VILLAGER_AGE, 40)
+                        name = pool.pop(0) if pool else f"Baby{slot}"
+                        self.set_villager(slot, name, slot % 2, years=years, career=INVALID)
+                        if pop == 0x30:
+                            e.w32(v + L.VILLAGER_AGE, 40)
                         self.spawned.append(slot)
                         return slot, pop
                 return INVALID, pop
             return fn
         self.baby_names = []
+        self.visitor_names = []
         e.seam_live(SPAWN_FULL, spawn(0x30))
         e.seam_live(SPAWN_TWIN, spawn(4))
+        e.seam_live(SPAWN_PEEP, spawn(0xC, years=3, names=self.visitor_names))
         e.seam_live(INCREMENT_PROGRESS, lambda emu: (0, 8))
         e.seam_live(GENDER_CHOICE, lambda emu: (INVALID, 0))
 
         def load(emu):
             self.loads.append(emu.arg(0))
-            if self.on_load:
-                self.on_load(emu.arg(0))
             return 1, 4
-
-        def save(emu):
-            self.saves.append(emu.arg(0))
-            return 1, 4
-        self.on_load = None
         e.seam_live(L.FUNCTIONS["GS_LOAD"], load)
-        e.seam_live(L.FUNCTIONS["GS_SAVE"], save)
         e.seam_live(L.FUNCTIONS["GS_RESTART"], lambda emu: (self.restarts.append(emu.ecx), (0, 0))[1])
         self._delivery_seams()
 
@@ -463,7 +463,6 @@ class LogsWorld:
     # ([esp+10h] theGameState, [esp+18h] the manager, esi = villager + 13578h), then a plain ret.
     def _delivery_seams(self):
         e = self.e
-        self.pass_queue = []
         self.pass_ctx = None
 
         def enter(emu):
@@ -471,7 +470,6 @@ class LogsWorld:
             regs = {r: emu.reg(r) for r in (UC_X86_REG_EBX, UC_X86_REG_ESI, UC_X86_REG_EDI, UC_X86_REG_EBP)}
             self.pass_ctx = {"ret": emu.r32(esp), "esp": esp, "regs": regs,
                              "queue": [s for s in range(30) if s32(e.r32(self.villager(s) + L.VILLAGER_PREGNANT))]}
-            self.passes = getattr(self, "passes", 0) + 1
             if not self._next_villager():
                 self._leave()
 
@@ -511,6 +509,101 @@ class LogsWorld:
         e.setreg(UC_X86_REG_ESP, ctx["esp"] + 4)
         e.setreg(UC_X86_REG_EIP, ctx["ret"])
 
+    # ------------------------------------------------------------------ the island events
+    def _island_events(self):
+        """The game's own 71 events (constructor 0x419EE0), and the event dialog's stand-ins."""
+        e = self.e
+        e.seam_live(OPERATOR_NEW, lambda emu: (emu.alloc(max(emu.arg(0), 4)), 0))
+        e.seam_live(PLAY_SOUND, lambda emu: (0, 4))
+        e.seam_live(SPARKLE, lambda emu: (0, 4))
+        e.seam_live(COLLECTABLE_ADD, lambda emu: (0, 0x10))
+        e.seam_live(SET_PROP, lambda emu: (0, 4))
+        events = e.alloc(8)
+        e.call(EVENTS_CONSTRUCTOR, (), ecx=events)
+        e.w32(EVENTS_INSTANCE, events)
+        self.shown = []                                     # (event number, dialog) of every DoModal
+
+        def construct(emu):
+            d, event = emu.ecx, emu.arg(0)
+            emu.write(d, b"\0" * 0x86C)                     # the object ends at +0x86C (its last field +0x868)
+            emu.w32(d, L.EVENT_DIALOG_VTABLE)
+            emu.w32(d + L.EVENT_DIALOG_EVENT, event)
+            emu.w32(d + L.EVENT_DIALOG_TITLE, self.exe.string_record(self.title_id(event))[0])
+            target = emu.r32(event + 4)
+            emu.w32(d + 0x838, target)
+            emu.write(d + 0x4C, bytes([0 if self.has_choices(event) and target == 0 else 1]))
+            return d, 4
+        e.seam_live(L.FUNCTIONS["IE_DIALOG_CTOR"], construct)
+        e.seam_live(DIALOG_REMOVE, lambda emu: (0, 4))
+        e.seam_live(DIALOG_ADD, lambda emu: (0, 4))
+        e.seam_live(DIALOG_TEXT, lambda emu: (0, 4))
+        e.seam_live(DIALOG_DESTRUCTOR, lambda emu: (0, 0))
+        # DoModal: the player picks choice A (when there are choices), then OK, through the REAL handler.
+        handler = L.FUNCTIONS["IE_DIALOG_HANDLER"]
+        code = bytearray()
+        code += b"\x56\x89\xCE"                             # push esi / mov esi, ecx
+        code += b"\x8B\x4E\x50\x8B\x01\xFF\x50\x10"         # mov ecx,[esi+50h] / mov eax,[ecx] / call [eax+10h]
+        code += b"\x84\xC0\x74\x00"                         # test al, al / jz ok
+        jz = len(code) - 1
+        code += b"\x6A\x02\x6A\x08\x89\xF1\xE8\0\0\0\0"     # push 2 / push 8 / mov ecx, esi / call handler
+        call_a = len(code) - 4
+        code[jz] = len(code) - (jz + 1)
+        code += b"\x6A\x01\x6A\x08\x89\xF1\xE8\0\0\0\0"     # ok: push 1 / push 8 / mov ecx, esi / call handler
+        call_ok = len(code) - 4
+        code += b"\x5E\xC2\x08\x00"                         # pop esi / ret 8
+        stand_in = e.alloc(len(code) + 16)
+        struct.pack_into("<i", code, call_a, handler - (stand_in + call_a + 4))
+        struct.pack_into("<i", code, call_ok, handler - (stand_in + call_ok + 4))
+        e.write(stand_in, bytes(code))
+
+        def modal(uc, address, size, user):
+            dialog = e.reg(UC_X86_REG_ECX)
+            assert e.r32(dialog) == L.EVENT_DIALOG_VTABLE, "DoModal of something other than the event dialog"
+            self.shown.append((self.event_number(e.r32(dialog + L.EVENT_DIALOG_EVENT)), dialog))
+            e.setreg(UC_X86_REG_EIP, stand_in)
+        e.uc.hook_add(UC_HOOK_CODE, modal, begin=L.FUNCTIONS["DLG_DO_MODAL"], end=L.FUNCTIONS["DLG_DO_MODAL"])
+
+    def title_id(self, event):
+        """The string id the event's GetTitle returns (each is `mov eax, imm32 / ret`)."""
+        fn = self.e.r32(self.e.r32(event) + 8)
+        code = self.e.read(fn, 6)
+        assert code[0] == 0xB8 and code[5] == 0xC3, hex(fn)
+        return struct.unpack_from("<I", code, 1)[0]
+
+    def has_choices(self, event):
+        return self.e.r32(self.e.r32(event) + 0x10) == 0x417FE0   # mov al, 1 / ret (0x417380: xor al, al)
+
+    def is_email(self, event):
+        return self.e.r32(self.e.r32(event) + L.EVENT_VSLOT_EMAIL) == 0x417FE0
+
+    def event_object(self, number):
+        return self.e.r32(L.ISLAND_EVENTS + 4 * number)
+
+    def event_number(self, event):
+        return next(n for n in range(1, 72) if self.event_object(n) == event)
+
+    def pop_up(self, number):
+        """The main scene's pop-up branch (0x445333..0x445358), the chooser answering with event `number`."""
+        self.picks = [number]
+        self.shown = []
+        self.spread = 1
+        try:
+            self.run(0x445333, 0x445358, esi=self.scene)
+        finally:
+            self.spread = 0
+        return [n for n, _d in self.shown]
+
+    def email(self, number):
+        """The main scene's opened-e-mail branch (0x44503E..0x445082), the chooser answering with `number`."""
+        self.picks = [number]
+        self.shown = []
+        self.spread = 1
+        try:
+            self.run(0x44503E, 0x445082, esi=self.scene, ebp=1)
+        finally:
+            self.spread = 0
+        return [n for n, _d in self.shown]
+
     # ------------------------------------------------------------------ running the game's own code
     def run(self, start, stop, **regs):
         e = self.e
@@ -537,7 +630,7 @@ class LogsWorld:
         return self.e.call(L.FUNCTIONS["FT_UPDATE_PARENTS"], (self.villager(a), self.villager(b)), ecx=L.FAMILY_TREE) & 0xFF
 
     def conceive(self, rolls=(), names=()):
-        """The try-for-a-baby plan step's own Impregnate call (0x48EB99..0x48EBB7): edi = matriarch, ebx =
+        """The try-for-a-baby step's own Impregnate call (0x48EB99..0x48EBB7): edi = matriarch, ebx =
         patriarch."""
         self.rolls = list(rolls)
         self.baby_names = list(names)
@@ -567,20 +660,6 @@ class LogsWorld:
         else:
             self.run(0x489D7F, 0x489D94, esi=v + L.VILLAGER_LEFT_HOME)
 
-    def leave_home(self, slot):
-        self.run(0x489EC3, 0x489ECA, ebp=self.villager(slot))
-
-    def add_offspring(self, slot):
-        return self.e.call(L.FUNCTIONS["FT_ADD_OFFSPRING"], (self.villager(slot),), ecx=L.FAMILY_TREE) & 0xFF
-
-    def next_generation(self, heir, source):
-        return self.e.call(L.FUNCTIONS["FT_START_NEXT_GEN"], (self.villager(heir), source & 0xFFFFFFFF),
-                           ecx=L.FAMILY_TREE) & 0xFF
-
-    def save(self, slot=None):
-        fn = self.e.r32(L.GS_VTABLE_SAVE)
-        return self.e.call(fn, (slot or self.slot,), ecx=self.state) & 0xFF
-
     def load(self, slot=None):
         fn = self.e.r32(L.GS_VTABLE_LOAD)
         return self.e.call(fn, (slot or self.slot,), ecx=self.state) & 0xFF
@@ -590,19 +669,17 @@ class LogsWorld:
         self.e.w32(holder + 0xC, self.state)
         self.run(0x448423, 0x44842B, esi=holder)
 
-    def event(self, kind, a=-1, amount=0):
-        self.e.call(self.e.dll_export("VF1Logs_Event"), (kind, a & 0xFFFFFFFF, INVALID, amount))
-
-    def logged(self, slot):
-        return s32(self.e.call(self.e.dll_export("VF1Logs_TestLogged"), (slot,)))
+    def event(self, kind, who=-1, parent_a=-1, parent_b=-1):
+        self.e.call(self.e.dll_export("VF1Logs_Event"),
+                    (kind, who & 0xFFFFFFFF, parent_a & 0xFFFFFFFF, parent_b & 0xFFFFFFFF))
 
     def reset_tree(self):
         self.e.write(L.FAMILY_TREE, b"\0" * (4 + 30 * L.FAMILY_RECORD_SIZE))
 
     # ------------------------------------------------------------------ a real save in memory
     def load_save_image(self, data: bytes, slot=1):
-        """Put a real save's payload where the game's LoadState calls put it: the tree's 30 records, the
-        villagers' records, the family name, the unborn babies, food, money and the statistics."""
+        """Put a real save's payload where the game's LoadState puts it: the tree's 30 records, the
+        villagers' records and the family name."""
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patcher"))
         import vf1_save as vs
         header = vs.parse_header(data)
@@ -624,12 +701,7 @@ class LogsWorld:
             e.write(v + L.VILLAGER_LEFT_HOME, rec[1:2])
             e.write(v + 0x2A34, rec[8:8 + 0xA0])         # CVillagerBio
             e.write(v + 0x2AD4, rec[0xA8:0xA8 + 0x98])   # CVillagerState
-            e.write(v + 0x2B6C, rec[0x140:0x150])        # CVillagerSkills
             e.w32(v + L.VILLAGER_SLOT, k)
-        e.write(self.state + L.GAME_STATE_RESERVED_BABY, gs(vs.GS_PENDING_BABIES, 12))
         e.write(self.state + L.GAME_STATE_FAMILY_NAME, gs(vs.GS_FAMILY_NAME, 0x1C))
-        e.write(L.FOOD, gs(vs.GS_FOOD, 4))
-        e.write(0x50C560, gs(vs.GS_STATS, 0x34))
-        e.write(L.MONEY, gs(vs.GS_MONEY, 4))
         self.set_slot(slot)
         return vs.parse_save(data)
