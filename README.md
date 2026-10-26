@@ -124,6 +124,9 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     automatically (Documents is read from Windows, so a OneDrive-redirected Documents works). A running game is
     paused for the copy and resumed; every copy is checked against the original (size and SHA-256); an existing
     backup is never replaced, and a copy that fails is kept as `... INCOMPLETE` and never offered for restore.
+    Game speed is set to Paused in the backup's family saves (the copies only; your own saves are unchanged), so
+    a restored backup opens paused and never catches up on the time since it was made. Only a family at Normal is
+    paused; a save at another speed, or one that cannot be read, is copied exactly as it is.
   - **Restore Saves:** lists the backups (newest first) and puts one back, the whole folder or one save slot.
     The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
     confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails

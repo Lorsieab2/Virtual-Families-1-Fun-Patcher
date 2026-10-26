@@ -24,6 +24,14 @@ Pausing
     fails. If any of them cannot be suspended the backup is refused rather
     than taken while the game might be writing. The game is never closed.
 
+Game speed Paused in the backup
+    Once every file is copied and verified, the backup's copy of each slot
+    save "Virtual Families<1-5>.ldw" at Normal is set to Paused, exactly as
+    the game's own Pause sets it (vf1_game_speed), so a restored backup never
+    catches up on the real time since it was made. The live saves are never
+    changed. A copy already Paused, at another speed or unreadable is kept
+    byte for byte; the older autosave copies <N+20> / <N+40> are not touched.
+
 Restore
     A backup is restored -- the whole save folder, or one save slot -- only
     while the game is closed, and only after the current saves have been
@@ -238,6 +246,12 @@ class BackupResult:
     files: list[CopiedFile] = field(default_factory=list)
     paused: int = 0          # how many game processes were paused for the copy
     resume_problems: list[str] = field(default_factory=list)
+    paused_slots: list[str] = field(default_factory=list)   # slot saves whose copy was set to Paused
+    # ... and each one's bytes as they were (the original's), so a failed restore puts them back
+    # exactly: pausing changes the game clock too, which no speed write could undo.
+    unpaused_bytes: dict[Path, bytes] = field(default_factory=dict)
+    # Slot saves whose copy was not set to Paused (another speed, or not a save Game Speed can read): kept as they were.
+    not_paused: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def file_count(self) -> int:
@@ -401,6 +415,25 @@ def copy_save_folder(save_folder: Path, now: datetime | None = None, suffix: str
             copied = _copy_one(save_folder / relative, staging / relative)
             copied.relative = relative
             result.files.append(copied)
+        # Every file is copied and verified; now the copy of each family save is set to Paused (the live
+        # save folder is never written).
+        for copied in result.files:
+            if not is_slot_save(copied.relative):
+                continue
+            original = (staging / copied.relative).read_bytes()
+            try:
+                paused = pause_save_bytes(original)
+            except NotPaused as exc:
+                result.not_paused.append((copied.relative.name, str(exc)))
+                continue
+            if paused is None:
+                continue                 # already paused
+            _write_save(staging / copied.relative, paused, original)
+            copied.size, copied.sha256 = _hash_file(staging / copied.relative)
+            result.paused_slots.append(copied.relative.name)
+            result.unpaused_bytes[copied.relative] = original
+            if copied.times is not None:
+                _keep_times(staging / copied.relative, copied.times)   # the pause rewrote it
         result.backup_folder = _finish_backup(staging, when, suffix)
     except (OSError, BackupError) as exc:
         where = _set_aside(staging, INCOMPLETE)
@@ -410,6 +443,87 @@ def copy_save_folder(save_folder: Path, now: datetime | None = None, suffix: str
             f"was kept as {where} and is NOT a usable backup."
         ) from exc
     return result
+
+
+# ---------------------------------------------------------------------------
+# The backup's family saves are set to Paused
+# ---------------------------------------------------------------------------
+#
+# Ported from the Virtual Villagers Fun Patcher (src/vv_save_backup.py, copy_save_folder and
+# pause_save_copy): a paused family does not age or catch up while the game is closed, so the backup's
+# copy of each slot save is set to Paused. Restoring an old backup then never fast-forwards the family
+# through the real time since it was saved. Only the copy changes, never the live save. The pause is
+# Game Speed's own (vf1_game_speed.changed_bytes), which writes exactly what the game's Pause writes.
+# Only a family at Normal is paused; a save already Paused, at any other speed, or not a save Game Speed
+# can read is left byte for byte as it is.
+
+
+class NotPaused(BackupError):
+    """A slot save whose backup copy is left as it is, with the reason a player can read."""
+
+
+def is_slot_save(relative: Path) -> bool:
+    """A slot's own save, "Virtual Families<1-5>.ldw", at the top of the save folder (the game's older
+    autosave copies <N+20> / <N+40> and the options file <0> are not)."""
+    match = re.fullmatch(r"(.*\D)(\d+)\.ldw", relative.name, re.IGNORECASE)
+    return relative.parent == Path() and match is not None and 1 <= int(match.group(2)) <= 5
+
+
+def pause_save_bytes(data: bytes) -> bytes | None:
+    """The save set to Paused exactly as the game's own Pause leaves it, or None when it already is.
+    NotPaused when it is not a save Game Speed can read, or is at a speed other than Normal."""
+    import vf1_game_speed as game_speed     # imported here: vf1_game_speed imports this module
+
+    state = game_speed.read_state(data)
+    if state is None:
+        raise NotPaused("not a Virtual Families save whose speed can be read")
+    if state.kind == "paused":
+        return None
+    if state.kind != "normal":
+        raise NotPaused(f"its speed is {state.label}; only a family at Normal is paused")
+    try:
+        paused = game_speed.changed_bytes(data, game_speed.PAUSED)
+    except game_speed.SpeedError as exc:
+        raise NotPaused(str(exc)) from exc
+    after = game_speed.read_state(paused)
+    if after is None or after.kind != "paused" or not game_speed.only_speed_fields_differ(data, paused):
+        raise BackupError("The paused copy of a family save did not read back as Paused.")
+    return paused
+
+
+def _swap_in(path: Path, data: bytes) -> None:
+    """``data`` swapped in through a temporary file of its own, a new name created exclusively."""
+    temporary = path.with_name(f"{path.name}.{uuid.uuid4().hex}.vf1-pause-tmp")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _write_save(path: Path, data: bytes, original: bytes) -> None:
+    """Swap ``data`` in and read it back. If it does not read back as written, the original is put back
+    the same way before the error is raised: a save is never left changed and reported unchanged."""
+    _swap_in(path, data)
+    try:
+        ok = path.read_bytes() == data
+    except OSError:
+        ok = False
+    if ok:
+        return
+    try:
+        _swap_in(path, original)
+        back = path.read_bytes() == original
+    except OSError:
+        back = False
+    if not back:
+        raise BackupError(f"{path.name} did not read back as written, and could not be put back as it "
+                          "was: restore it from a backup.")
+    raise BackupError(f"{path.name} did not read back as written; it was put back as it was.")
 
 
 # ---------------------------------------------------------------------------
@@ -941,7 +1055,15 @@ def _roll_back(save_folder: Path, before: BackupResult | None, done: list[Path])
         original = before.backup_folder / relative if before else None
         try:
             if original is not None and original.is_file():
-                _place(original, target)
+                # The before-restore backup's family saves are Paused; such a save goes back byte for byte
+                # as it was, from the bytes kept when it was copied.
+                if relative in before.unpaused_bytes:
+                    _write_save(target, before.unpaused_bytes[relative],
+                                target.read_bytes() if target.exists() else b"")
+                    kept = original.stat()
+                    _keep_times(target, (kept.st_atime_ns, kept.st_mtime_ns))
+                else:
+                    _place(original, target)
             elif target.exists():
                 target.unlink()
         except (OSError, BackupError):

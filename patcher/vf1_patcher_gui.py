@@ -1659,7 +1659,9 @@ class VF1PatcherGUI:
                   "game is running it is paused for the copy and then resumes by itself. This game saves when you "
                   "quit normally and autosaves every 10 real-life minutes while running (even paused), so a backup "
                   "made while the game is running holds the family as of its last save or autosave; quit the game "
-                  "normally first to be sure the latest state is backed up."),
+                  "normally first to be sure the latest state is backed up. Game speed is set to Paused in the "
+                  "backup's family saves (your own saves are unchanged), so a restored backup opens paused and "
+                  "never catches up on the time since it was made."),
             wraplength=640, justify="left",
         ).pack(anchor="w", pady=(4, 10))
         ttk.Label(frame, text=TOOLS_GAME_TITLE).pack(anchor="w", pady=(6, 0))
@@ -1743,11 +1745,19 @@ class VF1PatcherGUI:
                 f"Backed up {result.file_count} file(s), {save_backup.describe_size(result.total_bytes)}; every copy "
                 "was checked against the original (size and SHA-256).",
                 f"Backup folder: {result.backup_folder}",
-                ("The game was running: it was paused for the copy and has resumed. The backup holds the family as "
-                 "of its last save (the game saves by itself every 10 minutes, and when you quit it normally)."
-                 if result.paused
-                 else "The game was not running."),
             ]
+            if result.paused_slots:
+                lines.append("Game speed set to Paused in the backup's " + ", ".join(result.paused_slots)
+                             + " (your own saves are unchanged), so a restored backup opens paused and never "
+                             "catches up on the time since it was made.")
+            for name, why in result.not_paused:
+                lines.append(f"Not set to Paused in the backup: {name} -- {why}. That copy is exactly as your "
+                             "save is.")
+            lines.append(
+                "The game was running: it was paused for the copy and has resumed. The backup holds the family as "
+                "of its last save (the game saves by itself every 10 minutes, and when you quit it normally)."
+                if result.paused
+                else "The game was not running.")
             ttk.Label(frame, text="\n".join(lines), wraplength=640, justify="left").pack(anchor="w", padx=(14, 0))
             if result.resume_problems:
                 ttk.Label(
