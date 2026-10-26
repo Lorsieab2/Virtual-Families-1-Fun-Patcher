@@ -243,14 +243,18 @@ def test_descriptors_and_statuses_in_family_words():
     ft.arrange(v, edits)
     lay = ft.layout(v, edits)
     text = {p.name: ft.default_text(lay, p) for p in v.known()}
-    assert "Founder" in text["Ann"] and "(deceased)" in text["Ann"]
+    # Deceased with the cause in place of "(deceased)": the save's cause number alone is not a confirmed word.
+    assert "Founder" in text["Ann"] and "Deceased: (unconfirmed)" in text["Ann"] and "(deceased)" not in text["Ann"]
     assert "Married in" in text["Bob"] and "Heir" in text["Cal"] and "Adopted" in text["Ivy"]
     assert "(no longer in the house)" in text["Dee"]
     assert not any("game units" in line for lines in text.values() for line in lines)
     assert "30 years old" in text["Cal"]
     edits.show_heir = False                       # the Heir option
+    edits.show_deceased = False                   # unticked: the Virtual Villagers "(deceased)" line again
     ft.arrange(v, edits)
     assert "Heir" not in ft.default_text(ft.layout(v, edits), by_name(v, "Cal"))
+    ann = ft.default_text(ft.layout(v, edits), by_name(v, "Ann"))
+    assert "(deceased)" in ann and not any(x.startswith("Deceased") for x in ann)
     assert ft.status_label(by_name(v, "Dee")) == "(no longer in the house)"
 
 

@@ -72,7 +72,7 @@
       "ids": ["RollTheDice"],
       "guide": [
         "Adds a Roll the Dice page to the Upgrades button.",
-        "It costs $500 and a Random Event happens right away.",
+        "It costs $500 and a Popup Event happens right away.",
         "Anything can happen, good or bad. Back up your saves first if you care about the family."
       ]
     },

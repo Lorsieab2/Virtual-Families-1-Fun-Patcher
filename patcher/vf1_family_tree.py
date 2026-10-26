@@ -2401,11 +2401,16 @@ def _layout(village: gen.Village, edits: Edits | None = None, page: int = 0,
             if fam.couple_y and parents:        # just under the parents, above the children's line
                 lift = max(y[q] - row_y[q] for q in parents)
                 fam.couple_y = min(fam.couple_y + lift, fam.lane_y - LANE)
+    lower: dict[int, int] = {}                  # the childless couples so far under each family member
     for fam in families:
-        # A couple with no child: their line just under them, from the middle of each.
+        # A couple with no child: their line just under them, from the middle of each, each such couple of one
+        # family member a lane lower than the one before, so two lost spouses' lines never lie on each other.
         parents = [q for q in (fam.father, fam.mother) if q in y]
         if not fam.children and len(parents) == 2:
-            fam.couple_y = max(y[q] for q in parents) + NODE_H + LANE
+            k = max(lower.get(q, 0) for q in parents)
+            for q in parents:
+                lower[q] = k + 1
+            fam.couple_y = max(y[q] for q in parents) + NODE_H + LANE * (1 + k)
             fam.drops = {q: x[q] + NODE_W / 2 for q in parents}
     if cl is not None:
         # Packed families: each family's line from its parents takes the way kept for it, unless the
@@ -5030,12 +5035,13 @@ def _shown_name_in(lay: Layout, p: gen.Person, lines: list, runs) -> tuple[list,
     if p.age is not None:
         lines, runs = _rename_in_lines(lines, runs, AGE_YEARS, f"{p.years} years old")
         lines, runs = _rename_in_lines(lines, runs, AGE_UNITS, f"{p.age} game units")
-    if not p.alive:
+    if not p.alive and not deceased_label(lay, p):
         status = gen.status_words(p)
         lines, runs = _rename_in_lines(lines, runs, STATUS_WORDS, status)
     else:
         # Alive again -- reanimated in New Believers -- after their words were saved while they were gone
-        # (Codex, #577): the line the tree wrote for the status goes.  Only a line that is the status alone,
+        # (Codex, #577), or dead with the Deceased label ticked (it says so in place of "(deceased)"): the line
+        # the tree wrote for the status goes.  Only a line that is the status alone,
         # as default_text writes it: words the player typed ("Son of Ago (deceased)") stay.
         keep = [i for i, line in enumerate(lines) if not (isinstance(line, str) and STATUS_WORDS.fullmatch(line.strip()))]
         if len(keep) < len(lines):
@@ -5060,8 +5066,18 @@ def default_text(lay: Layout, p: gen.Person) -> list[str]:
     ages = (["age unknown"] if p.age is None and (units or years) else
             [] if p.age is None else
             ([f"{p.age} game units"] if units else []) + ([f"{p.years} years old"] if years else []))
-    extra = gen.status_words(p)
+    extra = "" if deceased_label(lay, p) else gen.status_words(p)
     return [f"{p.number}. {lay.names.get(p.id, p.name)}"] + ages + descriptors(lay, p) + ([extra] if extra else [])
+
+
+def deceased_label(lay: Layout, p: gen.Person) -> str:
+    """"Deceased: Old age" -- in place of the "(deceased)" line, when the Deceased label is ticked (as the Virtual
+    Families 2 tree words it): the game's own cause from the Family History log, else "(unconfirmed)" (the save's
+    cause number alone is not a confirmed word); "" for the living or when the label is unticked."""
+    if p.alive or p.upcoming or p.gone != "died" or not lay.opt(p, "show_deceased"):
+        return ""
+    cause = p.cause if p.cause and "unconfirmed" not in p.cause else "(unconfirmed)"
+    return f"Deceased: {cause}"
 
 
 def is_founder(village: gen.Village, p: gen.Person) -> bool:
@@ -5128,7 +5144,7 @@ def descriptors(lay: Layout, p: gen.Person) -> list[str]:
     out += [spouse_words(p)] if lay.opt(p, "show_spouse_order") and spouse_words(p) else []
     out += ["Remarried"] if lay.opt(p, "show_remarried") and getattr(p, "remarried", False) else []
     out += ["Divorced"] if lay.opt(p, "show_divorced") and getattr(p, "divorced", False) else []
-    out += ["Deceased"] if lay.opt(p, "show_deceased") and not p.alive and p.gone == "died" and not p.upcoming else []
+    out += [deceased_label(lay, p)] if deceased_label(lay, p) else []
     out += ["Adopted"] if lay.opt(p, "show_adopted") and is_adopted(p) else []
     out += ["Runner"] if lay.opt(p, "show_runner") and p.runner else []
     out += born_with(lay, p)
@@ -5147,7 +5163,7 @@ DESCRIPTOR_OPTIONS = (("show_founder", "Founder (the one who started the family)
                       ("show_spouse_order", "Husband 1 / Wife 1 (the order of marriages)"),
                       ("show_remarried", "Remarried"),
                       ("show_divorced", "Divorced"),
-                      ("show_deceased", "Deceased"),
+                      ("show_deceased", "Deceased: <cause> (unticked: \"(deceased)\")"),
                       ("show_adopted", "Adopted"),
                       ("show_arrived", "Event title (\"Popup Event: The Little Visitor\")"),
                       ("show_career", "Career (\"Career: Pastry Designer, Novice\")"),

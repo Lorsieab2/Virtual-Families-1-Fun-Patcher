@@ -30,7 +30,7 @@ SPEC = {
     'FleaMarket': ('Flea Market',
         'Every tray item the store sells, to buy or get for free.'),
     'RollTheDice': ('Roll the Dice',
-        '$500: a Random Event happens right away.'),
+        '$500: a Popup Event happens right away.'),
     'CustomMapImages': ('Custom Map/Game Images',
         'Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.'),
     'VF2Songs': ('VF1 + VF2 Songs',

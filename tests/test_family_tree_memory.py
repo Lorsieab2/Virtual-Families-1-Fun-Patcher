@@ -225,7 +225,7 @@ def test_the_family_history_fills_in_what_the_save_lost(tmp_path):
     assert labels(v, "Bob") == ["Husband 1", "Divorced"]
     assert labels(v, "Dan") == ["Husband 2"]
     assert labels(v, "Ann")[:2] == ["Founder", "Remarried"]
-    assert labels(v, "Cia") == ["Deceased", "Cal's twin"] or labels(v, "Cia")[0] == "Deceased"
+    assert labels(v, "Cia")[0] == "Deceased: Starvation"           # the game's own word, from the log
     assert "Adopted" in labels(v, "Kim") and "Popup Event: The Little Visitor" in labels(v, "Kim")
     assert "Adopted" in labels(v, "Lou") and not any(x.startswith("Popup Event") for x in labels(v, "Lou"))
 
@@ -259,7 +259,7 @@ def test_a_spouse_who_died_before_any_child_is_kept_and_drawn_as_the_spouse(tmp_
     bob = by_name(v, "Bob")
     assert bob.gone == "died" and bob.cause == "Old age" and bob.years == 23 and bob.generation == 1
     assert bob.seat.startswith("g1.p2#log") and bob.partner == by_name(v, "Ann").id
-    assert labels(v, "Bob") == ["Husband 1", "Deceased"]
+    assert labels(v, "Bob") == ["Husband 1", "Deceased: Old age"]
     lay = ft.layout(v, ft.Edits())
     sc = ft.scene(lay, "VF1", {})
     couples = [i for i in sc.items if isinstance(i, ft.Line) and getattr(i, "name", "") == "couple"] or \
@@ -337,3 +337,27 @@ def test_every_record_kind_parses(tmp_path):
     assert [e.kind for e in more.entries] == ["Birth", "Birth", "Birth", "Left Home", "New Generation", "Conception",
                                               "Roll the Dice", "Start Over"]
     assert fh.read(tmp_path, 1) is None
+
+
+def test_two_childless_spouses_get_their_own_couple_lines(tmp_path):
+    """Two spouses lost before any child: each couple line its own height, never one on the other."""
+    import vf1_family_tree as ft
+    history_folder(tmp_path, "Family: Testfamily (Save 1)\r\n" + "".join([
+        rec("2026-10-20 10:05:00", "Marriage 1", *who("Family member", "Ann", "Female", 21), *who("Married", "Bob", "Male", 22),
+            "  Generation: 1"),
+        rec("2026-10-20 11:00:00", "Death 1", "  Name: Bob", "  Age at death: 23", "  Sex: Male", "  Cause of death: Old age",
+            "  Family role: Parent (married in)", "  Generation: 1"),
+        rec("2026-10-20 12:00:00", "Marriage 2", *who("Family member", "Ann", "Female", 25), *who("Married", "Cid", "Male", 26),
+            "  Remarried: yes", "  Earlier spouse: Bob (died)", "  Generation: 1"),
+        rec("2026-10-20 13:00:00", "Divorce 1", "  Family member: Ann", "    Sex: Female", *who("Divorced", "Cid", "Male", 27),
+            "  How: Divorce Spouse", "  Generation: 1"),
+        rec("2026-10-20 14:00:00", "Marriage 3", *who("Family member", "Ann", "Female", 28), *who("Married", "Dan", "Male", 30),
+            "  Remarried: yes", "  Earlier spouse: Cid (divorced)", "  Generation: 1")]))
+    (tmp_path / "Virtual Families1.ldw").write_bytes(build_save(
+        {0: villager_record(**ANN), 3: villager_record(**DAN)},
+        [family_record(p_ann(), peep("Dan", head=3, body=3, slot=3), [])]))
+    v = gen.load_village(tmp_path, gen.GAME, 1)
+    assert [labels(v, n)[0] for n in ("Bob", "Cid", "Dan")] == ["Husband 1", "Husband 2", "Husband 3"]
+    lay = ft.layout(v, ft.Edits())
+    heights = [f.couple_y for f in lay.families if not f.children]
+    assert len(heights) == 3 and len(set(heights)) == 3, heights

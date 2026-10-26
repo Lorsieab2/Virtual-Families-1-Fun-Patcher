@@ -752,7 +752,7 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
                 break;
             }
-            if (!Confirm(dlg, L"Roll the Dice for $500? A Random Event happens right away."))
+            if (!Confirm(dlg, L"Roll the Dice for $500? A Popup Event happens right away."))
                 break;
             Message(dlg, L"Purchased: Roll the Dice ($500).");
             // The event shows the game's own dialog, so this one closes first.
@@ -781,7 +781,7 @@ static void ShowUpgrades() {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, adoption...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): a Random Event now");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): a Popup Event now");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 280, 75, 16, IDOK, L"Close");
@@ -1013,7 +1013,7 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
             MoneyAdjust(Money, (float)-RollTheDicePrice, false);
             if (!FireEvent(IslandEventsGet(), scene)) {
                 MoneyAdjust(Money, (float)RollTheDicePrice, false);
-                Message(GameWindow(), L"No Random Event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
+                Message(GameWindow(), L"No Popup Event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
             } else {
                 LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);   // after the event it fired
             }
