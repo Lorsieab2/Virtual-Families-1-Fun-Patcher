@@ -35,7 +35,8 @@ def test_every_line_carries_its_label_beside_it():
     assert FACTS
     for fact in FACTS:
         assert fact.label in (gm.VERIFIED_E, gm.VERIFIED_C, gm.UNCONFIRMED)
-        assert gm.line(fact).endswith("  " + fact.label)
+        bullet = gm.SUB_BULLET if fact.sub else gm.BULLET
+        assert gm.line(fact) == f"{bullet}{fact.label}  {fact.text}"   # label first, as on the VF2 page
         assert gm.line(fact) in PAGE
     assert {f.label for f in FACTS} == set(gm.LABELS)
 
@@ -395,3 +396,9 @@ def test_a_topic_link_scrolls_to_its_group_and_close_closes(app):
 def test_the_window_ships_with_the_patcher():
     source = (ROOT / "tools" / "package_release.py").read_text(encoding="utf-8")
     assert '"vf1_game_mechanics.py"' in source
+
+
+def test_the_bullets_are_real_bullets_and_nothing_is_garbled():
+    assert gm.BULLET == "\u2022 " and gm.SUB_BULLET == "    \u2013 "
+    for garbled in ("\u00e2\u20ac", "\u00c3"):     # UTF-8 read as Windows-1252 ("a-hat, euro ...")
+        assert garbled not in PAGE
