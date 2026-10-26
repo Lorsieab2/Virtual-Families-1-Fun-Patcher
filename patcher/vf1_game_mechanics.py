@@ -100,7 +100,7 @@ def upgrade(name: str, price: str, text: str) -> str:
     return (f"{PATCHER_PREFIX}'s {name} (a Special Upgrade, {price}, bought for the family; "
             f"{setting('SpecialUpgrades')}): {text}")
 
-BULLET, SUB_BULLET = "â€¢ ", "    â€“ "
+BULLET, SUB_BULLET = "\u2022 ", "    \u2013 "   # escapes, so no re-encoding of this file can garble them
 
 # The game's speed values: real seconds per 10 game seconds; one age unit = 60 x speed real seconds.
 SLOW, NORMAL, FAST = 20, 10, 5
@@ -833,8 +833,8 @@ def facts() -> list[Fact]:
 
 
 def line(fact: Fact) -> str:
-    """A fact as it reads on the page: the bullet, the words, then its label."""
-    return f"{SUB_BULLET if fact.sub else BULLET}{fact.text}  {fact.label}"
+    """A fact as it reads on the page: the bullet, its label, then the words (as on the VF2 page)."""
+    return f"{SUB_BULLET if fact.sub else BULLET}{fact.label}  {fact.text}"
 
 
 def render(page: list[Fact] | None = None) -> str:
@@ -899,10 +899,10 @@ def open_window(parent, link_factory=None):
         for fact in page:
             if fact.group != group:
                 continue
-            words = (SUB_BULLET if fact.sub else BULLET) + fact.text + "  "
-            text.insert("end", words, "sub" if fact.sub else "bullet")
-            text.insert("end", fact.label, (fact.label, "sub" if fact.sub else "bullet"))
-            text.insert("end", "\n", "sub" if fact.sub else "bullet")
+            style = "sub" if fact.sub else "bullet"
+            text.insert("end", SUB_BULLET if fact.sub else BULLET, style)
+            text.insert("end", fact.label, (fact.label, style))      # the label first, as on the VF2 page
+            text.insert("end", "  " + fact.text + "\n", style)
     text.configure(state="disabled")             # read-only: the page can be selected and copied, not edited
 
     def jump(group: str) -> None:
