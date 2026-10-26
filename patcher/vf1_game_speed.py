@@ -76,8 +76,8 @@ The patcher's own Time Controls speeds, and why they are not offered here (VERIF
     is Paused: the patched game loads it as 1009, so Normal is what its unpause gives.
 
 Safety
-    * The game must be closed: it saves when it quits, which would put the old speed straight back. Nothing here
-      ever closes or pauses a game.
+    * The game must be closed: it saves by itself every 10 minutes and when it quits, which would put the old
+      speed straight back. Nothing here ever closes or pauses a game.
     * Before anything is written the whole save folder is backed up with Back Up Saves' own copier, labelled
       "(before speed change)".
     * The save is written beside itself and swapped in with os.replace, then read back and checked field by field
@@ -372,8 +372,8 @@ def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -
         raise SpeedError(f"Could not check whether {exe} is running, so nothing was changed ({exc}).") from exc
     if running:
         raise GameRunning(
-            f"{exe} is running. Close the game first (quit it normally from its menu): it saves when it "
-            "quits, which would put the old speed back. Nothing was changed."
+            f"{exe} is running. Close the game first (quit it normally from its menu): it saves by itself "
+            "every 10 minutes and when it quits, which would put the old speed back. Nothing was changed."
         )
 
 

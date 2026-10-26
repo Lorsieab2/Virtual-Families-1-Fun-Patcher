@@ -1409,8 +1409,8 @@ class VF1PatcherGUI:
             frame,
             text=("Each folder is copied into a new dated folder inside it: <save folder>\\Backups\\Backup <date and "
                   "time>. If the game is running it is paused for the copy and then resumes by itself. The game saves "
-                  "only when you quit normally, so a backup made while it is running holds the family as of its last "
-                  "save."),
+                  "by itself every 10 minutes while it runs, and when you quit normally, so a backup made while it "
+                  "is running holds the family as of its last save."),
             wraplength=640, justify="left",
         ).pack(anchor="w", pady=(4, 10))
         choices: list[tuple[Path, tk.BooleanVar]] = []
@@ -1499,7 +1499,8 @@ class VF1PatcherGUI:
                 "was checked against the original (size and SHA-256).",
                 f"Backup folder: {result.backup_folder}",
                 ("The game was running: it was paused for the copy and has resumed. The backup holds the family as "
-                 "of its last save (the game saves when you quit it normally)." if result.paused
+                 "of its last save (the game saves by itself every 10 minutes, and when you quit it normally)."
+                 if result.paused
                  else "The game was not running."),
             ]
             ttk.Label(frame, text="\n".join(lines), wraplength=640, justify="left").pack(anchor="w", padx=(14, 0))
@@ -1949,7 +1950,8 @@ class VF1PatcherGUI:
             messagebox.showerror(
                 "Restore Saves",
                 f"{save_backup.game_exe_name(folder)} is running.\n\nQuit the game from its own menu first, then "
-                "restore: a running game writes its family over the restored save when it quits. Nothing was changed.",
+                "restore: a running game writes its family over the restored save the next time it saves (by itself "
+                "every 10 minutes, or when it quits). Nothing was changed.",
                 parent=parent)
             return False
         try:

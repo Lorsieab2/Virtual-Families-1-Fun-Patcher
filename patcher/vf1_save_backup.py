@@ -888,7 +888,8 @@ def restore_backup(
         raise RestoreRefused(
             f"{game_exe_name(save_folder)} is running. Quit the game from its own "
             "menu first: a running game writes its village over the restored save "
-            "when it quits. Nothing was changed."
+            "the next time it saves (by itself every 10 minutes, or when it quits). "
+            "Nothing was changed."
         )
     plan = plan_restore(save_folder, backup, slot)
     if plan.changes == 0:
