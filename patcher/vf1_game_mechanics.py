@@ -118,7 +118,7 @@ CAREERS = "Careers and promotion"
 MONEY = "Money and interest"
 LEAVING = "Leaving home"
 MARRIAGE = "Dating, marriage and the next generation"
-EVENTS = "E-mail and pop-up events"
+EVENTS = "Random Events"
 MESSES = "Messes"
 COLLECTIBLES = "Collectibles"
 MALFUNCTIONS = "Malfunctions"
@@ -645,64 +645,66 @@ def _marriage() -> list[Fact]:
         Fact(g, "At most 6 children per generation, 30 family members in a save and 30 generations.", C),
         Fact(g, with_patcher("UpTo28Children", "experimental: at most 28 children per generation; the family tree "
                                                "still holds only the first 6."), E, sub=True),
-        Fact(g, "Adoption Day (a pop-up): everyone celebrates; nobody joins or leaves.", E),
-        Fact(g, "The Little Visitor pop-up: its first choice adds a child to the family.", U),
+        Fact(g, "Adoption Day (a Popup Event): everyone celebrates; nobody joins or leaves.", E),
+        Fact(g, "The Little Visitor Popup Event: its first choice adds a child to the family.", U),
     ]
 
 
 # (title, kind, effect, label): docs/game-mechanics/spec.md section 11 (events_registry.tsv, events_emulated.txt)
 _EVENTS = (
-    ("1 A Secret Admirer", "e-mail", "nothing seen", VERIFIED_E),
-    ("2 / 3 Electric Bill Correction", "e-mail", "-$5 to $24 / +$5 to $24", VERIFIED_E),
+    ("1 A Secret Admirer", "Email Event", "nothing seen", VERIFIED_E),
+    ("2 / 3 Electric Bill Correction", "Email Event", "-$5 to $24 / +$5 to $24", VERIFIED_E),
     ("4 Spam \"Funny\"", "", "never comes", VERIFIED_C),
-    ("5 / 6 Professional Association Fee / Rebate", "e-mail", "-$5 to $7 / +$5 to $14", VERIFIED_E),
-    ("7 Professional Network, 8 Professional Association Award", "e-mail", "career progress for one family member",
+    ("5 / 6 Professional Association Fee / Rebate", "Email Event", "-$5 to $7 / +$5 to $14", VERIFIED_E),
+    ("7 Professional Network, 8 Professional Association Award", "Email Event", "career progress for one family member",
      UNCONFIRMED),
-    ("9 Infringement Complaint", "e-mail", "nothing seen", UNCONFIRMED),
-    ("10 / 11 Tax Audit", "e-mail", "-$100 / +$100", VERIFIED_E),
-    ("12 to 15 Spam (Bigger Brain, Nigerian Lottery, Car Insurance, What's What)", "e-mail", "nothing", VERIFIED_E),
-    ("16 to 18 Old Friend", "e-mail", "nothing", VERIFIED_E),
-    ("19 Oh! A collectible!", "e-mail", "a rare collectible", VERIFIED_C),
-    ("20 My Weather Machine", "e-mail", "what it changes", UNCONFIRMED),
-    ("21 An extra hammock", "e-mail", "everyone goes to the yard", VERIFIED_E),
-    ("22 Birthday present, 23 Preferred Customer Rebate, 24 Craft Fair", "e-mail",
+    ("9 Infringement Complaint", "Email Event", "nothing seen", UNCONFIRMED),
+    ("10 / 11 Tax Audit", "Email Event", "-$100 / +$100", VERIFIED_E),
+    ("12 to 15 Spam (Bigger Brain, Nigerian Lottery, Car Insurance, What's What)", "Email Event", "nothing", VERIFIED_E),
+    ("16 to 18 Old Friend", "Email Event", "nothing", VERIFIED_E),
+    ("19 Oh! A collectible!", "Email Event", "a rare collectible", VERIFIED_C),
+    ("20 My Weather Machine", "Email Event", "what it changes", UNCONFIRMED),
+    ("21 An extra hammock", "Email Event", "everyone goes to the yard", VERIFIED_E),
+    ("22 Birthday present, 23 Preferred Customer Rebate, 24 Craft Fair", "Email Event",
      "+$10 to $50 / +$5 to $79 / +$35 to $45", VERIFIED_E),
-    ("25 / 26 The Rebate", "e-mail", "nothing / +$50", VERIFIED_E),
-    ("27 Helpful Child, 28 Bad Cookies", "e-mail", "+$5 to $54 / -$5 to $100", VERIFIED_E),
-    ("29 / 30 Office Collection, 33 Overdue Book, 35 Bake Sale", "e-mail",
+    ("25 / 26 The Rebate", "Email Event", "nothing / +$50", VERIFIED_E),
+    ("27 Helpful Child, 28 Bad Cookies", "Email Event", "+$5 to $54 / -$5 to $100", VERIFIED_E),
+    ("29 / 30 Office Collection, 33 Overdue Book, 35 Bake Sale", "Email Event",
      "-$4 to $40 / -$5 to $50 / -$5 to $50 / -$6 to $60", VERIFIED_E),
-    ("31 Best Landscape Award, 32 Kite Contest, 34 Hot Dog Contest", "e-mail", "+$5 to $50 / +$8 to $80 / +$5 to $50",
+    ("31 Best Landscape Award, 32 Kite Contest, 34 Hot Dog Contest", "Email Event", "+$5 to $50 / +$8 to $80 / +$5 to $50",
      VERIFIED_E),
-    ("36 Neighborhood Children's Association", "pop-up", "-$20 (with 2 children)", VERIFIED_E),
-    ("37 Earthquake, 38 Aesthetic Society", "pop-up", "what they do", UNCONFIRMED),
-    ("39 Birdwatcher Society", "pop-up", "+$25, $50, $75 or $100", VERIFIED_E),
-    ("40 Allergy Season", "pop-up", "family members get a symptom (how many is not confirmed)", VERIFIED_E),
-    ("41 Adoption Day", "pop-up", "everyone celebrates", VERIFIED_E),
-    ("42 TV Night, 43 BBQ Party", "pop-up", "everyone joins in (needs the item)", VERIFIED_E),
-    ("44 The Broken Window", "pop-up", "+$1 to $30", VERIFIED_E),
-    ("45 Photo Contest, 46 Community Association", "pop-up", "+$25 to $125 / -$20 to $100", VERIFIED_E),
-    ("47 Blowing Trash, 48 Free Lawn Service", "pop-up", "5 to 12 wrappers in the house / 5 to 12 weeds in the yard",
+    ("36 Neighborhood Children's Association", "Popup Event", "-$20 (with 2 children)", VERIFIED_E),
+    ("37 Earthquake, 38 Aesthetic Society", "Popup Event", "what they do", UNCONFIRMED),
+    ("39 Birdwatcher Society", "Popup Event", "+$25, $50, $75 or $100", VERIFIED_E),
+    ("40 Allergy Season", "Popup Event", "family members get a symptom (how many is not confirmed)", VERIFIED_E),
+    ("41 Adoption Day", "Popup Event", "everyone celebrates", VERIFIED_E),
+    ("42 TV Night, 43 BBQ Party", "Popup Event", "everyone joins in (needs the item)", VERIFIED_E),
+    ("44 The Broken Window", "Popup Event", "+$1 to $30", VERIFIED_E),
+    ("45 Photo Contest, 46 Community Association", "Popup Event", "+$25 to $125 / -$20 to $100", VERIFIED_E),
+    ("47 Blowing Trash, 48 Free Lawn Service", "Popup Event", "5 to 12 wrappers in the house / 5 to 12 weeds in the yard",
      VERIFIED_E),
-    ("49 / 50 The Little Visitor", "pop-up", "first choice: a child joins", UNCONFIRMED),
-    ("51 Small Package, 52 Medium Brown Box, 53 Sealed Green Bag", "pop-up", "first choice: an item", UNCONFIRMED),
-    ("54 A Tiny White Box", "pop-up", "first choice: a third of the food is gone", VERIFIED_E),
-    ("55 Scratch-Off Lottery Ticket", "pop-up", "what it does", UNCONFIRMED),
-    ("56 The Wrong Address", "pop-up", "first choice: -$100 (what you get is not confirmed)", VERIFIED_E),
-    ("57 The Delivery Truck", "pop-up", "what it does", UNCONFIRMED),
-    ("58 The Talent Scout", "pop-up", "first choice: a child leaves home", UNCONFIRMED),
-    ("59 The Beauty Contest", "pop-up", "first choice: -$10 (any prize is not confirmed)", VERIFIED_E),
-    ("60 Landscaping, 61 Housekeeping, 62 Total House Care", "pop-up",
-     "first choice: -$20 / -$20 / -$50 (the cleaning itself is not confirmed)", VERIFIED_E),
-    ("63 The Mysterious Collector", "pop-up", "what it does", UNCONFIRMED),
-    ("64 Water Pressure Surge", "pop-up", "second choice: five leaks", VERIFIED_C),
-    ("65 Professional Career Training", "pop-up", "first choice: -$250 (the promotion is not confirmed)", VERIFIED_E),
-    ("66 The Trainer", "pop-up", "first choice: -$5 and all the food is gone", VERIFIED_E),
-    ("67 The Cooking Class", "pop-up", "first choice: a kitchen mess", VERIFIED_C),
-    ("68 The Power Failure", "pop-up", "first choice: food set to 50 to 99; second: a family member gets a symptom",
+    ("49 / 50 The Little Visitor", "Popup Event", "first choice: a child joins", UNCONFIRMED),
+    ("51 Small Package, 52 Medium Brown Box, 53 Sealed Green Bag", "Popup Event", "first choice: an item", UNCONFIRMED),
+    ("54 A Tiny White Box", "Popup Event", "first choice: a third of the food is gone", VERIFIED_E),
+    ("55 Scratch-Off Lottery Ticket", "Popup Event", "what it does", UNCONFIRMED),
+    ("56 The Wrong Address", "Popup Event", "first choice: -$100 (what you get is not confirmed)", VERIFIED_E),
+    ("57 The Delivery Truck", "Popup Event", "what it does", UNCONFIRMED),
+    ("58 The Talent Scout", "Popup Event", "first choice: a child leaves home", UNCONFIRMED),
+    ("59 The Beauty Contest", "Popup Event", "first choice: -$10 (any prize is not confirmed)", VERIFIED_E),
+    ("60 Landscaping, 61 Housekeeping", "Popup Event",
+     "never shown: each has choices but no family member to act on, so the game skips them (0x41AAE1..0x41AAF1)",
+     VERIFIED_C),
+    ("62 Total House Care", "Popup Event", "first choice: -$50 (the cleaning itself is not confirmed)", VERIFIED_E),
+    ("63 The Mysterious Collector", "Popup Event", "what it does", UNCONFIRMED),
+    ("64 Water Pressure Surge", "Popup Event", "second choice: five leaks", VERIFIED_C),
+    ("65 Professional Career Training", "Popup Event", "first choice: -$250 (the promotion is not confirmed)", VERIFIED_E),
+    ("66 The Trainer", "Popup Event", "first choice: -$5 and all the food is gone", VERIFIED_E),
+    ("67 The Cooking Class", "Popup Event", "first choice: a kitchen mess", VERIFIED_C),
+    ("68 The Power Failure", "Popup Event", "first choice: food set to 50 to 99; second: a family member gets a symptom",
      VERIFIED_E),
-    ("69 Career Change Counselor", "pop-up", "first choice: a new career", UNCONFIRMED),
-    ("70 The Rare Bird", "pop-up", "what it does", UNCONFIRMED),
-    ("71 School Fund-raiser", "pop-up", "first choice: -$25 and +100 food", VERIFIED_E),
+    ("69 Career Change Counselor", "Popup Event", "first choice: a new career", UNCONFIRMED),
+    ("70 The Rare Bird", "Popup Event", "what it does", UNCONFIRMED),
+    ("71 School Fund-raiser", "Popup Event", "first choice: -$25 and +100 food", VERIFIED_E),
 )
 
 
@@ -712,15 +714,15 @@ def _events() -> list[Fact]:
         Fact(g, f"An event is checked every {game_text(3_600)}. The first check comes {game_text(900)} after "
                 "a new family starts. Paused, none come.", C),
         Fact(g, "At each check a random family member is picked; if they are alive, caught up and no e-mail is "
-                "waiting, it is an e-mail 66.02% of the time and a pop-up 33.98%. Otherwise the check waits and "
+                "waiting, it is an Email Event 66.02% of the time and a Popup Event 33.98%. Otherwise the check waits and "
                 "tries again straight away.", C),
         Fact(g, "Each event that can happen is equally likely, and events repeat.", C),
-        Fact(g, "The 71 events (what the first and second choices do, money as a range):", C),
+        Fact(g, "The 71 Random Events (what the first and second choices do, money as a range):", C),
     ]
     facts += [Fact(g, f"{title}{f' ({kind})' if kind else ''}: {effect}.", label, sub=True)
               for title, kind, effect, label in _EVENTS]
     facts.append(Fact(g, with_patcher("RollTheDice", "Roll the Dice on the Upgrades menu costs $500 and brings a "
-                                                     "pop-up event at once, picked from those that can happen as "
+                                                     "Popup Event at once, picked from those that can happen as "
                                                      "above; when none can, the $500 is given back."), C))
     return facts
 

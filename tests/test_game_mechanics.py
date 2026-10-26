@@ -325,7 +325,7 @@ def test_marriage_and_next_generation():
 
 
 def test_roll_the_dice():
-    dice = pin(gm.EVENTS, "(Roll the Dice, on by default)", "costs $500", "pop-up event at once",
+    dice = pin(gm.EVENTS, "(Roll the Dice, on by default)", "costs $500", "Popup Event at once",
                "the $500 is given back")
     assert dice.label == gm.VERIFIED_C and not dice.sub
 

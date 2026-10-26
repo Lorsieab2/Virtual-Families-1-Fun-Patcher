@@ -130,7 +130,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
     text = labels_on_screen(app.settings_inner)
     assert text.index("Main Patches") < text.index("Fix Vanilla Game Bugs") < text.index("Optional Patches") \
         < text.index("Cheat Upgrades")
-    assert "RollTheDice - default on - $500: an island event happens right away." in text
+    assert "RollTheDice - default on - $500: a Popup Event happens right away." in text
     assert app.version_var.get() == "Version: dev"
     app.clear_all_settings()
     assert not any(v.get() for v in app.setting_vars.values())
