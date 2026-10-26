@@ -59,7 +59,7 @@ static const GetUseCountFn GetUseCount = (GetUseCountFn)0x4968E0;
 static const FoodAdjustFn FoodAdjust = (FoodAdjustFn)0x4221B0;  // adds; clamps at 0 when lowering
 static int *const Food = (int *)0x50C550;
 static const IslandEventsGetFn IslandEventsGet = (IslandEventsGetFn)0x41B170;
-static const FireEventFn FireEvent = (FireEventFn)0x41B360;  // random island event over a scene
+static const FireEventFn FireEvent = (FireEventFn)0x41B360;  // Random Event over a scene
 
 static void *const Money = (void *)0x50C60C;         // +0: float money
 static void *const ToolTray = (void *)0x8958E8;
@@ -405,7 +405,7 @@ typedef int (__cdecl *RandomFn)(int n);
 static const RandomFn GetRandom = (RandomFn)0x403650;  // ldwGameState::GetRandom
 
 // Careers (CVillagerSkills at villager +0x2B6C: id, level, experience, salary).
-// A child has career id -1. Both calls are the ones the game's own island events
+// A child has career id -1. Both calls are the ones the game's own Random Events
 // make: CEventProfessionalCareerTraining::ImpactGame (0x419650) calls
 // AdvanceCareer(villager, giveMoney=false, forcePromotion=true) and
 // CEventCareerChangeCouncelor::ImpactGame (0x419A20) calls ResetCareer().
@@ -752,7 +752,7 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
                 break;
             }
-            if (!Confirm(dlg, L"Roll the Dice for $500? An island event happens right away."))
+            if (!Confirm(dlg, L"Roll the Dice for $500? A Random Event happens right away."))
                 break;
             Message(dlg, L"Purchased: Roll the Dice ($500).");
             // The event shows the game's own dialog, so this one closes first.
@@ -781,7 +781,7 @@ static void ShowUpgrades() {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, adoption...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): an island event now");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): a Random Event now");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 280, 75, 16, IDOK, L"Close");
@@ -956,11 +956,12 @@ static void LoadKidsCompanion() {
 // ---------------------------------------------------------------- Family History log
 // The feature is its own DLL, vf1logs.dll, installed beside this one only while the FamilyHistory setting is
 // on (patcher/manifest.json). It is loaded after vf1kids.dll, so it can chain the function entries that one
-// hooked. This DLL only loads it and tells it about the family changes it makes itself (Divorce Spouse, Evict
-// Family, Spawn Child, Adopt Outside Child); the log is that DLL's own.
+// hooked. This DLL only loads it and tells it about what it does itself (Divorce Spouse, Evict Family, Spawn
+// Child, Adopt Outside Child, Roll the Dice, Boarding School); the log is that DLL's own.
 typedef void (__cdecl *LogsEventFn)(int kind, int who, int parentA, int parentB);
 static LogsEventFn LogsEvent;
-enum { LOGS_DIVORCE = 1, LOGS_EVICT = 2, LOGS_SPAWN_CHILD = 3, LOGS_ADOPT_CHILD = 4 };
+enum { LOGS_DIVORCE = 1, LOGS_EVICT = 2, LOGS_SPAWN_CHILD = 3, LOGS_ADOPT_CHILD = 4, LOGS_ROLL_DICE = 5,
+       LOGS_BOARDING_SCHOOL = 6 };
 
 static void LogFamilyEvent(int kind, int who, int parentA = -1, int parentB = -1) {
     if (LogsEvent) LogsEvent(kind, who, parentA, parentB);
@@ -1012,7 +1013,9 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
             MoneyAdjust(Money, (float)-RollTheDicePrice, false);
             if (!FireEvent(IslandEventsGet(), scene)) {
                 MoneyAdjust(Money, (float)RollTheDicePrice, false);
-                Message(GameWindow(), L"No island event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
+                Message(GameWindow(), L"No Random Event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
+            } else {
+                LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);   // after the event it fired
             }
         }
         if (gFamilyAction) {

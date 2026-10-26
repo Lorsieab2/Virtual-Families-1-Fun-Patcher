@@ -1,28 +1,16 @@
-"""The Family History log, when the Family History patch wrote one: what the save forgets and the Family Tree Maker
-needs (docs/FAMILY_HISTORY.md; native/vf1logs/vf1logs.cpp writes every line read here).  Optional: the tree works
-from the save alone when there is no log, and then says what is not known.  Only read.
+"""The Family History log, when the Family History Log patch wrote one: every family event, which the save forgets
+and the Family Tree Maker needs (docs/FAMILY_HISTORY.md; native/vf1logs/vf1logs.cpp writes every record read here,
+and Rename Family its "Family Renamed" record).  Optional: the tree works from the save alone when there is no log,
+and then says what is not known.  Only read.
 
     <save folder>\\Virtual Families 1 Patcher\\Save <N>\\Logs\\Family History\\Family History <k>.txt
 
-Each line is "[YYYY-MM-DD HH:MM:SS] <event>", or "[backfilled, no date] <event>" for what the save's Family Tree
-held when the log began.  The events (the sex words, the causes of death and the event titles are the game's own
-strings, as the DLL read them):
-
-    Married: <a> (<sex>[, <years>]) and <b> (<sex>[, <years>]), generation <g>
-    Remarried: <a> (<sex>, <years>) and <b> (<sex>, <years>), generation <g>; earlier spouse: <c>
-    Divorced: <b> (<sex>, <years>) left the family, divorced from <a>, generation <g> (Divorce Spouse)
-    Died: <name> (<sex>[, <years>]), <parent|spouse|child|not in the family tree>, generation <g>[: <cause>]
-    [Twins |Triplets ]Born to <mother> and <father|an unknown father>, generation <g>: <child> (<sex>)[, ...][ and ...]
-    Child: <name> (<sex>), generation <g>                                          (backfilled only)
-    Joined: <name> (<sex>, <years>) as a child of <a>[ and <b>], generation <g> (Spawn Child)
-    Joined: <name> (<sex>, <years>), adopted, generation <g> (Adopt Outside Child)
-    E-mail: "<subject line>"[; <change>]...      Pop-up: "<title>"[; <change>]...
-        a change: <name> (<sex>, <years>) joined the family as a child, generation <g> | joined the household |
-                  left home | left the house
-    Evicted: <names> left the house (Evict Family); the next family's history follows
-
-In the first person (<a>) of a marriage is the one already in the family; <b> married in.  Only the lines after the
-last eviction belong to the family in the save.
+Each record is the Virtual Villagers patcher's layout: a heading "[YYYY-MM-DD HH:MM:SS] <Kind> <n>" (or
+"[backfilled, no date] Family Tree <g>" for what the save's Family Tree held when the log began), then
+"  Label: value" lines, a family member's own lines one step further in ("    Sex: Female"), then a blank line.
+The kinds: Conception, Birth, Death, Marriage, Divorce, Arrived, Left Home, Generation, New Generation, Random
+Event (an "Email Event" or a "Popup Event"), Roll the Dice, Evict Family, Start Over, Family Renamed, Family Tree.
+Only the records after the last Evict Family belong to the family in the save.
 """
 from __future__ import annotations
 
@@ -32,21 +20,34 @@ from pathlib import Path
 
 import vf1_genealogy as gen
 
-_STAMP = re.compile(r"^\[(?P<when>[^\]]*)\] (?P<text>.*)$")
-_WHO = r"(.+?) \((\w+)(?:, (\d+))?\)"
-_MARRIED = re.compile(rf"^(Married|Remarried): {_WHO} and {_WHO}, generation (\d+)(?:; earlier spouse: (.+))?$")
-_DIVORCED = re.compile(rf"^Divorced: {_WHO} left the family, divorced from (.+), generation (\d+) \(Divorce Spouse\)$")
-_DIED = re.compile(rf"^Died: {_WHO}, (parent|spouse|child|not in the family tree), generation (\d+)(?:: (.+))?$")
-_BORN = re.compile(r"^(Twins born|Triplets born|Born) to (.+?) and (.+?), generation (\d+): (.+)$")
-_BABY = re.compile(r"(.+?) \((\w+)\)$")
-_CHILD = re.compile(r"^Child: (.+) \((\w+)\), generation (\d+)$")
-_SPAWNED = re.compile(rf"^Joined: {_WHO} as a child of (.+?)(?: and (.+?))?, generation (\d+) \(Spawn Child\)$")
-_ADOPTED = re.compile(rf"^Joined: {_WHO}, adopted, generation (\d+) \(Adopt Outside Child\)$")
-_EVENT = re.compile(r'^(E-mail|Pop-up): "(.*?)"((?:; .*)?)$')
-_CHANGE = re.compile(rf"^{_WHO} (joined the family as a child, generation (\d+)|joined the household|left home|"
-                     r"left the house)$")
-UNKNOWN_FATHER = "an unknown father"
-SOURCE = "The Family History log (the Family History patch)."
+_HEADING = re.compile(r"^\[(?P<when>[^\]]*)\] (?P<kind>.+) (?P<n>\d+)$")
+_FIELD = re.compile(r"^(?P<indent> +)(?P<label>[^:]+): ?(?P<value>.*)$")
+_EARLIER = re.compile(r"^(.+?)(?: \((died|divorced)\))?$")
+SOURCE = "The Family History log (the Family History Log patch)."
+EVENT_KINDS = ("Email Event", "Popup Event")
+
+
+@dataclass
+class Entry:
+    """One record: its kind, number, time ("backfilled, no date" for the backfill) and its lines."""
+    kind: str
+    number: int
+    when: str
+    fields: list[tuple[str, str, dict]] = field(default_factory=list)   # (label, value, the lines under it)
+
+    def get(self, label: str, default: str | None = None) -> str | None:
+        return next((v for lab, v, _sub in self.fields if lab == label), default)
+
+    def sub(self, label: str) -> dict:
+        return next((s for lab, _v, s in self.fields if lab == label), {})
+
+    @property
+    def backfilled(self) -> bool:
+        return self.when.startswith("backfilled")
+
+    def generation(self) -> int | None:
+        g = self.get("Generation")
+        return int(g) if g and g.isdigit() else None
 
 
 @dataclass
@@ -59,33 +60,39 @@ class Marriage:
     spouse_years: int | None
     generation: int
     earlier: str | None
+    earlier_how: str | None              # "died", "divorced" or None
     backfilled: bool
 
 
 @dataclass
 class Birth:
     mother: str
-    father: str | None                  # None: "an unknown father"
+    father: str | None                  # None: "(unknown)"
     generation: int
     babies: list[tuple[str, str]]       # (name, sex), born together
+    size: int = 1                       # 1, 2 twins, 3 triplets ("Born as")
 
 
 @dataclass
 class Event:
-    kind: str                           # "E-mail" or "Pop-up"
+    kind: str                           # "Email Event" or "Popup Event"
     title: str                          # as the player saw it
-    changes: list[tuple[str, str, int | None, str]]   # (name, sex, years, what happened)
+    choice: str | None
     when: str
 
 
 @dataclass
 class History:
+    entries: list[Entry] = field(default_factory=list)
     marriages: list[Marriage] = field(default_factory=list)
     divorces: list[tuple] = field(default_factory=list)    # (spouse, sex, years, from, generation)
-    deaths: list[tuple] = field(default_factory=list)      # (name, sex, years or None, role, generation, cause or "")
+    deaths: list[tuple] = field(default_factory=list)      # (name, sex, years, role, generation, cause)
     births: list[Birth] = field(default_factory=list)
-    joined: list[tuple] = field(default_factory=list)      # (name, sex, years, how, parents)
+    joined: list[tuple] = field(default_factory=list)      # (name, sex, years, how, parents, generation)
+    left: list[tuple] = field(default_factory=list)        # (name, sex, years, what happened, generation)
+    heirs: list[tuple] = field(default_factory=list)       # (name, sex, years, how, generation)
     events: list[Event] = field(default_factory=list)
+    renames: list[tuple[str, str]] = field(default_factory=list)
     backfilled: bool = False                               # the log began after the family did
     evictions: int = 0
     files: list[Path] = field(default_factory=list)
@@ -101,56 +108,91 @@ def files(folder: Path, slot: int) -> list[Path]:
 
 
 def _years(text: str | None) -> int | None:
-    return int(text) if text else None
+    return int(text) if text and text.isdigit() else None
+
+
+def entries(text: str) -> list[Entry]:
+    """Every record of a file, in order."""
+    out: list[Entry] = []
+    top: dict | None = None
+    for line in text.replace("\r\n", "\n").split("\n"):
+        h = _HEADING.match(line)
+        if h:
+            out.append(Entry(h.group("kind"), int(h.group("n")), h.group("when")))
+            top = None
+            continue
+        f = _FIELD.match(line)
+        if not f or not out:
+            continue
+        if len(f.group("indent")) == 2:
+            top = {}
+            out[-1].fields.append((f.group("label"), f.group("value"), top))
+        elif top is not None and f.group("label") not in top:
+            top[f.group("label")] = f.group("value")
+    return out
 
 
 def parse(text: str, history: History | None = None) -> History:
     h = history or History()
-    for line in text.replace("\r\n", "\n").split("\n"):
-        m = _STAMP.match(line.strip())
-        if not m:
-            continue
-        when, body = m.group("when"), m.group("text")
-        backfilled = when.startswith("backfilled")
-        if body.startswith("Evicted: "):
-            # Another family follows: what came before is not this family's.
-            files_read, evictions = h.files, h.evictions + 1
-            h.__init__()
-            h.files, h.evictions = files_read, evictions
-        elif w := _MARRIED.match(body):
-            h.marriages.append(Marriage(w.group(1) == "Remarried", w.group(2), w.group(3), w.group(5), w.group(6),
-                                        _years(w.group(7)), int(w.group(8)), w.group(9), backfilled))
-        elif d := _DIVORCED.match(body):
-            h.divorces.append((d.group(1), d.group(2), _years(d.group(3)), d.group(4), int(d.group(5))))
-        elif d := _DIED.match(body):
-            h.deaths.append((d.group(1), d.group(2), _years(d.group(3)), d.group(4), int(d.group(5)),
-                             (d.group(6) or "").strip()))
-        elif b := _BORN.match(body):
-            babies = []
-            for part in re.split(r", | and ", b.group(5)):
-                c = _BABY.match(part.strip())
-                if c:
-                    babies.append((c.group(1), c.group(2)))
-            father = None if b.group(3) == UNKNOWN_FATHER else b.group(3)
-            h.births.append(Birth(b.group(2), father, int(b.group(4)), babies))
-        elif _CHILD.match(body):
-            pass                                            # the save's Family Tree holds them already
-        elif s := _SPAWNED.match(body):
-            h.joined.append((s.group(1), s.group(2), _years(s.group(3)), "Spawn Child",
-                             [q for q in (s.group(4), s.group(5)) if q]))
-        elif a := _ADOPTED.match(body):
-            h.joined.append((a.group(1), a.group(2), _years(a.group(3)), "Adopt Outside Child", []))
-        elif e := _EVENT.match(body):
-            changes = []
-            for part in (e.group(3) or "").split("; ")[1:]:
-                c = _CHANGE.match(part)
-                if c:
-                    what = "joined the family as a child" if c.group(4).startswith("joined the family") else c.group(4)
-                    changes.append((c.group(1), c.group(2), _years(c.group(3)), what))
-            h.events.append(Event(e.group(1), e.group(2), changes, when))
-        if backfilled:
-            h.backfilled = True
+    for e in entries(text):
+        _take(h, e)
     return h
+
+
+def _take(h: History, e: Entry) -> None:
+    if e.kind == "Evict Family":
+        # Another family follows: what came before is not this family's.
+        files_read, evictions = h.files, h.evictions + 1
+        h.__init__()
+        h.files, h.evictions = files_read, evictions
+        return
+    h.entries.append(e)
+    g = e.generation() or 0
+    if e.backfilled:
+        h.backfilled = True
+    if e.kind == "Marriage":
+        earlier = _EARLIER.match(e.get("Earlier spouse") or "")
+        h.marriages.append(Marriage(e.get("Remarried") == "yes", e.get("Family member", ""),
+                                    e.sub("Family member").get("Sex", ""), e.get("Married", ""),
+                                    e.sub("Married").get("Sex", ""), _years(e.sub("Married").get("Age")), g,
+                                    earlier.group(1) if earlier and earlier.group(1) else None,
+                                    earlier.group(2) if earlier else None, e.backfilled))
+    elif e.kind == "Family Tree":                           # the backfill: the couple the save's tree held
+        if e.get("Parent") and e.get("Parent (married in)"):
+            h.marriages.append(Marriage(False, e.get("Parent"), e.sub("Parent").get("Sex", ""),
+                                        e.get("Parent (married in)"), e.sub("Parent (married in)").get("Sex", ""),
+                                        None, g, None, None, True))
+    elif e.kind == "Divorce":
+        d = e.sub("Divorced")
+        h.divorces.append((e.get("Divorced", ""), d.get("Sex", ""), _years(d.get("Age")), e.get("Family member", ""), g))
+    elif e.kind == "Death":
+        h.deaths.append((e.get("Name", ""), e.get("Sex", ""), _years(e.get("Age at death")), e.get("Family role", ""), g,
+                         e.get("Cause of death", "")))
+    elif e.kind == "Birth":
+        father = e.get("Father")
+        father = None if father in (None, "(unknown)") else father
+        baby = (e.get("Child", ""), e.sub("Child").get("Sex", ""))
+        size = {"Twin": 2, "Triplet": 3}.get(e.get("Born as", ""), 1)
+        last = h.births[-1] if h.births else None
+        if size > 1 and last and last.size == size and last.mother == e.get("Mother") and last.father == father \
+                and len(last.babies) < size:
+            last.babies.append(baby)
+        else:
+            h.births.append(Birth(e.get("Mother", ""), father, g, [baby], size))
+    elif e.kind == "Arrived":
+        parents = [v for k, v in e.sub("Parents").items() if k in ("Mother", "Father")]
+        h.joined.append((e.get("Name", ""), e.get("Sex", ""), _years(e.get("Age at arrival")), e.get("How", ""),
+                         parents, g))
+    elif e.kind == "Left Home":
+        h.left.append((e.get("Name", ""), e.get("Sex", ""), _years(e.get("Age")), e.get("What happened", ""), g))
+    elif e.kind in ("Generation", "New Generation"):
+        h.heirs.append((e.get("Name", ""), e.get("Sex", ""), _years(e.get("Age")), e.get("How", ""), g))
+    elif e.kind == "Random Event":
+        for label, value, _sub in e.fields:
+            if label in EVENT_KINDS:
+                h.events.append(Event(label, value, e.get("Choice"), e.when))
+    elif e.kind == "Family Renamed":
+        h.renames.append((e.get("Old name", ""), e.get("New name", "")))
 
 
 def read(folder: Path, slot: int) -> History | None:
@@ -176,7 +218,7 @@ def _one(people: dict, name: str, sex: str | None = None, pred=lambda p: True,
          generation: int | None = None) -> gen.Person | None:
     """The one family member with this name (and sex) the predicate allows; narrowed to a generation's seats when
     more than one has the name.  None when it is nobody, or still more than one (never a guess)."""
-    hits = [p for p in people.values() if p.name == name and (sex is None or p.sex == sex) and pred(p)]
+    hits = [p for p in people.values() if p.name == name and (not sex or p.sex == sex) and pred(p)]
     if len(hits) > 1 and generation is not None:
         hits = [p for p in hits if _row(p) == generation]
     return hits[0] if len(hits) == 1 else None
@@ -186,11 +228,21 @@ def _drop(p: gen.Person, *starts: str) -> None:
     p.unknowns = [u for u in p.unknowns if not u.startswith(starts)]
 
 
+def event_of(text: str) -> str:
+    """"Popup Event: The Little Visitor" out of "Adopted (Popup Event: The Little Visitor)" or "Left home with The
+    Talent Scout (Popup Event)"; "" when the text names no Random Event."""
+    m = re.search(r"\((Email Event|Popup Event): (.+)\)$", text)
+    if m:
+        return f"{m.group(1)}: {m.group(2)}"
+    m = re.match(r"^Left home with (.+) \((Email Event|Popup Event)\)$", text)
+    return f"{m.group(2)}: {m.group(1)}" if m else ""
+
+
 def apply(village: gen.Village, h: History) -> None:
-    """Fill in from the log what the save cannot show: spouses who left or died before any child, earlier and
-    current spouses, causes and ages at death, the parents named at each birth, twins and triplets, and how a
-    child joined (the event that brought them in).  A name the log gives that matches nobody, or more than one
-    member, is left alone (never a guess)."""
+    """Fill in from the log what the save cannot show: spouses who left or died before any child, the order of
+    each head's marriages (Husband 1, Wife 2...), divorces, causes and ages at death, the parents named at each
+    birth, twins and triplets, how each member joined or left (the Random Event that brought them in or took them
+    away).  A name the log gives that matches nobody, or more than one member, is left alone (never a guess)."""
     people = village.people
     lost = 0
 
@@ -198,7 +250,7 @@ def apply(village: gen.Village, h: History) -> None:
         nonlocal lost
         lost += 1
         pid = max(people, default=-1) + 1
-        q = gen.Person(pid, name, None, None, sex=sex)
+        q = gen.Person(pid, name, None, None, sex=sex or None)
         q.arrived, q.how, q.event = True, "Married in", "Married in"
         q.alive, q.gone = False, "left"
         q.seat = f"g{g}.p2#log{lost}"
@@ -213,23 +265,32 @@ def apply(village: gen.Village, h: History) -> None:
         p = _one(people, name, sex, lambda q: not q.upcoming, generation=g)
         return p if p is not None else add_spouse(name, sex or "", g, partner)
 
-    # Marriages: who married in, and the earlier spouses the save no longer holds.
-    current: dict[tuple[int, str], gen.Person] = {}
+    # Marriages: who married in, the earlier spouses the save no longer holds, and each head's order of marriages.
+    order: dict[tuple[int, str], list] = {}
     for w in h.marriages:
         spouse = spouse_of(w.spouse, w.spouse_sex, w.generation, w.head)
+        head = _one(people, w.head, w.head_sex or None, lambda q: not q.upcoming, generation=w.generation)
+        if head is not None and head.id != spouse.id:
+            spouse.partner = head.id
         spouse.sources.append(f"Married {w.head} (generation {w.generation})"
                               + ("" if w.backfilled else ", Family History log") + ".")
-        if w.again and w.earlier:
-            earlier = _one(people, w.earlier, None, lambda q: not q.upcoming, generation=w.generation)
-            if earlier is not None and f"Earlier spouse of {w.head}." not in earlier.sources:
-                earlier.sources.append(f"Earlier spouse of {w.head}.")
-            spouse.sources.append(f"Remarried: {w.head} was married to {w.earlier} before.")
-        current[(w.generation, w.head)] = spouse
+        if w.again:
+            if head is not None:
+                head.remarried = True
+            if w.earlier:
+                spouse.sources.append(f"Remarried: {w.head} was married to {w.earlier} before"
+                                      + (f" ({w.earlier_how})." if w.earlier_how else "."))
+        order.setdefault((w.generation, w.head), []).append((spouse, w.backfilled))
+    for spouses in order.values():
+        # The order is proved only when the log saw the head's first marriage itself (not a backfill).
+        if spouses and not spouses[0][1]:
+            for k, (s, _b) in enumerate(spouses, 1):
+                s.spouse_number = k
 
     # Divorces (the patcher's Divorce Spouse).
     for name, sex, years, partner, g in h.divorces:
         p = spouse_of(name, sex, g, partner)
-        p.alive, p.gone, p.event = False, "left", "Divorce Spouse"
+        p.alive, p.gone, p.event, p.divorced = False, "left", "Divorce Spouse", True
         if years is not None:
             p.age = years * gen.UNITS_PER_YEAR
         _drop(p, "Not in the house now", "No longer in the save")
@@ -237,17 +298,10 @@ def apply(village: gen.Village, h: History) -> None:
         p.unknowns.append(f"Divorced from {partner} (the patcher's Divorce Spouse): left the family at {years}"
                           if years is not None else f"Divorced from {partner} (the patcher's Divorce Spouse).")
         p.sources.append(SOURCE)
-        if current.get((g, partner)) is p:
-            del current[(g, partner)]
 
     # Deaths, with the game's own cause.
-    for name, sex, years, role, g, cause in h.deaths:
+    for name, sex, years, _role, g, cause in h.deaths:
         p = _one(people, name, sex, lambda q: not q.alive and not q.upcoming, generation=g)
-        if p is None and role == "spouse":
-            head = next((head for (gg, head), s in current.items() if gg == g and s.name == name), None)
-            if head is None:
-                continue
-            p = current[(g, head)]
         if p is None:
             continue
         p.alive, p.gone = False, "died"
@@ -268,18 +322,13 @@ def apply(village: gen.Village, h: History) -> None:
             father = _one(people, b.father, None, in_gen) or _one(people, b.father)
         kids = []
         for name, sex in b.babies:
-            c = _one(people, name, sex, lambda q: not q.upcoming and ".c" in (q.seat or "c"),
-                     generation=b.generation)
+            c = _one(people, name, sex, lambda q: not q.upcoming and ".c" in (q.seat or "c"), generation=b.generation)
             if c is None:
                 continue
             kids.append(c)
-            for parent in (mother, father):
-                if parent is None or parent.id == c.id:
-                    continue
-                if parent.sex == "Female" and c.mother != parent.id:
-                    c.mother = parent.id
-                elif parent.sex != "Female" and c.father != parent.id:
-                    c.father = parent.id
+            for parent, label in ((mother, "mother"), (father, "father")):
+                if parent is not None and parent.id != c.id:
+                    setattr(c, label, parent.id)
             if b.father is None:
                 c.unknowns.append("Father: the Family History log has the birth, but the game kept no father it "
                                   "could name.")
@@ -289,36 +338,42 @@ def apply(village: gen.Village, h: History) -> None:
             for c in kids:
                 c.litter = litter
 
-    # Children who joined: the patcher's Spawn Child and Adopt Outside Child.
-    for name, sex, _years, how, _parents in h.joined:
+    # Who joined: the patcher's Spawn Child and Adopt Outside Child, and the Random Events' children.
+    for name, sex, _years, how, _parents, _g in h.joined:
         p = _one(people, name, sex, lambda q: not q.upcoming)
         if p is None:
             continue
-        if how == "Adopt Outside Child":
+        title = event_of(how)
+        if how.startswith("Adopted"):
             p.adopted, p.arrived, p.how = True, True, "Adopted"
+            p.event = title or how[len("Adopted ("):-1]
         else:
-            p.how = "Spawn Child"
-        p.event = how
+            p.how = p.event = how
+        p.event_title = title or p.event_title
         _drop(p, "Adopted:")
         p.sources.append(SOURCE)
 
-    # The e-mail and pop-up events, and what each did to the family.
-    for e in h.events:
-        for name, sex, _years, what in e.changes:
-            p = _one(people, name, sex, lambda q: not q.upcoming)
-            if p is None:
-                continue
-            if what == "joined the family as a child":
-                p.adopted, p.arrived, p.how, p.event = True, True, "Adopted", e.title
-                _drop(p, "Adopted:")
-            p.sources.append(f'{what.capitalize()} after the {e.kind.lower()} "{e.title}" (Family History log).')
-    village.history_events = [f'{e.when}: {e.kind} "{e.title}"' for e in h.events]
+    # Who left home, and how.
+    for name, sex, _years, what, _g in h.left:
+        p = _one(people, name, sex, lambda q: not q.upcoming)
+        if p is None:
+            continue
+        p.left_how = what
+        p.event_title = event_of(what) or p.event_title
+        p.sources.append(f"{what} (Family History log).")
 
+    # Each generation's start: Adopt New Person brings an adult in.
+    for name, sex, _years, how, _g in h.heirs:
+        p = _one(people, name, sex, lambda q: not q.upcoming)
+        if p is not None and how == "Adopt New Person":
+            p.arrived, p.how, p.event = True, "Adopt New Person", "Adopt New Person"
+
+    village.history_events = [f"{e.when}: {e.kind}: {e.title}" for e in h.events]
     village.notes = [n for n in village.notes if not n.startswith("The save keeps no history")]
     village.notes.append("Filled in from the Family History log: marriages and divorces, deaths with their causes, "
-                         "births (twins and triplets) and the e-mail and pop-up events since the log began.")
+                         "births (twins and triplets), who joined and left and the Random Events since the log began.")
     if h.backfilled:
-        village.notes.append("The log began after the family did: what happened before it (the lines marked "
+        village.notes.append("The log began after the family did: what happened before it (the records marked "
                              "\"backfilled, no date\") is only what the save's Family Tree held then, so earlier "
                              "spouses, twins and causes of death from that time are not known.")
     village.sources.extend(str(p) for p in h.files)

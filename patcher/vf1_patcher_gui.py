@@ -1692,11 +1692,13 @@ class VF1PatcherGUI:
             messagebox.showerror("Rename Family", error)
             return None
         self.status_var.set(f"Rename Family: Save {slot} is now called {result.new_name}.")
+        note = (f" A record was added to the Family History ({result.notes[0].name})." if result.notes
+                else " The family has no Family History yet, so no record was added.")
         self._append_log(f"Rename Family: {folder.name} Save {slot}: {result.old_name} -> {result.new_name}; "
                          f"backup {result.backup.backup_folder}\n")
         messagebox.showinfo(
             "Rename Family",
-            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".\n\n"
+            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
             f"Backup: {result.backup.backup_folder}")
         return result
 

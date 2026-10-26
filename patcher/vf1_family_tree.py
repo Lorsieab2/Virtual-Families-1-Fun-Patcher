@@ -430,6 +430,12 @@ class Edits:
     show_arrived: bool = True           # "Event names": the event that brought them in (arrival_words)
     show_left_home: bool = True         # "Left home" for a living family member who left home (Virtual Families)
     show_heir: bool = True              # "Heir" for whoever inherited the house (Virtual Families)
+    show_divorced: bool = True          # "Divorced": a spouse lost to Divorce Spouse
+    show_deceased: bool = True          # "Deceased"
+    show_career: bool = True            # "Career: Pastry Designer, Novice" (the game's own words)
+    show_adopted: bool = True           # "Adopted": joined without being born to the family
+    show_remarried: bool = True         # "Remarried": the head of the family married again
+    show_spouse_order: bool = True      # "Husband 1", "Wife 2": a spouse's place in the order of marriages
     fit_width: int = 0                  # 0, or shrink every portrait so the widest row fits this many pixels
     # The canvas (the owner, 2026-10-09): 0 x 0 is Automatic, the page as large as the tree; else every
     # page is this many pixels, the tree shrunk evenly to fit it or centred on it at its own size.
@@ -630,6 +636,8 @@ class Edits:
         out.show_arrived = data.get("show_arrived") is not False
         out.show_left_home = data.get("show_left_home") is not False
         out.show_heir = data.get("show_heir") is not False
+        for key in ("show_divorced", "show_deceased", "show_career", "show_adopted", "show_remarried", "show_spouse_order"):
+            setattr(out, key, data.get(key) is not False)
         out.page_generations = int(_number(data.get("page_generations"), PAGE_GENS_MIN, PAGE_GENS_MAX, PAGE_GENS))
         fit = data.get("fit_width")
         out.fit_width = int(_number(fit, FIT_MIN, FIT_MAX, 0)) if isinstance(fit, (int, float)) and fit else 0
@@ -813,7 +821,9 @@ class Edits:
                 "centre_heads": self.text_valign == "middle", "text_align": self.text_align, "text_inside": self.text_inside, "fixed_face_size": self.fixed_face_size, "turn_words": self.turn_words, "flip_words": self.flip_words, "text_room": self.text_room, "special_mode": self.special_mode, "special_pick": self.special_pick, "special_palette": self.special_palette, "special_count": self.special_count, "hibiscus": self.hibiscus, "special_opacity": self.special_opacity, "rainbow_strength": self.rainbow_strength, "schemes": self.schemes, "detail_lines": self.detail_lines, "detail_colour": self.detail_colour, "detail_opacity": self.detail_opacity, "detail_width": self.detail_width, "text_box_colour": self.text_box_colour, "text_box_opacity": self.text_box_opacity, "text_box_over": self.text_box_over, "text_box_border": self.text_box_border, "text_box_border_colour": self.text_box_border_colour, "text_box_border_width": self.text_box_border_width, "text_valign": self.text_valign, "text_wrap": self.text_wrap, "row_align": self.row_align, "row_valign": self.row_valign, "row_limit": self.row_limit, "keep_families": self.keep_families, "others_columns": self.others_columns, "others_side": self.others_side, "packing": self.packing, "lines_behind": self.lines_behind, "outline_lines": self.outline_lines, "line_mode": self.line_mode, "line_order": self.line_order, "line_reverse": self.line_reverse, "gradient_start": self.gradient_start, "gradient_end": self.gradient_end, "range_colours": self.range_colours, "picture_size": self.picture_size, "text_size": self.text_size, "portrait_gap": self.portrait_gap, "row_gap": self.row_gap, "show_founder": self.show_founder, "fit_width": self.fit_width, "canvas_w": self.canvas_w, "canvas_h": self.canvas_h,"page_generations": self.page_generations, "diagonal_lines": self.diagonal_lines,
                 "show_units": self.show_units, "show_years": self.show_years, "show_twins": self.show_twins, "show_runner": self.show_runner, "number_names": self.number_names,
                 "number_names_v2": True, "descriptors_v2": True, "show_arrived": self.show_arrived, "show_left_home": self.show_left_home,
-                "show_heir": self.show_heir,
+                "show_heir": self.show_heir, "show_divorced": self.show_divorced, "show_deceased": self.show_deceased,
+                "show_career": self.show_career, "show_adopted": self.show_adopted, "show_remarried": self.show_remarried,
+                "show_spouse_order": self.show_spouse_order,
                 "number_order": self.number_order,
                 "sort": self.sort, "positioning": self.positioning,
                 "numbering": self.numbering,
@@ -842,7 +852,9 @@ class Edits:
 # one portrait.  Each is checked as the tree's own is (_group_value).
 GROUP_FIELDS = ("text_align", "text_valign", "centre_heads", "text_room", "flip_words", "turn_words",
                 "text_inside", "fixed_face_size", "picture_size", "text_size", "text_wrap", "show_units", "show_years",
-                "show_twins", "show_founder", "show_runner", "show_arrived", "show_heir", "show_left_home", "detail_lines",
+                "show_twins", "show_founder", "show_runner", "show_arrived", "show_heir", "show_left_home",
+                "show_divorced", "show_deceased", "show_career", "show_adopted", "show_remarried", "show_spouse_order",
+                "detail_lines",
                 "detail_colour", "detail_opacity", "detail_width", "portrait_fill", "text_box_colour", "text_box_opacity",
                 "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width")
 TEXT_BOX_BORDER_WIDTHS = (0.0, 20.0)    # a text box border's weight: 0 draws none
@@ -1500,6 +1512,7 @@ STYLE_KEYS = (
     "centre_heads", "text_align", "text_inside", "fixed_face_size", "turn_words", "flip_words", "text_room", "special_mode", "special_pick", "special_palette",
     "special_count", "hibiscus", "special_opacity", "rainbow_strength", "schemes", "detail_lines", "detail_colour", "detail_opacity", "detail_width", "text_box_colour", "text_box_opacity", "text_box_over", "text_box_border", "text_box_border_colour", "text_box_border_width", "text_valign", "text_wrap", "row_align", "row_valign", "row_limit", "keep_families", "others_columns", "others_side", "packing", "lines_behind", "picture_size", "text_size", "portrait_gap", "row_gap", "show_founder", "fit_width", "canvas_w", "canvas_h", "page_generations", "diagonal_lines",
     "show_units", "show_years", "show_twins", "show_runner", "show_arrived", "show_heir", "show_left_home",
+    "show_divorced", "show_deceased", "show_career", "show_adopted", "show_remarried", "show_spouse_order",
     "descriptors_v2",
     "number_names", "number_names_v2", "number_order", "sort", "positioning", "numbering",
     "background", "background2", "rainbow", "background_image", "background_fit", "background_opacity",
@@ -2029,6 +2042,15 @@ def _page_members(village: gen.Village, edits: Edits, page: int) -> tuple:
         if key not in fam_of:
             fam_of[key] = Family(len(fam_of) + 1, p.father, p.mother, [])
         fam_of[key].children.append(p.id)
+    # A spouse no child links to their partner (one who died before any child, or was divorced): a couple's line
+    # of its own, so they read as the spouse.
+    for p in sorted(people.values(), key=lambda q: q.id):
+        q = people.get(getattr(p, "partner", None)) if getattr(p, "partner", None) is not None else None
+        if q is None or p.id in gone or q.id in gone or any({p.id, q.id} == {f.father, f.mother} for f in fam_of.values()):
+            continue
+        father, mother = (p.id, q.id) if p.sex == "Male" and q.sex != "Male" or q.sex == "Female" and p.sex != "Female" \
+            else (q.id, p.id)
+        fam_of[(father, mother)] = Family(len(fam_of) + 1, father, mother, [])
     families = list(fam_of.values())
     in_tree = set()
     for fam in families:
@@ -2379,6 +2401,12 @@ def _layout(village: gen.Village, edits: Edits | None = None, page: int = 0,
             if fam.couple_y and parents:        # just under the parents, above the children's line
                 lift = max(y[q] - row_y[q] for q in parents)
                 fam.couple_y = min(fam.couple_y + lift, fam.lane_y - LANE)
+    for fam in families:
+        # A couple with no child: their line just under them, from the middle of each.
+        parents = [q for q in (fam.father, fam.mother) if q in y]
+        if not fam.children and len(parents) == 2:
+            fam.couple_y = max(y[q] for q in parents) + NODE_H + LANE
+            fam.drops = {q: x[q] + NODE_W / 2 for q in parents}
     if cl is not None:
         # Packed families: each family's line from its parents takes the way kept for it, unless the
         # player moved one of them (then the lines find their own way, as always).
@@ -4121,7 +4149,7 @@ def lines(lay: Layout) -> list[tuple[str, list[tuple[float, float]], int, str]]:
         kids = [c for c in fam.children if c in lay.x and c not in fam.away]
         away = [c for c in fam.away if c in lay.x]
         onward = bool(fam.onward) and not kids and not away
-        if not kids and not away and not onward:
+        if not kids and not away and not onward and fam.children:
             continue
         lane = fam.lane_y
         row = min(lay.y[c] for c in kids) if kids else lane + LANE_BOTTOM
@@ -4207,6 +4235,13 @@ def lines(lay: Layout) -> list[tuple[str, list[tuple[float, float]], int, str]]:
                     {1: names[k + 1] if k < len(legs) - 1 else target})
             return legs[-1][-1][0]
 
+        if not fam.children:
+            # A couple with no child (a spouse lost before any child): only the couple's line, so they read as
+            # husband and wife.
+            if len(parents) == 2 and fam.couple_y:
+                ends = [leave(q, fam.couple_y) for q in parents]
+                add([(min(ends), fam.couple_y), (max(ends), fam.couple_y)], "couple")
+            continue
         if onward:
             # The children are on a later page: the couple joined as any couple is, and from the couple's
             # line, where its words have room (_place_onward; a lone parent: from them), one line down to
@@ -5038,12 +5073,41 @@ def is_founder(village: gen.Village, p: gen.Person) -> bool:
 
 
 def arrival_words(village: gen.Village, p: gen.Person) -> str:
-    """The event that brought them into the family or changed it for them ("Event names"), as the save (or the
-    Family History log) proves it: "Married in", "The Little Visitor", "Spawn Child", "Adopt New Person"...;
-    "" for the founder and anyone born into the family, or when no record names the event."""
+    """The Random Event that brought them into the family or took them away, as the Family History log names it
+    ("Popup Event: The Little Visitor", "Popup Event: The Talent Scout"); "" when no record names one (the save
+    alone never says which event it was)."""
     if p.upcoming:
         return ""
-    return getattr(p, "event", "") or ""
+    return getattr(p, "event_title", "") or ""
+
+
+ADOPTED_HOWS = ("Adopted", "Spawn Child", "Adopt New Person")
+
+
+def is_adopted(p: gen.Person) -> bool:
+    """Joined without being born to the family: Adopt Outside Child, The Little Visitor, Spawn Child, Adopt New
+    Person (the save's bio, the Family Tree's own place, or the Family History log proves which)."""
+    return not p.upcoming and (p.adopted or p.how in ADOPTED_HOWS)
+
+
+def career_words(p: gen.Person) -> str:
+    """"Career: Pastry Designer, Novice": the executable's own words (career string 0x112 + id; level 0x1C1 + level),
+    as the Game Mechanics page reads them; "" without a career."""
+    import vf1_game_mechanics as gm
+    if p.career is None or not 0 <= p.career < len(gm.CAREER_LIST):
+        return ""
+    words = f"Career: {gm.CAREER_LIST[p.career].name}"
+    level = getattr(p, "career_level", None)
+    return words + (f", {gm.LEVELS[level]}" if level is not None and 0 <= level < len(gm.LEVELS) else "")
+
+
+def spouse_words(p: gen.Person) -> str:
+    """"Wife 1", "Husband 2": a spouse's place in the order of their partner's marriages, by the spouse's own sex
+    (a same-sex marriage the same way); "Married in" when no record proves the order, as the save only shows that."""
+    n = getattr(p, "spouse_number", None)
+    if n and p.sex in ("Male", "Female"):
+        return f"{'Wife' if p.sex == 'Female' else 'Husband'} {n}"
+    return "Married in" if p.how == "Married in" and not p.upcoming else ""   # all the save proves
 
 
 def status_descriptors(lay: Layout, p: gen.Person) -> list[str]:
@@ -5061,10 +5125,16 @@ def descriptors(lay: Layout, p: gen.Person) -> list[str]:
     v = lay.village
     out = ["Founder"] if lay.opt(p, "show_founder") and is_founder(v, p) else []
     out += ["Heir"] if lay.opt(p, "show_heir") and getattr(p, "heir", False) else []
+    out += [spouse_words(p)] if lay.opt(p, "show_spouse_order") and spouse_words(p) else []
+    out += ["Remarried"] if lay.opt(p, "show_remarried") and getattr(p, "remarried", False) else []
+    out += ["Divorced"] if lay.opt(p, "show_divorced") and getattr(p, "divorced", False) else []
+    out += ["Deceased"] if lay.opt(p, "show_deceased") and not p.alive and p.gone == "died" and not p.upcoming else []
+    out += ["Adopted"] if lay.opt(p, "show_adopted") and is_adopted(p) else []
     out += ["Runner"] if lay.opt(p, "show_runner") and p.runner else []
     out += born_with(lay, p)
     arrived = arrival_words(v, p) if lay.opt(p, "show_arrived") else ""
     out += [arrived] if arrived else []
+    out += [career_words(p)] if lay.opt(p, "show_career") and career_words(p) else []
     out += ["Left home"] if lay.opt(p, "show_left_home") and getattr(p, "left_home", False) and p.alive else []
     return out + [s for s in status_descriptors(lay, p) if s not in out]
 
@@ -5074,7 +5144,13 @@ DESCRIPTOR_OPTIONS = (("show_founder", "Founder (the one who started the family)
                       ("show_heir", "Heir (inherited the house)"),
                       ("show_runner", "Runner (likes running)"),
                       ("show_twins", "Twins and triplets (\"Happi's twin\")"),
-                      ("show_arrived", "Event names (\"Married in\", \"The Little Visitor\")"),
+                      ("show_spouse_order", "Husband 1 / Wife 1 (the order of marriages)"),
+                      ("show_remarried", "Remarried"),
+                      ("show_divorced", "Divorced"),
+                      ("show_deceased", "Deceased"),
+                      ("show_adopted", "Adopted"),
+                      ("show_arrived", "Event title (\"Popup Event: The Little Visitor\")"),
+                      ("show_career", "Career (\"Career: Pastry Designer, Novice\")"),
                       ("show_left_home", "Left home"))
 
 

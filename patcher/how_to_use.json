@@ -72,7 +72,7 @@
       "ids": ["RollTheDice"],
       "guide": [
         "Adds a Roll the Dice page to the Upgrades button.",
-        "It costs $500 and an island event happens right away.",
+        "It costs $500 and a Random Event happens right away.",
         "Anything can happen, good or bad. Back up your saves first if you care about the family."
       ]
     },
@@ -120,8 +120,9 @@
     {
       "ids": ["FamilyHistory"],
       "guide": [
-        "Keeps one log, the Family History, for the Family Tree Maker: marriages, remarriages, divorces, deaths with their cause, births with twins and triplets, children who join.",
-        "It also names every e-mail and pop-up event, by its subject line or title, and what it did to the family (The Little Visitor's child, for one).",
+        "Keeps one log, the Family History, of every family event: births with twins and triplets, deaths and their cause, marriages, remarriages and divorces.",
+        "Also who joins (adopted, The Little Visitor, Spawn Child) or leaves home, each new generation and heir, Start Over, Evict Family and Roll the Dice.",
+        "Every Random Event is named: an Email Event by its subject line, a Popup Event by its title. The Family Tree Maker reads it all.",
         "Each save slot gets its own log, in Virtual Families 1 Patcher\\Save N\\Logs\\Family History, beside your saves.",
         "A family started before this patch gets what its family tree holds added once, marked \"backfilled, no date\".",
         "Starting over or a new family clears that slot's log (backups are kept); evicting the family keeps it.",
@@ -271,7 +272,8 @@
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
         "Quit the game first, from its own menu. Click Rename Family..., pick the save, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
-        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly."
+        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly.",
+        "The Family History log, if the family has one, gets a record saying the family was renamed. Old log files keep their old name."
       ]
     },
     "game_speed": {
@@ -301,8 +303,9 @@
         "Draws a family's tree from its save: every generation's parents and children, with each face from the game.",
         "Click Family Tree Maker, choose the save folder and the family, then Open. Pick the game folder too, or each face shows a letter.",
         "Click a portrait to edit its words, shape, colour and marks. Save keeps your tree for next time; Export as Picture saves a PNG or JPG.",
-        "The save forgets a divorced spouse, one who died before any child, twins and causes of death. With the Family History Log patch on, the tree shows them.",
-        "Without the log the tree uses the save alone and says what is not known. Your saves and the log are only read, never changed."
+        "Labels under each portrait (each can be unticked): Husband 1 or Wife 2, Remarried, Divorced, Deceased, Adopted, the Random Event, the career.",
+        "With the Family History Log patch on, the tree shows what the save forgets: lost spouses, twins, causes of death. Without it, it says what is not known.",
+        "Your saves and the log are only read, never changed."
       ]
     }
   }

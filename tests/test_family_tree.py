@@ -443,3 +443,26 @@ def test_runner_from_the_family_trees_likes_and_twins_on_the_way():
     assert ft.default_text(lay, babies[0]) == ["Upcoming child", "(twins)"]
     edits.show_runner = False
     assert "Runner" not in ft.default_text(ft.layout(v, edits), ma)
+
+
+def test_career_adopted_and_deceased_labels_and_their_options():
+    """The new portrait labels: the career in the executable's own words (career 0x112 + id, level 0x1C1 + level),
+    Adopted for every way in that is not a birth, Deceased; each one its own tick box, ticked by default."""
+    p = gen.Person(0, "Ann", 1, 1, sex="Female", alive=True)
+    p.career, p.career_level = 0, 1
+    assert ft.career_words(p) == "Career: Pastry Designer, Novice"
+    p.career_level = None                            # a Family Tree entry only: no level known
+    assert ft.career_words(p) == "Career: Pastry Designer"
+    p.career = None
+    assert ft.career_words(p) == ""
+    for how in ("Adopted", "Spawn Child", "Adopt New Person"):
+        assert ft.is_adopted(gen.Person(1, "Kid", 1, 1, how=how))
+    assert not ft.is_adopted(gen.Person(1, "Kid", 1, 1, how="Married in"))
+    keys = [k for k, _words in ft.DESCRIPTOR_OPTIONS]
+    for key in ("show_divorced", "show_deceased", "show_career", "show_adopted", "show_remarried", "show_spouse_order",
+                "show_arrived"):
+        assert key in keys and getattr(ft.Edits(), key) is True
+    e = ft.Edits()
+    e.show_career = False
+    back = ft.Edits.from_data(e.to_data())
+    assert back.show_career is False and back.show_divorced is True

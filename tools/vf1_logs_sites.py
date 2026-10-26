@@ -105,14 +105,19 @@ GS_VTABLE_LOAD = 0x4B5E68
 LDW_PATH_VSLOT = 0x0C
 UNITS_PER_YEAR = 20
 EVENT_DIALOG_VTABLE = 0x4B5A70
-EVENT_DIALOG_EVENT = 0x50         # the island event the dialog shows
+EVENT_DIALOG_EVENT = 0x50         # the Random Event the dialog shows
 EVENT_DIALOG_TITLE = 0x54         # the title text it draws
 EVENT_VSLOT_EMAIL = 0x14          # the event's "is an e-mail" virtual
+EVENT_VSLOT_HAS_CHOICES = 0x10    # the event's "has choices A and B" virtual
+EVENT_DIALOG_CHOICE = 0x830       # the choice the player took: 0 A, 1 B
 ISLAND_EVENTS = 0x502090          # the 71 events, index 1..71
 EVENT_COUNT = 71
 # The exe's own words (string ids; the text is the exe's, read at run time with GetString).
 STR_MALE = 0x464
 STR_FEMALE = 0x465
+STR_NURSING = 0x630
+STR_COLLEGE_TITLE = 0x3AE         # "{name} is going to college!"
+STR_NEW_GENERATION = 0x1CA        # "New Generation"
 STR_CAUSE_UNKNOWN = 0x507         # 0x507 + 1 + cause: -1 Unknown causes, 0 Disease, 1 Starvation, 2 Old age,
 STR_CAUSE_LAST = 0x50C            # 3 Work accident, 4 Act of Nature
 
@@ -143,6 +148,11 @@ PINS = [
     ("ie_dialog_draw", 0x419D70, 0xDB, "the event dialog's draw: +0x54 is the title, an e-mail when +0x14 is true"),
     ("dlg_do_modal", 0x401B10, 0x89, "ldwDialog::DoModal(parent, update parent): the modal loop"),
     ("dlg_update", 0x401C60, 0x21, "ldwDialog::Update: the parent scene only when the flag is set"),
+    ("v_set_left_home", 0x4857F0, 0x1C, "CVillager::SetLeftHome"),
+    ("vm_get_matriarch", 0x489950, 0x61, "CVillagerManager::GetMatriarch"),
+    ("vm_get_patriarch", 0x4899C0, 0x61, "CVillagerManager::GetPatriarch"),
+    ("mail_opened", 0x444FEC, 0x98, "the main scene opens a mail: 2 the dating scene, 3 a letter, 1 a Random Event"),
+    ("adoption_accept", 0x4368C4, 0x2C, "the adoption scene's accept: StartFamilyTree, or StartNextGeneration(heir)"),
 ]
 PIN = {p[0]: p for p in PINS}
 
@@ -152,23 +162,33 @@ FUNCTIONS = {
     "FT_UPDATE_PARENTS": 0x4819C0, "FT_START_NEXT_GEN": 0x481B30, "GS_RESTART": 0x4243C0,
     "STRINGS_GET": 0x450530, "STRINGS_GET_STRING": 0x44FD90, "GS_LOAD": 0x424A50,
     "IE_CHOOSE": 0x41B1F0, "IE_DIALOG_CTOR": 0x41A970, "IE_DIALOG_HANDLER": 0x41B0A0, "IE_DIALOG_DRAW": 0x419D70,
-    "DLG_DO_MODAL": 0x401B10,
+    "DLG_DO_MODAL": 0x401B10, "V_SET_LEFT_HOME": 0x4857F0, "VM_GET_MATRIARCH": 0x489950,
+    "VM_GET_PATRIARCH": 0x4899C0, "V_IMPREGNATE_END": 0x4867A4,
+    "LEFT_HOME_AT_19": 0x489ECA,          # SetLeftHome's return address in AllVillagersTimeflowUpkeep (college)
+    "LEFT_HOME_TALENT_SCOUT": 0x418F4B,   # ... in The Talent Scout's ImpactGame
 }
 
 # Calls the DLL retargets: (pin, VA of the E8 byte, the stock target).
 CALL_HOOKS = (
+    ("plan_conception", 0x48EBB2, 0x4864D0),
     ("vm_physiology_call", 0x424F93, 0x48BC90),
     ("death_behaviour_end", 0x48E200, 0x481CF0),
     ("body_removal", 0x489D8F, 0x481CF0),
     ("menu_restart_call", 0x448426, 0x4243C0),
     ("ie_choose", 0x41B2C5, 0x401B10),
+    ("mail_opened", 0x445023, 0x440E60),
+    ("mail_opened", 0x445030, 0x415B60),
 )
-CALL_HOOK_NAMES = ("PHYSIOLOGY", "DEATH_END", "BODY_REMOVAL", "RESTART", "EVENT_DIALOG")
+CALL_HOOK_NAMES = ("CONCEPTION", "PHYSIOLOGY", "DEATH_END", "BODY_REMOVAL", "RESTART", "EVENT_DIALOG", "DATING_MAIL",
+                   "LETTER_MAIL")
 
 # Calls that must reach what the DLL expects (pin, VA, target).
 CALLS = (
     ("v_impregnate", 0x48665B, 0x481AA0),        # AddOffspring: the babies join the tree at conception
-    ("plan_conception", 0x48EBB2, 0x4864D0),     # the one Impregnate
+    ("plan_conception", 0x48EB40, 0x489950),     # GetMatriarch
+    ("plan_conception", 0x48EB4C, 0x4899C0),     # GetPatriarch
+    ("adoption_accept", 0x4368C5, 0x481E00),     # a new family: StartFamilyTree
+    ("adoption_accept", 0x4368E6, 0x481B30),     # Next Generation: StartNextGeneration(heir, its place)
     ("ft_start_family_tree", 0x481E03, 0x481560),
     ("ft_start_family_tree", 0x481E11, 0x481B30),
     ("vm_delivery", 0x48C2F8, 0x486A10),
@@ -187,6 +207,7 @@ CALLS = (
 ENTRY_HOOKS = {
     "FT_UPDATE_PARENTS": ("ft_update_parents", 8),    # push ebx / push ebp / mov ebp,ecx / cmp dword [ebp],0
     "FT_START_NEXT_GEN": ("ft_start_next_gen", 6),    # push ecx / push edi / mov edi,ecx / mov eax,[edi]
+    "V_SET_LEFT_HOME": ("v_set_left_home", 8),        # push esi / mov esi,ecx / mov ecx,50C5D0h
 }
 
 NEG = lambda v: (-v) & 0xFFFFFFFF  # noqa: E731
@@ -213,10 +234,14 @@ CROSS = {
     "ie_choose": {ISLAND_EVENTS, ISLAND_EVENTS - EVENT_COUNT - 1, EVENT_VSLOT_EMAIL, EVENT_COUNT + 1, 0x134,
                   0x134 + 0x4C},
     "ie_dialog_ctor": {EVENT_DIALOG_VTABLE, EVENT_DIALOG_EVENT, EVENT_DIALOG_TITLE, 8},
-    "ie_dialog_handler": {EVENT_DIALOG_EVENT, 0x10, 0x30, 0x34, 0x830},
+    "ie_dialog_handler": {EVENT_DIALOG_EVENT, EVENT_VSLOT_HAS_CHOICES, 0x30, 0x34, EVENT_DIALOG_CHOICE},
     "ie_dialog_draw": {EVENT_DIALOG_EVENT, EVENT_DIALOG_TITLE, EVENT_VSLOT_EMAIL},
     "dlg_do_modal": {8, 0xC},
     "dlg_update": {8, 0xC},
+    "v_set_left_home": {VILLAGER_LEFT_HOME},
+    "vm_get_matriarch": {NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER)},
+    "vm_get_patriarch": {NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER)},
+    "mail_opened": {0x20, 0x14},
 }
 
 
@@ -340,7 +365,8 @@ def validate(data: bytes) -> dict:
     # constructor are reached only from the places named: nothing else reaches them unseen.
     singles = {0x48BC90: [0x424F93], 0x481CF0: [0x489D8F, 0x48E200], 0x4243C0: [0x448426],
                0x4864D0: [0x48EBB2], 0x41B1F0: [0x41B388, 0x41B3C8], 0x41A970: [0x41B2A1],
-               0x41B360: [0x445353], 0x41B3A0: [0x44507D]}
+               0x41B360: [0x445353], 0x41B3A0: [0x44507D], 0x415B60: [0x445030],
+               0x4857F0: [0x418F46, 0x489EC5], 0x481B30: [0x4368E6, 0x481E11]}
     found = all_callers(exe, singles)
     for target, sites in singles.items():
         if found[target] != sites:
@@ -370,6 +396,15 @@ def validate(data: bytes) -> dict:
     # The step gives Impregnate the constant "Joey" as the father's name: the name is never the father's.
     if exe.read(0x48EBA9, 5) != b"\x68" + struct.pack("<I", 0x4B7060) or exe.cstr(0x4B7060) != "Joey":
         raise SiteError("the conception step's father name is not the constant \"Joey\"")
+    # SetLeftHome's two stock callers, told apart by the return address.
+    for at, ret in ((0x489EC5, FUNCTIONS["LEFT_HOME_AT_19"]), (0x418F46, FUNCTIONS["LEFT_HOME_TALENT_SCOUT"])):
+        if call_target(exe, at) != FUNCTIONS["V_SET_LEFT_HOME"] or at + 5 != ret:
+            raise SiteError(f"SetLeftHome's caller {at:#x}")
+    # The mails the main scene opens: type 2 the dating scene (push -1 / push 8 / the scene switch), type 3 the
+    # letter from a child who left home (push esi / call), type 1 (ebp) a Random Event.
+    if exe.read(0x445002, 3) != b"\x83\xF8\x02" or exe.read(0x44502A, 3) != b"\x83\xF8\x03" \
+            or exe.read(0x44501D, 4) != b"\x6A\xFF\x6A\x08":
+        raise SiteError("the mail types the main scene opens")
     # The event chooser runs the dialog with "update the parent" = 0 (push 0 at 0x41B2C2, push ebp = the scene).
     if exe.read(0x41B2C2, 3) != b"\x6A\x00\x55":
         raise SiteError("the event dialog is not run with 'update the parent' = 0")
@@ -383,7 +418,9 @@ def validate(data: bytes) -> dict:
     if struct.unpack("<I", exe.read(0x4B5E40, 4))[0] != PIN["ldw_make_path"][1]:
         raise SiteError("theGameState vtable +0Ch is not MakeGameStatePath")
     # The words: the exe's own.
-    for sid, want in ((STR_MALE, "Male"), (STR_FEMALE, "Female"), (STR_CAUSE_UNKNOWN, "Unknown causes"),
+    for sid, want in ((STR_MALE, "Male"), (STR_FEMALE, "Female"), (STR_NURSING, "Nursing"),
+                      (STR_COLLEGE_TITLE, "{name} is going to college!"), (STR_NEW_GENERATION, "New Generation"),
+                      (STR_CAUSE_UNKNOWN, "Unknown causes"),
                       (STR_CAUSE_UNKNOWN + 3, "Old age"), (STR_CAUSE_LAST, "Act of Nature")):
         if exe.string_record(sid)[1] != want:
             raise SiteError(f"string {sid:#x} is not {want!r}")

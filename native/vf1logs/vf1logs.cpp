@@ -3,20 +3,19 @@
 //
 // Virtual Families 1 keeps no history (docs/vf1-save-format.md section 3: no marriage, birth or death date,
 // no earlier spouse, no twins), and its Family Tree forgets a spouse who leaves or dies before any child.
-// The Family Tree Maker needs those, so this DLL writes them down as they happen, one line each, from the
-// game's own memory, with the game's own words where it has them (the string table in the executable:
-// "Male", "Female", the causes of death, every e-mail subject and pop-up title). Only what the family tree
-// needs is written: marriages and remarriages (the current spouse), divorces, deaths with their cause,
-// births (twins and triplets together), children who join, the e-mail and pop-up events with what each did
-// to the family, and an eviction. Per save slot, beside the save:
+// So this DLL writes every family event down as it happens, one line each, from the game's own memory, with the
+// game's own words where it has them (the string table in the executable: "Male", "Female", "Nursing", the
+// causes of death, "{name} is going to college!", "New Generation", every e-mail subject and pop-up title), in
+// the same wording as the Virtual Families 2 patcher's Family History. Per save slot, beside the save:
 //
 //   <save folder>\Virtual Families 1 Patcher\Save <N>\Logs\Family History\Family History <k>.txt
 //
-// Every file opens with "Family: <family name> (Save <N>)"; every line is "[YYYY-MM-DD HH:MM:SS] <event>".
-// Nothing is ever rewritten; after 2000 lines the next line opens the next numbered file. A new family (the
-// game's new-family adoption) and Start Over wipe that slot's folder, Backups excepted; an existing family
-// whose log has no lines yet gets what its save's Family Tree holds, marked "[backfilled, no date]".
-// The line formats are listed in docs/FAMILY_HISTORY.md and read by patcher/vf1_family_history.py.
+// Every file opens with "Family: <family name> (Save <N>)"; every line is "[YYYY-MM-DD HH:MM:SS] <event>", the
+// conceptions, births, deaths and events numbered ("Birth 3: ..."). Nothing is ever rewritten; after 2000 lines
+// the next line opens the next numbered file. A new family (the game's new-family adoption) and Start Over wipe
+// that slot's folder, Backups excepted; an existing family whose log has no lines yet gets what its save's Family
+// Tree holds, marked "[backfilled, no date]". The line formats are listed in docs/FAMILY_HISTORY.md and read by
+// patcher/vf1_family_history.py.
 //
 // vf1fun.dll loads this DLL (while the FamilyHistory setting is on) at the end of its own start-up, after
 // vf1kids.dll, and calls VF1Logs_Startup() once. Installing is: setting -> verify every pin (vf1logs_sites.h,
@@ -25,8 +24,11 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <intrin.h>
 
 #include "vf1logs_sites.h"
+
+#pragma intrinsic(_ReturnAddress)
 
 struct LogsStatus {
     unsigned magic;
@@ -35,7 +37,7 @@ struct LogsStatus {
     unsigned resolved;
     unsigned installed;
     unsigned writes;
-    unsigned lines;       // Family History lines written this session
+    unsigned records;     // Family History records written this session
     unsigned lastLoad;    // 0 none, 1 log found or created, 2 backfilled
     unsigned wipes;       // slot folders wiped (Start Over, new family)
 };
@@ -105,7 +107,11 @@ struct Text {
 };
 
 // ================================================================ the game
+typedef bool (__thiscall *ImpregnateFn)(void *villager, int one, const char *father, int head, int body, int flag);
 typedef void (__thiscall *ThisVoidFn)(void *self);
+typedef void *(__thiscall *ThisPtrFn)(void *self);
+typedef int (__thiscall *DatingMailFn)(void *scene, int which, int param);
+typedef int (__cdecl *LetterMailFn)(void *scene);
 typedef void (__thiscall *ReportDeathFn)(void *tree, void *villager);
 typedef bool (__thiscall *UpdateParentsFn)(void *tree, void *a, void *b);
 typedef bool (__thiscall *StartNextGenerationFn)(void *tree, void *villager, int peep);
@@ -116,7 +122,11 @@ typedef const char *(__thiscall *MakePathFn)(void *state, int slot);
 typedef const char *(__thiscall *GetStringFn)(void *strings, int id);
 typedef void *(__cdecl *SingletonFn)();
 
+static ImpregnateFn NextImpregnate;
 static ThisVoidFn NextPhysiology;
+static DatingMailFn NextDatingMail;
+static LetterMailFn NextLetterMail;
+static ThisVoidFn OrigSetLeftHome;
 static ReportDeathFn NextReportDeathEnd, NextReportDeathBody;
 static ThisVoidFn NextRestart;
 static DoModalFn NextDoModal;
@@ -192,6 +202,8 @@ struct Person {
     int slot;
     int sex;
     int age;
+    int head;
+    int body;
     char name[28];
 };
 
@@ -201,16 +213,13 @@ static void Capture(const unsigned char *v, Person &p) {
     if (!v) { p.slot = -1; return; }
     p.sex = I32(v, LOGS_VILLAGER_GENDER);
     p.age = I32(v, LOGS_VILLAGER_AGE);
+    p.head = I32(v, LOGS_VILLAGER_HEAD);
+    p.body = I32(v, LOGS_VILLAGER_BODY);
     Copy(p.name, v + LOGS_VILLAGER_NAME, LOGS_VILLAGER_NAME_LEN);
     p.name[LOGS_VILLAGER_NAME_LEN] = 0;
 }
 
 static unsigned Years(int units) { return units < 0 ? 0u : (unsigned)units / LOGS_UNITS_PER_YEAR; }
-
-// "Ann (Female, 26)"
-static void Who(Text &t, const Person &p) {
-    t.Name(p.name, LOGS_VILLAGER_NAME_LEN).S(" (").S(SexWord(p.sex)).S(", ").U(Years(p.age)).S(")");
-}
 
 // Where the villager stands in the current generation's Family Tree record: 0 parent 1, 1 parent 2,
 // 2.. a child, -1 not in it. The record's slot is checked with the name, as the game's own records go stale.
@@ -226,16 +235,45 @@ static int TreeRole(const Person &p) {
     return -1;
 }
 
-static const char *RoleWord(int role) {
-    return role == 0 ? "parent" : role == 1 ? "spouse" : role >= 2 ? "child" : "not in the family tree";
+static const char *RoleText(int role) {
+    return role == 0 ? "Parent" : role == 1 ? "Parent (married in)" : role >= 2 ? "Child" : "(not in the Family Tree)";
 }
+
+// ---- the Virtual Villagers patcher's record lines ("  Label: value"), a family member as it writes a villager:
+// the name, then (one step further in) the age, sex, head and body.
+static void Field(Text &t, const char *indent, const char *label, const char *value) {
+    t.S(indent).S(label).S(": ").S(value).NL();
+}
+
+static void Member(Text &t, const char *indent, const char *label, const Person &p, const char *ageLabel) {
+    char deeper[12];
+    Text d;
+    d.Init(deeper, sizeof(deeper));
+    d.S(indent).S("  ");
+    t.S(indent).S(label).S(": ").Name(p.name, LOGS_VILLAGER_NAME_LEN).NL();
+    if (ageLabel) t.S(deeper).S(ageLabel).S(": ").U(Years(p.age)).NL();
+    t.S(deeper).S("Sex: ").S(SexWord(p.sex)).NL();
+    t.S(deeper).S("Head: ").I(p.head).NL();
+    t.S(deeper).S("Body: ").I(p.body).NL();
+}
+
+// A family member at the top of a record: "  Name: ..", "  <age label>: ..", "  Sex: ..", "  Head: ..", "  Body: ..".
+static void Self(Text &t, const Person &p, const char *ageLabel) {
+    t.S("  Name: ").Name(p.name, LOGS_VILLAGER_NAME_LEN).NL();
+    t.S("  ").S(ageLabel).S(": ").U(Years(p.age)).NL();
+    t.S("  Sex: ").S(SexWord(p.sex)).NL();
+    t.S("  Head: ").I(p.head).NL();
+    t.S("  Body: ").I(p.body).NL();
+}
+
+static void Generation(Text &t, int g) { t.S("  Generation: ").I(g).NL(); }
 
 // ================================================================ the Family History files
 static char ReadBuffer[0x100000];
 static char Line[0x4000];
 static char Body[0x4000];
 
-static const unsigned kLinesPerFile = 2000;
+static const unsigned kRecordsPerFile = 2000;
 static const unsigned kMaxFiles = 4096;
 
 static bool ReadWhole(const char *path, unsigned *got) {
@@ -321,47 +359,73 @@ static void Header(Text &t, int slot) {
     t.S(" (Save ").U((unsigned)slot).S(")").NL();
 }
 
-// Lines of the text that start with "[" (the dated and backfilled lines).
-static unsigned CountLines(const char *text, unsigned len) {
+// The records of the text: their heading lines start with "[" (the dated and backfilled ones).
+static unsigned CountRecords(const char *text, unsigned len) {
     unsigned count = 0;
     for (unsigned i = 0; i < len; ++i)
         if ((i == 0 || text[i - 1] == '\n') && text[i] == '[') ++count;
     return count;
 }
 
-// The newest file's number (0 when there is none) and how many lines it holds.
-static unsigned NewestFile(int slot, unsigned *lines) {
+// The newest file's number (0 when there is none) and how many records it holds.
+static unsigned NewestFile(int slot, unsigned *records) {
     char path[MAX_PATH + 64];
     unsigned newest = 0;
-    *lines = 0;
+    *records = 0;
     for (unsigned k = 1; k <= kMaxFiles; ++k) {
         if (!HistoryFile(slot, k, path, sizeof(path)) || !Exists(path)) break;
         newest = k;
     }
     unsigned got = 0;
     if (newest && HistoryFile(slot, newest, path, sizeof(path)) && ReadWhole(path, &got))
-        *lines = CountLines(ReadBuffer, got);
+        *records = CountRecords(ReadBuffer, got);
     return newest;
 }
 
 // The first file, with its header, when the slot has none.
 static void CreateLog(int slot) {
     char path[MAX_PATH + 64];
-    unsigned lines = 0;
-    if (NewestFile(slot, &lines) || !HistoryFile(slot, 1, path, sizeof(path))) return;
+    unsigned records = 0;
+    if (NewestFile(slot, &records) || !HistoryFile(slot, 1, path, sizeof(path))) return;
     Text t;
     t.Init(Line, sizeof(Line));
     Header(t, slot);
     Append(path, Line, t.n);
 }
 
-// One line, appended to the newest file, or to a new numbered file when the newest is full.
-static void History(int slot, const char *text, bool backfilled = false) {
+// The highest number of a record kind ("Birth" in "[...] Birth 12") in every file of the slot's log: the next
+// record of that kind gets the number after it.
+static unsigned NextNumber(int slot, const char *kind) {
+    char path[MAX_PATH + 64];
+    unsigned highest = 0, m = Length(kind);
+    for (unsigned k = 1; k <= kMaxFiles && HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
+        unsigned got = 0;
+        if (!ReadWhole(path, &got)) continue;
+        for (unsigned i = 0; i < got; ++i) {
+            if ((i && ReadBuffer[i - 1] != '\n') || ReadBuffer[i] != '[') continue;
+            unsigned j = i;
+            while (j < got && ReadBuffer[j] != ']' && ReadBuffer[j] != '\n') ++j;
+            j += 2;
+            if (j + m + 1 > got || !StartsWith(ReadBuffer + j, kind) || ReadBuffer[j + m] != ' ') continue;
+            unsigned v = 0;
+            for (j += m + 1; j < got && ReadBuffer[j] >= '0' && ReadBuffer[j] <= '9' && v < 100000000u; ++j)
+                v = v * 10 + (unsigned)(ReadBuffer[j] - '0');
+            if (v > highest && (j >= got || ReadBuffer[j] == '\r' || ReadBuffer[j] == '\n')) highest = v;
+        }
+    }
+    return highest + 1;
+}
+
+// One record: the heading "[YYYY-MM-DD HH:MM:SS] <kind> <n>" (numbered per kind, as the Virtual Villagers logs
+// number theirs) and its "  Label: value" lines, then a blank line; appended to the newest file, or to a new
+// numbered file when the newest holds 2000 records.
+static void Write(int slot, const char *kind, const char *lines, bool backfilled = false) {
     char path[MAX_PATH + 64];
     if (slot < 1) return;
-    unsigned lines = 0;
-    unsigned newest = NewestFile(slot, &lines);
-    unsigned file = !newest ? 1 : lines >= kLinesPerFile ? newest + 1 : newest;
+    unsigned number = NextNumber(slot, kind);
+    unsigned records = 0;
+    unsigned newest = NewestFile(slot, &records);
+    unsigned file = !newest ? 1 : records >= kRecordsPerFile ? newest + 1 : newest;
     if (!HistoryFile(slot, file, path, sizeof(path))) return;
     Text t;
     t.Init(Line, sizeof(Line));
@@ -374,57 +438,59 @@ static void History(int slot, const char *text, bool backfilled = false) {
         t.S("[").U(now.wYear).S("-").Two(now.wMonth).S("-").Two(now.wDay).S(" ").Two(now.wHour).S(":")
             .Two(now.wMinute).S(":").Two(now.wSecond).S("] ");
     }
-    t.S(text).NL();
-    if (Append(path, Line, t.n)) ++VF1Logs_Status.lines;
+    t.S(kind).S(" ").U(number).NL().S(lines).NL();
+    if (Append(path, Line, t.n)) ++VF1Logs_Status.records;
 }
 
-// ---- remarriage: the spouse a person married before in the same generation, from this slot's own Family
-// History (the save forgets a spouse who left or died before any child). Lines after the last eviction only.
-static bool NameBefore(const char *&p, const char *stop, char *out) {   // a name ending at `stop`
+// ---- remarriage: the spouse a person married before in the same generation and why they left ("died" or
+// "divorced"), from this slot's own Family History (the save forgets a spouse who left or died before any
+// child). Records after the last eviction only.
+static bool Value(const char *p, const char *label, char *out, unsigned cap) {   // "  <label>: <value>"
+    if (!StartsWith(p, label)) return false;
+    p += Length(label);
     unsigned k = 0;
-    while (*p && *p != '\r' && *p != '\n' && !StartsWith(p, stop)) {
-        if (k < 27) out[k++] = *p;
-        ++p;
-    }
+    while (*p && *p != '\r' && *p != '\n') { if (k + 1 < cap) out[k++] = *p; ++p; }
     out[k] = 0;
-    if (!StartsWith(p, stop)) return false;
-    p += Length(stop);
-    return k > 0;
+    return true;
 }
 
-static void SkipPast(const char *&p, const char *mark) {
-    while (*p && *p != '\r' && *p != '\n' && !StartsWith(p, mark)) ++p;
-    if (StartsWith(p, mark)) p += Length(mark);
-}
-
-static bool EarlierSpouse(int slot, int gen, const char *head, char *earlier) {
+static bool EarlierSpouse(int slot, int gen, const char *head, char *earlier, char *how) {
     char path[MAX_PATH + 64];
-    earlier[0] = 0;
-    unsigned lines = 0, newest = NewestFile(slot, &lines);
-    for (unsigned k = 1; k <= newest; ++k) {
+    earlier[0] = how[0] = 0;
+    char kind[16], a[28], b[28], g[12];
+    kind[0] = a[0] = b[0] = g[0] = 0;
+    for (unsigned k = 1; k <= kMaxFiles && HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
         unsigned got = 0;
-        if (!HistoryFile(slot, k, path, sizeof(path)) || !ReadWhole(path, &got)) continue;
-        for (const char *p = ReadBuffer; *p;) {
-            const char *body = p;
-            if (*body == '[') {
-                SkipPast(body, "] ");
-                if (StartsWith(body, "Evicted: ")) earlier[0] = 0;
-                const char *q = body;
-                bool married = StartsWith(q, "Married: ") || StartsWith(q, "Remarried: ");
-                if (married) {
-                    SkipPast(q, ": ");
-                    char a[28], b[28];
-                    if (NameBefore(q, " (", a)) {
-                        SkipPast(q, ") and ");
-                        if (NameBefore(q, " (", b)) {
-                            SkipPast(q, "), generation ");
-                            int g = 0;
-                            while (*q >= '0' && *q <= '9') g = g * 10 + (*q++ - '0');
-                            if (g == gen && SameText(a, head, 28)) Copy(earlier, b, 28);
-                            else if (g == gen && SameText(b, head, 28)) Copy(earlier, a, 28);
-                        }
-                    }
+        if (!ReadWhole(path, &got)) continue;
+        for (const char *p = ReadBuffer;; ) {
+            bool heading = *p == '[' || *p == 0;
+            if (heading && kind[0]) {                  // the record before ends: what it says
+                int gn = 0;
+                for (const char *q = g; *q >= '0' && *q <= '9'; ++q) gn = gn * 10 + (*q - '0');
+                if ((SameText(kind, "Marriage", 16)) && gn == gen && (SameText(a, head, 28) || SameText(b, head, 28))) {
+                    Copy(earlier, SameText(a, head, 28) ? b : a, 28);
+                    how[0] = 0;
+                } else if (SameText(kind, "Death", 16) && earlier[0] && SameText(a, earlier, 28)) {
+                    Copy(how, "died", 5);
+                } else if (SameText(kind, "Divorce", 16) && earlier[0] && SameText(b, earlier, 28)) {
+                    Copy(how, "divorced", 9);
+                } else if (SameText(kind, "Evict Family", 16)) {
+                    earlier[0] = how[0] = 0;
                 }
+                kind[0] = a[0] = b[0] = g[0] = 0;
+            }
+            if (!*p) break;
+            if (*p == '[') {
+                const char *q = p;
+                while (*q && *q != ']') ++q;
+                if (*q) q += 2;
+                unsigned n = 0;
+                while (*q && *q != '\r' && *q != '\n' && !(*q == ' ' && q[1] >= '0' && q[1] <= '9') && n < 15) kind[n++] = *q++;
+                kind[n] = 0;
+            } else {
+                Value(p, "  Family member: ", a, sizeof(a)) || Value(p, "  Name: ", a, sizeof(a)) ||
+                    Value(p, "  Married: ", b, sizeof(b)) || Value(p, "  Divorced: ", b, sizeof(b)) ||
+                    Value(p, "  Generation: ", g, sizeof(g));
             }
             while (*p && *p != '\n') ++p;
             if (*p) ++p;
@@ -475,6 +541,38 @@ static void WipeSlot(int slot) {
 // ================================================================ the events
 static int gInLoad;
 static int gPendingEviction;      // vf1fun's Evict Family: the next new family is the same slot's next family
+static int gStartedOver;          // the menu's Start Over: the next new family's log says so
+static int gBoardingSchool;       // vf1fun's Boarding School is sending this slot's villager away (+1)
+static int gInEvent;              // a Random Event's dialog is open
+static char gEventTitle[256];     // the newest Random Event's title, as the player saw it
+static const char *gEventKind = "Popup Event";
+
+// ---- conception: the try-for-a-baby step's one Impregnate call; the father is the patriarch whose head and
+// body the step passes (0x48EB99..0x48EBA8). Kept per mother for her births this session.
+struct Conceived { int valid; char mother[28]; Person father; };
+static Conceived Fathers[LOGS_HOUSEHOLD_SLOTS];
+
+static void OnConception(const unsigned char *mother, const unsigned char *father) {
+    int slot = CurrentSlot();
+    if (!slot) return;
+    Person m, f;
+    Capture(mother, m);
+    Capture(father, f);
+    if (m.slot >= 0) {
+        Conceived &c = Fathers[m.slot];
+        c.valid = father != 0;
+        Copy(c.mother, m.name, 28);
+        c.father = f;
+    }
+    Text t;
+    t.Init(Body, sizeof(Body));
+    Member(t, "  ", "Mother", m, "Age at conception");
+    if (father) Member(t, "  ", "Father", f, "Age at conception");
+    else Field(t, "  ", "Father", "(unknown)");
+    t.S("  Babies ").S(Word(LOGS_STR_NURSING)).S(": ").I(I32(mother, LOGS_VILLAGER_CARRIED)).NL();
+    Generation(t, Generations());
+    Write(slot, "Conception", Body);
+}
 
 // ---- births: what the physiology pass delivered
 struct PassState {
@@ -494,25 +592,31 @@ static void SnapshotPass(PassState &s) {
     }
 }
 
-// The father: the current generation's other parent whose head and body are the ones the game kept at
-// conception (Impregnate stores the patriarch's head and body it is given at +0x2AD0 / +0x2ACC; the name it is
-// given is the constant "Joey"). Empty when no parent matches.
-static void Father(const Person &mother, char *out) {
-    out[0] = 0;
+// The father: the one this session saw at the conception, else the current generation's other parent whose
+// head and body are the ones the game kept at conception (Impregnate stores the patriarch's head and body it is
+// given at +0x2AD0 / +0x2ACC; the name it is given is the constant "Joey"). False when neither is known.
+static bool Father(const Person &mother, Person &out) {
+    Zero(&out, sizeof(out));
+    if (mother.slot >= 0 && Fathers[mother.slot].valid && SameText(Fathers[mother.slot].mother, mother.name, 28)) {
+        out = Fathers[mother.slot].father;
+        return true;
+    }
     unsigned char *rec = Record(Generations());
     const unsigned char *m = Villager(mother.slot);
-    if (!rec || !m) return;
+    if (!rec || !m) return false;
     for (int k = 0; k < 2; ++k) {
         unsigned char *peep = Peep(rec, k);
         unsigned char *other = Peep(rec, 1 - k);
         if (!peep[LOGS_PEEP_VALID] || !SameText((const char *)peep, mother.name, 25) || !other[LOGS_PEEP_VALID]) continue;
-        if (I32(other, LOGS_PEEP_HEAD) == I32(m, LOGS_VILLAGER_FATHER_HEAD) &&
-            I32(other, LOGS_PEEP_BODY) == I32(m, LOGS_VILLAGER_FATHER_BODY)) {
-            Copy(out, other, 25);
-            out[25] = 0;
-        }
-        return;
+        if (I32(other, LOGS_PEEP_HEAD) != I32(m, LOGS_VILLAGER_FATHER_HEAD) ||
+            I32(other, LOGS_PEEP_BODY) != I32(m, LOGS_VILLAGER_FATHER_BODY)) return false;
+        Copy(out.name, other, 25);
+        out.sex = I32(other, LOGS_PEEP_GENDER);
+        out.head = I32(other, LOGS_PEEP_HEAD);
+        out.body = I32(other, LOGS_PEEP_BODY);
+        return true;
     }
+    return false;
 }
 
 static void OnBirths(int mother) {
@@ -528,23 +632,24 @@ static void OnBirths(int mother) {
         born[n++] = b;
     }
     if (!n) return;
-    Person m;
+    Person m, f;
     Capture(Villager(mother), m);
-    char father[28];
-    Father(m, father);
-    Text h;
-    h.Init(Body, sizeof(Body));
-    h.S(n == 2 ? "Twins born to " : n == 3 ? "Triplets born to " : "Born to ").Name(m.name, LOGS_VILLAGER_NAME_LEN)
-        .S(" and ");
-    if (father[0]) h.Name(father, 25); else h.S("an unknown father");
-    h.S(", generation ").I(Generations()).S(": ");
+    bool known = Father(m, f);
+    if (m.slot >= 0) Fathers[m.slot].valid = 0;
     for (int i = 0; i < n; ++i) {
         Person c;
         Capture(Villager(born[i]), c);
-        if (i) h.S(i == n - 1 ? " and " : ", ");
-        h.Name(c.name, LOGS_VILLAGER_NAME_LEN).S(" (").S(SexWord(c.sex)).S(")");
+        Text t;
+        t.Init(Body, sizeof(Body));
+        t.S("  Child: ").Name(c.name, 25).NL();
+        t.S("    Sex: ").S(SexWord(c.sex)).NL().S("    Head: ").I(c.head).NL().S("    Body: ").I(c.body).NL();
+        t.S("  Mother: ").Name(m.name, 25).NL().S("    Head: ").I(m.head).NL().S("    Body: ").I(m.body).NL();
+        if (known) t.S("  Father: ").Name(f.name, 25).NL().S("    Head: ").I(f.head).NL().S("    Body: ").I(f.body).NL();
+        else Field(t, "  ", "Father", "(unknown)");
+        Field(t, "  ", "Born as", n == 1 ? "Single birth" : n == 2 ? "Twin" : "Triplet");
+        Generation(t, Generations());
+        Write(slot, "Birth", Body);
     }
-    History(slot, Body);
 }
 
 // ---- deaths (each caller sets the villager's present byte to 0 right after, so each death is reported once)
@@ -556,176 +661,292 @@ static void ReportDeathHook(ReportDeathFn next, void *tree, void *villager) {
     int cause = v ? I32(v, LOGS_VILLAGER_CAUSE) : -1;
     int role = TreeRole(p);
     int gen = Generations();
+    char widowed[28];
+    widowed[0] = 0;
+    if (dead && (role == 0 || role == 1)) {            // the other parent, alive, is left with no spouse
+        unsigned char *rec = Record(gen);
+        unsigned char *other = rec ? Peep(rec, 1 - role) : 0;
+        if (other && other[LOGS_PEEP_VALID] && I32(other, LOGS_PEEP_SLOT) != -1) {
+            Copy(widowed, other, 25);
+            widowed[25] = 0;
+        }
+    }
     next(tree, villager);
     int slot = CurrentSlot();
     if (!dead || p.slot < 0 || !slot) return;
-    Text h;
-    h.Init(Body, sizeof(Body));
-    h.S("Died: ");
-    Who(h, p);
-    h.S(", ").S(RoleWord(role)).S(", generation ").I(gen).S(": ").S(CauseWord(cause));
-    History(slot, Body);
+    Text t;
+    t.Init(Body, sizeof(Body));
+    t.S("  Name: ").Name(p.name, 25).NL();
+    t.S("  Age at death: ").U(Years(p.age)).NL();
+    t.S("  Sex: ").S(SexWord(p.sex)).NL();
+    Field(t, "  ", "Cause of death", CauseWord(cause));
+    t.S("  Head: ").I(p.head).NL().S("  Body: ").I(p.body).NL();
+    Field(t, "  ", "Family role", RoleText(role));
+    Generation(t, gen);
+    if (widowed[0]) t.S("  Current spouse of ").Name(widowed, 25).S(": (none)").NL();
+    Write(slot, "Death", Body);
 }
 
-// ---- marriage and remarriage (UpdateParents: whichever of the two is not in the record yet marries in)
+// ---- marriage and remarriage (UpdateParents: the one it writes into the record's second parent married in)
 static void OnMarriage(const Person &head, const Person &spouse, int gen) {
     int slot = CurrentSlot();
     if (!slot) return;
-    char earlier[28];
-    bool again = EarlierSpouse(slot, gen, head.name, earlier);
-    Text h;
-    h.Init(Body, sizeof(Body));
-    h.S(again ? "Remarried: " : "Married: ");
-    Who(h, head);
-    h.S(" and ");
-    Who(h, spouse);
-    h.S(", generation ").I(gen);
-    if (again) h.S("; earlier spouse: ").Name(earlier, 25);
-    History(slot, Body);
+    char earlier[28], how[12];
+    bool again = EarlierSpouse(slot, gen, head.name, earlier, how);
+    Text t;
+    t.Init(Body, sizeof(Body));
+    Member(t, "  ", "Family member", head, "Age");
+    Member(t, "  ", "Married", spouse, "Age");
+    if (again) {
+        t.S("  Remarried: yes").NL().S("  Earlier spouse: ").Name(earlier, 25);
+        if (how[0]) t.S(" (").S(how).S(")");
+        t.NL();
+    }
+    t.S("  Current spouse of ").Name(head.name, 25).S(": ").Name(spouse.name, 25).NL();
+    Generation(t, gen);
+    Write(slot, "Marriage", Body);
 }
 
-// ---- the e-mail and pop-up events, and what each did to the family
-struct Member { unsigned char present, left; Person p; };
-static Member Household[LOGS_HOUSEHOLD_SLOTS];
+// ---- a generation begins: a new family, Next Generation (the heir chosen), Adopt New Person
+static void OnGeneration(const unsigned char *v, int peep, int before) {
+    int slot = CurrentSlot();
+    if (!slot || !v) return;
+    Person p;
+    Capture(v, p);
+    const char *how;
+    if (before == 0) {
+        if (gPendingEviction) {
+            gPendingEviction = 0;
+            how = "Founder (after the eviction)";
+        } else {
+            // A brand-new family in this slot (a new game, or after Start Over): the folder is the new family's.
+            WipeSlot(slot);
+            CreateLog(slot);
+            if (gStartedOver) Write(slot, "Start Over", "  The earlier family's history was cleared.\r\n");
+            how = "Founder (adopted and started the family)";
+        }
+        gStartedOver = 0;
+    } else {
+        how = peep < 0 ? "Adopt New Person" : "Heir (inherited the house)";
+    }
+    Text t;
+    t.Init(Body, sizeof(Body));
+    Self(t, p, "Age");
+    Field(t, "  ", "How", how);
+    Generation(t, Generations());
+    Write(slot, before && peep >= 0 ? Word(LOGS_STR_NEW_GENERATION) : "Generation", Body);
+}
 
-static void SnapshotHousehold(Member *h) {
+// ---- leaving home: at 19 (the game's own picture caption, "{name} is going to college!"), The Talent Scout,
+// the patcher's Boarding School
+static void OnLeftHome(const unsigned char *v, unsigned from) {
+    int slot = CurrentSlot();
+    if (!slot || !v) return;
+    Person p;
+    Capture(v, p);
+    Text t;
+    t.Init(Body, sizeof(Body));
+    Self(t, p, "Age");
+    t.S("  What happened: ");
+    if (from == LOGS_LEFT_HOME_AT_19) {
+        for (const char *s = Word(LOGS_STR_COLLEGE_TITLE); *s;) {
+            if (StartsWith(s, "{name}")) { t.Name(p.name, 25); s += 6; }
+            else { char c[2] = { *s++, 0 }; t.S(c); }
+        }
+    } else if (from == LOGS_LEFT_HOME_TALENT_SCOUT) {
+        t.S("Left home with ").Name(gInEvent ? gEventTitle : "The Talent Scout", 200).S(" (").S(gEventKind).S(")");
+    } else if (gBoardingSchool == p.slot + 1) {
+        t.S("Sent to Boarding School");
+    } else {
+        t.S("Left home");
+    }
+    t.NL();
+    Generation(t, Generations());
+    Write(slot, "Left Home", Body);
+}
+
+// ---- the Random Events (an Email Event or a Popup Event), and who joined or left the house with them
+struct HouseMember { unsigned char present; Person p; };
+static HouseMember Household[LOGS_HOUSEHOLD_SLOTS];
+
+static void SnapshotHousehold(HouseMember *h) {
     for (int s = 0; s < (int)LOGS_HOUSEHOLD_SLOTS; ++s) {
         const unsigned char *v = Villager(s);
         h[s].present = v[LOGS_VILLAGER_PRESENT];
-        h[s].left = v[LOGS_VILLAGER_LEFT_HOME];
         Capture(v, h[s].p);
     }
 }
 
-static void OnEvent(bool email, const char *title) {
-    int slot = CurrentSlot();
-    if (!slot) return;
-    Text h;
-    h.Init(Body, sizeof(Body));
-    h.S(email ? "E-mail: \"" : "Pop-up: \"").Name(title, 200).S("\"");
-    for (int s = 0; s < (int)LOGS_HOUSEHOLD_SLOTS; ++s) {
-        const unsigned char *v = Villager(s);
-        Person now;
-        Capture(v, now);
-        if (!Household[s].present && v[LOGS_VILLAGER_PRESENT]) {
-            int role = TreeRole(now);
-            h.S("; ");
-            Who(h, now);
-            if (role >= 2) h.S(" joined the family as a child, generation ").I(Generations());
-            else h.S(" joined the household");
-        } else if (Household[s].present && !Household[s].left && v[LOGS_VILLAGER_LEFT_HOME]) {
-            h.S("; ");
-            Who(h, now);
-            h.S(" left home");
-        } else if (Household[s].present && !v[LOGS_VILLAGER_PRESENT]) {
-            h.S("; ");
-            Who(h, Household[s].p);
-            h.S(" left the house");
+// VV's "Arrived" record: a family member who joined the family from outside.
+static void Arrived(int slot, const Person &c, const char *how, const Person *a, const Person *b) {
+    Text t;
+    t.Init(Body, sizeof(Body));
+    Self(t, c, "Age at arrival");
+    Field(t, "  ", "How", how);
+    if (a) {
+        t.S("  Parents:").NL();
+        const Person *both[2] = { a, b };
+        for (int k = 0; k < 2; ++k) {
+            const Person *q = both[k];
+            if (!q || q->slot < 0 || (k == 1 && b->slot == a->slot)) continue;
+            t.S("    ").S(q->sex == 1 ? "Mother" : "Father").S(": ").Name(q->name, 25).NL();
+            t.S("      Head: ").I(q->head).NL().S("      Body: ").I(q->body).NL();
         }
     }
-    History(slot, Body);
+    Field(t, "  ", "Family role", RoleText(TreeRole(c)));
+    Generation(t, Generations());
+    Write(slot, "Arrived", Body);
+}
+
+static void OnEvent() {
+    int slot = CurrentSlot();
+    if (!slot) return;
+    char how[300];
+    Text h;
+    h.Init(how, sizeof(how));
+    h.S("Adopted (").S(gEventKind).S(": ").Name(gEventTitle, 200).S(")");
+    for (int s = 0; s < (int)LOGS_HOUSEHOLD_SLOTS; ++s) {
+        const unsigned char *v = Villager(s);
+        if (!Household[s].present && v[LOGS_VILLAGER_PRESENT]) {
+            Person now;
+            Capture(v, now);
+            Arrived(slot, now, how, 0, 0);
+        } else if (Household[s].present && !v[LOGS_VILLAGER_PRESENT]) {
+            Text t;
+            t.Init(Body, sizeof(Body));
+            Self(t, Household[s].p, "Age");
+            t.S("  What happened: Left the house (").S(gEventKind).S(": ").Name(gEventTitle, 200).S(")").NL();
+            Generation(t, Generations());
+            Write(slot, "Left Home", Body);
+        }
+    }
+}
+
+static void EventRecord(int slot, const char *kind, const char *title, int choice) {
+    Text t;
+    t.Init(Body, sizeof(Body));
+    t.S("  ").S(kind).S(": ").Name(title, 200).NL();
+    if (choice >= 0) t.S("  Choice: ").S(choice ? "B" : "A").NL();
+    Generation(t, Generations());
+    Write(slot, "Random Event", Body);
 }
 
 // ---- vf1fun's own family changes (VF1Logs_Event)
-enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4 };
+enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4, EV_ROLL_DICE = 5, EV_BOARDING_SCHOOL = 6 };
 
-extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, int parentA, int parentB) {
+extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, int a, int b) {
     if (!VF1Logs_Status.installed) return;
     int slot = CurrentSlot();
     if (!slot) return;
-    Person p, a, b;
+    Person p, pa, pb;
     Capture(Villager(who), p);
-    Capture(Villager(parentA), a);
-    Capture(Villager(parentB), b);
-    Text h;
-    h.Init(Body, sizeof(Body));
+    Capture(Villager(a), pa);
+    Capture(Villager(b), pb);
+    Text t;
+    t.Init(Body, sizeof(Body));
     if (kind == EV_DIVORCE && p.slot >= 0) {
-        // Logged before the spouse leaves: the record still holds the generation's other parent.
+        // Before the spouse leaves: the record still holds the generation's other parent.
         unsigned char *rec = Record(Generations());
-        h.S("Divorced: ");
-        Who(h, p);
-        h.S(" left the family, divorced from ");
-        if (rec && Peep(rec, 0)[LOGS_PEEP_VALID]) h.Name((const char *)Peep(rec, 0), 25); else h.S("(nobody)");
-        h.S(", generation ").I(Generations()).S(" (Divorce Spouse)");
+        unsigned char *head = rec ? Peep(rec, 0) : 0;
+        if (head && head[LOGS_PEEP_VALID]) {
+            t.S("  Family member: ").Name((const char *)head, 25).NL();
+            t.S("    Sex: ").S(SexWord(I32(head, LOGS_PEEP_GENDER))).NL();
+            t.S("    Head: ").I(I32(head, LOGS_PEEP_HEAD)).NL().S("    Body: ").I(I32(head, LOGS_PEEP_BODY)).NL();
+        } else {
+            Field(t, "  ", "Family member", "(unknown)");
+        }
+        Member(t, "  ", "Divorced", p, "Age");
+        Field(t, "  ", "How", "Divorce Spouse");
+        if (head && head[LOGS_PEEP_VALID]) t.S("  Current spouse of ").Name((const char *)head, 25).S(": (none)").NL();
+        Generation(t, Generations());
+        Write(slot, "Divorce", Body);
     } else if (kind == EV_EVICT) {
-        h.S("Evicted:");
+        t.S("  Family members:");
         bool any = false;
         for (int s = 0; s < (int)LOGS_HOUSEHOLD_SLOTS; ++s) {
             unsigned char *v = Villager(s);
-            if (!v[LOGS_VILLAGER_PRESENT] || v[LOGS_VILLAGER_LEFT_HOME] || I32(v, LOGS_VILLAGER_HEALTH) <= 0) continue;
-            h.S(any ? ", " : " ").Name((const char *)(v + LOGS_VILLAGER_NAME), LOGS_VILLAGER_NAME_LEN);
+            if (!v[LOGS_VILLAGER_PRESENT] || I32(v, LOGS_VILLAGER_HEALTH) <= 0) continue;
+            t.S(any ? ", " : " ").Name((const char *)(v + LOGS_VILLAGER_NAME), LOGS_VILLAGER_NAME_LEN);
             any = true;
         }
-        if (!any) h.S(" (nobody)");
-        h.S(" left the house (Evict Family); the next family's history follows");
+        if (!any) t.S(" (none)");
+        t.NL();
+        Generation(t, Generations());
+        Write(slot, "Evict Family", Body);
         gPendingEviction = 1;
     } else if (kind == EV_SPAWN_CHILD && p.slot >= 0) {
-        h.S("Joined: ");
-        Who(h, p);
-        h.S(" as a child of ").Name(a.name, LOGS_VILLAGER_NAME_LEN);
-        if (b.slot >= 0 && b.slot != a.slot) h.S(" and ").Name(b.name, LOGS_VILLAGER_NAME_LEN);
-        h.S(", generation ").I(Generations()).S(" (Spawn Child)");
+        Arrived(slot, p, "Spawn Child", &pa, &pb);
     } else if (kind == EV_ADOPT_CHILD && p.slot >= 0) {
-        h.S("Joined: ");
-        Who(h, p);
-        h.S(", adopted, generation ").I(Generations()).S(" (Adopt Outside Child)");
-    } else {
-        return;
+        Arrived(slot, p, "Adopted (Adopt Outside Child)", 0, 0);
+    } else if (kind == EV_ROLL_DICE) {
+        t.S("  Cost: $").I(a).NL();
+        t.S("  ").S(gEventKind).S(": ").Name(gEventTitle[0] ? gEventTitle : "(none)", 200).NL();
+        Generation(t, Generations());
+        Write(slot, "Roll the Dice", Body);
+    } else if (kind == EV_BOARDING_SCHOOL) {
+        gBoardingSchool = who + 1;                   // SetLeftHome follows at once (villager_upgrades.inc)
     }
-    History(slot, Body);
 }
 
 // ================================================================ an existing family's first log
-// What the save's Family Tree holds, once, when the slot's log has no lines yet: each generation's couple,
-// its children, and who the tree records as dead (a slot of -1). Nothing the tree does not hold (no dates,
-// ages, causes, twins or earlier spouses).
+// What the save's Family Tree holds, once, when the slot's log has no records yet: one record per generation, its
+// parents, its children (a slot of -1: "Died: yes") and the newest generation's current spouse. Nothing the tree
+// does not hold (no dates, ages, causes, twins or earlier spouses).
+static void PeepLines(Text &t, const char *label, unsigned char *peep) {
+    t.S("  ").S(label).S(": ").Name((const char *)peep, 25).NL();
+    t.S("    Sex: ").S(SexWord(I32(peep, LOGS_PEEP_GENDER))).NL();
+    t.S("    Head: ").I(I32(peep, LOGS_PEEP_HEAD)).NL().S("    Body: ").I(I32(peep, LOGS_PEEP_BODY)).NL();
+    if (I32(peep, LOGS_PEEP_SLOT) == -1) t.S("    Died: yes").NL();
+}
+
 static void Backfill(int slot) {
     int gens = Generations();
     for (int g = 1; g <= gens; ++g) {
         unsigned char *rec = Record(g);
         if (!rec) continue;
         unsigned char *p1 = Peep(rec, 0), *p2 = Peep(rec, 1);
-        Text h;
-        if (p1[LOGS_PEEP_VALID] && p2[LOGS_PEEP_VALID]) {
-            h.Init(Body, sizeof(Body));
-            h.S("Married: ").Name((const char *)p1, 25).S(" (").S(SexWord(I32(p1, LOGS_PEEP_GENDER))).S(") and ")
-                .Name((const char *)p2, 25).S(" (").S(SexWord(I32(p2, LOGS_PEEP_GENDER))).S("), generation ").I(g);
-            History(slot, Body, true);
-        }
-        int n = 2 + RecordChildren(rec);
-        for (int k = 2; k < n; ++k) {
-            unsigned char *kid = Peep(rec, k);
-            if (!kid[LOGS_PEEP_VALID]) continue;
-            h.Init(Body, sizeof(Body));
-            h.S("Child: ").Name((const char *)kid, 25).S(" (").S(SexWord(I32(kid, LOGS_PEEP_GENDER))).S("), generation ")
-                .I(g);
-            History(slot, Body, true);
-        }
-        for (int k = 0; k < n; ++k) {
-            unsigned char *peep = Peep(rec, k);
-            if (!peep[LOGS_PEEP_VALID] || I32(peep, LOGS_PEEP_SLOT) != -1) continue;
-            h.Init(Body, sizeof(Body));
-            h.S("Died: ").Name((const char *)peep, 25).S(" (").S(SexWord(I32(peep, LOGS_PEEP_GENDER))).S("), ")
-                .S(RoleWord(k)).S(", generation ").I(g);
-            History(slot, Body, true);
-        }
+        bool v1 = p1[LOGS_PEEP_VALID] != 0, v2 = p2[LOGS_PEEP_VALID] != 0;
+        Text t;
+        t.Init(Body, sizeof(Body));
+        if (v1) PeepLines(t, "Parent", p1);
+        if (v2) PeepLines(t, "Parent (married in)", p2);
+        int n = RecordChildren(rec);
+        for (int c = 0; c < n; ++c)
+            if (Peep(rec, 2 + c)[LOGS_PEEP_VALID]) PeepLines(t, "Child", Peep(rec, 2 + c));
+        if (g == gens && v1 && v2 && I32(p1, LOGS_PEEP_SLOT) != -1 && I32(p2, LOGS_PEEP_SLOT) != -1)
+            t.S("  Current spouse of ").Name((const char *)p1, 25).S(": ").Name((const char *)p2, 25).NL();
+        Generation(t, g);
+        t.S("  Note: Recorded afterwards (from the save's Family Tree: no dates, ages, causes, twins or earlier spouses)")
+            .NL();
+        Write(slot, "Family Tree", Body, true);
     }
 }
 
 static void OnLoaded(int slot) {
     if (Generations() <= 0) return;        // no family: the new family's adoption starts the log
+    Zero(Fathers, sizeof(Fathers));
     CreateLog(slot);
     VF1Logs_Status.lastLoad = 1;
     char path[MAX_PATH + 64];
     for (unsigned k = 1; HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
         unsigned got = 0;
-        if (ReadWhole(path, &got) && CountLines(ReadBuffer, got)) return;   // never backfilled twice
+        if (ReadWhole(path, &got) && CountRecords(ReadBuffer, got)) return;   // never backfilled twice
     }
     Backfill(slot);
     VF1Logs_Status.lastLoad = 2;
 }
 
 // ================================================================ the hooks
+static bool __fastcall ConceptionHook(void *mother, void *, int one, const char *father, int head, int body, int flag) {
+    // The step passes the patriarch's head and body (0x48EB99..0x48EBB2): he is the father.
+    unsigned char *patriarch = (unsigned char *)((ThisPtrFn)LOGS_VM_GET_PATRIARCH)(Manager());
+    if (patriarch && (I32(patriarch, LOGS_VILLAGER_HEAD) != head || I32(patriarch, LOGS_VILLAGER_BODY) != body))
+        patriarch = 0;
+    bool ok = NextImpregnate(mother, one, father, head, body, flag);
+    if (ok && !gInLoad) OnConception((const unsigned char *)mother, patriarch);
+    return ok;
+}
+
 static void __fastcall PhysiologyHook(void *manager, void *) {
     SnapshotPass(Before);
     NextPhysiology(manager);
@@ -740,21 +961,44 @@ static void __fastcall RestartHook(void *state, void *) {
     int slot = CurrentSlot();
     if (slot) WipeSlot(slot);
     gPendingEviction = 0;
+    gStartedOver = 1;
     NextRestart(state);
 }
 
+// A Random Event's dialog: an Email Event when the event is an e-mail (its vtable +0x14, as the chooser and the
+// dialog's own draw ask it), else a Popup Event; its title as the dialog draws it (+0x54); after the player's
+// choice (+0x830, 0 A / 1 B, on an event with choices), who joined or left the house with it.
 static void __fastcall EventDialogHook(void *dialog, void *, void *parent, int updateParent) {
     const unsigned char *d = (const unsigned char *)dialog;
     void *event = *(void *const *)(d + LOGS_EVENT_DIALOG_EVENT);
-    const char *shown = *(const char *const *)(d + LOGS_EVENT_DIALOG_TITLE);
-    char title[256];
     Text t;
-    t.Init(title, sizeof(title));
-    t.Name(shown, sizeof(title) - 1);
+    t.Init(gEventTitle, sizeof(gEventTitle));
+    t.Name(*(const char *const *)(d + LOGS_EVENT_DIALOG_TITLE), sizeof(gEventTitle) - 1);
     bool email = event && ((ThisBoolFn)(*(void ***)event)[LOGS_EVENT_VSLOT_EMAIL / 4])(event);
+    bool choices = event && ((ThisBoolFn)(*(void ***)event)[LOGS_EVENT_VSLOT_HAS_CHOICES / 4])(event);
+    gEventKind = email ? "Email Event" : "Popup Event";
     SnapshotHousehold(Household);
+    ++gInEvent;
     NextDoModal(dialog, parent, updateParent);
-    OnEvent(email, title);
+    --gInEvent;
+    int slot = CurrentSlot();
+    if (!slot || gInLoad) return;
+    EventRecord(slot, gEventKind, gEventTitle, choices ? I32(d, LOGS_EVENT_DIALOG_CHOICE) : -1);
+    OnEvent();
+}
+
+// The main scene opens a mail: type 2 is the dating e-mail (it opens the dating scene), type 3 a letter from a
+// child who left home (the game composes it, no subject line).
+static int __fastcall DatingMailHook(void *scene, void *, int which, int param) {
+    int slot = CurrentSlot();
+    if (slot && !gInLoad) EventRecord(slot, "Email Event", "A marriage proposal (the dating e-mail)", -1);
+    return NextDatingMail(scene, which, param);
+}
+
+static int __cdecl LetterMailHook(void *scene) {
+    int slot = CurrentSlot();
+    if (slot && !gInLoad) EventRecord(slot, "Email Event", "A letter from a child who left home", -1);
+    return NextLetterMail(scene);
 }
 
 static bool __fastcall UpdateParentsHook(void *tree, void *, void *a, void *b) {
@@ -764,7 +1008,7 @@ static bool __fastcall UpdateParentsHook(void *tree, void *, void *a, void *b) {
     bool ok = OrigUpdateParents(tree, a, b);
     unsigned char *rec = Record(Generations());
     if (ok && !gInLoad && rec) {
-        // The one who married in is the one UpdateParents wrote into the record's second parent.
+        // The one who married in is the one UpdateParents wrote into the record's second parent; either sex.
         unsigned char *spouse = Peep(rec, 1);
         bool bIn = I32(spouse, LOGS_PEEP_SLOT) == pb.slot && SameText((const char *)spouse, pb.name, 25);
         if (bIn) OnMarriage(pa, pb, Generations()); else OnMarriage(pb, pa, Generations());
@@ -775,15 +1019,16 @@ static bool __fastcall UpdateParentsHook(void *tree, void *, void *a, void *b) {
 static bool __fastcall StartNextGenerationHook(void *tree, void *, void *villager, int peep) {
     int before = Generations();
     bool ok = OrigStartNextGeneration(tree, villager, peep);
-    int slot = CurrentSlot();
-    if (ok && !gInLoad && before == 0 && slot) {
-        // A brand-new family in this slot (a new game, or after Start Over): the slot's folder is the new
-        // family's alone. After Evict Family the slot keeps its history.
-        if (gPendingEviction) gPendingEviction = 0;
-        else WipeSlot(slot);
-        CreateLog(slot);
-    }
+    if (ok && !gInLoad) OnGeneration((const unsigned char *)villager, peep, before);
     return ok;
+}
+
+static void __fastcall SetLeftHomeHook(void *villager, void *) {
+    unsigned from = (unsigned)_ReturnAddress();
+    bool was = ((unsigned char *)villager)[LOGS_VILLAGER_LEFT_HOME] != 0;
+    OrigSetLeftHome(villager);
+    if (!was && !gInLoad) OnLeftHome((const unsigned char *)villager, from);
+    gBoardingSchool = 0;
 }
 
 static bool __fastcall LoadHook(void *state, void *, int slot) {
@@ -832,7 +1077,7 @@ static const unsigned char *PinBytes(unsigned va) {
 }
 
 struct Write5 { unsigned va; unsigned char bytes[5]; unsigned char original[5]; };
-static const unsigned kMaxWrites = 8;
+static const unsigned kMaxWrites = 12;
 struct Plan {
     Write5 writes[kMaxWrites];
     unsigned count;
@@ -844,7 +1089,10 @@ static unsigned TrampolineUsed;
 
 static void *CallHandler(unsigned i) {
     switch (i) {
+    case LOGS_CALL_CONCEPTION: return (void *)&ConceptionHook;
     case LOGS_CALL_PHYSIOLOGY: return (void *)&PhysiologyHook;
+    case LOGS_CALL_DATING_MAIL: return (void *)&DatingMailHook;
+    case LOGS_CALL_LETTER_MAIL: return (void *)&LetterMailHook;
     case LOGS_CALL_DEATH_END: return (void *)&DeathEndHook;
     case LOGS_CALL_BODY_REMOVAL: return (void *)&BodyRemovalHook;
     case LOGS_CALL_RESTART: return (void *)&RestartHook;
@@ -855,7 +1103,10 @@ static void *CallHandler(unsigned i) {
 
 static void SetCallNext(unsigned i, unsigned target) {
     switch (i) {
+    case LOGS_CALL_CONCEPTION: NextImpregnate = (ImpregnateFn)target; break;
     case LOGS_CALL_PHYSIOLOGY: NextPhysiology = (ThisVoidFn)target; break;
+    case LOGS_CALL_DATING_MAIL: NextDatingMail = (DatingMailFn)target; break;
+    case LOGS_CALL_LETTER_MAIL: NextLetterMail = (LetterMailFn)target; break;
     case LOGS_CALL_DEATH_END: NextReportDeathEnd = (ReportDeathFn)target; break;
     case LOGS_CALL_BODY_REMOVAL: NextReportDeathBody = (ReportDeathFn)target; break;
     case LOGS_CALL_RESTART: NextRestart = (ThisVoidFn)target; break;
@@ -867,6 +1118,7 @@ static void *EntryHandler(unsigned i) {
     switch (i) {
     case LOGS_ENTRY_FT_UPDATE_PARENTS: return (void *)&UpdateParentsHook;
     case LOGS_ENTRY_FT_START_NEXT_GEN: return (void *)&StartNextGenerationHook;
+    case LOGS_ENTRY_V_SET_LEFT_HOME: return (void *)&SetLeftHomeHook;
     }
     return 0;
 }
@@ -875,6 +1127,7 @@ static void SetEntryOriginal(unsigned i, void *t) {
     switch (i) {
     case LOGS_ENTRY_FT_UPDATE_PARENTS: OrigUpdateParents = (UpdateParentsFn)t; break;
     case LOGS_ENTRY_FT_START_NEXT_GEN: OrigStartNextGeneration = (StartNextGenerationFn)t; break;
+    case LOGS_ENTRY_V_SET_LEFT_HOME: OrigSetLeftHome = (ThisVoidFn)t; break;
     }
 }
 

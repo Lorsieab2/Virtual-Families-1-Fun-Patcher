@@ -80,7 +80,7 @@ def test_vf1fun_loads_the_companion_after_vf1kids_and_tells_it_its_family_change
     kids = cpp.index('if (SettingOn(L"UpTo28Children", false))\n        LoadKidsCompanion();')
     logs = cpp.index('if (SettingOn(L"FamilyHistory", false))')
     assert kids < logs and 'L"vf1logs.dll"' in cpp and '"VF1Logs_Startup"' in cpp and '"VF1Logs_Event"' in cpp
-    assert "LOGS_ROLL_DICE" not in cpp and "LOGS_BOARDING_SCHOOL" not in cpp and "LOGS_ADOPT_NEW_PERSON" not in cpp
+    assert "LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);" in cpp
     family = (ROOT / "native" / "vf1fun" / "family.inc").read_text(encoding="utf-8")
     for call in ("LogFamilyEvent(LOGS_DIVORCE, spouse);", "LogFamilyEvent(LOGS_SPAWN_CHILD, slot, a, b);",
                  "LogFamilyEvent(LOGS_ADOPT_CHILD, slot);", "if (mode == ADOPT_EVICT) LogFamilyEvent(LOGS_EVICT, -1);"):
@@ -88,10 +88,11 @@ def test_vf1fun_loads_the_companion_after_vf1kids_and_tells_it_its_family_change
     # Divorce is logged before the spouse is removed; Evict before the tree is reset.
     assert family.index("LogFamilyEvent(LOGS_DIVORCE") < family.index("v[0x13574] = 0;")
     assert family.index("LogFamilyEvent(LOGS_EVICT") < family.index("ResetFamilyTree(FamilyTree);")
-    assert "LogFamilyEvent" not in (ROOT / "native" / "vf1fun" / "villager_upgrades.inc").read_text(encoding="utf-8")
+    upgrades = (ROOT / "native" / "vf1fun" / "villager_upgrades.inc").read_text(encoding="utf-8")
+    assert upgrades.index("LogFamilyEvent(LOGS_BOARDING_SCHOOL, i);") < upgrades.index("((SetLeftHomeFn)0x4857F0)(v);")
     dll = (SRC / "vf1logs.cpp").read_text(encoding="utf-8")
     assert 'L"FamilyHistory"' in dll
-    for k, v in {"DIVORCE": 1, "EVICT": 2, "SPAWN_CHILD": 3, "ADOPT_CHILD": 4}.items():
+    for k, v in {"DIVORCE": 1, "EVICT": 2, "SPAWN_CHILD": 3, "ADOPT_CHILD": 4, "ROLL_DICE": 5, "BOARDING_SCHOOL": 6}.items():
         assert f"LOGS_{k} = {v}" in cpp and f"EV_{k} = {v}" in dll
 
 
@@ -102,6 +103,12 @@ def test_the_source_has_no_hard_coded_game_address():
     found = [x for x in re.findall(r"0x[0-9A-Fa-f]{5,8}\b", text)
              if int(x, 16) > 0x400000 and x.lower() not in ("0x474c3156u", "0x400000u", "0x401000u")]
     assert not found, found
+
+
+def test_the_random_events_are_never_island_events_in_the_log():
+    dll = (SRC / "vf1logs.cpp").read_text(encoding="utf-8")
+    assert '"Email Event"' in dll and '"Popup Event"' in dll and '"Random Event"' in dll
+    assert "island event" not in re.sub(r"//[^\n]*", "", dll).lower()
 
 
 def test_only_the_family_history_is_written():
@@ -144,6 +151,8 @@ def test_the_words_are_the_executables():
     exe = L.Exe(vanilla_exe().read_bytes())
     words = [exe.string_record(L.STR_CAUSE_UNKNOWN + k)[1] for k in range(6)]
     assert words == ["Unknown causes", "Disease", "Starvation", "Old age", "Work accident", "Act of Nature"]
+    assert exe.string_record(L.STR_NEW_GENERATION)[1] == "New Generation"
+    assert exe.string_record(L.STR_COLLEGE_TITLE)[1] == "{name} is going to college!"
 
 
 # ===================================================================== the DLL under emulation
@@ -181,11 +190,26 @@ def record(g=1):
     return L.FAMILY_TREE + g * L.FAMILY_RECORD_SIZE - L.FAMILY_RECORD_BASE
 
 
+def find(w, heading, slot=None, n=1):
+    """The record whose heading (after the stamp) is `heading`, e.g. "Birth 2"."""
+    hits = [r for r in w.records(slot, n) if r.split("\n", 1)[0].split("] ", 1)[1] == heading]
+    assert len(hits) == 1, (heading, w.headings(slot, n))
+    return hits[0]
+
+
+def body(*lines):
+    return "\n".join(lines)
+
+
+ANN = body("    Age: 26", "    Sex: Female", "    Head: 3", "    Body: 4")
+BOB = body("    Age: 27", "    Sex: Male", "    Head: 7", "    Body: 8")
+
+
 def test_install_writes_only_the_planned_sites(built):
     w = world(built)
     assert w.installed == 1
     st = w.status()
-    assert st["requested"] == 1 and st["resolved"] == 1 and st["installed"] == 1 and st["writes"] == 8
+    assert st["requested"] == 1 and st["resolved"] == 1 and st["installed"] == 1 and st["writes"] == 12
     expected = set()
     for _p, site, _t in L.CALL_HOOKS:
         expected.update(range(site + 1, site + 5))           # call displacements only
@@ -206,7 +230,7 @@ def test_setting_off_or_missing_is_stock(built):
         assert not w.fs.files
 
 
-@pytest.mark.parametrize("va", [0x48C2EE, 0x481D11, 0x4819E5, 0x424F93, 0x41B2C2, 0x419DE2, 0x41B0D1])
+@pytest.mark.parametrize("va", [0x48C2EE, 0x481D11, 0x4819E5, 0x424F93, 0x41B2C2, 0x419DE2, 0x41B0D1, 0x445002, 0x4857F8])
 def test_a_patched_pin_refuses_everything(built, va):
     def damage(w):
         w.e.write(va, bytes([w.e.read(va, 1)[0] ^ 0x01]))
@@ -225,7 +249,9 @@ def test_new_family_wipes_the_slot_and_starts_the_log(built):
     w.start_family(0, "Ann", 1, 26)
     assert w.fs.read(root + "\\Backups\\keep.txt") == b"keep me", "Backups are kept"
     assert w.fs.read(w.root(2) + "\\Logs\\Family History\\Family History 1.txt") == b"another slot"
-    assert w.history() == "Family: Hopkins (Save 1)\r\n"
+    assert w.history() == ("Family: Hopkins (Save 1)\r\n" + STAMP + "Generation 1\r\n  Name: Ann\r\n  Age: 26\r\n"
+                           "  Sex: Female\r\n  Head: 3\r\n  Body: 4\r\n  How: Founder (adopted and started the family)\r\n"
+                           "  Generation: 1\r\n\r\n")
     assert w.fs.under(w.root()) == sorted([w.fs.key(root + "\\Backups\\keep.txt"),
                                            w.fs.key(root + "\\Logs\\Family History\\Family History 1.txt")])
     assert w.status()["wipes"] == 1
@@ -233,18 +259,35 @@ def test_new_family_wipes_the_slot_and_starts_the_log(built):
 
 def test_marriage_names_the_current_spouse(built):
     w = family(built)
-    assert w.history_lines() == [STAMP + "Married: Ann (Female, 26) and Bob (Male, 27), generation 1"]
+    assert find(w, "Marriage 1") == body(STAMP + "Marriage 1", "  Family member: Ann", ANN, "  Married: Bob", BOB,
+                                         "  Current spouse of Ann: Bob", "  Generation: 1")
+
+
+def test_a_same_sex_marriage_is_logged_the_same_way(built):
+    """Cheat Upgrades' same-sex wedding: vf1fun calls UpdateParents itself (its SameGenderWedding), so the hooked
+    entry is reached as it reaches it; nothing in the record says husband or wife."""
+    w = world(built)
+    w.start_family(0, "Ann", 1, 26)
+    w.set_villager(1, "Dora", 1, years=30, head=9, body=10)
+    assert w.marry(0, 1) == 1
+    assert find(w, "Marriage 1") == body(
+        STAMP + "Marriage 1", "  Family member: Ann", ANN, "  Married: Dora", "    Age: 30", "    Sex: Female",
+        "    Head: 9", "    Body: 10", "  Current spouse of Ann: Dora", "  Generation: 1")
+    w.event(1, 1)                                             # Divorce Spouse
+    assert "  Divorced: Dora\n    Age: 30\n    Sex: Female\n" in find(w, "Divorce 1")
 
 
 def test_remarriage_after_a_spouse_dies_with_no_children(built):
     w = family(built)
     w.die(1, cause=3)                                         # the REAL ReportDeath forgets parent 2: no children
     assert not w.e.read(record() + L.RECORD_PARENT2 + L.PEEP_VALID, 1)[0]
-    w.set_villager(2, "Carl", 0, years=29)
+    assert find(w, "Death 1") == body(
+        STAMP + "Death 1", "  Name: Bob", "  Age at death: 27", "  Sex: Male", "  Cause of death: Work accident",
+        "  Head: 7", "  Body: 8", "  Family role: Parent (married in)", "  Generation: 1",
+        "  Current spouse of Ann: (none)")
+    w.set_villager(2, "Carl", 0, years=29, head=5, body=6)
     assert w.marry(0, 2) == 1
-    assert w.history_lines()[1:] == [
-        STAMP + "Died: Bob (Male, 27), spouse, generation 1: Work accident",
-        STAMP + "Remarried: Ann (Female, 26) and Carl (Male, 29), generation 1; earlier spouse: Bob"]
+    assert "  Remarried: yes\n  Earlier spouse: Bob (died)\n  Current spouse of Ann: Carl\n" in find(w, "Marriage 2")
 
 
 def test_divorce_then_remarriage(built):
@@ -255,40 +298,55 @@ def test_divorce_then_remarriage(built):
     w.e.w32(record() + L.RECORD_PARENT2 + L.PEEP_SLOT, -1)
     w.set_villager(2, "Dan", 0, years=30)
     w.marry(0, 2)
-    assert w.history_lines()[1:] == [
-        STAMP + "Divorced: Bob (Male, 27) left the family, divorced from Ann, generation 1 (Divorce Spouse)",
-        STAMP + "Remarried: Ann (Female, 26) and Dan (Male, 30), generation 1; earlier spouse: Bob"]
+    assert find(w, "Divorce 1") == body(
+        STAMP + "Divorce 1", "  Family member: Ann", "    Sex: Female", "    Head: 3", "    Body: 4", "  Divorced: Bob",
+        BOB, "  How: Divorce Spouse", "  Current spouse of Ann: (none)", "  Generation: 1")
+    assert "  Remarried: yes\n  Earlier spouse: Bob (divorced)\n  Current spouse of Ann: Dan\n" in find(w, "Marriage 2")
 
 
-def test_a_single_birth_names_both_parents(built):
+def test_conception_and_a_single_birth_name_both_parents(built):
     w = family(built)
     w.conceive(rolls=[99, 99], names=["Cid"])
+    assert find(w, "Conception 1") == body(
+        STAMP + "Conception 1", "  Mother: Ann", "    Age at conception: 26", "    Sex: Female", "    Head: 3",
+        "    Body: 4", "  Father: Bob", "    Age at conception: 27", "    Sex: Male", "    Head: 7", "    Body: 8",
+        "  Babies Nursing: 1", "  Generation: 1")
     w.physiology(age_on=5)
-    assert len(w.history_lines()) == 1, "not due yet: nothing delivered"
+    assert "Birth" not in " ".join(w.headings()), "not due yet: nothing delivered"
     w.physiology()
-    assert w.history_lines()[-1] == STAMP + "Born to Ann and Bob, generation 1: Cid (Male)"
+    assert find(w, "Birth 1") == body(
+        STAMP + "Birth 1", "  Child: Cid", "    Sex: Male", "    Head: 3", "    Body: 4", "  Mother: Ann", "    Head: 3",
+        "    Body: 4", "  Father: Bob", "    Head: 7", "    Body: 8", "  Born as: Single birth", "  Generation: 1")
     w.physiology()
-    assert len(w.history_lines()) == 2, "nothing more delivered: nothing more written"
+    assert sum(h.endswith("Birth 1") for h in w.headings()) == 1, "nothing more delivered: nothing more written"
 
 
-@pytest.mark.parametrize("rolls,names,line", [
-    ([0, 99], ["Cid", "Dee"], "Twins born to Ann and Bob, generation 1: Cid (Male) and Dee (Female)"),
-    ([0, 0], ["Cid", "Dee", "Eve"],
-     "Triplets born to Ann and Bob, generation 1: Cid (Male), Dee (Female) and Eve (Male)"),
-])
-def test_twins_and_triplets_are_one_line(built, rolls, names, line):
+@pytest.mark.parametrize("rolls,names,born_as", [([0, 99], ["Cid", "Dee"], "Twin"),
+                                                 ([0, 0], ["Cid", "Dee", "Eve"], "Triplet")])
+def test_twins_and_triplets(built, rolls, names, born_as):
     w = family(built)
     w.conceive(rolls=rolls, names=names)
     w.physiology()                                           # the REAL delivery block
-    assert w.history_lines()[-1] == STAMP + line
+    for k, name in enumerate(names, 1):
+        r = find(w, f"Birth {k}")
+        assert f"  Child: {name}\n" in r and f"  Born as: {born_as}\n" in r and "  Father: Bob\n" in r
 
 
-def test_a_father_the_tree_no_longer_holds_is_unknown(built):
+def test_a_father_the_game_no_longer_holds_is_unknown(built):
     w = family(built)
     w.conceive(rolls=[99, 99], names=["Cid"])
+    w.load()                                                 # a new session: the conception is not remembered
     w.e.write(record() + L.RECORD_PARENT2, b"\0" * L.PEEP_RECORD_SIZE)   # Divorce Spouse cleared the father
     w.physiology()
-    assert w.history_lines()[-1] == STAMP + "Born to Ann and an unknown father, generation 1: Cid (Male)"
+    assert "  Father: (unknown)\n" in find(w, "Birth 1")
+
+
+def test_a_father_from_the_record_after_a_load(built):
+    w = family(built)
+    w.conceive(rolls=[99, 99], names=["Cid"])
+    w.load()                                                 # the father is the record's, by his head and body
+    w.physiology()
+    assert "  Father: Bob\n    Head: 7\n    Body: 8\n" in find(w, "Birth 1")
 
 
 def test_deaths_with_the_exes_cause_and_role(built):
@@ -297,8 +355,9 @@ def test_deaths_with_the_exes_cause_and_role(built):
     w.physiology()
     w.die(2, cause=0, how="body")                             # the child, at the body's removal
     w.die(1, cause=2)                                         # the spouse, at the death behaviour's end
-    assert w.history_lines()[-2:] == [STAMP + "Died: Cid (Male, 2), child, generation 1: Disease",
-                                      STAMP + "Died: Bob (Male, 27), spouse, generation 1: Old age"]
+    assert "  Name: Cid\n  Age at death: 2\n  Sex: Male\n  Cause of death: Disease\n" in find(w, "Death 1")
+    assert "  Family role: Child\n" in find(w, "Death 1")
+    assert "  Cause of death: Old age\n" in find(w, "Death 2") and "  Family role: Parent (married in)\n" in find(w, "Death 2")
 
 
 def test_the_patchers_children_who_join(built):
@@ -307,51 +366,105 @@ def test_the_patchers_children_who_join(built):
     w.event(4, 5)                                             # Adopt Outside Child
     w.set_villager(6, "Max", 0, years=7, career=-1)
     w.event(3, 6, 0, 1)                                       # Spawn Child
-    assert w.history_lines()[-2:] == [
-        STAMP + "Joined: Lil (Female, 5), adopted, generation 1 (Adopt Outside Child)",
-        STAMP + "Joined: Max (Male, 7) as a child of Ann and Bob, generation 1 (Spawn Child)"]
+    assert "  Name: Lil\n  Age at arrival: 5\n  Sex: Female\n" in find(w, "Arrived 1")
+    assert "  How: Adopted (Adopt Outside Child)\n" in find(w, "Arrived 1")
+    assert ("  How: Spawn Child\n  Parents:\n    Mother: Ann\n      Head: 3\n      Body: 4\n    Father: Bob\n"
+            "      Head: 7\n      Body: 8\n") in find(w, "Arrived 2")
+
+
+def test_leaving_home_at_19_uses_the_games_caption(built):
+    w = family(built)
+    w.set_villager(4, "Eve", 1, years=19, career=0)
+    w.leave_home_at_19(4)
+    assert w.e.read(w.villager(4) + L.VILLAGER_LEFT_HOME, 1) == b"\x01"
+    assert find(w, "Left Home 1") == body(STAMP + "Left Home 1", "  Name: Eve", "  Age: 19", "  Sex: Female", "  Head: 3",
+                                          "  Body: 4", "  What happened: Eve is going to college!", "  Generation: 1")
+    w.leave_home_at_19(4)                                     # already gone: nothing more
+    assert sum("Left Home" in h for h in w.headings()) == 1
+
+
+def test_boarding_school(built):
+    w = family(built)
+    w.set_villager(4, "Eve", 1, years=9, career=-1)
+    w.event(6, 4)                                             # vf1fun: the departure that follows is Boarding School
+    w.e.call(L.FUNCTIONS["V_SET_LEFT_HOME"], (), ecx=w.villager(4))   # vf1fun's own SetLeftHome call
+    assert "  What happened: Sent to Boarding School\n" in find(w, "Left Home 1")
+
+
+def test_next_generation_and_adopt_new_person(built):
+    w = family(built)
+    w.set_villager(2, "Kid", 0, years=20, career=5)
+    w.e.call(ADD_OFFSPRING, (w.villager(2),), ecx=L.FAMILY_TREE)
+    w.next_generation(2, 0)                                   # the adoption scene's own accept
+    assert w.generations() == 2
+    assert find(w, "New Generation 1") == body(
+        STAMP + "New Generation 1", "  Name: Kid", "  Age: 20", "  Sex: Male", "  Head: 3", "  Body: 4",
+        "  How: Heir (inherited the house)", "  Generation: 2")
+    w.set_villager(9, "Zed", 0, years=25)
+    assert w.adopt_new_person(9) == 1
+    assert "  Name: Zed\n" in find(w, "Generation 2") and "  How: Adopt New Person\n" in find(w, "Generation 2")
+
+
+def test_the_mails_that_are_not_random_events(built):
+    w = family(built)
+    w.dating_mail()
+    w.letter_mail()
+    assert w.scene_switches == [(8, -1)] and w.letters == [w.scene]
+    assert find(w, "Random Event 1") == body(STAMP + "Random Event 1",
+                                             "  Email Event: A marriage proposal (the dating e-mail)", "  Generation: 1")
+    assert "  Email Event: A letter from a child who left home\n" in find(w, "Random Event 2")
+
+
+def test_roll_the_dice_names_the_event_it_fired(built):
+    w = house(built)
+    w.pop_up(41)
+    w.event(5, -1, 500)
+    assert find(w, "Roll the Dice 1") == body(STAMP + "Roll the Dice 1", "  Cost: $500", "  Popup Event: Adoption Day",
+                                              "  Generation: 1")
 
 
 def test_eviction_keeps_the_log_for_the_next_family(built):
     w = family(built)
     w.event(2)
-    assert w.history_lines()[-1] == (STAMP + "Evicted: Ann, Bob left the house (Evict Family); the next family's "
-                                     "history follows")
+    assert find(w, "Evict Family 1") == body(STAMP + "Evict Family 1", "  Family members: Ann, Bob", "  Generation: 1")
     w.reset_tree()
     w.start_family(3, "Nia", 1, 30)
     assert w.status()["wipes"] == 1, "an eviction is not a new slot"
+    assert "  How: Founder (after the eviction)\n" in find(w, "Generation 2")
     w.set_villager(4, "Ole", 0, years=31)
     w.marry(3, 4)
-    assert w.history_lines()[-1] == STAMP + "Married: Nia (Female, 30) and Ole (Male, 31), generation 1"
+    assert "Remarried" not in find(w, "Marriage 2")
 
 
-def test_start_over_wipes_the_slot_but_keeps_backups(built):
+def test_start_over_wipes_the_slot_but_keeps_backups_and_says_so(built):
     w = family(built)
     w.fs.write(w.root() + "\\Backups\\b.txt", b"b")
     w.start_over()
     assert w.restarts == [w.state]
     assert w.fs.under(w.root()) == [w.fs.key(w.root() + "\\Backups\\b.txt")]
+    w.reset_tree()
+    w.start_family(0, "Nia", 1, 30)
+    assert w.headings() == [STAMP + "Start Over 1", STAMP + "Generation 1"]
 
 
-def test_lines_roll_into_the_next_file_after_2000(built):
+def test_records_roll_into_the_next_file_after_2000(built):
     w = family(built)
     path = w.root() + "\\Logs\\Family History\\Family History 1.txt"
-    w.fs.write(path, ("Family: Hopkins (Save 1)\r\n" + (STAMP + "x\r\n") * 1999).encode())
+    w.fs.write(path, ("Family: Hopkins (Save 1)\r\n" + (STAMP + "Note 1\r\n  x\r\n\r\n") * 1999).encode())
     w.event(4, 0)
     w.event(4, 1)
-    assert len(w.history_lines()) == 2000 and w.history_lines()[-1].endswith("(Adopt Outside Child)")
-    assert w.history(n=2) == ("Family: Hopkins (Save 1)\r\n" + STAMP
-                              + "Joined: Bob (Male, 27), adopted, generation 1 (Adopt Outside Child)\r\n")
+    assert len(w.records()) == 2000 and w.headings()[-1] == STAMP + "Arrived 1"
+    assert w.headings(n=2) == [STAMP + "Arrived 2"] and w.history(n=2).startswith("Family: Hopkins (Save 1)\r\n")
 
 
-def test_lines_go_to_the_current_slot(built):
+def test_records_go_to_the_current_slot(built):
     w = family(built)
     w.set_slot(3)
     w.event(4, 1)
-    assert "Joined: Bob" in w.history(slot=3) and "Joined: Bob" not in w.history(slot=1)
+    assert w.headings(slot=3) == [STAMP + "Arrived 1"]
 
 
-# ------------------------------------------------------------------ the e-mail and pop-up events
+# ------------------------------------------------------------------ the Random Events
 def house(built):
     w = family(built)
     for slot, name, sex, years in ((2, "Kid", 0, 10), (3, "Tot", 1, 3)):
@@ -364,21 +477,24 @@ def test_the_little_visitor_names_the_child_who_joined(built):
     w = house(built)
     w.visitor_names.append("Wren")
     assert w.pop_up(49) == [49]
-    line = w.history_lines()[-1]
-    assert line.startswith(STAMP + 'Pop-up: "The Little Visitor"; Wren (')
-    assert line.endswith(", 3) joined the family as a child, generation 1")
+    assert find(w, "Random Event 1") == body(STAMP + "Random Event 1", "  Popup Event: The Little Visitor", "  Choice: A",
+                                             "  Generation: 1")
+    arrived = find(w, "Arrived 1")
+    assert "  Name: Wren\n  Age at arrival: 3\n" in arrived
+    assert "  How: Adopted (Popup Event: The Little Visitor)\n  Family role: Child\n" in arrived
 
 
 def test_the_talent_scout_names_the_child_who_left(built):
     w = house(built)
     assert w.pop_up(58) == [58]
-    assert w.history_lines()[-1] in (STAMP + 'Pop-up: "The Talent Scout"; Kid (Male, 10) left home',
-                                     STAMP + 'Pop-up: "The Talent Scout"; Tot (Female, 3) left home')
+    left = find(w, "Left Home 1")
+    assert "  What happened: Left home with The Talent Scout (Popup Event)\n" in left
+    assert "  Name: Kid\n" in left or "  Name: Tot\n" in left
 
 
 def test_every_event_that_can_fire_is_logged_by_its_own_title(built):
-    """Each e-mail and pop-up event the test house can fire, from the main scene's own branch: the line names the
-    title the dialog shows (the executable's text for GetTitle), as an e-mail or a pop-up as the registry says.
+    """Each Random Event the test house can fire, from the main scene's own branch: the record names the title the
+    dialog shows (the executable's text for GetTitle), as an Email Event or a Popup Event as the registry says.
     The ones whose CanFire is false in this house are checked by their title alone."""
     events = registry()
     assert len(events) == 71
@@ -388,7 +504,7 @@ def test_every_event_that_can_fire_is_logged_by_its_own_title(built):
         ev = w.event_object(n)
         assert w.is_email(ev) == email, n
         assert w.exe.string_record(w.title_id(ev))[1] == title, n           # the shown title is the registry's
-        before = len(w.history_lines())
+        before = len(w.records())
         try:
             shown = w.email(n) if email else w.pop_up(n)
         except Exception as exc:                                           # CanFire false in this house
@@ -397,13 +513,12 @@ def test_every_event_that_can_fire_is_logged_by_its_own_title(built):
         if not shown:
             # Picked, but the dialog is never shown: a choice event with no villager to act on (the constructor's
             # 0x41AAE1..0x41AAF1 leaves +0x4C at 0); stock Landscaping and Housekeeping are such. Nothing logged.
-            assert w.has_choices(ev) and not w.e.r32(ev + 4) and len(w.history_lines()) == before, n
+            assert w.has_choices(ev) and not w.e.r32(ev + 4) and len(w.records()) == before, n
             never.add(n)
             continue
         assert shown == [n]
-        assert len(w.history_lines()) == before + 1
-        line = w.history_lines()[-1]
-        assert line.startswith(STAMP + ("E-mail" if email else "Pop-up") + f': "{title}"'), (n, line)
+        event = next(r for r in w.records()[before:] if "] Random Event " in r.split("\n", 1)[0])
+        assert event.split("\n")[1] == f"  {'Email Event' if email else 'Popup Event'}: {title}", (n, event)
         fired.add(n)
     assert never == {60, 61} and len(fired) >= 59, sorted(set(events) - fired)
 
@@ -432,7 +547,7 @@ def test_chains_over_another_companions_entry_jmp_and_vtable(built):
     assert w.installed == 1
     w.start_family(0, "Ann", 1, 26)
     w.load()
-    assert hits == ["kids", "fun"] and w.loads == [1] and w.history() == "Family: Hopkins (Save 1)\r\n"
+    assert hits == ["kids", "fun"] and w.loads == [1] and w.headings() == [STAMP + "Generation 1"]
 
 
 # ------------------------------------------------------------------ backfill on copies of real saves
@@ -447,17 +562,26 @@ def test_backfill_of_a_real_save_matches_its_family_tree(built, name):
     save = w.load_save_image(_real(name), slot=2)
     assert w.load(2) == 1
     sexes = {0: "Male", 1: "Female"}
-    roles = lambda k: "parent" if k == 0 else "spouse" if k == 1 else "child"  # noqa: E731
+
+    def peep(label, p):
+        return [f"  {label}: {p.name}", f"    Sex: {sexes.get(p.sex, 'Male')}", f"    Head: {p.head}",
+                f"    Body: {p.body}"] + (["    Died: yes"] if p.slot == -1 else [])
     want = []
     for g, rec in enumerate(save.family_records, 1):
-        if rec.parent1.used and rec.parent2.used:
-            want.append(f"Married: {rec.parent1.name} ({sexes.get(rec.parent1.sex, 'Male')}) and {rec.parent2.name} "
-                        f"({sexes.get(rec.parent2.sex, 'Male')}), generation {g}")
-        want += [f"Child: {c.name} ({sexes.get(c.sex, 'Male')}), generation {g}" for c in rec.children if c.used]
-        for k, p in enumerate([rec.parent1, rec.parent2, *rec.children]):
-            if p.used and p.slot == -1:
-                want.append(f"Died: {p.name} ({sexes.get(p.sex, 'Male')}), {roles(k)}, generation {g}")
-    assert want and w.history_lines(2) == ["[backfilled, no date] " + x for x in want]
+        lines = [f"[backfilled, no date] Family Tree {g}"]
+        if rec.parent1.used:
+            lines += peep("Parent", rec.parent1)
+        if rec.parent2.used:
+            lines += peep("Parent (married in)", rec.parent2)
+        for c in rec.children:
+            if c.used:
+                lines += peep("Child", c)
+        if g == len(save.family_records) and rec.parent1.used and rec.parent2.used and -1 not in (rec.parent1.slot, rec.parent2.slot):
+            lines.append(f"  Current spouse of {rec.parent1.name}: {rec.parent2.name}")
+        lines += [f"  Generation: {g}", "  Note: Recorded afterwards (from the save's Family Tree: no dates, ages, "
+                  "causes, twins or earlier spouses)"]
+        want.append("\n".join(lines))
+    assert want and w.records(2) == want
     assert w.history(2).startswith(f"Family: {save.family_name or '(no name)'} (Save 2)\r\n")
     assert w.status()["lastLoad"] == 2
     before = w.history(2)
@@ -469,7 +593,7 @@ def test_backfill_never_repeats_over_a_log_that_already_began(built):
     w = world(built)
     w.load_save_image(_real("generation6_left_home"), slot=1)
     w.fs.write(w.root() + "\\Logs\\Family History\\Family History 1.txt",
-               b"Family: x (Save 1)\r\n" + STAMP.encode() + b"x\r\n")
+               b"Family: x (Save 1)\r\n" + STAMP.encode() + b"Note 1\r\n  x\r\n\r\n")
     w.load(1)
     assert "backfilled" not in w.history() and w.status()["lastLoad"] == 1
 

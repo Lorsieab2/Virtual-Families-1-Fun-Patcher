@@ -82,8 +82,15 @@ class Person:
     adopted: bool = False               # joined as an adopted child (no parents in their bio)
     heir: bool = False                  # inherited the house: parent 1 of a later generation
     cause: str = ""                     # the cause of death, from a body still in the house (wording unconfirmed)
-    career: int | None = None
+    career: int | None = None           # the save's career id (CVillagerSkills +0; the Family Tree's +0x30)
+    career_level: int | None = None     # 0 Beginner .. 7 Master (CVillagerSkills +4), from a villager record only
     slot: int | None = None             # the villager record they are matched to, if any
+    divorced: bool = False              # left with the patcher's Divorce Spouse (Family History log, or tree memory)
+    remarried: bool = False             # the head of the family married again (Family History log, or tree memory)
+    spouse_number: int | None = None    # their place in the order of their partner's marriages (1, 2..), when proved
+    partner: int | None = None          # the one they married, when no child links them (a spouse the save lost)
+    event_title: str = ""               # the Random Event that brought them in or took them away ("Popup Event: ...")
+    left_how: str = ""                  # how they left home, as the Family History log says
     unknowns: list[str] = field(default_factory=list)   # what the records do not say (shown, never guessed)
     sources: list[str] = field(default_factory=list)    # where each fact came from
 
@@ -305,6 +312,8 @@ def cause_words(cause: int) -> str:
 def _apply_villager(p: Person, v: vf1_save.Villager, unborn: set[int]) -> None:
     p.slot = v.slot
     p.age = v.age_units
+    if v.career >= 0:
+        p.career, p.career_level = v.career, v.career_level
     if v.slot in unborn and not v.present:
         p.upcoming = True
         p.alive = False

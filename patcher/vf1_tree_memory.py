@@ -255,7 +255,7 @@ def _add_remembered(village: gen.Village, members: list[dict], mid_of: dict[int,
         if m.get("left"):
             p.unknowns.append(m["left"])
             if m["left"].startswith("Divorced"):
-                p.event = "Divorce Spouse"
+                p.event, p.divorced = "Divorce Spouse", True
         elif state != "died":
             p.unknowns.append(f"No longer in the save (last seen in the save of {m['last_seen']['saved_at']}); the "
                               "save does not say what became of them.")
@@ -271,7 +271,17 @@ def _add_remembered(village: gen.Village, members: list[dict], mid_of: dict[int,
         father, mother = gen._parents_by_sex(people, parents)
         if len(parents) == 2 or child.father is None and child.mother is None:
             child.father, child.mother = father, mother
-    # A remembered spouse of the current record's first parent: their partner for the tree's lines.
+    # A remembered spouse the save no longer holds: the partner of their generation's first parent (drawn as the
+    # couple), and that parent remarried when the save now shows another spouse beside them. The tree saw both, so
+    # this is proved; the order of the marriages is not (the tree may have opened after an earlier one).
     for m in members:
         if m.get("displaced") and m["mid"] in person_of and ".p2#" in m.get("seat", ""):
-            people[person_of[m["mid"]]].arrived = True
+            spouse = people[person_of[m["mid"]]]
+            spouse.arrived = True
+            g = int(m["seat"][1:].split(".")[0])
+            couple = village.couples.get(g) or []
+            head = people.get(couple[0]) if couple else None
+            if head is not None and head.id != spouse.id:
+                spouse.partner = head.id
+                if len(couple) > 1:
+                    head.remarried = True

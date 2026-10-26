@@ -20,7 +20,7 @@ game's OWN instructions from a live caller of each hooked site:
 Game code that runs for real: CVillager::Impregnate (whole), the delivery block of the physiology pass
 (0x48C073..0x48C307, entered with the pass's own frame), CFamilyTree::ReportDeath, CountSurvivingChildren,
 UpdateParents (with FindPeepRecord and the game's string copy), StartFamilyTree, Reset, StartNextGeneration,
-the island events' constructor 0x419EE0 (all 71 events), FireEvent / FireEmailEvent, the chooser and every
+the Random Events' constructor 0x419EE0 (all 71 events), FireEvent / FireEmailEvent, the chooser and every
 event's CanFire, the event dialog's handler 0x41B0A0 (choice A, then OK), the chosen event's ImpactGame and
 what it calls (AddOffspring, SetLeftHome, the money).
 
@@ -70,6 +70,7 @@ OPERATOR_NEW, PLAY_SOUND, SPARKLE, COLLECTABLE_ADD, SET_PROP = 0x497B14, 0x44C56
 EVENTS_CONSTRUCTOR, EVENTS_INSTANCE = 0x419EE0, 0x502040
 DIALOG_REMOVE, DIALOG_ADD, DIALOG_TEXT, DIALOG_DESTRUCTOR = 0x40C530, 0x40C4B0, 0x419E50, 0x419CA0
 MONEY = 0x50C60C
+SCENE_SWITCH, LETTER = 0x440E60, 0x415B60
 STAMP = "[2026-10-24 12:34:56] "
 
 
@@ -313,7 +314,7 @@ class HistoryWorld:
 
     def status(self):
         st = self.e.dll_export("VF1Logs_Status")
-        names = ("magic", "version", "requested", "resolved", "installed", "writes", "lines", "lastLoad", "wipes")
+        names = ("magic", "version", "requested", "resolved", "installed", "writes", "records", "lastLoad", "wipes")
         return {n: self.e.r32(st + 4 * i) for i, n in enumerate(names)}
 
     # ------------------------------------------------------------------ the game's state
@@ -388,9 +389,19 @@ class HistoryWorld:
     def history(self, slot=None, n=1):
         return self.fs.text(f"{self.root(slot)}\\Logs\\Family History\\Family History {n}.txt")
 
-    def history_lines(self, slot=None, n=1):
+    def records(self, slot=None, n=1):
+        """Each record of the file: its heading ("[stamp] Kind n") and its lines, as one text."""
         text = self.history(slot, n) or ""
-        return [line for line in text.split("\r\n") if line.startswith("[")]
+        out = []
+        for line in text.split("\r\n"):
+            if line.startswith("["):
+                out.append(line)
+            elif out and line:
+                out[-1] += "\n" + line
+        return out
+
+    def headings(self, slot=None, n=1):
+        return [r.split("\n", 1)[0] for r in self.records(slot, n)]
 
     # ------------------------------------------------------------------ seams
     def _seams(self):
@@ -457,6 +468,9 @@ class HistoryWorld:
             return 1, 4
         e.seam_live(L.FUNCTIONS["GS_LOAD"], load)
         e.seam_live(L.FUNCTIONS["GS_RESTART"], lambda emu: (self.restarts.append(emu.ecx), (0, 0))[1])
+        self.scene_switches, self.letters = [], []
+        e.seam_live(SCENE_SWITCH, lambda emu: (self.scene_switches.append((emu.arg(0), s32(emu.arg(1)))), (0, 8))[1])
+        e.seam_live(LETTER, lambda emu: (self.letters.append(emu.arg(0)), (0, 0))[1])
         self._delivery_seams()
 
     # The physiology pass's stand-in: the REAL delivery block for each villager, in the pass's own frame
@@ -509,7 +523,7 @@ class HistoryWorld:
         e.setreg(UC_X86_REG_ESP, ctx["esp"] + 4)
         e.setreg(UC_X86_REG_EIP, ctx["ret"])
 
-    # ------------------------------------------------------------------ the island events
+    # ------------------------------------------------------------------ the Random Events
     def _island_events(self):
         """The game's own 71 events (constructor 0x419EE0), and the event dialog's stand-ins."""
         e = self.e
@@ -659,6 +673,30 @@ class HistoryWorld:
             self.run(0x48E1FA, 0x48E205, edi=v)
         else:
             self.run(0x489D7F, 0x489D94, esi=v + L.VILLAGER_LEFT_HOME)
+
+    def leave_home_at_19(self, slot):
+        """AllVillagersTimeflowUpkeep's own SetLeftHome call (0x489EC3..0x489ECA)."""
+        self.run(0x489EC3, 0x489ECA, ebp=self.villager(slot))
+
+    def dating_mail(self):
+        """The main scene opens the type-2 mail (0x445007..0x445028): the dating scene's switch."""
+        self.e.w32(self.state + 0x1B158, 0)
+        self.run(0x445007, 0x445028, esi=self.scene, ebp=1)
+
+    def letter_mail(self):
+        """The main scene opens the type-3 mail (0x44502F..0x445038): the letter from a child who left home."""
+        self.run(0x44502F, 0x445038, esi=self.scene)
+
+    def next_generation(self, heir, place):
+        """The adoption scene's accept for Next Generation (0x4368DD..0x4368EB): StartNextGeneration(heir, place)."""
+        holder = self.e.alloc(0x80)
+        self.e.w32(holder + 0x48, 0)
+        self.e.w32(holder + 0x2C, place)
+        self.run(0x4368DD, 0x4368EB, ebp=holder, esi=self.villager(heir), ecx=L.FAMILY_TREE)
+
+    def adopt_new_person(self, slot):
+        """vf1fun's Adopt New Person: StartNextGeneration(newcomer, -1), its own call of the hooked entry."""
+        return self.e.call(L.FUNCTIONS["FT_START_NEXT_GEN"], (self.villager(slot), INVALID), ecx=L.FAMILY_TREE) & 0xFF
 
     def load(self, slot=None):
         fn = self.e.r32(L.GS_VTABLE_LOAD)

@@ -58,7 +58,7 @@ patch settings you can switch off):
   Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), kept per village on their own page. The game's
   Trophies screen is unchanged.
 - **Flea Market:** every tray item the store sells, to buy or get for free.
-- **Roll the Dice:** costs $500, and an island event happens right away,
+- **Roll the Dice:** costs $500, and a Random Event happens right away,
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
 
@@ -97,14 +97,16 @@ Six settings change the base game on their own (plus the optional ones below):
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
 - **Family History Log** (also in the **Experimental** section, off by default, never ticked by Enable All): one
-  log, the Family History, for the Family Tree Maker, written as things happen with the game's own words:
-  marriages and remarriages (the current spouse), divorces (Divorce Spouse), deaths with their cause, births
-  (twins and triplets on one line, with both parents), children who join, and the subject line or title of every
-  e-mail and pop-up event with what it did to the family (The Little Visitor's child, the Talent Scout's). One
-  file per save slot, `Virtual Families 1 Patcher\Save N\Logs\Family History\Family History <k>.txt`, rolling
-  every 2000 lines. An existing family gets what its Family Tree holds, marked "backfilled, no date", once; a new
-  family or Start Over clears that slot's folder (Backups kept); Evict Family keeps it. Its own DLL,
-  `vf1logs.dll`; every hook is emulated from a live caller. **Not live tested yet** -- see
+  log, the Family History, of every family event, in the Virtual Villagers Fun Patcher's record layout and the
+  game's own words: conceptions, births (twins and triplets, with both parents), deaths with cause and age,
+  marriages and remarriages (the current spouse, the earlier one and why they left; any sexes), Divorce Spouse,
+  who joins (Adopt Outside Child, The Little Visitor, Spawn Child, Adopt New Person) and who leaves home (college,
+  Boarding School, The Talent Scout), Next Generation and its heir, a new family, Start Over, Evict Family, Roll the
+  Dice, Rename Family, and every Random Event as an Email Event or a Popup Event by the subject line or title the
+  player sees. One file per save slot, `Virtual Families 1 Patcher\Save N\Logs\Family History\Family History
+  <k>.txt`, rolling every 2000 records. An existing family gets what its Family Tree holds, marked "backfilled, no
+  date", once; a new family or Start Over clears that slot's folder (Backups kept); Evict Family keeps it. Its own
+  DLL, `vf1logs.dll`; every hook is emulated from a live caller. **Not live tested yet** -- see
   `docs/FAMILY_HISTORY.md`.
 
 Players: see [release/How to Use.txt](release/How to Use.txt).
@@ -130,8 +132,9 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
     family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
-    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. The module
-    is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
+    `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. A family
+    with a Family History log gets one `Family Renamed` record in its newest file (old files keep their name).
+    The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for
@@ -166,6 +169,10 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     shows what the save forgets: divorced and dead spouses, earlier spouses after a remarriage, causes and ages of
     death, twins and triplets, each child's real parents, and the event that brought a child in (The Little
     Visitor, Adopt Outside Child, Spawn Child); without a log it uses the save alone and says what is not known.
+    Labels under each portrait, each its own tick box: Founder, Heir, Husband N / Wife N (the order of marriages,
+    by the spouse's own sex), Remarried, Divorced, Deceased, Adopted, Runner, twins, the Random Event ("Popup
+    Event: The Little Visitor"), the career in the game's words ("Career: Pastry Designer, Novice"), Left home.
+    A spouse lost before any child is drawn with their partner's couple line.
     Saves and logs are only read; the tree keeps its own tree file per save. Its ready-made backgrounds and logos
     are the owner's pictures in `patcher/tree_pictures`. Modules `patcher/vf1_genealogy.py`,
     `vf1_family_history.py`, `vf1_tree_memory.py`, `vf1_family_tree*.py` and helpers; tests

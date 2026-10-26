@@ -46,7 +46,7 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    a Gardener and the Anti-spam Software. Buying asks you to
                    confirm and shows "Purchased"; buying one again removes it
                    (no refund).
-  Roll the Dice    $500: an island event happens right away.
+  Roll the Dice    $500: a Random Event happens right away.
   Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
                    Candidates (Reject shows another one); Force Marriage
                    Email; Divorce Spouse (WARNING: permanently removes the
