@@ -286,7 +286,7 @@ Oldest-ever statistic GameStats+0x20 (file 0xDA60) in years (0x489EE4, VERIFIED-
   - a failed conception roll: real time + 1,200 s (20 min), mother's trend -50 (0x48EC55);
   - Marry sets 1.
   - It is read only by the drop handler (0x4412D2): before it passes, a drop gives the "too soon" behaviour and moves
-    the cooldown to now + 3,300 s if it was under an hour away. VERIFIED-C.
+    the cooldown to now + 3,300 s if it was more than an hour away. VERIFIED-C.
 - Save: rec +0xCC conception age, +0xD0 babies expected; GameStats+0x08 babies born.
 
 ## 7. Careers and salary
@@ -461,7 +461,7 @@ the prop-to-name pairing is UNCONFIRMED.
 | Item | Rule | Real time | Status |
 |---|---|---|---|
 | Spawn | every frame while speed < 999: rand(6,600) < 3 (0x414DF4) -> `Add(-1)` | at 30 fps: mean **73 s**, any speed | VERIFIED-C |
-| What | `Add` 0x414A20: a random registered area, base + rand(4); rarity rand(100): **rare (+8) 4.00%, uncommon (+4) 13.01%, common 82.99%**; `force` gives rare. Nothing spawns if that item is out, carried, or (photo pieces) owned. Insect areas need a garden state, photo areas gs+0x16C. | | VERIFIED-C |
+| What | `Add` 0x414A20: a random registered area, base + rand(4); rarity rand(100): **rare (+8) 4.00%, uncommon (+4) 13.01%, common 82.98%**; `force` gives rare. Nothing spawns if that item is out, carried, or (photo pieces) owned. Insect areas need a garden state, photo areas gs+0x16C. | | VERIFIED-C |
 | Patcher: Lucky Rock | Special Upgrade, $77,777: `ApplyVillageEffects` writes the compares at 0x414B6F / 0x414B7C (4 / 17 -> 8 / 34) and the spawn push at 0x414DF5 (6,600 -> 3,300); removing it writes the stock bytes back. Emulated (`t_house.py`, 0x414B6D..0x414B87 for every roll value; the spawn roll's N read from the run): **rare 8.01%, uncommon 26.03%, common 65.97%**; spawn **rand(3300) < 3 = 30 / 32,768 (0.0916%)**, stock 15 / 32,768 (0.0458%) | twice as often | VERIFIED-E |
 | Lifetime | 120 real s on the ground (+0x354) | | UNCONFIRMED (house_store.md reading, not re-traced) |
 | Sell | duplicates $5 / $15 / $50 | | VERIFIED-C (house_store.md) |
@@ -609,9 +609,8 @@ Checked and left off the page, because the page says nothing they change or the 
 - Cheat Upgrades' one-shot buttons (money, food, villager cheats, pregnancy one-shots, Evict, Adopt New Person,
   store price multipliers, house and yard), Flea Market: player actions, not rules the page describes.
 
-Found while checking, not changed (for the owner):
+Found while checking, and corrected on the page and in section 15:
 
-- Section 6 / the page's wait line say the "too soon" drop "moves the wait to 55 minutes if it was under an hour".
-  The code at 0x441320..0x441343 sets now + 3,300 s only when the wait is **more** than an hour away (`now + 3,600 >=
-  wait` skips the store).
-- Section 15 / the page give common collectibles 82.99%; 1 - 4.00% - 13.01% exactly is 82.98% (27,192 / 32,768).
+- The "too soon" drop sets the wait to now + 3,300 s (55 minutes) only when the wait is **more** than an hour away
+  (0x441320..0x441343: `now + 3,600 >= wait` skips the store); the page had said "if it was under an hour".
+- Common collectibles are 82.98% (27,192 / 32,768), not 82.99%.

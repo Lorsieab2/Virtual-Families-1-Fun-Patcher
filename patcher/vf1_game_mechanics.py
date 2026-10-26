@@ -539,7 +539,7 @@ def _babies() -> list[Fact]:
         Fact(g, "Wait before the next baby (real time, any speed): after a birth, 10 minutes to 4 hours 10 "
                 "minutes, longer the less both parents want children; after a try that fails, 20 minutes and a "
                 "dip in the mother's happiness; marrying clears it. Trying too soon gives the \"too soon\" "
-                "response and moves the wait to 55 minutes if it was under an hour.", C),
+                "response and, if the wait was more than an hour away, shortens it to 55 minutes.", C),
         Fact(g, f"{PATCHER_PREFIX}: no wait after a failed try when the head or the spouse is 50 or older "
                 f"({setting('AllowOlderPregnancies')}), or when the couple cannot have a baby - six children "
                 f"already, or a same-sex couple ({setting('PrivateRomanticTime')}).", E, sub=True),
@@ -752,7 +752,7 @@ def _collectibles() -> list[Fact]:
         Fact(g, upgrade("Lucky Rock", "$77,777", "a 3 in 3,300 chance, so twice as often."), E, sub=True),
         Fact(g, "How that turns into real time (about one every 73 seconds if the game draws 30 frames a "
                 "second).", U),
-        Fact(g, "Rarity: rare 4.00%, uncommon 13.01%, common 82.99%. Nothing appears if that item is already "
+        Fact(g, "Rarity: rare 4.00%, uncommon 13.01%, common 82.98%. Nothing appears if that item is already "
                 "out or being carried, or (photo pieces) already owned.", C),
         Fact(g, upgrade("Lucky Rock", "$77,777", "rare 8.01%, uncommon 26.03%, common 65.97%."), E, sub=True),
         Fact(g, "Selling a duplicate: $5 common, $15 uncommon, $50 rare.", C),
