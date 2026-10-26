@@ -1990,7 +1990,7 @@ class VF1PatcherGUI:
         dialog, frame = self._scrolling_dialog("Rename Family")
         ttk.Label(
             frame,
-            text=("Changes the family's name inside its save. The game must be closed: it saves when you quit it, "
+            text=("Changes the family's name inside its save. The game must be closed: it saves by itself every 10 minutes and when you quit it, "
                   "which would put the old name back. The save folder is backed up first, into <save folder>\\Backups"
                   "\\Backup <date and time> (before rename), and the family's Family History log gets one line "
                   "noting the new name."),
@@ -2160,7 +2160,7 @@ class VF1PatcherGUI:
         dialog, frame = self._scrolling_dialog("Game Speed")
         ttk.Label(
             frame,
-            text=("Sets a family's game speed inside its save. The game must be closed: it saves when you quit it, "
+            text=("Sets a family's game speed inside its save. The game must be closed: it saves by itself every 10 minutes and when you quit it, "
                   "which would put the old speed back. The save folder is backed up first, into <save folder>"
                   "\\Backups\\Backup <date and time> (before speed change). Paused works as if you paused just "
                   "before the game last saved; Normal as if you unpaused it now, so the paused time is never aged in. "
