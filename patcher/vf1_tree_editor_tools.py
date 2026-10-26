@@ -185,6 +185,37 @@ def scrollable_frame(window: tk.Toplevel, padding: int = 0) -> ttk.Frame:
     return frame
 
 
+# The tool windows' fonts, as the Virtual Villagers Fun Patcher's (src/vv_tool_fonts.py, the owner's choice of this
+# patcher's look): a tool's text area in Segoe UI 10, a heading inside one in Segoe UI 12 bold, a small bold label
+# in Segoe UI 9 bold.  A tk.Text that sets no font would fall back to Tk's fixed-width Courier.
+TOOL_FONT_FAMILY = "Segoe UI"
+TOOL_TEXT = (TOOL_FONT_FAMILY, 10)
+TOOL_HEADING = (TOOL_FONT_FAMILY, 12, "bold")
+TOOL_LABEL = (TOOL_FONT_FAMILY, 9, "bold")
+TOOL_BOLD = (TOOL_FONT_FAMILY, 10, "bold")
+TOOL_HEADING_SPACING = {"spacing1": 10, "spacing3": 4}
+_TOOL_SPECS = {"text": TOOL_TEXT, "heading": TOOL_HEADING, "label": TOOL_LABEL, "bold": TOOL_BOLD}
+
+
+def tool_fonts(widget) -> dict[str, tkfont.Font]:
+    """The named tool fonts of `widget`'s Tk root: "text", "heading", "label" and "bold" (named, so
+    `tkfont.nametofont(box.cget("font"))` still works on a box given one)."""
+    root = widget._root()
+    found = getattr(root, "_vf_tool_fonts", None)
+    if found is None:
+        found = {}
+        for key, (family, size, *weight) in _TOOL_SPECS.items():
+            found[key] = tkfont.Font(root=root, family=family, size=size, weight=weight[0] if weight else "normal")
+        root._vf_tool_fonts = found
+    return found
+
+
+def tool_text(parent, **options) -> tk.Text:
+    """A tk.Text for a tool window, in the tool text font (Segoe UI 10) unless `options` gives one."""
+    options.setdefault("font", tool_fonts(parent)["text"])
+    return tk.Text(parent, **options)
+
+
 def _font_shown(name: str) -> str:
     """The font a font's name is written in: its own (the patcher's for "its own" choices)."""
     return vf1_gdiplus.FONT if name in (OWN_FONT, SAME_FONT, "") else name
@@ -202,7 +233,7 @@ def choose_font(parent, fonts: list[str], current: str) -> str | None:
     entry.pack(fill="x", padx=8)
     frame = ttk.Frame(window)
     frame.pack(fill="both", expand=True, padx=8, pady=6)
-    text = tk.Text(frame, width=42, height=20, wrap="none", cursor="hand2", spacing1=2, spacing3=2)
+    text = tool_text(frame, width=42, height=20, wrap="none", cursor="hand2", spacing1=2, spacing3=2)
     bar = ttk.Scrollbar(frame, command=text.yview)
     text.configure(yscrollcommand=bar.set)
     bar.pack(side="right", fill="y")
@@ -666,7 +697,7 @@ class CanvasTools:
         self.text_frame = ttk.LabelFrame(tab, text="Text box", padding=6)
         self.text_frame.pack(fill="x", pady=(10, 0))
         t = self.text_frame
-        self.box_text = tk.Text(t, height=4, width=34, undo=True, wrap="word")
+        self.box_text = tool_text(t, height=4, width=34, undo=True, wrap="word")
         self.box_text.grid(row=0, column=0, columnspan=4, sticky="ew")
         ttk.Button(t, text="Save text", command=self._apply_box_text).grid(row=1, column=0, sticky="w", pady=(2, 6))
         ttk.Label(t, text="Font:").grid(row=2, column=0, sticky="w")

@@ -45,7 +45,7 @@ import vf1_member_info
 import vf1_save
 import vf1_save_backup as save_backup
 import vf1_tree_memory
-from vf1_tree_editor_tools import BOLD_ROLES, CanvasTools, ScrollingTab, picture_scene, panel_colour, scrollable_frame
+from vf1_tree_editor_tools import BOLD_ROLES, CanvasTools, ScrollingTab, picture_scene, panel_colour, scrollable_frame, tool_text
 
 SELECT = "#1f6fd1"
 OUTSIDE = "#9a9a9a"                     # the canvas around the page
@@ -644,6 +644,9 @@ def pick_village(app, build, title: str, intro: str, go_text: str, on_go, ask_ga
         on_go(dialog, state["folders"][folder_box.current()], gen.GAME, info, gen.GAME_TITLE, images())
 
     go_button.configure(command=start)
+    # Kept with the dialog: a StringVar no longer referenced is deleted, which empties the Save folder box, and
+    # then folder_box.current() is -1 and Open would take the LAST folder in the list, not the one chosen.
+    dialog._folder_var = folder_var
     folder_box.bind("<<ComboboxSelected>>", load_slots)
     slot_list.bind("<<ListboxSelect>>", refresh)
     images_var.trace_add("write", lambda *_a: refresh())
@@ -1223,7 +1226,7 @@ class TreeEditor(CanvasTools, tk.Toplevel):
                                relief="groove", takefocus=False, command=lambda w=what: self._format_text(w))
             button.pack(side="left", padx=(0, 2))
             self.format_buttons[what] = button
-        self.lines_text = tk.Text(box, height=5, width=34, undo=True)
+        self.lines_text = tool_text(box, height=5, width=34, undo=True)
         self.lines_text.pack(fill="x")
         self.lines_text.bind("<Button-3>", self._format_menu)
         self.lines_text.bind("<Control-b>", lambda _e: self._format_text("bold"))
@@ -2090,7 +2093,7 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         gen_box = ttk.Combobox(tab, textvariable=self.gen_var, values=[gen.roman(g) for g in gens], state="readonly", width=8)
         gen_box.pack(anchor="w")
         gen_box.bind("<<ComboboxSelected>>", lambda _e: self._show_generation())
-        self.gen_text = tk.Text(tab, height=4, width=34)
+        self.gen_text = tool_text(tab, height=4, width=34)
         self.gen_text.pack(fill="x", pady=(2, 2))
         row = ttk.Frame(tab)
         row.pack(fill="x")

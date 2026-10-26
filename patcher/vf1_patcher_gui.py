@@ -34,8 +34,11 @@ import vf1_rename_family as rename_family  # noqa: E402
 import vf1_game_mechanics as game_mechanics  # noqa: E402
 import vf1_game_speed as game_speed  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
+from vf1_tree_editor_tools import scrollable_frame  # noqa: E402
 
 APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
+# The Tools tab's box: the game its tools work on (the Virtual Villagers patcher's box names its game).
+TOOLS_GAME_TITLE = "Virtual Families"
 PATCHER_RELEASES_URL = "https://github.com/Lorsieab2/Virtual-Families-1-Patcher/"
 PATCHER_ICON_PNG = "patcher_icon.png"
 PATCHER_ICON_ICO = "patcher_icon.ico"
@@ -313,32 +316,233 @@ def success_file_lines(summary: dict[str, object]) -> list[str]:
     return lines or ["(none)"]
 
 
-def scrollable_frame(window: tk.Misc, padding: int = 16) -> ttk.Frame:
-    """A frame inside ``window`` that scrolls once it is taller than 80% of the screen.
+#  The patcher's windows, as the Virtual Villagers Fun Patcher's (src/vv_fun_patcher_gui.py): every window gets
+#  Minimize and Maximize, and a dialog holds the patcher the Windows way -- every other window of the patcher is
+#  disabled while it is open -- instead of with a Tk grab, which would stop the dialog from being minimized.
 
-    With several save folders, the chooser and the results could otherwise
-    push their buttons off the bottom of the screen.
-    """
-    outer = ttk.Frame(window)
-    outer.pack(fill="both", expand=True)
-    canvas = tk.Canvas(outer, borderwidth=0, highlightthickness=0)
-    bar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-    canvas.configure(yscrollcommand=bar.set)
-    inner = ttk.Frame(canvas, padding=padding)
-    canvas.create_window((0, 0), window=inner, anchor="nw")
-    canvas.pack(side="left", fill="both", expand=True)
 
-    def resize(_event: object = None) -> None:
-        width, height = inner.winfo_reqwidth(), inner.winfo_reqheight()
-        limit = int(window.winfo_screenheight() * 0.8)
-        canvas.configure(scrollregion=(0, 0, width, height), width=width, height=min(height, limit))
-        if height > limit:
-            bar.pack(side="right", fill="y")
-        else:
-            bar.pack_forget()
+def _window_buttons(event) -> None:
+    """Every window the patcher opens gets Minimize and Maximize.  Windows draws a window kept above its parent
+    (transient) without them, so they are put back on its frame."""
+    window = event.widget
+    if not isinstance(window, tk.Toplevel) or sys.platform != "win32" or getattr(window, "_vf_buttons", False):
+        return
+    window._vf_buttons = True                   # once per window: changing the frame maps it again
 
-    inner.bind("<Configure>", resize)
-    return inner
+    def add() -> None:
+        try:
+            if window.overrideredirect():
+                return
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetAncestor(window.winfo_id(), 2)            # the window's own frame (GA_ROOT)
+            if not hwnd:
+                return
+            style = user32.GetWindowLongW(hwnd, -16)                  # GWL_STYLE
+            wanted = style | 0x00020000 | 0x00010000                  # WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+            if wanted != style:
+                user32.SetWindowLongW(hwnd, -16, wanted)
+                user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020)
+            owner = getattr(window, "_vf_owner", None)
+            if getattr(window, "_vf_disabled", None) is not None and owner is not None and owner.winfo_exists():
+                _owned_by(window, owner)        # Tk drops the owner when the transient is cleared
+        except (tk.TclError, OSError, AttributeError):
+            pass                                # a window without its buttons is still a window
+    # Tk ignores Minimize on a window kept above another (transient), so to Tk the patcher's windows are
+    # ordinary ones; _hold makes a dialog's window its owner's in Windows' own terms, which keeps it above.
+    try:
+        master = window.transient()
+        if master:
+            window._vf_owner = window.nametowidget(str(master)).winfo_toplevel()
+            window.wm_transient("")
+            window.update_idletasks()
+            if getattr(window, "_vf_disabled", None) is not None:
+                _owned_by(window, window._vf_owner)
+            else:
+                _follow_owner(window, window._vf_owner)
+    except (tk.TclError, KeyError, OSError, AttributeError):
+        pass
+    window.after_idle(add)
+    window.after(150, add)
+    window.after(600, add)
+
+
+_TK_GRAB_SET, _TK_GRAB_RELEASE = tk.Misc.grab_set, tk.Misc.grab_release
+
+
+def _app_windows(widget) -> list:
+    """The patcher's own windows: the main one and every Toplevel under it."""
+    root = widget._root()
+    out = [root]
+    todo = list(root.winfo_children())
+    while todo:
+        w = todo.pop()
+        if isinstance(w, tk.Toplevel):
+            out.append(w)
+        todo.extend(w.winfo_children())
+    return out
+
+
+def _follow_owner(window, owner) -> None:
+    """A window kept above another but not holding it (How to Use) hides when that window is minimized and comes
+    back with it, without being owned in Windows' terms (which would take its own Minimize away)."""
+    def hidden(event) -> None:
+        if event.widget is not owner:
+            return
+        try:
+            if owner.state() == "iconic" and window.winfo_exists() and window.state() == "normal":
+                window.withdraw()
+                window._vf_followed = True
+        except tk.TclError:
+            pass
+
+    def shown(event) -> None:
+        if event.widget is not owner:
+            return
+        try:
+            if getattr(window, "_vf_followed", False) and window.winfo_exists():
+                window._vf_followed = False
+                window.deiconify()
+        except tk.TclError:
+            pass
+
+    bound = [(owner, "<Unmap>", owner.bind("<Unmap>", hidden, add="+")),
+             (owner, "<Map>", owner.bind("<Map>", shown, add="+"))]
+
+    def gone(event) -> None:
+        if event.widget is window:
+            for widget, sequence, funcid in bound:
+                _unbind_one(widget, sequence, funcid)
+
+    window.bind("<Destroy>", gone, add="+")
+
+
+def _owned_by(top, owner) -> None:
+    """Make `owner` the dialog's owner in Windows' own terms: Windows keeps the dialog above it and hides and
+    shows it with its owner, while Tk, which ignores Minimize on its transients, still lets it minimize."""
+    import ctypes
+    user32 = ctypes.windll.user32
+    user32.SetWindowLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+    user32.SetWindowLongPtrW.restype = ctypes.c_void_p
+    top.update_idletasks()
+    hwnd = user32.GetAncestor(top.winfo_id(), 2)
+    owner_hwnd = user32.GetAncestor(owner.winfo_id(), 2)
+    if hwnd and owner_hwnd:
+        user32.SetWindowLongPtrW(hwnd, -8, owner_hwnd)              # GWLP_HWNDPARENT: the owner
+
+
+def _hold_windows(self) -> None:
+    """grab_set for a dialog the way Windows holds windows (Tk refuses to minimize anything while a Tk grab is in
+    effect): every other window of the patcher is disabled, as Tk's grab blocked them all, each counting the
+    dialogs holding it and enabled again when the last one goes."""
+    top = self.winfo_toplevel()
+    if top is top._root() or top.master is None:
+        return _TK_GRAB_SET(self)
+    if getattr(top, "_vf_disabled", None) is not None:
+        return None                             # already holding (taken back after a "Please wait")
+    owner = top.master.winfo_toplevel()
+    disabled = []
+    for w in _app_windows(top):
+        if w is top:
+            continue
+        try:
+            if not w.winfo_exists():
+                continue
+            w._vf_held = getattr(w, "_vf_held", 0) + 1
+            w.wm_attributes("-disabled", True)
+            disabled.append(w)
+        except tk.TclError:
+            pass
+    top._vf_disabled = disabled
+    top._vf_bindings = []
+    if getattr(top, "_vf_owner", None) is None:
+        top._vf_owner = owner                   # _window_buttons keeps it owned as it settles
+    try:
+        _owned_by(top, owner)
+    except (OSError, AttributeError, tk.TclError):
+        pass
+    top._vf_bindings.append((top, "<Destroy>", top.bind(
+        "<Destroy>", lambda e: _let_go(top) if e.widget is top else None, add="+")))
+    _minimize_together(top, owner)
+    return None                                 # focus is left as it is, as Tk's grab left it
+
+
+def _unbind_one(widget, sequence: str, funcid: str) -> None:
+    """Remove one binding: `unbind(sequence, funcid)` removes them all on older Pythons."""
+    try:
+        script = widget.tk.call("bind", widget._w, sequence)
+        kept = "\n".join(line for line in str(script).split("\n") if funcid not in line)
+        widget.tk.call("bind", widget._w, sequence, kept)
+        widget.deletecommand(funcid)
+    except tk.TclError:
+        pass
+
+
+def _let_go(top) -> None:
+    disabled = getattr(top, "_vf_disabled", None)
+    if disabled is None:
+        return
+    top._vf_disabled = None
+    for widget, sequence, funcid in getattr(top, "_vf_bindings", []):
+        if widget is not top:                   # the dialog's own go with it
+            _unbind_one(widget, sequence, funcid)
+    top._vf_bindings = []
+    for w in disabled:
+        try:
+            w._vf_held = max(0, getattr(w, "_vf_held", 1) - 1)
+            if not w._vf_held and w.winfo_exists():
+                w.wm_attributes("-disabled", False)
+        except tk.TclError:
+            pass
+    try:
+        owner = top.master.winfo_toplevel()
+        if owner.winfo_exists():
+            if owner.state() == "iconic":
+                owner.deiconify()
+            owner.lift()
+    except tk.TclError:
+        pass
+
+
+def _release_windows(self) -> None:
+    top = self.winfo_toplevel()
+    if getattr(top, "_vf_disabled", None) is not None:
+        _let_go(top)
+    else:
+        _TK_GRAB_RELEASE(self)
+
+
+def _minimize_together(top, owner) -> None:
+    """A held dialog minimized minimizes its owner (so no disabled window is left on screen), and the owner
+    restored brings the dialog back."""
+    def unmapped(event) -> None:
+        if event.widget is not top:
+            return
+        try:
+            if top.state() == "iconic" and owner.state() != "iconic":
+                owner.iconify()
+        except tk.TclError:
+            pass
+
+    def mapped(event) -> None:
+        if event.widget is not owner:
+            return
+        try:
+            if getattr(top, "_vf_disabled", None) is not None and top.winfo_exists() and top.state() == "iconic":
+                top.deiconify()
+                top.lift()
+        except tk.TclError:
+            pass
+
+    top._vf_bindings.append((top, "<Unmap>", top.bind("<Unmap>", unmapped, add="+")))
+    top._vf_bindings.append((owner, "<Map>", owner.bind("<Map>", mapped, add="+")))
+
+
+def install_window_behaviour(root: tk.Misc) -> None:
+    """Minimize and Maximize on every window, and dialogs that hold the patcher the Windows way."""
+    root.bind_class("Toplevel", "<Map>", _window_buttons, add="+")
+    if sys.platform == "win32":
+        tk.Misc.grab_set, tk.Misc.grab_release = _hold_windows, _release_windows
 
 
 # How often the main thread pumps the event loop while a worker runs.
@@ -424,6 +628,7 @@ class WaitWindow(tk.Toplevel):
 class VF1PatcherGUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
+        install_window_behaviour(root)
         self.root.title(APP_DISPLAY_NAME)
         self.root.geometry("920x820")
         self.root.minsize(760, 560)
@@ -1107,22 +1312,24 @@ class VF1PatcherGUI:
     _WORK_WAIT_DETAIL = {
         "Dry run": "Checking your game files. Nothing is written in a dry run.",
         "Restore backup": "Restoring the selected backup into the folder it was taken from.",
-        "Back Up Saves": "Copying your saves into a dated Backups folder. A running game is paused for the copy.",
-        "Restore Saves": "Checking and restoring your saves. Your current saves are backed up first.",
-        "Rename Family": "Backing up your saves, then writing the new family name into them.",
-        "Game Speed": "Backing up your saves, then writing the new game speed into the family's save.",
     }
 
     def _work_wait_detail(self, label: str) -> str:
         return self._WORK_WAIT_DETAIL.get(label, "Checking your game files and writing the patched game.")
+
+    def _work_wait_message(self, label: str) -> str:
+        """A patching run's label gets its detail; a tool passes its whole message (the Virtual Villagers
+        patcher's wording: "Backing up saves…" and so on)."""
+        if label in self._WORK_WAIT_DETAIL or label == "Enable/Disable patches":
+            return f"{label} in progress.\n\n{self._work_wait_detail(label)}\nThis can take a minute."
+        return label
 
     def _open_work_wait(self, label: str) -> None:
         """Show the wait popup for a long background run. Never raises."""
         self._work_wait = None
         self._work_wait_previous_close = None
         try:
-            wait = WaitWindow(self.root, "Please wait",
-                              f"{label} in progress.\n\n{self._work_wait_detail(label)}\nThis can take a minute.")
+            wait = WaitWindow(self.root, "Please wait", self._work_wait_message(label))
         except tk.TclError:
             for child in self.root.winfo_children():
                 if isinstance(child, WaitWindow):
@@ -1289,7 +1496,7 @@ class VF1PatcherGUI:
         window.transient(self.root)
         window.resizable(False, False)
         frame = scrollable_frame(window, padding=16)
-        ttk.Label(frame, text=guide.title, font=("", 11, "bold"), wraplength=480, justify="left").pack(
+        ttk.Label(frame, text=guide.title, font=("Segoe UI", 11, "bold"), wraplength=480, justify="left").pack(
             anchor="w", pady=(0, 8))
         for line in guide.lines:
             ttk.Label(frame, text=line, wraplength=480, justify="left").pack(anchor="w", pady=(0, 6))
@@ -1327,20 +1534,15 @@ class VF1PatcherGUI:
     # ------------------------------------------------------------------ Tools tab
 
     def _build_tools_tab(self, tab: ttk.Frame) -> None:
-        """Everything that is not a patch: for now, backing up and restoring the family saves."""
-        box = ttk.LabelFrame(tab, text="Family saves", style="Section.TLabelframe", padding=10)
+        """Everything that is not a patch, laid out as the Virtual Villagers Fun Patcher's Tools tab: one box for
+        the game, the save folders found in blue, the save tools in one row of links and the family and game tools
+        in the next, each link with its "?"; then the guide."""
+        box = ttk.LabelFrame(tab, text=TOOLS_GAME_TITLE, padding=10)
         box.pack(fill="x")
-        ttk.Label(
-            box,
-            text=("Backs up and restores the saves of the modded game: the game's own save files in "
-                  f"Documents\\LDW\\{save_backup.PATCHER_SAVE_FOLDER}, and the patcher's own files for each save "
-                  f"(\"{save_backup.PATCHER_DATA_FOLDER}\"). Nothing is ever replaced without a backup of it first."),
-            style="Muted.TLabel", wraplength=760, justify="left",
-        ).grid(row=0, column=0, columnspan=2, sticky="w")
         ttk.Label(box, textvariable=self.saves_found_var, foreground="#245a9a", wraplength=760,
-                  justify="left").grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
+                  justify="left").grid(row=0, column=0, sticky="w")
         links = ttk.Frame(box)
-        links.grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        links.grid(row=1, column=0, sticky="w", pady=(6, 0))
         self._link(links, "Back Up Saves", self.back_up_saves).pack(side="left")
         self._help_button(links, "back_up_saves").pack(side="left", padx=(3, 0))
         self._link(links, "Restore Saves...", self.restore_saves).pack(side="left", padx=(18, 0))
@@ -1349,32 +1551,22 @@ class VF1PatcherGUI:
         self._help_button(links, "rename_family").pack(side="left", padx=(3, 0))
         self._link(links, "Game Speed...", self.game_speed).pack(side="left", padx=(18, 0))
         self._help_button(links, "game_speed").pack(side="left", padx=(3, 0))
-        self._link(links, "Game Mechanics...", self.game_mechanics).pack(side="left", padx=(18, 0))
-        self._help_button(links, "game_mechanics").pack(side="left", padx=(3, 0))
-        self._link(links, "Refresh", self._refresh_saves_found).pack(side="left", padx=(18, 0))
+        family = ttk.Frame(box)
+        family.grid(row=2, column=0, sticky="w", pady=(6, 0))
+        self._link(family, "Family Tree Maker...", self.open_family_tree).pack(side="left")
+        self._help_button(family, "family_tree").pack(side="left", padx=(3, 0))
+        self._link(family, "Game Mechanics...", self.game_mechanics).pack(side="left", padx=(18, 0))
+        self._help_button(family, "game_mechanics").pack(side="left", padx=(3, 0))
 
-        tree_box = ttk.LabelFrame(tab, text="Family Tree Maker", style="Section.TLabelframe", padding=10)
-        tree_box.pack(fill="x", pady=(10, 0))
-        ttk.Label(
-            tree_box,
-            text=("Draws a family's tree from its save (and its Family History log, when the Family History Log "
-                  "patch wrote one), with each family member's face from the game, and lets you mark, colour and "
-                  "arrange it and save it as a picture. Saves and logs are only read."),
-            style="Muted.TLabel", wraplength=760, justify="left",
-        ).pack(anchor="w")
-        tree_row = ttk.Frame(tree_box)
-        tree_row.pack(anchor="w", pady=(8, 0))
-        self._link(tree_row, "Family Tree Maker", self.open_family_tree).pack(side="left")
-        self._help_button(tree_row, "family_tree").pack(side="left", padx=(3, 0))
-
-        guide_box = ttk.LabelFrame(tab, text="How to Use", style="Section.TLabelframe", padding=10)
+        guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
         row = ttk.Frame(guide_box)
         row.pack(anchor="w")
         self._link(row, "Getting started", lambda: self._show_how_to_use("getting_started")).pack(side="left")
         self._help_button(row, "getting_started").pack(side="left", padx=(3, 0))
-        ttk.Label(guide_box, text="Every \"?\" button in this window opens a short guide for the feature beside it.",
-                  style="Muted.TLabel").pack(anchor="w", pady=(6, 0))
+        # The save folders found are read again whenever the tab is shown, as the Virtual Villagers patcher's
+        # game line is always current (no Refresh link).
+        self.sections.bind("<<NotebookTabChanged>>", lambda _event: self._refresh_saves_found(), add="+")
         self._refresh_saves_found()
 
     # ------------------------------------------------------------------ Family Tree Maker
@@ -1400,6 +1592,9 @@ class VF1PatcherGUI:
             save_tree_settings(getattr(self, "tree_style", None), getattr(self, "tree_window", None))
 
     # ------------------------------------------------------------------ Back Up Saves / Restore Saves
+    #
+    # The tools' windows follow the Virtual Villagers Fun Patcher's (src/vv_fun_patcher_gui.py): the same
+    # titles, headings, wording, buttons, waits and result windows, with this game's own family wording.
 
     def _save_folders(self) -> tuple[Path | None, list[Path]]:
         """(Documents, the modded game's save folders found there)."""
@@ -1432,36 +1627,44 @@ class VF1PatcherGUI:
         if not folders:
             messagebox.showinfo(
                 "Back Up Saves",
-                f"No modded save folders were found in {documents / 'LDW'}.\n\nA modded game makes its save "
-                "folder the first time it is played.")
+                f"No modded save folders were found for {TOOLS_GAME_TITLE} in {documents / 'LDW'}.\n\nA modded game "
+                "makes its save folder the first time it is played.")
             return
         self._show_backup_chooser(folders)
 
     def _scrolling_dialog(self, title: str) -> tuple[tk.Toplevel, ttk.Frame]:
+        """A dialog whose content scrolls once it is taller than the screen."""
         dialog = tk.Toplevel(self.root)
         dialog.title(title)
         dialog.transient(self.root)
         return dialog, scrollable_frame(dialog, padding=16)
 
-    def _hold(self, dialog: tk.Toplevel) -> None:
-        """Centre a dialog and make it modal; the main window stays inert behind it."""
-        self._center_dialog(dialog)
+    def _hold(self, dialog: tk.Toplevel, focus: tk.Widget | None = None) -> None:
+        """Hold the patcher behind a dialog (the main window stays inert while it is open).  The dialog opens where
+        Windows puts a new window, as the Virtual Villagers patcher's do: a wide one centred on the patcher would
+        start off the left of the screen."""
+        dialog.update_idletasks()
         with contextlib.suppress(tk.TclError):
             dialog.grab_set()
         with contextlib.suppress(tk.TclError):
-            dialog.focus_set()
+            (focus or dialog).focus_set()
 
     def _show_backup_chooser(self, folders: list[Path]) -> tk.Toplevel:
         dialog, frame = self._scrolling_dialog("Back Up Saves")
-        ttk.Label(frame, text="Choose the save folders to back up:", font=("", 10, "bold")).pack(anchor="w")
+        ttk.Label(frame, text="Choose the save folders to back up:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
         ttk.Label(
             frame,
             text=("Each folder is copied into a new dated folder inside it: <save folder>\\Backups\\Backup <date and "
-                  "time>. If the game is running it is paused for the copy and then resumes by itself. The game saves "
-                  "by itself every 10 minutes while it runs, and when you quit normally, so a backup made while it "
-                  "is running holds the family as of its last save."),
+                  f"time>, with the patcher's own files for each save ({save_backup.PATCHER_DATA_FOLDER}). If the "
+                  "game is running it is paused for the copy and then resumes by itself. This game saves when you "
+                  "quit normally and autosaves every 10 real-life minutes while running (even paused), so a backup "
+                  "made while the game is running holds the family as of its last save or autosave; quit the game "
+                  "normally first to be sure the latest state is backed up. Game speed is set to Paused in the "
+                  "backup's family saves (your own saves are unchanged), so a restored backup opens paused and "
+                  "never catches up on the time since it was made."),
             wraplength=640, justify="left",
         ).pack(anchor="w", pady=(4, 10))
+        ttk.Label(frame, text=TOOLS_GAME_TITLE).pack(anchor="w", pady=(6, 0))
         choices: list[tuple[Path, tk.BooleanVar]] = []
         for folder in folders:
             label = folder.name
@@ -1489,8 +1692,9 @@ class VF1PatcherGUI:
         self._hold(dialog)
         return dialog
 
-    def _run_with_wait(self, label: str, func: object) -> object:
-        """Run ``func`` off the main thread behind the wait popup; re-raise what it raised."""
+    def _run_with_wait(self, message: str, func: object) -> object:
+        """Run ``func`` off the main thread behind the "Please wait" window showing ``message``; re-raise what
+        it raised."""
         box: dict[str, object] = {}
 
         def target() -> None:
@@ -1499,7 +1703,7 @@ class VF1PatcherGUI:
             except BaseException as exc:  # handed back to the caller below
                 box["error"] = exc
 
-        self._open_work_wait(label)
+        self._open_work_wait(message)
         try:
             thread = threading.Thread(target=target, daemon=True)
             thread.start()
@@ -1523,22 +1727,16 @@ class VF1PatcherGUI:
                     outcomes.append((folder, None, str(exc)))
             return outcomes
 
-        outcomes = self._run_with_wait("Back Up Saves", work)
+        outcomes = self._run_with_wait("Backing up saves…\n\nA running game is paused for the copy.", work)
         made = sum(1 for _folder, result, _error in outcomes if result is not None)
         self.status_var.set(f"Back Up Saves: {made} of {len(outcomes)} save folder(s) backed up.")
-        for folder, result, error in outcomes:
-            if result is None:
-                self._append_log(f"Back Up Saves: {folder.name} was NOT backed up: {error}\n")
-            else:
-                self._append_log(f"Back Up Saves: {folder.name}: {result.file_count} file(s) copied to "
-                                 f"{result.backup_folder}\n")
         self._show_backup_results(outcomes)
         return outcomes
 
     def _show_backup_results(self, outcomes) -> tk.Toplevel:
         dialog, frame = self._scrolling_dialog("Back Up Saves")
         for folder, result, error in outcomes:
-            ttk.Label(frame, text=folder.name, font=("", 10, "bold")).pack(anchor="w", pady=(8, 0))
+            ttk.Label(frame, text=folder.name, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(8, 0))
             if result is None:
                 ttk.Label(frame, text=f"NOT backed up: {error}", wraplength=640, justify="left",
                           foreground="#a01010").pack(anchor="w", padx=(14, 0))
@@ -1547,11 +1745,19 @@ class VF1PatcherGUI:
                 f"Backed up {result.file_count} file(s), {save_backup.describe_size(result.total_bytes)}; every copy "
                 "was checked against the original (size and SHA-256).",
                 f"Backup folder: {result.backup_folder}",
-                ("The game was running: it was paused for the copy and has resumed. The backup holds the family as "
-                 "of its last save (the game saves by itself every 10 minutes, and when you quit it normally)."
-                 if result.paused
-                 else "The game was not running."),
             ]
+            if result.paused_slots:
+                lines.append("Game speed set to Paused in the backup's " + ", ".join(result.paused_slots)
+                             + " (your own saves are unchanged), so a restored backup opens paused and never "
+                             "catches up on the time since it was made.")
+            for name, why in result.not_paused:
+                lines.append(f"Not set to Paused in the backup: {name} -- {why}. That copy is exactly as your "
+                             "save is.")
+            lines.append(
+                "The game was running: it was paused for the copy and has resumed. The backup holds the family as "
+                "of its last save (the game saves by itself every 10 minutes, and when you quit it normally)."
+                if result.paused
+                else "The game was not running.")
             ttk.Label(frame, text="\n".join(lines), wraplength=640, justify="left").pack(anchor="w", padx=(14, 0))
             if result.resume_problems:
                 ttk.Label(
@@ -1561,307 +1767,23 @@ class VF1PatcherGUI:
                           + ". If it stays frozen, close it from Task Manager; the backup above is safe."),
                     wraplength=640, justify="left", foreground="#a01010").pack(anchor="w", padx=(14, 0))
             self._link(frame, "Open Backup Folder",
-                       lambda path=result.backup_folder: self._open_path(str(path))).pack(
+                       lambda path=result.backup_folder: self._open_folder(path)).pack(
                 anchor="w", padx=(14, 0), pady=(2, 0))
         ttk.Button(frame, text="Close", command=dialog.destroy).pack(pady=(16, 0))
         dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
         self._hold(dialog)
         return dialog
 
-    # ------------------------------------------------------------------ Rename Family
-
-    def rename_family(self) -> None:
-        """Let the player pick a save slot and a new family name, then rename it in the closed game's saves."""
-        documents, folders = self._save_folders()
-        if documents is None:
-            messagebox.showerror("Rename Family", "Windows did not report where your Documents folder is, so the "
-                                 "save folders cannot be found.")
+    def _open_folder(self, path: Path) -> None:
+        """Open a folder (a file's own folder) in Explorer, or say it is not there."""
+        target = Path(path).expanduser()
+        if target.is_file():
+            target = target.parent
+        if not target.is_dir():
+            self.status_var.set(f"Folder not found: {target}")
+            messagebox.showerror("Cannot open folder", self.status_var.get())
             return
-        folders = [folder for folder in folders if any(s.name is not None for s in rename_family.read_slots(folder))]
-        if not folders:
-            messagebox.showinfo(
-                "Rename Family",
-                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
-                "first; it makes its save folder then.")
-            return
-        self._show_rename_dialog(folders)
-
-    def _show_rename_dialog(self, folders: list[Path]) -> tk.Toplevel:
-        dialog, frame = self._scrolling_dialog("Rename Family")
-        ttk.Label(frame, text="Rename a family:", font=("", 10, "bold")).pack(anchor="w")
-        ttk.Label(
-            frame,
-            text=("Quit the game from its own menu first: a running game would put the old name back. Your saves "
-                  "are backed up first, as \"Backup <date> (before rename)\"."),
-            wraplength=640, justify="left",
-        ).pack(anchor="w", pady=(4, 10))
-        folder_var = tk.StringVar(value=folders[0].name)
-        by_name = {folder.name: folder for folder in folders}
-        if len(folders) > 1:
-            row = ttk.Frame(frame)
-            row.pack(anchor="w", pady=(0, 6))
-            ttk.Label(row, text="Save folder").pack(side="left", padx=(0, 8))
-            ttk.Combobox(row, textvariable=folder_var, values=list(by_name), state="readonly", width=40).pack(side="left")
-        slot_var = tk.IntVar(value=0)
-        slots_box = ttk.Frame(frame)
-        slots_box.pack(anchor="w", pady=(0, 6))
-        name_var = tk.StringVar()
-        problem_var = tk.StringVar()
-        slots: dict[int, rename_family.SlotInfo] = {}
-
-        def fill_slots(*_args) -> None:
-            for child in slots_box.winfo_children():
-                child.destroy()
-            slots.clear()
-            slot_var.set(0)
-            for info in rename_family.read_slots(by_name[folder_var.get()]):
-                slots[info.slot] = info
-                usable = info.name is not None and info.problem is None
-                ttk.Radiobutton(slots_box, text=info.label, value=info.slot, variable=slot_var,
-                                state="normal" if usable else "disabled").pack(anchor="w")
-                if usable and slot_var.get() == 0:
-                    slot_var.set(info.slot)
-                    name_var.set(info.name or "")
-
-        def picked(*_args) -> None:
-            info = slots.get(slot_var.get())
-            if info is not None and info.name is not None:
-                name_var.set(info.name)
-
-        def check(*_args) -> None:
-            name = name_var.get()
-            info = slots.get(slot_var.get())
-            problem = rename_family.name_problem(name)
-            if problem is None and info is not None and name == info.name:
-                problem = "That is the family's name already."
-            problem_var.set(problem or "")
-
-        ttk.Label(frame, text=f"New family name (up to {rename_family.MAX_LENGTH} characters)").pack(anchor="w")
-        entry = ttk.Entry(frame, textvariable=name_var, width=40)
-        entry.pack(anchor="w", pady=(2, 0))
-        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=640, justify="left").pack(
-            anchor="w", pady=(2, 0))
-        folder_var.trace_add("write", fill_slots)
-        slot_var.trace_add("write", picked)
-        name_var.trace_add("write", check)
-        fill_slots()
-        check()
-        buttons = ttk.Frame(frame)
-        buttons.pack(fill="x", pady=(14, 0))
-
-        def start() -> None:
-            folder = by_name[folder_var.get()]
-            slot = slot_var.get()
-            name = name_var.get()
-            check()
-            if slot not in slots or problem_var.get():
-                messagebox.showinfo("Rename Family", problem_var.get() or "Choose a family to rename.", parent=dialog)
-                return
-            old = slots[slot].name or "(no name)"
-            if not messagebox.askyesno(
-                    "Rename Family",
-                    f"Rename Save {slot}, \"{old}\", to \"{name}\"?\n\nYour saves are backed up first. The game must "
-                    "be closed.", parent=dialog):
-                return
-            dialog.destroy()
-            self._run_rename(folder, slot, name)
-
-        ttk.Button(buttons, text="Rename", command=start).pack(side="left")
-        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
-        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]
-        dialog._vf1_slot_var = slot_var  # type: ignore[attr-defined]
-        dialog._vf1_name_var = name_var  # type: ignore[attr-defined]
-        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
-        dialog._vf1_start = start  # type: ignore[attr-defined]
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-        self._hold(dialog)
-        entry.focus_set()
-        return dialog
-
-    def _run_rename(self, folder: Path, slot: int, name: str) -> object:
-        def work():
-            try:
-                return rename_family.rename_family(folder, slot, name), None
-            except (rename_family.RenameError, save_backup.BackupError, OSError) as exc:
-                return None, str(exc)
-
-        result, error = self._run_with_wait("Rename Family", work)
-        if error is not None:
-            self.status_var.set("Rename Family: nothing was renamed.")
-            self._append_log(f"Rename Family: {folder.name} Save {slot} was NOT renamed: {error}\n")
-            messagebox.showerror("Rename Family", error)
-            return None
-        self.status_var.set(f"Rename Family: Save {slot} is now called {result.new_name}.")
-        note = (f" A record was added to the Family History ({result.notes[0].name})." if result.notes
-                else " The family has no Family History yet, so no record was added.")
-        self._append_log(f"Rename Family: {folder.name} Save {slot}: {result.old_name} -> {result.new_name}; "
-                         f"backup {result.backup.backup_folder}\n")
-        messagebox.showinfo(
-            "Rename Family",
-            f"Save {slot} was \"{result.old_name or '(no name)'}\" and is now \"{result.new_name}\".{note}\n\n"
-            f"Backup: {result.backup.backup_folder}")
-        return result
-
-    # ------------------------------------------------------------------ Game Mechanics
-
-    def game_mechanics(self) -> tk.Toplevel:
-        """Show how the game works underneath (patcher/vf1_game_mechanics.py). It only reads: no save, game file or
-        install is opened or written. One window at a time; asking again brings it to the front."""
-        window = getattr(self, "_game_mechanics_window", None)
-        if window is not None and window.winfo_exists():
-            window.deiconify()
-            window.lift()
-            return window
-        window = game_mechanics.open_window(self.root, link_factory=self._link)
-        window.transient(self.root)
-        self._center_dialog(window)
-        self._game_mechanics_window = window
-        return window
-
-    # ------------------------------------------------------------------ Game Speed
-
-    def game_speed(self) -> None:
-        """Let the player pick a save slot and Paused or Normal, then write that speed into the closed game's save."""
-        documents, folders = self._save_folders()
-        if documents is None:
-            messagebox.showerror("Game Speed", "Windows did not report where your Documents folder is, so the "
-                                 "save folders cannot be found.")
-            return
-        folders = [folder for folder in folders if any(s.state is not None for s in game_speed.read_slots(folder))]
-        if not folders:
-            messagebox.showinfo(
-                "Game Speed",
-                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
-                "first; it makes its save folder then.")
-            return
-        self._show_speed_dialog(folders)
-
-    def _show_speed_dialog(self, folders: list[Path]) -> tk.Toplevel:
-        dialog, frame = self._scrolling_dialog("Game Speed")
-        ttk.Label(frame, text="Set a family's game speed:", font=("", 10, "bold")).pack(anchor="w")
-        ttk.Label(
-            frame,
-            text=("Quit the game from its own menu first: a running game would put the old speed back. Your saves "
-                  "are backed up first, as \"Backup <date> (before speed change)\". Paused works as if you paused "
-                  "just before the game last saved; Normal as if you unpaused it now, so the paused time is never "
-                  "aged in. Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a "
-                  "save and always loads a family at Normal (or Paused)."),
-            wraplength=640, justify="left",
-        ).pack(anchor="w", pady=(4, 10))
-        folder_var = tk.StringVar(value=folders[0].name)
-        by_name = {folder.name: folder for folder in folders}
-        if len(folders) > 1:
-            row = ttk.Frame(frame)
-            row.pack(anchor="w", pady=(0, 6))
-            ttk.Label(row, text="Save folder").pack(side="left", padx=(0, 8))
-            ttk.Combobox(row, textvariable=folder_var, values=list(by_name), state="readonly", width=40).pack(side="left")
-        slot_var = tk.IntVar(value=0)
-        slots_box = ttk.Frame(frame)
-        slots_box.pack(anchor="w", pady=(0, 6))
-        target_var = tk.StringVar(value="")
-        problem_var = tk.StringVar()
-        slots: dict[int, game_speed.SlotSpeed] = {}
-
-        def fill_slots(*_args) -> None:
-            for child in slots_box.winfo_children():
-                child.destroy()
-            slots.clear()
-            first = 0
-            for info in game_speed.read_slots(by_name[folder_var.get()]):
-                slots[info.slot] = info
-                usable = info.state is not None and info.problem is None
-                ttk.Radiobutton(slots_box, text=info.label, value=info.slot, variable=slot_var,
-                                state="normal" if usable else "disabled").pack(anchor="w")
-                if usable and not first:
-                    first = info.slot
-            slot_var.set(first)
-
-        def check(*_args) -> None:
-            info = slots.get(slot_var.get())
-            target = target_var.get()
-            if info is None or info.state is None:
-                problem = "Choose a family."
-            elif info.problem:
-                problem = info.problem
-            elif not target:
-                problem = "Choose Paused or Normal."
-            elif info.state.label == target:
-                problem = f"This family is {target} already."
-            else:
-                problem = ""
-            problem_var.set(problem)
-
-        def picked(*_args) -> None:
-            info = slots.get(slot_var.get())
-            if info is not None and info.state is not None and info.problem is None:
-                target_var.set(game_speed.NORMAL_NAME if info.state.kind == "paused" else game_speed.PAUSED)
-            check()
-
-        ttk.Label(frame, text="New speed").pack(anchor="w")
-        targets = ttk.Frame(frame)
-        targets.pack(anchor="w", pady=(2, 0))
-        for name in game_speed.TARGETS:
-            ttk.Radiobutton(targets, text=name, value=name, variable=target_var).pack(side="left", padx=(0, 14))
-        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=640, justify="left").pack(
-            anchor="w", pady=(2, 0))
-        folder_var.trace_add("write", fill_slots)
-        slot_var.trace_add("write", picked)
-        target_var.trace_add("write", check)
-        fill_slots()
-        picked()
-        buttons = ttk.Frame(frame)
-        buttons.pack(fill="x", pady=(14, 0))
-
-        def start() -> None:
-            folder = by_name[folder_var.get()]
-            slot = slot_var.get()
-            target = target_var.get()
-            check()
-            if slot not in slots or problem_var.get():
-                messagebox.showinfo("Game Speed", problem_var.get() or "Choose a family.", parent=dialog)
-                return
-            info = slots[slot]
-            if not messagebox.askyesno(
-                    "Game Speed",
-                    f"Set Save {slot}, \"{info.name or '(no name)'}\", from {info.state.label} to {target}?\n\nYour "
-                    "saves are backed up first. The game must be closed.", parent=dialog):
-                return
-            dialog.destroy()
-            self._run_game_speed(folder, slot, target)
-
-        ttk.Button(buttons, text="Set Speed", command=start).pack(side="left")
-        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=(8, 0))
-        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]
-        dialog._vf1_slot_var = slot_var  # type: ignore[attr-defined]
-        dialog._vf1_target_var = target_var  # type: ignore[attr-defined]
-        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
-        dialog._vf1_slots = slots  # type: ignore[attr-defined]
-        dialog._vf1_start = start  # type: ignore[attr-defined]
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-        self._hold(dialog)
-        return dialog
-
-    def _run_game_speed(self, folder: Path, slot: int, target: str) -> object:
-        def work():
-            try:
-                return game_speed.set_speed(folder, slot, target), None
-            except (game_speed.SpeedError, save_backup.BackupError, OSError) as exc:
-                return None, str(exc)
-
-        result, error = self._run_with_wait("Game Speed", work)
-        if error is not None:
-            self.status_var.set("Game Speed: nothing was changed.")
-            self._append_log(f"Game Speed: {folder.name} Save {slot} was NOT changed: {error}\n")
-            messagebox.showerror("Game Speed", error)
-            return None
-        self.status_var.set(f"Game Speed: Save {slot} is now {result.after}.")
-        self._append_log(f"Game Speed: {folder.name} Save {slot}: {result.before} -> {result.after}; "
-                         f"backup {result.backup.backup_folder}\n")
-        messagebox.showinfo(
-            "Game Speed",
-            f"Save {slot} was {result.before} and is now {result.after} (the save was read back and checked).\n\n"
-            f"Backup: {result.backup.backup_folder}")
-        return result
+        self._open_path(str(target))
 
     def restore_saves(self) -> None:
         """List the backups of the modded game's saves so the player can restore or delete one."""
@@ -1872,21 +1794,24 @@ class VF1PatcherGUI:
             return
         if not any(save_backup.list_backups(folder) for folder in folders):
             messagebox.showinfo("Restore Saves",
-                                "There are no backups of the modded game's saves yet.\n\nUse Back Up Saves to make one.")
+                                f"There are no backups of {TOOLS_GAME_TITLE} yet.\n\nUse Back Up Saves to make one.")
             return
         self._show_restore_window(folders)
 
+    @staticmethod
+    def _backup_families(info) -> dict[int, str]:
+        """Each slot the backup holds, with the family's name in the backup's own save."""
+        names = {slot.slot: slot.name for slot in rename_family.read_slots(Path(info.path))}
+        return {slot: names.get(slot) or "(no name)" for slot in info.slots}
+
     def _show_restore_window(self, folders: list[Path]) -> tk.Toplevel:
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Restore Saves")
-        dialog.transient(self.root)
-        frame = scrollable_frame(dialog, padding=16)
-        ttk.Label(frame, text="Choose a backup to restore:", font=("", 10, "bold")).pack(anchor="w")
+        dialog, frame = self._scrolling_dialog("Restore Saves")
+        ttk.Label(frame, text="Choose a backup to restore:", font=("Segoe UI", 10, "bold")).pack(anchor="w")
         ttk.Label(
             frame,
-            text=("Newest first. The game must be closed: quit it from its own menu before restoring. You are shown "
-                  "what will change and asked to confirm. Your saves as they are now are backed up first, as "
-                  "\"Backup <date> (before restore)\", so a restore can be undone."),
+            text=("Newest first. The game must be closed: quit it from its own menu before restoring. Your saves as "
+                  "they are now are backed up first, as \"Backup <date> (before restore)\", so a restore can be "
+                  "undone."),
             wraplength=700, justify="left",
         ).pack(anchor="w", pady=(4, 8))
         listbox = tk.Listbox(frame, width=110, height=12, exportselection=False)
@@ -1901,13 +1826,14 @@ class VF1PatcherGUI:
             row=0, column=0, sticky="w")
         ttk.Radiobutton(options, text="One save slot only:", value="slot", variable=scope).grid(
             row=1, column=0, sticky="w")
-        slots = ttk.Combobox(options, textvariable=slot_choice, state="readonly", width=24)
+        slots = ttk.Combobox(options, textvariable=slot_choice, state="readonly", width=50)
         slots.grid(row=1, column=1, sticky="w", padx=(8, 0))
-        entries: list[tuple[Path, object]] = []
+        entries: list[tuple[Path, object, dict[int, str]]] = []
 
-        def describe(folder: Path, info) -> str:
-            saves = ", ".join(f"Save {slot}" for slot in info.slots) or "no slot saves"
-            return (f"{info.label}   [{folder.name}]   {saves}   "
+        def describe(folder: Path, info, families: dict[int, str]) -> str:
+            saves = ", ".join(f"Save {slot}: {name}" for slot, name in families.items()) or "no family saves"
+            variant = folder.name.removeprefix(TOOLS_GAME_TITLE + " - ")
+            return (f"{info.label}   [{variant}]   {saves}   "
                     f"{info.file_count} files, {save_backup.describe_size(info.size)}")
 
         def refresh() -> None:
@@ -1916,8 +1842,9 @@ class VF1PatcherGUI:
             listed = [(folder, info) for folder in folders for info in save_backup.list_backups(folder)]
             listed.sort(key=lambda item: item[1].when, reverse=True)
             for folder, info in listed:
-                entries.append((folder, info))
-                listbox.insert("end", describe(folder, info))
+                families = self._backup_families(info)
+                entries.append((folder, info, families))
+                listbox.insert("end", describe(folder, info, families))
             if entries:
                 listbox.selection_set(0)
             selected()
@@ -1933,9 +1860,9 @@ class VF1PatcherGUI:
                 slots.configure(values=[])
                 slot_choice.set("")
                 return
-            _folder, info = item
+            _folder, info, families = item
             details.configure(text=f"Backup folder: {info.path}")
-            values = [f"Save {slot}" for slot in info.slots]
+            values = [f"Save {slot}: {name}" for slot, name in families.items()]
             slots.configure(values=values)
             slot_choice.set(values[0] if values else "")
 
@@ -1945,7 +1872,7 @@ class VF1PatcherGUI:
             text = slot_choice.get()
             if not text.startswith("Save "):
                 return False
-            return int(text.removeprefix("Save "))
+            return int(text.split(":", 1)[0].removeprefix("Save "))
 
         def restore() -> None:
             item = current()
@@ -1953,9 +1880,11 @@ class VF1PatcherGUI:
                 return
             slot = chosen_slot()
             if slot is False:
-                messagebox.showinfo("Restore Saves", "This backup holds no slot save to choose.", parent=dialog)
+                messagebox.showinfo("Restore Saves", "This backup holds no family save to choose.", parent=dialog)
                 return
             self._run_restore(dialog, item[0], item[1], slot)
+            # The "Please wait" window held the patcher and let it go on closing; hold it again, so the main
+            # window stays inert behind this one, as it was before the restore.
             if dialog.winfo_exists():
                 with contextlib.suppress(tk.TclError):
                     dialog.grab_set()
@@ -1965,10 +1894,10 @@ class VF1PatcherGUI:
             item = current()
             if item is None:
                 return
-            folder, info = item
+            folder, info, families = item
             if not messagebox.askyesno(
                 "Delete Backup",
-                f"Delete this backup permanently?\n\n{describe(folder, info)}\n\n{info.path}\n\n"
+                f"Delete this backup permanently?\n\n{describe(folder, info, families)}\n\n{info.path}\n\n"
                 "Your current saves are not affected.",
                 parent=dialog,
             ):
@@ -2006,7 +1935,9 @@ class VF1PatcherGUI:
                 parent=parent)
             return False
         try:
-            plan = self._run_with_wait("Restore Saves", lambda: save_backup.plan_restore(folder, info.path, slot))
+            # Hashes both copies of every file, which can take a while: off the main thread, behind the wait.
+            plan = self._run_with_wait("Checking the backup…",
+                                       lambda: save_backup.plan_restore(folder, info.path, slot))
         except (save_backup.BackupError, OSError) as exc:
             messagebox.showerror("Restore Saves", str(exc), parent=parent)
             return False
@@ -2029,22 +1960,347 @@ class VF1PatcherGUI:
         ):
             return False
         try:
-            result = self._run_with_wait("Restore Saves",
+            result = self._run_with_wait("Restoring saves…",
                                          lambda: save_backup.restore_backup(folder, info.path, slot))
         except (save_backup.BackupError, OSError) as exc:
             self.status_var.set("Restore Saves: the restore did not complete.")
-            self._append_log(f"Restore Saves: {folder.name}: the restore did not complete: {exc}\n")
             messagebox.showerror("Restore Saves", str(exc), parent=parent)
             return False
         undo = (f"\n\nYour saves from before the restore are in:\n{result.before_restore.backup_folder}"
                 if result.before_restore else "")
         self.status_var.set(f"Restore Saves: {folder.name} restored from {info.label}.")
-        self._append_log(f"Restore Saves: {folder.name}: restored {what} from the backup of {info.label}.\n")
         messagebox.showinfo(
             "Restore Saves",
             f"Restored {what} from the backup of {info.label}: every file was checked against the backup.{undo}",
             parent=parent)
         return True
+
+    # ------------------------------------------------------------------ Rename Family
+
+    def rename_family(self) -> tk.Toplevel | None:
+        """Pick a save folder and a family, then type the new name (the Virtual Villagers patcher's Rename Tribe).
+
+        The family list is read from the saves and is only for choosing; the counter and every refusal come from
+        vf1_rename_family. The rename itself runs off the main thread."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Rename Family", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return None
+        folders = [folder for folder in folders if any(s.name is not None for s in rename_family.read_slots(folder))]
+        if not folders:
+            messagebox.showinfo(
+                "Rename Family",
+                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
+                "first; it makes its save folder then.")
+            return None
+        return self._show_rename_dialog(folders)
+
+    def _show_rename_dialog(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Rename Family")
+        ttk.Label(
+            frame,
+            text=("Changes the family's name inside its save. The game must be closed: it saves by itself every 10 minutes and when you quit it, "
+                  "which would put the old name back. The save folder is backed up first, into <save folder>\\Backups"
+                  "\\Backup <date and time> (before rename), and the family's Family History log gets one line "
+                  "noting the new name."),
+            wraplength=560, justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+        folder_var = tk.StringVar()
+        name_var = tk.StringVar()
+        counter_var = tk.StringVar()
+        problem_var = tk.StringVar()
+        state: dict = {"slots": []}
+
+        ttk.Label(frame, text="Save folder:").grid(row=1, column=0, sticky="w")
+        folder_box = ttk.Combobox(frame, textvariable=folder_var, values=[folder.name for folder in folders],
+                                  state="readonly", width=48)
+        folder_box.grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
+        ttk.Label(frame, text="Family:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
+        slot_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
+        slot_list.grid(row=2, column=1, columnspan=2, sticky="we", pady=(4, 2))
+        ttk.Label(frame, text="New name:").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        name_entry = ttk.Entry(frame, textvariable=name_var, width=36)
+        name_entry.grid(row=3, column=1, sticky="w", pady=(8, 0))
+        counter = ttk.Label(frame, textvariable=counter_var)
+        counter.grid(row=3, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
+        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=560, justify="left").grid(
+            row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=5, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        rename_button = ttk.Button(buttons, text="Rename")
+        rename_button.pack(side="left")
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
+
+        def folder() -> Path | None:
+            index = folder_box.current()
+            return folders[index] if 0 <= index < len(folders) else None
+
+        def chosen_slot():
+            picked = slot_list.curselection()
+            return state["slots"][picked[0]] if picked else None
+
+        def refresh_check(*_args) -> None:
+            name = name_var.get()
+            counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
+            counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
+            info = chosen_slot()
+            problem = None
+            if folder() is None:
+                problem = "No save folder was found for this game."
+            elif info is None:
+                problem = "Choose a family."
+            elif info.problem:
+                problem = info.problem
+            elif name:
+                problem = rename_family.name_problem(name)
+                if problem is None and name == info.name:
+                    problem = "That is already this family's name."
+            problem_var.set(problem or "")
+            ok = problem is None and bool(name)
+            rename_button.configure(state="normal" if ok else "disabled")
+
+        def load_slots(*_args) -> None:
+            slot_list.delete(0, "end")
+            state["slots"] = []
+            where = folder()
+            if where is not None:
+                state["slots"] = rename_family.read_slots(where)
+                for info in state["slots"]:
+                    slot_list.insert("end", info.label)
+                first = next((n for n, info in enumerate(state["slots"]) if not info.problem), None)
+                if first is not None:
+                    slot_list.selection_set(first)
+            refresh_check()
+
+        def start() -> None:
+            info = chosen_slot()
+            where = folder()
+            if info is None or where is None:
+                return
+            new_name = name_var.get()
+            problem = rename_family.name_problem(new_name)
+            if problem is not None:
+                messagebox.showerror("Rename Family", problem, parent=dialog)
+                return
+            if not messagebox.askyesno(
+                    "Rename Family",
+                    f"Rename \"{info.name or '(no name)'}\" (Save {info.slot}) in {where.name} to \"{new_name}\"?\n\n"
+                    "The save folder is backed up first.", parent=dialog):
+                return
+            try:
+                result = self._run_with_wait(
+                    "Renaming the family…\n\nThe save folder is backed up first.",
+                    lambda: rename_family.rename_family(where, info.slot, new_name))
+            except (rename_family.RenameError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Rename Family: nothing was renamed.")
+                messagebox.showerror("Rename Family", str(exc), parent=dialog)
+                load_slots()
+                return
+            self.status_var.set(f"Rename Family: {result.old_name or '(no name)'} is now {result.new_name}.")
+            messagebox.showinfo(
+                "Rename Family",
+                f"\"{result.old_name or '(no name)'}\" is now \"{result.new_name}\" (Save {result.slot}, "
+                f"{where.name}).\n\n{len(result.changed)} save file(s) changed and read back; {len(result.notes)} "
+                f"log(s) noted the rename.\n\nBackup: {result.backup.backup_folder}",
+                parent=dialog)
+            name_var.set("")
+            load_slots()
+
+        def choose(index: int) -> None:          # a click on a family (the tests)
+            slot_list.selection_clear(0, "end")
+            slot_list.selection_set(index)
+            refresh_check()
+
+        rename_button.configure(command=start)
+        folder_box.bind("<<ComboboxSelected>>", load_slots)
+        slot_list.bind("<<ListboxSelect>>", refresh_check)
+        name_var.trace_add("write", refresh_check)
+        frame.columnconfigure(1, weight=1)
+        folder_box.current(0)
+        load_slots()
+        dialog._vf1_folder_box = folder_box  # type: ignore[attr-defined]
+        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]   # kept: a dropped StringVar empties its box
+        dialog._vf1_slot_list = slot_list  # type: ignore[attr-defined]
+        dialog._vf1_name_var = name_var  # type: ignore[attr-defined]
+        dialog._vf1_counter_var = counter_var  # type: ignore[attr-defined]
+        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
+        dialog._vf1_rename_button = rename_button  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog._vf1_choose = choose  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog, focus=name_entry)
+        return dialog
+
+    # ------------------------------------------------------------------ Game Mechanics
+
+    def game_mechanics(self) -> tk.Toplevel:
+        """Show how the game works underneath (patcher/vf1_game_mechanics.py). It only reads: no save, game file or
+        install is opened or written. One window at a time; asking again brings it to the front."""
+        window = getattr(self, "_game_mechanics_window", None)
+        if window is not None and window.winfo_exists():
+            window.deiconify()
+            window.lift()
+            return window
+        window = game_mechanics.open_window(self.root)
+        window.transient(self.root)
+        self._game_mechanics_window = window
+        return window
+
+    # ------------------------------------------------------------------ Game Speed
+
+    def game_speed(self) -> tk.Toplevel | None:
+        """Pick a save folder and a family, then Paused or Normal, written into the closed game's save (laid out as
+        Rename Family)."""
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Game Speed", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return None
+        folders = [folder for folder in folders if any(s.state is not None for s in game_speed.read_slots(folder))]
+        if not folders:
+            messagebox.showinfo(
+                "Game Speed",
+                f"No modded family saves were found in {documents / 'LDW'}.\n\nStart a family in the modded game "
+                "first; it makes its save folder then.")
+            return None
+        return self._show_speed_dialog(folders)
+
+    def _show_speed_dialog(self, folders: list[Path]) -> tk.Toplevel:
+        dialog, frame = self._scrolling_dialog("Game Speed")
+        ttk.Label(
+            frame,
+            text=("Sets a family's game speed inside its save. The game must be closed: it saves by itself every 10 minutes and when you quit it, "
+                  "which would put the old speed back. The save folder is backed up first, into <save folder>"
+                  "\\Backups\\Backup <date and time> (before speed change). Paused works as if you paused just "
+                  "before the game last saved; Normal as if you unpaused it now, so the paused time is never aged in. "
+                  "Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a save and "
+                  "always loads a family at Normal (or Paused)."),
+            wraplength=560, justify="left",
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+        folder_var = tk.StringVar()
+        target_var = tk.StringVar(value="")
+        problem_var = tk.StringVar()
+        state: dict = {"slots": []}
+
+        ttk.Label(frame, text="Save folder:").grid(row=1, column=0, sticky="w")
+        folder_box = ttk.Combobox(frame, textvariable=folder_var, values=[folder.name for folder in folders],
+                                  state="readonly", width=48)
+        folder_box.grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
+        ttk.Label(frame, text="Family:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
+        slot_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
+        slot_list.grid(row=2, column=1, columnspan=2, sticky="we", pady=(4, 2))
+        ttk.Label(frame, text="New speed:").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        targets = ttk.Frame(frame)
+        targets.grid(row=3, column=1, columnspan=2, sticky="w", pady=(8, 0))
+        for name in game_speed.TARGETS:
+            ttk.Radiobutton(targets, text=name, value=name, variable=target_var).pack(side="left", padx=(0, 14))
+        ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=560, justify="left").grid(
+            row=4, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=5, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        set_button = ttk.Button(buttons, text="Set Speed")
+        set_button.pack(side="left")
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
+
+        def folder() -> Path | None:
+            index = folder_box.current()
+            return folders[index] if 0 <= index < len(folders) else None
+
+        def chosen_slot():
+            picked = slot_list.curselection()
+            return state["slots"][picked[0]] if picked else None
+
+        def check(*_args) -> None:
+            info = chosen_slot()
+            target = target_var.get()
+            if folder() is None:
+                problem = "No save folder was found for this game."
+            elif info is None or info.state is None:
+                problem = info.problem if info is not None and info.problem else "Choose a family."
+            elif info.problem:
+                problem = info.problem
+            elif not target:
+                problem = "Choose Paused or Normal."
+            elif info.state.label == target:
+                problem = f"This family is {target} already."
+            else:
+                problem = ""
+            problem_var.set(problem)
+            set_button.configure(state="disabled" if problem else "normal")
+
+        def picked(*_args) -> None:
+            info = chosen_slot()
+            if info is not None and info.state is not None and info.problem is None:
+                target_var.set(game_speed.NORMAL_NAME if info.state.kind == "paused" else game_speed.PAUSED)
+            check()
+
+        def load_slots(*_args) -> None:
+            slot_list.delete(0, "end")
+            state["slots"] = []
+            where = folder()
+            if where is not None:
+                state["slots"] = game_speed.read_slots(where)
+                for info in state["slots"]:
+                    slot_list.insert("end", info.label)
+                first = next((n for n, info in enumerate(state["slots"])
+                              if info.state is not None and not info.problem), None)
+                if first is not None:
+                    slot_list.selection_set(first)
+            picked()
+
+        def start() -> None:
+            info = chosen_slot()
+            where = folder()
+            target = target_var.get()
+            check()
+            if info is None or where is None or problem_var.get():
+                return
+            if not messagebox.askyesno(
+                    "Game Speed",
+                    f"Set \"{info.name or '(no name)'}\" (Save {info.slot}) in {where.name} from {info.state.label} "
+                    f"to {target}?\n\nThe save folder is backed up first.", parent=dialog):
+                return
+            try:
+                result = self._run_with_wait(
+                    "Setting the game speed…\n\nThe save folder is backed up first.",
+                    lambda: game_speed.set_speed(where, info.slot, target))
+            except (game_speed.SpeedError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Game Speed: nothing was changed.")
+                messagebox.showerror("Game Speed", str(exc), parent=dialog)
+                load_slots()
+                return
+            self.status_var.set(f"Game Speed: Save {info.slot} is now {result.after}.")
+            messagebox.showinfo(
+                "Game Speed",
+                f"\"{info.name or '(no name)'}\" is now {result.after} (Save {info.slot}, {where.name}); it was "
+                f"{result.before}.\n\nThe save was changed and read back.\n\nBackup: {result.backup.backup_folder}",
+                parent=dialog)
+            load_slots()
+
+        def choose(index: int) -> None:          # a click on a family (the tests)
+            slot_list.selection_clear(0, "end")
+            slot_list.selection_set(index)
+            picked()
+
+        set_button.configure(command=start)
+        folder_box.bind("<<ComboboxSelected>>", load_slots)
+        slot_list.bind("<<ListboxSelect>>", picked)
+        target_var.trace_add("write", check)
+        frame.columnconfigure(1, weight=1)
+        folder_box.current(0)
+        load_slots()
+        dialog._vf1_folder_box = folder_box  # type: ignore[attr-defined]
+        dialog._vf1_folder_var = folder_var  # type: ignore[attr-defined]   # kept: a dropped StringVar empties its box
+        dialog._vf1_slot_list = slot_list  # type: ignore[attr-defined]
+        dialog._vf1_target_var = target_var  # type: ignore[attr-defined]
+        dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
+        dialog._vf1_set_button = set_button  # type: ignore[attr-defined]
+        dialog._vf1_start = start  # type: ignore[attr-defined]
+        dialog._vf1_choose = choose  # type: ignore[attr-defined]
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        self._hold(dialog)
+        return dialog
 
     def _on_close(self) -> None:
         self._save_current_paths()

@@ -1,4 +1,4 @@
-﻿"""The Tools tab: Back Up Saves and Restore Saves in the window (vf1_patcher_gui.py).
+"""The Tools tab: Back Up Saves and Restore Saves in the window (vf1_patcher_gui.py).
 
 Everything runs against a fake Documents folder in tmp_path with a fake process list; message boxes
 are answered by the test. No real save, game or process is touched.
@@ -122,8 +122,6 @@ def test_back_up_saves_pre_ticks_the_patchers_folder_and_backs_it_up(app, save):
     assert len(backups) == 1 and backups[0].file_count == 4 and backups[0].slots == [1, 2]
     assert snapshot(backups[0].path) == before
     assert app.status_var.get() == "Back Up Saves: 1 of 1 save folder(s) backed up."
-    log = app.log_text.get("1.0", "end")
-    assert "Back Up Saves: Virtual Families - Modded: 4 file(s) copied" in log
     results = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel)]
     assert results and any("Backed up 4 file(s)" in t for t in text_of(results[-1]))
     results[-1].destroy()
@@ -164,7 +162,7 @@ def test_restore_never_replaces_without_confirming_and_backs_up_what_it_replaces
     asked = []
     monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or False)
     dialog = app._show_restore_window(app._save_folders()[1])
-    assert dialog._vf1_listbox.size() == 1 and "Save 1, Save 2" in dialog._vf1_listbox.get(0)
+    assert dialog._vf1_listbox.size() == 1 and "Save 1: (no name), Save 2: (no name)" in dialog._vf1_listbox.get(0)
     dialog._vf1_restore()
     assert len(asked) == 1 and "1 file(s) will be replaced, 0 added and 1 removed" in asked[0][1]
     assert "Replace: Virtual Families - Modded1.ldw" in asked[0][1] and "Remove: Virtual Families - Modded3.ldw" in asked[0][1]
@@ -188,7 +186,7 @@ def test_restoring_one_slot_from_the_window(app, save, monkeypatch):
     monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: True)
     dialog = app._show_restore_window(app._save_folders()[1])
     dialog._vf1_scope.set("slot")
-    assert dialog._vf1_slot_choice.get() == "Save 1"
+    assert dialog._vf1_slot_choice.get() == "Save 1: (no name)"
     dialog._vf1_restore()
     assert (save / "Virtual Families - Modded1.ldw").read_bytes() == original["Virtual Families - Modded1.ldw"]
     assert (save / "Virtual Families - Modded2.ldw").read_bytes() == b"slot two played on"
@@ -261,24 +259,33 @@ def test_rename_family_asks_then_renames_and_reports(app, save, monkeypatch):
     monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or True)
     monkeypatch.setattr(rf.save_backup, "WindowsProcesses", NoProcesses)
     dialog = app._show_rename_dialog(app._save_folders()[1])
-    assert dialog._vf1_slot_var.get() == 1 and dialog._vf1_name_var.get() == "Smith"
+    # Laid out as the Virtual Villagers patcher's Rename Tribe: a save folder, a list of families, a new name.
+    assert dialog._vf1_folder_box.get() == "Virtual Families - Modded"
+    assert dialog._vf1_slot_list.get(0, "end")[:2] == ("Save 1: Smith", "Save 2: Jones")
+    assert dialog._vf1_slot_list.curselection() == (0,) and dialog._vf1_name_var.get() == ""
+    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
+    assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
+    dialog._vf1_name_var.set("Smith")
     assert "already" in dialog._vf1_problem_var.get()
     dialog._vf1_name_var.set("x" * 20)
-    assert "too long" in dialog._vf1_problem_var.get()
+    assert "too long" in dialog._vf1_problem_var.get() and dialog._vf1_counter_var.get() == "20 / 19 characters"
+    assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
     dialog._vf1_start()
-    assert dialog.winfo_exists() and not asked and app.shown[-1][0] == "showinfo"     # refused before asking
-    dialog._vf1_slot_var.set(2)
-    assert dialog._vf1_name_var.get() == "Jones"
+    assert dialog.winfo_exists() and not asked and app.shown[-1][0] == "showerror"     # refused before asking
+    dialog._vf1_choose(1)
     dialog._vf1_name_var.set("The Joneses")
+    assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_rename_button.cget("state")) == "normal"
     dialog._vf1_start()
-    assert len(asked) == 1 and "Rename Save 2" in asked[0][1] and "The Joneses" in asked[0][1]
-    assert not dialog.winfo_exists()
+    assert len(asked) == 1 and '"Jones" (Save 2)' in asked[0][1] and "The Joneses" in asked[0][1]
+    assert dialog.winfo_exists()                                    # it stays open, as Rename Tribe does
     assert {s.slot: s.name for s in rf.read_slots(save)}[2] == "The Joneses"
     assert {s.slot: s.name for s in rf.read_slots(save)}[1] == "Smith"
-    assert app.status_var.get() == "Rename Family: Save 2 is now called The Joneses."
-    assert "Rename Family: Virtual Families - Modded Save 2: Jones -> The Joneses" in app.log_text.get("1.0", "end")
+    assert app.status_var.get() == "Rename Family: Jones is now The Joneses."
     assert app.shown[-1][0] == "showinfo" and "(before rename)" in app.shown[-1][1][1]
+    assert '"Jones" is now "The Joneses" (Save 2, Virtual Families - Modded)' in app.shown[-1][1][1]
+    assert dialog._vf1_slot_list.get(1) == "Save 2: The Joneses" and dialog._vf1_name_var.get() == ""
     assert sb.list_backups(save)[0].before_rename
+    dialog.destroy()
 
 
 def test_declining_the_confirmation_changes_nothing(app, save, monkeypatch):
@@ -304,6 +311,7 @@ def test_a_running_game_is_reported_and_nothing_changes(app, save, monkeypatch):
     assert snapshot(save) == before
     assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
     assert app.status_var.get() == "Rename Family: nothing was renamed."
+    dialog.destroy()
 
 
 # ------------------------------------------------------------------ Game Speed
@@ -331,23 +339,24 @@ def test_game_speed_shows_each_speed_asks_then_sets_it(app, save, monkeypatch):
     asked = []
     monkeypatch.setattr(gui.messagebox, "askyesno", lambda *a, **k: asked.append(a) or True)
     dialog = app._show_speed_dialog(app._save_folders()[1])
-    labels = [w.cget("text") for w in walk(dialog) if w.winfo_class() == "TRadiobutton"]
-    assert any(t.startswith("Save 1: ") and t.endswith("- Paused") for t in labels)
-    assert any(t.startswith("Save 2: ") and t.endswith("- Normal") for t in labels)
-    assert dialog._vf1_slot_var.get() == 1 and dialog._vf1_target_var.get() == "Normal"
+    labels = dialog._vf1_slot_list.get(0, "end")
+    assert labels[0].startswith("Save 1: ") and labels[0].endswith("- Paused")
+    assert labels[1].startswith("Save 2: ") and labels[1].endswith("- Normal")
+    assert dialog._vf1_slot_list.curselection() == (0,) and dialog._vf1_target_var.get() == "Normal"
     dialog._vf1_target_var.set("Paused")
-    assert "already" in dialog._vf1_problem_var.get()
+    assert "already" in dialog._vf1_problem_var.get() and str(dialog._vf1_set_button.cget("state")) == "disabled"
     dialog._vf1_start()
     assert dialog.winfo_exists() and not asked                       # refused before asking
-    dialog._vf1_slot_var.set(2)
+    dialog._vf1_choose(1)
     assert dialog._vf1_target_var.get() == "Paused" and dialog._vf1_problem_var.get() == ""
     dialog._vf1_start()
-    assert len(asked) == 1 and "Save 2" in asked[0][1] and "from Normal to Paused" in asked[0][1]
+    assert len(asked) == 1 and "(Save 2)" in asked[0][1] and "from Normal to Paused" in asked[0][1]
     assert {s.slot: s.state.label for s in gsp.read_slots(save) if s.state}[2] == "Paused"
     assert app.status_var.get() == "Game Speed: Save 2 is now Paused."
-    assert "Game Speed: Virtual Families - Modded Save 2: Normal -> Paused" in app.log_text.get("1.0", "end")
     assert app.shown[-1][0] == "showinfo" and "(before speed change)" in app.shown[-1][1][1]
+    assert dialog.winfo_exists() and dialog._vf1_slot_list.get(1).endswith("- Paused")
     assert sb.list_backups(save)[0].before_speed_change
+    dialog.destroy()
 
 
 def test_game_speed_with_the_game_running_changes_nothing(app, save, monkeypatch):
@@ -360,6 +369,7 @@ def test_game_speed_with_the_game_running_changes_nothing(app, save, monkeypatch
     assert snapshot(save) == before
     assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
     assert app.status_var.get() == "Game Speed: nothing was changed."
+    dialog.destroy()
 
 
 # ------------------------------------------------------------------ Family Tree Maker
@@ -367,4 +377,16 @@ def test_game_speed_with_the_game_running_changes_nothing(app, save, monkeypatch
 
 def test_the_family_tree_maker_is_on_the_tools_tab_with_a_question_mark(app):
     tools = app.root.nametowidget(app.sections.tabs()[1])
-    assert "Family Tree Maker" in text_of(tools) and "family_tree" in app.help_keys
+    assert "Family Tree Maker..." in text_of(tools) and "family_tree" in app.help_keys
+
+
+def test_the_tools_tab_is_laid_out_as_the_virtual_villagers_patchers(app):
+    """One box for the game: the save folders found, then the save tools in a row and the family and game tools in
+    the next, each link with its "?"; no Refresh link (the line is read again whenever the tab is shown)."""
+    tools = app.root.nametowidget(app.sections.tabs()[1])
+    links = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabel" and str(w.cget("style")) == "Link.TLabel"]
+    assert links == ["Back Up Saves", "Restore Saves...", "Rename Family...", "Game Speed...", "Family Tree Maker...",
+                     "Game Mechanics...", "Getting started"]
+    assert "Refresh" not in text_of(tools)
+    boxes = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabelframe"]
+    assert boxes == [gui.TOOLS_GAME_TITLE, "How to Use"]

@@ -369,18 +369,20 @@ def test_the_window_shows_the_page_read_only_and_changes_no_file(app, save):
         assert gm.line(fact).strip() in shown
     for label in gm.LABELS:
         assert text.tag_ranges(label), label
-    links = [w.cget("text") for w in walk(window) if w.winfo_class() == "TLabel"]
-    assert all(group in links for group in gm.GROUPS)
+    links = [w.cget("text") for w in window.mechanics_links.winfo_children()]
+    assert links == list(gm.GROUPS)                       # a button for each group, as the Virtual Villagers window
+    labels = [w.cget("text") for w in walk(window) if w.winfo_class() == "TLabel"]
+    assert gm.INTRO in labels and gm.LABEL_NOTE in labels  # the labels' meaning in red under the intro
     assert app.game_mechanics() is window                 # one window: asking again brings it forward
     assert snapshot(save) == before
     window.destroy()
 
 
-def test_a_topic_link_scrolls_to_its_group_and_close_closes(app):
+def test_a_topic_button_scrolls_to_its_group_and_close_closes(app):
     window = app.game_mechanics()
     window.update()
-    link = next(w for w in walk(window) if w.winfo_class() == "TLabel" and w.cget("text") == gm.INDEX)
-    link.event_generate("<Button-1>")
+    link = next(w for w in window.mechanics_links.winfo_children() if w.cget("text") == gm.INDEX)
+    link.invoke()
     window.update()
     top = window.text.index("@0,0")
     assert float(top) > 2.0

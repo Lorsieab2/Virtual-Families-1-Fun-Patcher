@@ -146,7 +146,10 @@ Next to the Patches tab is a Tools tab for your family saves.
                     backup holds the family as of its last save: the game
                     saves by itself every 10 minutes while it runs, and when
                     you quit normally. Old backups are never replaced or
-                    deleted.
+                    deleted. Game speed is set to Paused in the backup's
+                    family saves (your own saves are unchanged), so a
+                    restored backup opens paused and never catches up on
+                    the time since it was made.
   Restore Saves     Quit the game first. Choose a backup, choose the whole
                     folder or one save slot, and click Restore. You are shown
                     which files will change and asked to confirm. Your saves as

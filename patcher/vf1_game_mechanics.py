@@ -855,42 +855,61 @@ def render(page: list[Fact] | None = None) -> str:
 # ---------------------------------------------------------------------------
 
 LABEL_COLOURS = {VERIFIED_E: "#1b6e20", VERIFIED_C: "#245a9a", UNCONFIRMED: "#b00020"}
+NOTE_RED = LABEL_COLOURS[UNCONFIRMED]
 WIDTH, HEIGHT = 900, 720
-MIN_WIDTH, MIN_HEIGHT = 600, 500
-LINKS_PER_ROW = 4
+MIN_WIDTH, MIN_HEIGHT = 600, 600
+# 3, not 4: in 4 columns the group buttons need more than the window has at its smallest (as in the Virtual Families
+# 2 patcher's window).
+LINKS_PER_ROW = 3
 
 
-def open_window(parent, link_factory=None):
-    """The Game Mechanics window: links to each group at the top, then the page in a read-only text box with
-    its own scroll bar.  `link_factory(parent, text, command)` makes a link (the patcher's own link look);
-    without it a plain button is used.  Returns the Toplevel."""
+def open_window(parent):
+    """The Game Mechanics window, laid out as the Virtual Villagers Fun Patcher's: the intro, the line that explains
+    the labels in red, a button for each group, then the page in a read-only text box with its own scroll bar that
+    takes the rest of the resizable window, and Close at the bottom right.  Returns the Toplevel."""
     import tkinter as tk
     from tkinter import ttk
 
+    from vf1_tree_editor_tools import TOOL_HEADING_SPACING, tool_fonts, tool_text
+
     window = tk.Toplevel(parent)
     window.title(TITLE)
-    window.geometry(f"{WIDTH}x{HEIGHT}")
+    width = min(WIDTH, max(MIN_WIDTH, window.winfo_screenwidth() - 80))
+    height = min(HEIGHT, max(MIN_HEIGHT, window.winfo_screenheight() - 120))
+    window.geometry(f"{width}x{height}")
     window.minsize(MIN_WIDTH, MIN_HEIGHT)
+    window.resizable(True, True)
     outer = ttk.Frame(window, padding=12)
     outer.pack(fill="both", expand=True)
-    ttk.Label(outer, text=INTRO, wraplength=WIDTH - 60, justify="left").pack(anchor="w")
+    top = ttk.Frame(outer)
+    top.pack(fill="x")
+    intro = ttk.Label(top, text=INTRO, wraplength=width - 60, justify="left")
+    intro.pack(anchor="w")
+    # What the labels mean, in red right under the intro (as the Virtual Villagers patcher's UNCONFIRMED line).
+    label_note = ttk.Label(top, text=LABEL_NOTE, wraplength=width - 60, justify="left", foreground=NOTE_RED)
+    label_note.pack(anchor="w", pady=(4, 8))
+    top.bind("<Configure>", lambda event: (intro.configure(wraplength=max(200, event.width - 8)),
+                                           label_note.configure(wraplength=max(200, event.width - 8))))
     links = ttk.Frame(outer)
-    links.pack(anchor="w", fill="x", pady=(8, 8))
+    links.pack(fill="x", pady=(0, 6))
+    buttons = ttk.Frame(outer)
+    buttons.pack(side="bottom", fill="x", pady=(8, 0))
     body = ttk.Frame(outer)
     body.pack(fill="both", expand=True)
-    text = tk.Text(body, wrap="word", padx=8, pady=8, borderwidth=1, relief="solid", font=("Segoe UI", 10))
+    fonts = tool_fonts(window)
+    text = tool_text(body, wrap="word", padx=8, pady=8, borderwidth=1, relief="solid")
     bar = ttk.Scrollbar(body, orient="vertical", command=text.yview)
     text.configure(yscrollcommand=bar.set)
     bar.pack(side="right", fill="y")
     text.pack(side="left", fill="both", expand=True)
-    text.tag_configure("heading", font=("Segoe UI", 12, "bold"), spacing1=10, spacing3=4)
+    text.tag_configure("heading", font=fonts["heading"], **TOOL_HEADING_SPACING)
     text.tag_configure("note", foreground="#555555", spacing3=6)
-    text.tag_configure("sub", lmargin1=24, lmargin2=40)
-    text.tag_configure("bullet", lmargin1=4, lmargin2=16)
+    text.tag_configure("sub", lmargin1=28, lmargin2=48, spacing3=1)       # as the Virtual Families 2 page
+    text.tag_configure("bullet", lmargin1=8, lmargin2=28, spacing3=2)
     for label, colour in LABEL_COLOURS.items():
-        text.tag_configure(label, foreground=colour, font=("Segoe UI", 9, "bold"))
+        text.tag_configure(label, foreground=colour, font=fonts["label"])
 
-    for note in (PATCHER_NOTE, LABEL_NOTE, SPEED_NOTE):
+    for note in (PATCHER_NOTE, SPEED_NOTE):
         text.insert("end", note + "\n", "note")
     page = facts()
     for group in GROUPS:
@@ -912,16 +931,16 @@ def open_window(parent, link_factory=None):
         text.see(f"group:{group}")
 
     for n, group in enumerate(GROUPS):
-        if link_factory is not None:
-            link = link_factory(links, group, lambda g=group: jump(g))
-        else:
-            link = ttk.Button(links, text=group, command=lambda g=group: jump(g))
-        link.grid(row=n // LINKS_PER_ROW, column=n % LINKS_PER_ROW, sticky="w", padx=(0, 18), pady=1)
+        ttk.Button(links, text=group, command=lambda g=group: jump(g)).grid(
+            row=n // LINKS_PER_ROW, column=n % LINKS_PER_ROW, sticky="we", padx=(0, 4), pady=(0, 2))
+    for column in range(LINKS_PER_ROW):
+        links.columnconfigure(column, weight=1)
 
-    close = ttk.Button(outer, text="Close", command=window.destroy)
-    close.pack(anchor="e", pady=(8, 0))
+    close = ttk.Button(buttons, text="Close", command=window.destroy)
+    close.pack(side="right")
     window.bind("<Escape>", lambda _event: window.destroy())
     window.text = text                         # for the tests
+    window.mechanics_links = links
     return window
 
 
