@@ -16,7 +16,7 @@ patch settings you can switch off):
   - change the bank's interest rate (1% to 11%), which is remembered between sessions.
   - Cheat money doesn't count toward the money achievements. The Clamp Max Money and Food setting keeps both at the VF2 maximums.
 - **Villager Cheats:** for one villager or everyone (each button asks you to confirm):
-  - max health, cure illnesses, max happiness, max energy, fill up (Fed);
+  - max health, cure illnesses (every symptom and any infection, mild or serious), max happiness, max energy, fill up (Fed);
   - Instant job promotion, and Career Change (adults with a career);
   - Boarding School: a child leaves the house, as in the game's own "going to
     college" departure;
@@ -81,8 +81,9 @@ Six settings change the base game on their own (plus the optional ones below):
 - **Allow Older Pregnancies:** mothers over 50 can still conceive (10% at 50, tapering
   to a 0.1% floor from 69), as in the VF2 patcher.
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed
-  without quitting, and Power Failure's "keep the food" result text matches
-  what happens.
+  without quitting, Power Failure's "keep the food" result text matches
+  what happens, and a family with a dog is offered the Pet Turtle (the original
+  game checked for a dog instead of a turtle).
 - **Up to 28 Children** (in the patcher's own **Experimental** section, red heading, after Optional
   Patches, with the warning "Experimental: not yet tested in a running game. Back up your saves before using it."; off by default, and Enable All and `--enable-all` leave it off,
   so it is only ever ticked deliberately): one generation may have up to 28 children instead of

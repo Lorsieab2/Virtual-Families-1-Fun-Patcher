@@ -645,10 +645,15 @@ on the page (groups "The Family Store" .. "Patcher: the rest of the Upgrades men
   Rebate 25: TV; Birdwatcher 39: Birdhouse; BBQ Party 43: grill; An extra hammock 21, The Wrong Address 56, The
   Delivery Truck 57, The Rare Bird 70: give the item while it is not owned).
 - **Specials draw** 0x449480: items 12..17 and 30..63 with stock, never item 42; 43..46 only while their repair is
-  not done; the pets unless that pet is owned (the turtle's check compares with the dog).
+  not done; the pets unless that pet is owned (the turtle's check compares with the dog, kind 1, at 0x4495D6; the cat's
+  is kind 0 and the dog's kind 1, as the drop handler sets them at 0x443DA0: cat 0, dog 1, turtle 2). Fix Vanilla Game
+  Bugs makes it kind 2 (vf1fun.dll writes the compare's immediate 0x4495DC after checking the stock bytes; emulated
+  2026-10-27, `tests/test_cure_and_pet_turtle.py`).
 - **The patcher**: the vf1fun.dll built from this repository's native\ (unchanged since v1.3) with its own
   `CheatsProc` and `VillagerCheatsProc` run in `dllemu.py` (`t_cheats.py`, the dialog's Windows calls answered).
-  Found: Cure illnesses clears the seven symptoms but not an infection (reported, not changed).
+  Found: Cure illnesses cleared the seven symptoms but not an infection. Fixed 2026-10-27: it also clears the two
+  infection flags (villager +0x2B54 / +0x2B55), as Vancomycin (0x446B65 / 0x446B6C) and the Imported Candy (0x443A0D /
+  0x443A13) do; the infections keep no timer.
 
 ## 24. Actions, plans and the nine settled items (2026-10-27)
 
