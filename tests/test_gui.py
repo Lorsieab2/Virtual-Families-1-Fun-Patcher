@@ -125,7 +125,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert {k: v.get() for k, v in app.setting_vars.items()} == {
         "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
         "UpTo28Children": False, "FamilyHistory": True, "AllowOlderPregnancies": True, "ClampMoneyAndFood": True, "SpecialUpgrades": True,
-        "CheatUpgrades": True, "FleaMarket": True, "RollTheDice": True, "CustomMapImages": True,
+        "CheatUpgrades": True, "FleaMarket": True, "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True,
         "VF2Songs": True, "GlowingCollectables": True, "BehaviorLabelVariants": True}
     text = labels_on_screen(app.settings_inner)
     assert text.index("Main Patches") < text.index("Fix Vanilla Game Bugs") < text.index("Optional Patches") \
@@ -138,10 +138,10 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert app.selected_settings() == {"FixVanillaGameBugs", "OlderVillagerMortalityCurve", "PrivateRomanticTime",
                                       "FamilyHistory", "AllowOlderPregnancies", "ClampMoneyAndFood", "SpecialUpgrades"}
     app.select_default_settings()
-    assert len(app.selected_settings()) == 14 and "UpTo28Children" not in app.selected_settings()
+    assert len(app.selected_settings()) == 15 and "UpTo28Children" not in app.selected_settings()
     assert "FamilyHistory" in app.selected_settings()
     app.select_all_settings()                    # Enable All leaves the Experimental setting off
-    assert len(app.selected_settings()) == 14 and "UpTo28Children" not in app.selected_settings()
+    assert len(app.selected_settings()) == 15 and "UpTo28Children" not in app.selected_settings()
     assert "FamilyHistory" in app.selected_settings()
     app.setting_vars["UpTo28Children"].set(True)  # ticked deliberately
     assert "UpTo28Children" in app.selected_settings()

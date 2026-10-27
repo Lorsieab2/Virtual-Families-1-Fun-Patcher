@@ -477,6 +477,8 @@ the prop-to-name pairing is UNCONFIRMED.
 | Specials | store slots 8..13 refresh every 0x3840 = 14,400 **real** s (0x496D80 compares `GetSecondsFromGameStart` 0x4036D0, time() since the start, not the game clock 0x422320; due = now + 14,400) | 4 h at every speed, also paused and closed | VERIFIED-C (0x496D80 read 2026-10-27) |
 | On Sale | one grocery (4 + rand(8)) at half price every 0xA8C0 = 43,200 game s (0x496CD0 reads 0x422320; due = now + 43,200) | 24 h / 12 h / 6 h | VERIFIED-C (0x496CD0 read 2026-10-27) |
 | When | the outfit draw 0x496C70, the sale 0x496CD0 and the specials 0x496D80 run only from the store scene's activation 0x4498C0 (0x4498E7..0x4498FB), so each draw comes at the first opening of the store page after its time | | VERIFIED-C (2026-10-27) |
+| Stock r key | theStoreScene::HandleEvent 0x4499D0: typed 'r' (0x72, 0x4499EA) -> 0x496DB0 (refuses while the due time +0x13C is 3..4 real h away, else due = now + 14,400) -> specials 0x449480(-1), outfit pictures 0x496C70(1), labels 0x449100; the sale +0x11C / +0x120 is not touched | more than 1 h since the last draw | VERIFIED-E (tests/test_store_refresh_key.py) |
+| Patched R key (StoreRefreshKey, on by default) | vf1fun.dll store_keys.inc: jump at 0x4499EA (19 stock bytes and all of 0x496DB0 checked first, else nothing changes) to a detour taking 'r' or 'R' that clears +0x13C and calls the game's own 0x496DB0, then the stock 0x4499FD redraw; other characters go to 0x449A62 as before | every press | VERIFIED-E (tests/test_store_refresh_key.py) |
 | Prices | `GetPrice` 0x4968C0 (labels, buy, refund); upgrades `CTech::GetPrice` | | VERIFIED-C |
 
 ## 17. Timers (every timer found on the traced paths)

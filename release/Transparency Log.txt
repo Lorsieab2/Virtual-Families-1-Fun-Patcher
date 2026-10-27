@@ -167,6 +167,8 @@ Settings and defaults
   Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager.
 - FleaMarket [on] (optional): Flea Market
   Every tray item the store sells, to buy or get for free.
+- StoreRefreshKey [on] (optional): R Refreshes the Store
+  Pressing R (small r or capital R) in the store redraws its Flea Market, the six random items (the game's code calls them the specials), and the random Male Outfit and Female Outfit pictures, every time it is pressed. The original game has the same hidden key, a small r only, and only once more than 1 hour of real time has passed since the last draw. The game's own draw is used, so the items and clothes follow the game's own odds, and the wait for the next automatic draw starts over, as after the original key. Nothing else changes: the half-price grocery, the store's other items and prices, and every outfit already bought (it keeps its picture) stay as they are. R does nothing on any other screen, and nothing in the Upgrades menu's Flea Market page, which already lists every tray item at once.
 - RollTheDice [on] (optional): Roll the Dice
   $500: a Popup Event happens right away.
 - CustomMapImages [on] (optional): Custom Map/Game Images

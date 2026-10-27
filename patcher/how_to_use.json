@@ -71,6 +71,15 @@
       ]
     },
     {
+      "ids": ["StoreRefreshKey"],
+      "guide": [
+        "In the store, press R (small or capital) to get a new Flea Market (the six random items) and new random clothes.",
+        "It works every time you press it. The original game has the same key, but only once an hour.",
+        "The half-price grocery, the other items and prices, and any outfit you already bought stay as they are.",
+        "R does nothing anywhere else. On by default."
+      ]
+    },
+    {
       "ids": ["RollTheDice"],
       "guide": [
         "Adds a Roll the Dice page to the Upgrades button.",

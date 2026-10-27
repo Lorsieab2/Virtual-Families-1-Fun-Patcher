@@ -1020,6 +1020,7 @@ static const wchar_t *FamilyFullText() {
 
 #include "features.inc"
 #include "outfits.inc"
+#include "store_keys.inc"
 #include "pages.inc"
 #include "family.inc"
 #include "family_page.inc"
@@ -1127,6 +1128,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallPetTurtleOfferFix();
         InstallOutfitPictureFix();
     }
+    if (SettingOn(L"StoreRefreshKey", true))
+        InstallStoreRefreshKey();
     if (SettingOn(L"UpTo28Children", false))
         LoadKidsCompanion();
     if (SettingOn(L"FamilyHistory", false))   // after vf1kids.dll: it chains that DLL's hooks

@@ -29,7 +29,9 @@ static bool InstallJump(unsigned site, const unsigned char *expected, int n, voi
             return true;  // already installed
         return false;
     }
-    unsigned char patch[16];
+    unsigned char patch[32];
+    if (n < 5 || n > (int)sizeof patch)
+        return false;
     patch[0] = 0xE9;
     *(int *)(patch + 1) = (int)((unsigned)target - (site + 5));
     for (int i = 5; i < n; ++i) patch[i] = 0x90;

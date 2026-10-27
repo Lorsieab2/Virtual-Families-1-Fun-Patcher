@@ -29,6 +29,8 @@ SPEC = {
         "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager."),
     'FleaMarket': ('Flea Market',
         'Every tray item the store sells, to buy or get for free.'),
+    'StoreRefreshKey': ('R Refreshes the Store',
+        "Pressing R (small r or capital R) in the store redraws its Flea Market, the six random items (the game's code calls them the specials), and the random Male Outfit and Female Outfit pictures, every time it is pressed. The original game has the same hidden key, a small r only, and only once more than 1 hour of real time has passed since the last draw. The game's own draw is used, so the items and clothes follow the game's own odds, and the wait for the next automatic draw starts over, as after the original key. Nothing else changes: the half-price grocery, the store's other items and prices, and every outfit already bought (it keeps its picture) stay as they are. R does nothing on any other screen, and nothing in the Upgrades menu's Flea Market page, which already lists every tray item at once."),
     'RollTheDice': ('Roll the Dice',
         '$500: a Popup Event happens right away.'),
     'CustomMapImages': ('Custom Map/Game Images',
@@ -247,7 +249,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "1", "FleaMarket": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "CheatUpgrades": "1", "FleaMarket": "1", "StoreRefreshKey": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
         assert rel.replace("/", "\\") in text
@@ -275,7 +277,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "0", "FleaMarket": "0", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "CheatUpgrades": "0", "FleaMarket": "0", "StoreRefreshKey": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before
