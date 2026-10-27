@@ -619,9 +619,10 @@ def test_the_store_specials_change_every_four_real_hours_at_any_speed():
 # ------------------------------------------------------------------ every time names its clock (owner, 2026-10-27)
 
 # A length of time or a rate on the page: a number, "a", "every" ... before a unit of time, or any per-frame rate.
-# "second" alone is left out: "the second choice" is an ordinal.
-DURATION = re.compile(r"\b(\d[\d,.]*|one|a|an|every|each|per|half an?)\s+((game|real)\s+)?(seconds?|minutes?|hours?|days?|"
-                      r"weeks?|frames?)\b|\b\d+-(second|minute|hour|day)\b|\bframes?\b")
+# Ordinals are left out: "the second choice", and "a second is bought" (a second outfit).
+DURATION = re.compile(r"\b(\d[\d,.]*|one|every|each|per)\s+((game|real)\s+)?(seconds?|minutes?|hours?|days?|weeks?|"
+                      r"frames?)\b|\b(a|an|half an?)\s+((game|real)\s+)?(minutes?|hours?|days?|weeks?|frames?)\b"
+                      r"|\b\d+-(second|minute|hour|day)\b|\bframes?\b")
 CLOCKS = ("real time", "game time")
 
 
@@ -639,7 +640,7 @@ def test_every_duration_names_its_clock():
     for bad in ("every 2 real seconds", "for 24 real hours", "3 in 6,600 each frame", "the 10-minute autosave",
                 "once a game day", "every game hour"):
         assert DURATION.search(bad), bad
-    assert not DURATION.search("second choice: five leaks; the second step of the plan")
+    assert not DURATION.search("second choice: five leaks; the second step of the plan; once a second is bought")
     assert "All times are real times" not in PAGE and "Timers (real time):" not in PAGE
 
 
