@@ -235,7 +235,7 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 64
+    assert len(lines) == 65
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text
@@ -503,7 +503,9 @@ def test_the_nine_settled_actions_items_and_timers():
     assert "still comes" in one(r"^Sunscreen: its queued happiness trend of \+25", gm.STORE_SPECIALS, gm.VERIFIED_E)
     outfit = one(r"^Which outfit the store hands over: one clothes picture", gm.STORE_OTHER, gm.VERIFIED_E)
     assert "655 or 656 rolls in 32,768" in outfit and {32768 // 50, 32768 // 50 + 1} == {655, 656}
-    assert "once a second is bought, both give 12" in outfit
+    assert "once a second is bought, both show and put on 12" in outfit
+    fixed = pin(gm.STORE_OTHER, "(Fix Vanilla Game Bugs, on by default)", "keeps the picture it was bought at")
+    assert fixed.label == gm.VERIFIED_E and fixed.sub and "still shows and puts on 7" in fixed.text
     assert "draw never picks the Ball" in one(r"^The store never offers the Ball", gm.STORE_OTHER, gm.VERIFIED_E)
     for gone in (r"was not decoded\.$", r"were not decoded\.$", r"not traced\.$", r"Whether the store ever offers",
                  r"^Which outfit the store hands over each time", r"^How long a repair of the wall"):

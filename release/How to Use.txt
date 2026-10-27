@@ -85,6 +85,14 @@ family had a dog instead of a turtle, so a family with a dog was never offered
 the turtle (and a family with a turtle still was). Now the turtle is offered
 whenever the family has no turtle.
 
+And it fixes the outfits in the item tray: in the original game every Male
+Outfit in the tray (and every Female Outfit) showed the picture of the last
+one bought, and putting any of them on gave that last one. Now each outfit
+keeps the picture it had in the store when you bought it, and putting it on
+gives that outfit. The pictures are kept in the patcher's own file beside
+each save ("Virtual Families 1 Patcher Data\Outfits"); the save itself is not
+changed, and outfits bought before the fix keep the game's own picture.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).

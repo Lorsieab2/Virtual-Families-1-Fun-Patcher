@@ -361,6 +361,10 @@
   "name": "theStoreScene specials draw (0x449480): the Pet Turtle's offer check (cmp dword ptr [eax+0x1BE0], 1; je 0x4495E6)",
   "evidence": "83 b8 e0 1b 00 00 01 74 07 at 0x4495D6. The switch at 0x449511 (index table 0x4496B6, jump table 0x4496BC) sends item 61 (Pet Cat) to 0x449573, 62 (Pet Dog) to 0x449597, 63 (Pet Turtle) to 0x4495BC; each skips the item when the family pet (0x513CC0, 0x4342B0(0)) is present (+0x1BE4) and its kind (+0x1BE0) is that animal's: the cat compares with ebp = 0, the dog with 1, and the turtle also with 1. The drop handler sets the kinds at 0x443DA0: 61 -> 0, 62 -> 1, 63 -> 2. Fix Vanilla Game Bugs writes 2 at 0x4495DC (emulated: tests/test_cure_and_pet_turtle.py)."
  },
+ "0x449b58": {
+  "name": "theStoreScene buy: call TrayAddItem (0x4973E0) with the bought item (18 / 19 become 64 / 65) and its uses",
+  "evidence": "50 56 b9 e8 58 89 00 e8 83 d8 04 00 at 0x449B51; 0x4969A0 (called at 0x449B05) copies the store's outfit picture +0x108 / +0x10C to the one bought field +0x110 / +0x114 (83 fa 12 75 0f 8b 91 08 01 00 00 89 91 10 01 00 00 at 0x4969BB). The tray (0x8958E8) keeps (item, uses) per place, 8 places (0x497330), so every tray outfit of a kind reads that one field: the draws 0x496FCD / 0x49703C (0x496A10 reads it at 0x496A76 / 0x496A87) and the drop handler's 0x446EEF (0x496D10 -> villager +0x2A64). Fix Vanilla Game Bugs retargets 0x449B58, 0x4976D6, 0x4977D4, 0x496FCD, 0x49703C and 0x446EEF (emulated: tests/test_outfit_pictures.py)."
+ },
  "0x446b65": {
   "name": "theMainScene drop handler, Vancomycin: mov byte ptr [esi+0x2B54], 0; mov byte ptr [esi+0x2B55], 0 (both infections end)",
   "evidence": "c6 86 54 2b 00 00 00 c6 86 55 2b 00 00 00 at 0x446B65. The infections are two flags in CVillagerState (+0x80 mild, +0x81 serious; set by UpdateDisease at 0x4907C1 / 0x4907B2, ended by its own rolls at 0x4906BD / 0x49071E), with no timer. Penicillin clears only +0x2B54 (0x446A91); the Imported Candy clears both (0x443A0D / 0x443A13, bl = 0). The Villager Cheats page's Cure illnesses clears the same two bytes."
