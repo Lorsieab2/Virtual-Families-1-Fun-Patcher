@@ -1,6 +1,14 @@
 @echo off
 setlocal
 set "SCRIPT_DIR=%~dp0"
+rem The patcher's own files sit in this folder, beside this file.
+set "VF1_FILES=%SCRIPT_DIR%Virtual Families 1 Fun Patcher Files\"
+if not exist "%VF1_FILES%vf1_patcher_gui.py" (
+  echo Could not find the "Virtual Families 1 Fun Patcher Files" folder next to this file.
+  echo Unzip the whole patcher download and keep that folder beside Launch_GUI.bat.
+  pause
+  exit /b 1
+)
 rem py.exe existing does not mean it has a Python 3 registered, so try it and
 rem fall back on failure rather than committing to a branch up front.
 set "VF1_PY="
@@ -26,4 +34,4 @@ if not defined VF1_PY (
   pause
   exit /b 1
 )
-%VF1_PY% "%SCRIPT_DIR%vf1_patcher_gui.py" "%SCRIPT_DIR%manifest.json"
+%VF1_PY% "%VF1_FILES%vf1_patcher_gui.py" "%VF1_FILES%manifest.json"

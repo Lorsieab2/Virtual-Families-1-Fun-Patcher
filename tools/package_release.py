@@ -6,11 +6,15 @@ usage: package_release.py VERSION [--dll PATH] [--out-dir DIR]
 
 Needs build/vf1fun.dll (native/build.bat), patcher/stub.json
 (tools/build_stub.py) and payload/ (the files settings install, in the repository). The layout follows the Virtual Families 2 patcher's
-release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding
+release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding only what the player opens
 
   Launch_GUI.bat, Apply_<version>_Patcher.bat, How to Use.txt,
-  README-<version>-PATCHER.txt, Transparency Log.txt, manifest.json,
-  vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
+  README-<version>-PATCHER.txt, Transparency Log.txt
+
+and one folder, "Virtual Families 1 Fun Patcher Files" (vf1_patcher.BUNDLE_FOLDER, as the Virtual Villagers
+patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the two .bat files run from it:
+
+  manifest.json, vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
   vf1_save.py, vf1_rename_family.py (Rename Family), vf1_game_speed.py (Game Speed),
   vf1_game_mechanics.py (Game Mechanics),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
@@ -68,12 +72,14 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
     }
     text = lambda name: (ROOT / "release" / name).read_text(encoding="utf-8").replace("{VERSION}", version)
     crlf = lambda s: s.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")
-    entries: dict[str, bytes] = {
+    entries: dict[str, bytes] = {   # what the player opens, at the top
         "Launch_GUI.bat": crlf(text("Launch_GUI.bat")),
         f"Apply_{version}_Patcher.bat": crlf(text("Apply_Patcher.bat")),
         "How to Use.txt": crlf(text("How to Use.txt")),
         f"README-{version}-PATCHER.txt": crlf(text("README-PATCHER.txt")),
         "Transparency Log.txt": crlf(vf1_patcher.transparency_log_text(manifest)),
+    }
+    files: dict[str, bytes] = {     # the patcher's own files, in BUNDLE_FOLDER
         "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
         "vf1_patcher.py": (ROOT / "patcher" / "vf1_patcher.py").read_bytes(),
         "vf1_patcher_gui.py": (ROOT / "patcher" / "vf1_patcher_gui.py").read_bytes(),
@@ -96,9 +102,10 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
-        entries[f"tree_pictures/{path.name}"] = path.read_bytes()
+        files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():
-        entries[f"payload/{rel}"] = path.read_bytes()
+        files[f"payload/{rel}"] = path.read_bytes()
+    entries.update({f"{vf1_patcher.BUNDLE_FOLDER}/{name}": data for name, data in files.items()})
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{top}.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:

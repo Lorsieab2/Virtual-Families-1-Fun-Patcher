@@ -12,6 +12,10 @@ or drag the original Virtual Families.exe. This package does not ship a
 prebuilt Windows shortcut because .lnk targets are path-specific and can break
 after ZIP extraction.
 
+The patcher's own files (its scripts, manifest.json, payload and tree_pictures)
+are in the "Virtual Families 1 Fun Patcher Files" folder. Keep that folder
+next to the two BAT files: they run the patcher from it.
+
 The patcher validates that the selected folder is an official Virtual Families
 1.01.00 install before it creates backups or writes any modded output. It then
 refreshes or creates a clearly labeled modded game folder next to the vanilla
@@ -40,6 +44,7 @@ whether the selected folder looks right, whether the EXE is the expected
 official one, whether the patch fits it, and whether the payload files are
 intact. It does not actually change or write files. If you do not choose a
 custom log path, dry-run and pre-write failure logs are written next to
-manifest.json so the vanilla game folder stays untouched.
+manifest.json, in the "Virtual Families 1 Fun Patcher Files" folder, so the
+vanilla game folder stays untouched.
 
 See Transparency Log.txt for every file the patcher writes.

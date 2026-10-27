@@ -92,9 +92,12 @@ How to patch
    Launch_GUI.bat
 
    The BAT file is the supported launcher. It resolves files relative to the
-   folder where you extracted this ZIP.
+   folder where you extracted this ZIP. The patcher's own files are in the
+   "Virtual Families 1 Fun Patcher Files" folder next to it: leave that
+   folder where it is.
 
-5. The patcher should auto-load manifest.json.
+5. The patcher should auto-load manifest.json (from the "Virtual Families 1
+   Fun Patcher Files" folder).
 
 6. Select your vanilla Virtual Families install folder. It should be the
    folder that contains Virtual Families.exe, Images, Sounds, Assets, and the
