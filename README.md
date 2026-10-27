@@ -72,6 +72,12 @@ Six settings change the base game on their own (plus the optional ones below):
   kids already!"), with the stock cooldown, as in the VF2 patcher.
 - **Clamp Max Money and Food:** coins stay at or under 4,000,000,000 and food at or under
   2,147,483,647 (the VF2 maximums); the original game has no limit and food wraps negative.
+- **R Refreshes the Store** (optional, on by default): pressing R (small or capital) in the store redraws its
+  Flea Market, the six random items (the game's code calls them the specials), and the random Male Outfit and
+  Female Outfit pictures, every time, with the game's own draw and odds. The original game has the same hidden
+  key, a small r only, once more than 1 hour of real time has passed since the last draw. The half-price
+  grocery, the other items and prices, and outfits already bought (each keeps its picture) are unchanged; R
+  does nothing on any other screen or in the Upgrades menu's Flea Market page, which lists every tray item at once.
 - **Behavior Label Variants** (optional): the caption under a villager varies, using the VF2 patcher's own captions,
   for TV, reading, the web, video games, board games, homework, the sandbox, the flower boxes, naps (with the
   sit-down captions), the pool, career work and private adult romantic time. At the computer, browsing the web

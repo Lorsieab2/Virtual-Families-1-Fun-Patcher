@@ -93,6 +93,17 @@ gives that outfit. The pictures are kept in the patcher's own file beside
 each save ("Virtual Families 1 Patcher Data\Outfits"); the save itself is not
 changed, and outfits bought before the fix keep the game's own picture.
 
+R Refreshes the Store (on by default): in the store, press R (small r or
+capital R) to redraw the store's Flea Market, its six random items (the
+game's code calls them the specials), and the random Male Outfit and Female
+Outfit pictures. It works every time you press it, using the game's own draw
+and odds. The original game has the same hidden key, but only a small r and
+only once more than 1 hour of real time has passed since the last draw. The
+half-price grocery, the other items and prices, and every outfit you already
+bought (it keeps its picture) stay as they are. R does nothing on any other
+screen, and nothing in the Upgrades menu's Flea Market page, which already
+lists every tray item at once.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).

@@ -109,6 +109,7 @@ PATCH_SETTINGS = {
     "RollTheDice": ("Roll the Dice", True),
     "FixVanillaGameBugs": ("Fix Vanilla Game Bugs", True),
     "FleaMarket": ("Flea Market", True),
+    "StoreRefreshKey": ("R Refreshes the Store", True),
 }
 # The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
 UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
@@ -505,6 +506,15 @@ def _keys() -> list[Fact]:
         Fact(g, with_patcher("FixVanillaGameBugs", "the R key's redraw is the same draw as the automatic one, so a "
                                                    "family with a dog is offered the Pet Turtle there too, and each "
                                                    "outfit already bought keeps its own picture."), C, sub=True),
+        Fact(g, with_patcher("StoreRefreshKey", "a patcher key: R, small or capital, on the store page redraws the "
+                             "Flea Market (the store's six random items, which the game's code calls the specials) "
+                             "and both outfit pictures every time it is pressed, with no 1-hour wait. It is the stock "
+                             "key's own redraw, so the items and pictures follow the same draw and odds, and the next "
+                             "automatic draw comes 4 hours of real time later, as after the stock key (checked: r and "
+                             "R at once, again and again). The half-price grocery, its price and its wait never "
+                             "change, nothing is paid, and outfits already bought keep their pictures (checked). R "
+                             "does nothing on any other screen, and nothing on the Upgrades menu's Flea Market page, "
+                             "which lists every tray item at once and has nothing to redraw."), E, sub=True),
         Fact(g, "M (either case) or Esc on the store page goes back to the house.", C, sub=True),
         Fact(g, "Every part of the store was checked for other keys: the store is one screen (the specials, the "
                 "groceries with the half-price grocery, the medicines, the outfits, the Home Improvements and the "
@@ -559,8 +569,11 @@ def _keys() -> list[Fact]:
                 "button, key or code ever switches to it; the two editors are created when the game starts but "
                 "nothing ever uses them again, so their keys are never read. None can be reached in the shipped "
                 "game.", C),
-        Fact(g, "The Fun Patcher adds no key, click spot or typed code to the game itself; its own windows (the "
-                "Upgrades menu pages) close with Enter or Esc, as ordinary Windows dialogs.", U),
+        Fact(g, "The Fun Patcher's keys: one patcher key in the game itself, R in the store (R Refreshes the Store, "
+                "above); it adds no other key, click spot or typed code. Its own windows (the Upgrades menu pages) "
+                "close with Enter or Esc, as ordinary Windows dialogs.", C),
+        Fact(g, with_patcher("StoreRefreshKey", "patcher key R, in the store only: see the store's hidden key above."),
+             E, sub=True),
         Fact(g, "Random tips, click spot: clicking a small spot just below the house view at the left of the bottom "
                 "bar (51 by 23 pixels: across from 171 to 221 and down from 562 to 584 on the 800 by 600 game "
                 "screen) shows a random tip in the message bar, with a wooden click. Every click picks again from "
@@ -1203,6 +1216,13 @@ def _store() -> list[Fact]:
         Fact(g, f"The specials (six places): every {SPECIALS_REAL}, the six are drawn again, at random, from the "
                 "items that may appear (each special entry below says when it may), at the first opening of the "
                 "store page after that time. An item cannot fill two places at once.", C),
+        Fact(g, "The stock game's hidden key: a small r on the store page redraws the specials and the outfit "
+                "pictures once more than 1 hour of real time has passed since the last draw (see Hidden keys, "
+                "clicks and cheats).", E, sub=True),
+        Fact(g, with_patcher("StoreRefreshKey", "R (small or capital) on the store page redraws the store's own "
+                             "Flea Market, the six specials (not the Upgrades menu's Flea Market page), and the "
+                             "outfit pictures every time, with the game's own draw; the "
+                             "half-price grocery and outfits already bought stay as they are."), E, sub=True),
         Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again at the first opening of "
                 f"the store page more than {game_span(SALE_GAME_SECONDS)} after the last draw. Buying it on sale "
                 "adds the price paid to the \"Coupon clipper\" trophy.", C),
