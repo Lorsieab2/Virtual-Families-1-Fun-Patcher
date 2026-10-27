@@ -1,7 +1,8 @@
 """Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
 
 The page is VF1's own facts only (docs/game-mechanics/spec.md and the re-checks of 2026-10-25), each line with its
-evidence label beside it, in family words, real times at Normal with Slow and Fast beside them. The window only
+evidence label beside it, in family words, every time on its clock (real time or game time, with the real time at
+Normal, Slow and Fast). The window only
 reads: no save, game file or install is opened or written.
 """
 import json
@@ -73,7 +74,7 @@ def test_the_notes_explain_the_labels_and_the_speeds():
     for label in gm.LABELS:
         assert label in gm.LABEL_NOTE
     assert "Normal" in gm.SPEED_NOTE and "Slow" in gm.SPEED_NOTE and "Fast" in gm.SPEED_NOTE
-    assert PAGE.startswith(gm.INTRO + "\n\n" + gm.PATCHER_NOTE + "\n\n" + gm.LABEL_NOTE + "\n\n" + gm.SPEED_NOTE)
+    assert PAGE.startswith(gm.INTRO + "\n\n" + gm.CLOCK_NOTE + "\n\n" + gm.PATCHER_NOTE + "\n\n" + gm.LABEL_NOTE + "\n\n" + gm.SPEED_NOTE)
 
 
 def test_real_times_follow_the_speed_divisor():
@@ -82,14 +83,19 @@ def test_real_times_follow_the_speed_divisor():
     assert [gm.game_seconds(3600, s) for s in (gm.SLOW, gm.NORMAL, gm.FAST)] == [7200, 3600, 1800]
     assert gm.duration(31_000) == "8 hours 36 minutes 40 seconds"
     assert gm.duration(90) == "1 minute 30 seconds"
-    assert gm.units_text(20) == "3 hours 20 minutes on Normal, 6 hours 40 minutes on Slow, 1 hour 40 minutes on Fast"
+    assert gm.units_text(20) == ("3 hours 20 minutes of game time: 3 hours 20 minutes real time on Normal, 6 hours 40 "
+                                 "minutes on Slow, 1 hour 40 minutes on Fast")
+    assert gm.game_span(3600) == "1 hour of game time (1 hour real time on Normal, 2 hours on Slow, 30 minutes on Fast)"
+    assert gm.AGE_UNIT_GAME_SECONDS == 600         # an age unit is 10 game minutes at every speed
+    for speed in (gm.SLOW, gm.NORMAL, gm.FAST, 2, 1):
+        assert gm.unit_seconds(1, speed) == gm.game_seconds(gm.AGE_UNIT_GAME_SECONDS, speed)
 
 
 def test_time_away_is_the_emulated_clamp_counted_at_normal():
     away = " ".join(f.text for f in FACTS if f.group == gm.TIME and f.label == gm.VERIFIED_E)
-    for words in ("up to 8 hours 36 minutes 40 seconds (31,000 seconds) away: counted in full",
-                  "up to exactly 24 hours: counted as 8 hours 36 minutes 40 seconds",
-                  "more than 24 hours: counted as 24 hours (144 age units, 7.2 years)",
+    for words in ("up to 8 hours 36 minutes 40 seconds (31,000 seconds) of real time away: counted in full",
+                  "up to exactly 24 hours of real time: counted as 8 hours 36 minutes 40 seconds",
+                  "more than 24 hours of real time: counted as 24 hours (144 age units, 7.2 years)",
                   "in full up to 6 hours 36 minutes 40 seconds", "in full up to 10 hours 36 minutes 40 seconds"):
         assert words in away
     find(r"never reach a save: the game saves a family at Normal", gm.TIME)
@@ -138,7 +144,7 @@ def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
 def test_unconfirmed_lines_say_what_is_not_known():
     for pattern in (r"Which label sits beside which bar", r"Which cause the game shows",
                     r"How often a family member goes to work", r"What the game calls leaving home",
-                    r"Whether game time .* while the game is closed"):
+                    r"Whether the messes owed for the time the game was closed"):
         assert find(pattern)[0].label == gm.UNCONFIRMED, pattern
     # settled since: the symptoms' names (the doctor's diagnosis strings) and which career room is which
     names = find(r"^The seven symptoms, as the Doctor Consultation's diagnosis names them", gm.SICKNESS)[0]
@@ -244,11 +250,11 @@ def test_every_patcher_line_names_its_setting_and_is_verified():
 def test_autosave_line_and_the_adopt_save():
     # AutoSaveGame 0x423920, from theGame::GameUpdate every frame: 600 s on the PC clock, no pause check,
     # SaveCurrentGame writes the slot file a quit writes (spec section 17, emulated)
-    [stock] = find(r"^Autosave: every 10 real minutes, also while paused, to the same save file a quit writes\.$",
+    [stock] = find(r"^Autosave: every 10 minutes of real time, also while paused, to the same save file a quit writes\.$",
                    gm.INDEX)
     assert stock.sub and stock.label == gm.VERIFIED_E
     adopt = pin(gm.INDEX, "also a save right after you adopt (Fix Vanilla Game Bugs, on by default)",
-                "the 10-minute autosave is unchanged")
+                "the autosave every 10 minutes of real time is unchanged")
     assert adopt.sub and adopt.label == gm.VERIFIED_C
 
 
@@ -345,17 +351,18 @@ def test_roll_the_dice():
 
 
 def test_maid_gardener_and_lucky_rock():
-    maid = pin(gm.MESSES, "Maid", "every game hour (1 hour on Normal", "daytime only",
+    maid = pin(gm.MESSES, "Maid", "every game hour (1 hour of game time: 1 hour real time on Normal", "daytime only",
                "every sock, candy wrapper, cobweb and dirt smudge", "at night is skipped")
     garden = pin(gm.MESSES, "Gardener", "every weed in the yard")
     assert maid.label == garden.label == gm.VERIFIED_E and "$1,000" in maid.text
-    find(r"3 in 6,600 chance", gm.COLLECTIBLES)
+    find(r"3 in 6,600 roll, exactly 15 in 32,768 \(0\.0458%\)", gm.COLLECTIBLES)
     find(r"rare 4\.00%, uncommon 13\.01%", gm.COLLECTIBLES)
-    rate = pin(gm.COLLECTIBLES, "Lucky Rock", "3 in 3,300 chance")
+    rate = pin(gm.COLLECTIBLES, "Lucky Rock", "3 in 3,300 roll, exactly 30 in 32,768 (0.0916%)")
+    assert (rolls_below(3, 6600), rolls_below(3, 3300)) == (15, 30)
     rarity = pin(gm.COLLECTIBLES, "Lucky Rock", "rare 8.01%, uncommon 26.03%, common 65.97%")
     assert rate.label == rarity.label == gm.VERIFIED_E and "$77,777" in rate.text
-    for words in (("Lucky Rock", "Collectible: 3 in 3,300 each frame"), ("Maid's visit", "daytime only"),
-                  ("Gardener's visit",), ("Food Club delivery", "every missed day delivered")):
+    for words in (("Lucky Rock", "Collectible: 30 in 32,768 each frame"), ("Maid's visit", "daytime only"),
+                  ("Gardener's visit",), ("Food Club delivery", "every missed game day delivered")):
         assert pin(gm.INDEX, *words).label == gm.VERIFIED_E
 
 
@@ -485,8 +492,8 @@ def test_the_nine_settled_actions_items_and_timers():
     assert "+5 happiness" in one(r"^Magic Barker and the Loose Screw, the story", gm.STORE_SPECIALS, gm.VERIFIED_C)
     assert "cat, dog and turtle" in one(r"^What a pet does for the family: nothing", gm.STORE_SPECIALS, gm.VERIFIED_C)
     sky = one(r"^How long it lasts, on the game clock", gm.STORE_SPECIALS, gm.VERIFIED_E)
-    assert "the rain 392 to 751 game seconds (6 minutes 32 seconds on Normal" in sky
-    assert "the sunshine 932 to 2,431 (15 minutes 32 seconds on Normal" in sky
+    assert "the rain 392 to 751 game seconds (6 minutes 32 seconds to 12 minutes 31 seconds real time on Normal" in sky
+    assert "the sunshine 932 to 2,431 (15 minutes 32 seconds to 40 minutes 31 seconds real time on Normal" in sky
     assert (30 + 1 + 360 + 1, 30 + 1 + 719 + 1, 30 + 1 + 900 + 1, 30 + 1 + 2399 + 1) == (392, 751, 932, 2431)
     repair = one(r"^How long a repair takes once the item is in place", gm.STORE_SPECIALS, gm.VERIFIED_E)
     for w in ("The hose needs 1 session", "a floor spot 6 (17 repair steps, 3 a session)", "the wall 12 (2 repair steps",
@@ -591,14 +598,116 @@ def test_the_bullets_are_real_bullets_and_nothing_is_garbled():
 def test_the_store_specials_change_every_four_real_hours_at_any_speed():
     # 0x496D80 compares GetSecondsFromGameStart 0x4036D0 (real seconds), not the game clock: 4 h at every speed.
     assert gm.SPECIALS_REAL_SECONDS == 14_400
-    assert gm.SPECIALS_REAL == "4 hours real time (at any game speed, also while paused)"
-    for line in (find(r"^The store: the specials change every 4 hours real time", gm.MONEY)[0],
+    assert gm.SPECIALS_REAL == "4 hours real time (at any game speed, also while paused and while the game is closed)"
+    for line in (find(r"^The store: the specials are drawn again when the store page opens more than 4 hours real "
+                      r"time", gm.MONEY)[0],
                  find(r"^The specials \(six places\): every 4 hours real time", gm.STORE)[0],
                  find(r"^Store specials: 4 hours real time", gm.INDEX)[0]):
         assert "on Normal" not in line.text.split(";")[0] and line.label == gm.VERIFIED_C
-    # the half-price grocery stays on the game clock (0x496CD0 reads 0x422320)
+    # the half-price grocery stays on the game clock (0x496CD0 reads 0x422320), 0xA8C0 game seconds
+    assert gm.SALE_GAME_SECONDS == 43_200
     assert find(r"^The store: the specials", gm.MONEY)[0].text.endswith(
-        "changing every 12 hours on Normal, 24 hours on Slow, 6 hours on Fast.")
+        "half price, drawn again when the store page opens more than 12 hours of game time (12 hours real time on "
+        "Normal, 24 hours on Slow, 6 hours on Fast) after the last draw.")
+    # both are drawn only when the store page opens (0x4498C0 calls 0x496CD0 and 0x496D80), so at the first opening
+    find(r"at the first opening of the store page after that time", gm.STORE)
+    find(r"^On Sale: .* drawn again at the first opening of the store page more than 12 hours of game time", gm.STORE)
+
+
+# ------------------------------------------------------------------ every time names its clock (owner, 2026-10-27)
+
+# A length of time or a rate on the page: a number, "a", "every" ... before a unit of time, or any per-frame rate.
+# "second" alone is left out: "the second choice" is an ordinal.
+DURATION = re.compile(r"\b(\d[\d,.]*|one|a|an|every|each|per|half an?)\s+((game|real)\s+)?(seconds?|minutes?|hours?|days?|"
+                      r"weeks?|frames?)\b|\b\d+-(second|minute|hour|day)\b|\bframes?\b")
+CLOCKS = ("real time", "game time")
+
+
+def test_every_duration_names_its_clock():
+    # "Make sure all the game mechanics data is accurate and specify game time vs real time" (owner, 2026-10-27):
+    # every line with a length of time says "real time" or "game time"; a line counting only age units or years
+    # needs neither (the Clocks note says what they are).
+    timed = [f for f in FACTS if DURATION.search(f.text)]
+    assert len(timed) > 60
+    for fact in timed:
+        assert any(clock in fact.text for clock in CLOCKS), fact.text
+    for note in (gm.INTRO, gm.CLOCK_NOTE, gm.PATCHER_NOTE, gm.LABEL_NOTE, gm.SPEED_NOTE):
+        assert not DURATION.search(note) or any(clock in note for clock in CLOCKS), note
+    # the checker itself: these must be caught, and an ordinal "second" must not
+    for bad in ("every 2 real seconds", "for 24 real hours", "3 in 6,600 each frame", "the 10-minute autosave",
+                "once a game day", "every game hour"):
+        assert DURATION.search(bad), bad
+    assert not DURATION.search("second choice: five leaks; the second step of the plan")
+    assert "All times are real times" not in PAGE and "Timers (real time):" not in PAGE
+
+
+def test_the_clocks_note_explains_both_clocks_and_the_age_units():
+    note = gm.CLOCK_NOTE
+    assert note.startswith("Clocks. Real time is the wall clock")
+    for words in ("runs the same at every game speed, while the game is paused and while it is closed",
+                  "Game time is the game's own clock: it runs with the game speed",
+                  "2 on Slow, 0.5 on Fast, 0.2 at 5x and 0.1 at 10x", "stops while paused",
+                  "while the game is closed runs on at Normal with no limit", "1 age unit is 10 minutes of game time",
+                  "20 age units are 1 year (3 hours 20 minutes real time on Normal)"):
+        assert words in note, words
+    assert "see Clocks" in gm.INTRO
+    # the speeds are VF1's divisors: real seconds per 10 game seconds
+    assert [gm.game_seconds(10, s) for s in (20, 10, 5, 2, 1)] == [20, 10, 5, 2, 1]
+
+
+def test_each_timer_is_on_the_clock_its_routine_reads():
+    # timer_sites.tsv: which clock each routine calls (0x4036D0 / 0x401F20 real, 0x422320 game)
+    real = {"Family update": "seconds of real time", "Wait between babies": "of real time",
+            "Symptom": "of real time", "Food group": "of real time", "Store specials": "real time",
+            "House malfunction": "seconds of real time", "Autosave": "minutes of real time",
+            "Day and night": "real time"}
+    game = ("Interest", "Event check", "Dating e-mail", "Mess", "Half-price grocery", "Age unit", "Pregnancy",
+            "Body removed")
+    index = {f.text.split(":")[0]: f.text for f in FACTS if f.group == gm.INDEX and f.sub}
+    for name, words in real.items():
+        assert words in index[name] and "game time" not in index[name], name
+    for name in game:
+        assert "of game time" in index[name], name
+    # real-time timers run while paused and while the game is closed; the game clock runs on closed, at Normal
+    for name in ("Wait between babies", "Symptom", "Food group", "Store specials"):
+        assert "also while paused and while the game is closed" in index[name], name
+    closed = find(r"^Game time also runs while the game is closed", gm.TIME)[0]
+    assert closed.label == gm.VERIFIED_C and "a family saved paused keeps its game clock stopped" in closed.text
+    paused = find(r"^Paused: the game clock stops", gm.TIME)[0].text
+    assert "the store)" not in paused and "the half-price grocery" in paused     # the specials run on real time
+    find(r"^Paused, real time runs on: the store specials", gm.TIME)
+    assert find(r"^Ageing runs on game time", gm.TIME)[0].label == gm.VERIFIED_E
+
+
+def rolls_below(k, n):
+    """How many of rand()'s 32,768 values give GetRandom(n) = rand() % n below k."""
+    return sum(32768 // n + (1 if v < 32768 % n else 0) for v in range(k))
+
+
+def test_the_audits_corrections():
+    pct = lambda k, n: f"{100 * rolls_below(k, n) / 32768:.2f}%"             # noqa: E731
+    # the event check's rand(100) < 66 (0x4452F2): 21,648 of 32,768
+    assert (pct(66, 100), f"{100 - 100 * rolls_below(66, 100) / 32768:.2f}%") == ("66.06%", "33.94%")
+    find(r"Email Event 66\.06% of the time and a Popup Event 33\.94%", gm.EVENTS)
+    assert "66.02%" not in PAGE
+    # the mess kinds (0x414EA6: rand(100) < 20 / 30 / 55 / 80)
+    exact = [pct(20, 100), pct(10, 100), pct(30, 100)]
+    exact += [f"{100 * (rolls_below(55, 100) - rolls_below(30, 100)) / 32768:.2f}%",
+              f"{100 * (rolls_below(80, 100) - rolls_below(55, 100)) / 32768:.2f}%",
+              f"{100 * (32768 - rolls_below(80, 100)) / 32768:.2f}%"]
+    assert exact == ["20.02%", "10.01%", "30.03%", "25.02%", "24.99%", "19.96%"]
+    find(r"a cobweb 20\.02% .* a weed in the yard 10\.01% \(30\.03% .* a sock 25\.02%, a candy wrapper 24\.99%, "
+         r"a dirt smudge 19\.96%", gm.MESSES)
+    # old age: rand(100) < 10 x years over (0x48C027)
+    assert (pct(10, 100), pct(50, 100)) == ("10.01%", "50.05%")
+    find(r"10\.01% at 1 year over, 50\.05% at 5, 100% at 10", gm.OLD_AGE)
+    # twins: rand(100) < 7 (0x4452..: Impregnate)
+    assert f"{100 - 100 * rolls_below(7, 100) / 32768:.2f}%" == "92.99%"
+    find(r"single 92\.99%, twins 5\.25%, triplets 1\.75%", gm.BABIES)
+    find(r"^Being sick: a 61\.06% chance of losing 1 health each age unit", gm.SICKNESS)
+    # "Where have you been?": whole hours away (away / 3,600) must be above 23 (0x4161D8), so 24 hours or more
+    assert find(r"^\"Where have you been\?\" is shown after 24 hours or more of real time away", gm.TIME)[0].sub
+    assert "more than 23 hours away" not in PAGE
 
 
 def test_the_index_counts_the_316_registered_actions():

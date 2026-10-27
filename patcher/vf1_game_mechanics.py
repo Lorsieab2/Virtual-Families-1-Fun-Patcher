@@ -1,8 +1,20 @@
 """Game Mechanics: how Virtual Families works underneath, from the stock game's own code (the Tools tab's window).
 
 The model is the Virtual Villagers Fun Patcher's Game Mechanics window: the rules are grouped (GROUPS), every
-line is a bullet with its evidence label right beside it, and every time is a real time.  It is for the
-curious and it only reads: it opens no save, game file or install, and writes nothing.
+line is a bullet with its evidence label right beside it, and every time names its clock (CLOCKS below).  It is
+for the curious and it only reads: it opens no save, game file or install, and writes nothing.
+
+CLOCKS.  Every duration, rate and timer says "real time" or "game time" (or counts in age units), read from the
+routine that times it (docs/game-mechanics/timer_sites.tsv lists every clock call):
+  real time  the wall clock: GetSecondsFromGameStart 0x4036D0 (time() less the save's start, which the save keeps,
+             so it also counts while the game is closed) or ldwEventManager::GetSeconds 0x401F20 (time() itself),
+             or the PC's clock for day and night.  Neither reads the speed or the pause.
+  game time  CGameTime::Seconds 0x422320 = banked + real seconds since its mark / (speed / 10); paused it returns the
+             banked value.  It is saved with its mark (0x4222C0) and loaded with it (0x4223F0, from the load at
+             0x424B53), so on loading it counts on over the time the game was closed, at the saved speed, with no
+             limit (the patcher always saves at Normal).
+  age units  each family member's own bank of real seconds divided by 60 x speed (0x489D00): 600 game seconds at
+             every speed; the bank is emptied while paused and a closed game's gap is cut to the time-away limits.
 
 EVIDENCE.  Every line carries one label, always shown (docs/game-mechanics/spec.md, "Evidence labels"):
   VERIFIED-E   the game's own routine was run as linked (in an emulator) with the inputs the game supplies, and
@@ -25,11 +37,12 @@ SPEEDS.  VF1's speed value is a divisor (10 = Normal, the only speed the stock g
 Slow (20) and Fast (5), and 5x (2) and 10x (1); it always saves a family at Normal (or Paused) and loads any other
 saved speed as Normal, so the time a closed game catches up on is always counted at Normal.  Times are written
 for Normal with Slow and Fast beside them.  Paused (the speed plus 999) stops the game clock (spec commit
-db2d45a: CGameTime::SetSpeed stores speed 0 and Seconds() returns the banked value).
+db2d45a: CGameTime::SetSpeed stores speed 0 and Seconds() returns the banked value).  An age unit is 10 game
+minutes; a game second takes 2 / 1 / 0.5 / 0.2 / 0.1 real seconds at Slow / Normal / Fast / 5x / 10x.
 
 The owner's four decisions were each re-checked in the stock exe before going in (Game Mechanics branch,
 2026-10-25); only what held is shown:
-  * Interest has no cap on missed days: shown (UpdateInterest 0x422830 emulated for 1..100 days, called every
+  * Interest has no cap on missed game days: shown (UpdateInterest 0x422830 emulated for 1..100 days, called every
     3 age units from the happiness update 0x48FFB2 <- upkeep 0x48BD57 <- 0x424F93 <- UpdateScene 0x444E9A).
   * Malfunctions roll while paused: shown (the 2-second step 0x444E28..0x444FEC run at speed 1009 rolls
     rand(800) and calls SetProp 0x4938C0; GameUpdate 0x422D90 and Run 0x402CC0 call the scene with no pause test).
@@ -56,8 +69,17 @@ TITLE = "Game Mechanics"
 VERIFIED_E, VERIFIED_C, UNCONFIRMED = "VERIFIED-E", "VERIFIED-C", "UNCONFIRMED"
 LABELS = (VERIFIED_E, VERIFIED_C, UNCONFIRMED)
 
-INTRO = ("For the curious: how Virtual Families works underneath, worked out from the game's own code. All times "
-         "are real times. It only reads: no save or game file is opened or changed, so the game may be running.")
+INTRO = ("For the curious: how Virtual Families works underneath, worked out from the game's own code. Every time "
+         "says which clock it runs on, real time or game time (see Clocks). It only reads: no save or game file is "
+         "opened or changed, so the game may be running.")
+CLOCK_NOTE = ("Clocks. Real time is the wall clock (your PC's clock): it runs the same at every game speed, while the "
+              "game is paused and while it is closed. Game time is the game's own clock: it runs with the game speed "
+              "(1 game second is 1 real second on Normal, 2 on Slow, 0.5 on Fast, 0.2 at 5x and 0.1 at 10x), stops "
+              "while paused, and while the game is closed runs on at Normal with no limit (a family "
+              "saved paused stays stopped). Ages count in age units: 1 age unit is 10 minutes of game time (10 minutes "
+              "real time on Normal) and 20 age units are 1 year (3 hours 20 minutes real time on Normal). Ageing "
+              "stops while paused, and the time the game is closed is caught up only within the time-away limits "
+              "(see Time and ageing).")
 PATCHER_PREFIX = "With the patcher"
 PATCHER_NOTE = ("This page describes the game without the patcher. Wherever the Fun Patcher changes something, the "
                 "line after it starts \"With the patcher\", names the patch setting that does it and says whether "
@@ -66,9 +88,10 @@ LABEL_NOTE = ("Every line says what stands behind it. VERIFIED-E: the game's own
               "game gives it, and the chances counted exactly. VERIFIED-C: read in the game's own code, on a path the "
               "running game is shown to take. UNCONFIRMED: not yet shown either way. For a \"With the patcher\" "
               "line the patcher's own code was run or read together with the game's in the same way.")
-SPEED_NOTE = ("Times are for Normal speed, the only speed the stock game has; Slow and Fast are the speeds the "
-              "patcher's Time Controls add (Slow is half speed, Fast double). Chances are the game's exact odds: its "
-              "random numbers make \"less than 30 in 100\" 30.03%, not 30%.")
+SPEED_NOTE = ("A game-time length is shown with the real time it takes on Normal, the only speed the stock game has, "
+              "and on Slow and Fast, the patcher's Time Controls speeds (Slow is half speed, Fast double; at its 5x "
+              "and 10x a game-time length takes 0.2 and 0.1 times its Normal real time). Chances are the game's exact odds: its random "
+              "numbers make \"less than 30 in 100\" 30.03%, not 30%.")
 
 # The patch settings the page names (patcher/manifest.json: id -> the label the patcher shows, on by default).
 PATCH_SETTINGS = {
@@ -190,17 +213,41 @@ def game_seconds(game: float, speed: int) -> float:
 
 
 def at_speeds(real_at: object) -> str:
-    """'X on Normal, Y on Slow, Z on Fast' for a function of the speed giving real seconds."""
-    return (f"{duration(real_at(NORMAL))} on Normal, {duration(real_at(SLOW))} on Slow, "
+    """'X real time on Normal, Y on Slow, Z on Fast' for a function of the speed giving real seconds."""
+    return (f"{duration(real_at(NORMAL))} real time on Normal, {duration(real_at(SLOW))} on Slow, "
             f"{duration(real_at(FAST))} on Fast")
 
 
-def units_text(units: float) -> str:
-    return at_speeds(lambda speed: unit_seconds(units, speed))
-
-
 def game_text(game: float) -> str:
-    return at_speeds(lambda speed: game_seconds(game, speed))
+    """'1 hour of game time: 1 hour real time on Normal, 2 hours on Slow, 30 minutes on Fast' -- a length on the
+    game's own clock with what it takes in real time at each speed (for use inside brackets)."""
+    return f"{duration(game)} of game time: " + at_speeds(lambda speed: game_seconds(game, speed))
+
+
+def game_span(game: float) -> str:
+    """'1 hour of game time (1 hour real time on Normal, 2 hours on Slow, 30 minutes on Fast)' (in a sentence)."""
+    return f"{duration(game)} of game time (" + at_speeds(lambda speed: game_seconds(game, speed)) + ")"
+
+
+# One age unit is 60 x speed real seconds, and a game second speed / 10 real seconds, so an age unit is 600 game
+# seconds (10 game minutes) at every speed.
+AGE_UNIT_GAME_SECONDS = AGE_UNIT_SECONDS * NORMAL
+
+
+def game_range(low: float, high: float) -> str:
+    """'6 minutes 32 seconds to 12 minutes 31 seconds real time on Normal, ... on Slow, ... on Fast'."""
+    return ", ".join(f"{duration(game_seconds(low, s))} to {duration(game_seconds(high, s))}"
+                     + (" real time on Normal" if s == NORMAL else f" on {name}")
+                     for s, name in ((NORMAL, "Normal"), (SLOW, "Slow"), (FAST, "Fast")))
+
+
+def units_text(units: float) -> str:
+    """The game time `units` age units take, with its real time at each speed (for use inside brackets)."""
+    return game_text(units * AGE_UNIT_GAME_SECONDS)
+
+
+def units_span(units: float) -> str:
+    return game_span(units * AGE_UNIT_GAME_SECONDS)
 
 
 # ---------------------------------------------------------------------------
@@ -347,40 +394,57 @@ def _time() -> list[Fact]:
                                               "5x and 10x."), C, sub=True),
         Fact(g, with_patcher("CheatUpgrades", "Time Controls speeds never reach a save: the game saves a family at "
                                               "Normal (or Paused) and loads any other saved speed as Normal. So the "
-                                              "time while the game is closed is always counted at Normal."),
+                                              "time while the game is closed is always counted at Normal, for "
+                                              "ageing and for game time."),
              C, sub=True),
-        Fact(g, f"Ageing: one age unit every {units_text(1)}. Twenty age units are one year: "
-                f"{units_text(YEAR_UNITS)}.", E),
-        Fact(g, "Ageing runs on real time: each family member counts the real seconds since their last update, "
-                "including the time the game is closed (within the time-away limits below).", C),
+        Fact(g, f"Ageing runs on game time: one age unit every {units_span(1)}. Twenty age units are one year: "
+                f"{units_span(YEAR_UNITS)}.", E),
+        Fact(g, "How ageing is counted: each family member counts the real seconds since their last update and "
+                "divides them by 60 x the speed value, so an age unit is 10 minutes of game time at every speed. "
+                "It is kept by each family member, not by the game clock below, and it also counts the time the "
+                "game is closed, at Normal, within the time-away limits below.", C),
         Fact(g, "Paused: the game clock stops, so nothing that runs on game time moves (interest, events, the "
-                "dating e-mail, the store); messes and collectibles stop too.", C),
-        Fact(g, "Paused: nobody ages, and the paused time is never added on later (checked with 3 days paused: "
-                "no ageing at all).", E),
-        Fact(g, "Day and night follow your PC's clock (12 hours later with Reverse Day/Night), at every speed.", C),
-        Fact(g, "Time away, while the game is closed (counted at Normal, see above):", E),
-        Fact(g, "up to 8 hours 36 minutes 40 seconds (31,000 seconds) away: counted in full.", E, sub=True),
-        Fact(g, "longer than that, up to exactly 24 hours: counted as 8 hours 36 minutes 40 seconds "
+                "dating e-mail, the half-price grocery, messes, the sky); collectibles stop too.", C),
+        Fact(g, "Paused, real time runs on: the store specials, food groups, symptoms and the wait between babies "
+                "keep counting down in real time, and every 2 seconds of real time the family update, the house "
+                "malfunction roll and the autosave check still run (the family update then ages nobody).", C),
+        Fact(g, "Paused: nobody ages, and the paused time is never added on later (checked with 3 days of real "
+                "time paused: no ageing at all).", E),
+        Fact(g, "Day and night follow your PC's clock, in real time (12 hours later with Reverse Day/Night), at "
+                "every speed and also while paused.", C),
+        Fact(g, "Game time also runs while the game is closed: the game clock is saved with the real time of the "
+                "save and, when the family is loaded, counts on from the real clock at the saved speed (always "
+                "Normal) with no limit; a family saved paused keeps its game clock stopped. So on loading, every "
+                "missed game day of interest is paid at once, and the event check, the dating e-mail and each "
+                "store draw come at most once.", C),
+        Fact(g, "Whether the messes owed for the time the game was closed appear when it is loaded (the mess timer's "
+                "place in the save was not traced).", U),
+        Fact(g, "Time away for ageing, while the game is closed (real time away, counted at Normal, see above):",
+             E),
+        Fact(g, "up to 8 hours 36 minutes 40 seconds (31,000 seconds) of real time away: counted in full.", E,
+             sub=True),
+        Fact(g, "longer than that, up to exactly 24 hours of real time: counted as 8 hours 36 minutes 40 seconds "
                 f"({31_000 // (AGE_UNIT_SECONDS * NORMAL)} age units, about 2.6 years).", E, sub=True),
-        Fact(g, "more than 24 hours: counted as 24 hours (144 age units, 7.2 years).", E, sub=True),
-        Fact(g, "at Slow the same check counts in full up to 6 hours 36 minutes 40 seconds, then 8 hours 36 "
-                "minutes 40 seconds up to 24 hours; at Fast in full up to 10 hours 36 minutes 40 seconds, then 8 "
-                "hours 36 minutes 40 seconds; more than 24 hours is 24 hours at every speed.", E, sub=True),
+        Fact(g, "more than 24 hours of real time: counted as 24 hours (144 age units, 7.2 years).", E, sub=True),
+        Fact(g, "at Slow the same check counts in full up to 6 hours 36 minutes 40 seconds of real time, then 8 "
+                "hours 36 minutes 40 seconds up to 24 hours; at Fast in full up to 10 hours 36 minutes 40 seconds, "
+                "then 8 hours 36 minutes 40 seconds; more than 24 hours is 24 hours at every speed.", E, sub=True),
         Fact(g, "a gap is caught up all at once: every counted age unit runs its hunger, health, sickness, "
                 "birthday and birth checks before the house is drawn again.", E, sub=True),
-        Fact(g, "\"Where have you been?\" is shown after more than 23 hours away.", C, sub=True),
+        Fact(g, "\"Where have you been?\" is shown after 24 hours or more of real time away (the whole hours away "
+                "must be more than 23), but not for a family saved paused.", C, sub=True),
         Fact(g, with_patcher("CheatUpgrades", "Time Warp on the Time Controls page ages everyone at home 61 age "
                                               "units (3 years and 1 unit) at once, past the time-away limits above, "
                                               "running every unit's checks; the money gained in a warp stops at $750 "
                                               "more than before it. It works while paused too."), E),
-        Fact(g, "Whether game time (interest, events, the store) also runs while the game is closed.", U),
     ]
 
 
 def _needs() -> list[Fact]:
     g, E, C, U = NEEDS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
-        Fact(g, "Every 2 real seconds the game updates the family, at every speed.", C),
+        Fact(g, "Every 2 seconds of real time the game updates the family, at every speed and also while paused.",
+             C),
         Fact(g, "Each family member at home and alive then runs the checks below once for every age unit they "
                 "have aged since.", E),
         Fact(g, f"Hunger: +5 every 4 age units ({units_text(4)}); above 80 it rises by 2 instead.", E),
@@ -400,7 +464,8 @@ def _needs() -> list[Fact]:
                 "once.", E),
         Fact(g, "Health, happiness and sickness are checked every 3 age units "
                 f"({units_text(3)}).", E),
-        Fact(g, "Energy (every other age unit, only the last 12 of a catch-up; it reads your PC's clock): -4 between 8 PM and 5 AM (from 10 "
+        Fact(g, "Energy (every other age unit, only the last 12 of a catch-up; the hours are your PC's clock, real "
+                "time): -4 between 8 PM and 5 AM (from 10 "
                 "energy up); +8 between 5:06 AM and 5 PM (up to 70 energy); -1 each for happiness 10 or less, "
                 "health 25 or less, health 10 or less, hunger 90 or more; -3 if sick; at most -6 / +10 a time, "
                 "halved below 10 and above 80, kept 1 to 100.", C),
@@ -411,7 +476,8 @@ def _needs() -> list[Fact]:
                 "matching wish for children, hunger 90+ and health 10 or less. Each update moves happiness by "
                 "at most 5.", C),
         Fact(g, "Food groups: Grains, Dairy, Meats, Fruits and Veggies. Putting a bag in the kitchen gives that "
-                "group to every family member at home for 24 real hours, at any speed. Groceries add 150 food, "
+                "group to every family member at home for 24 hours of real time, at any speed, also while paused "
+                "and while the game is closed. Groceries add 150 food, "
                 "organics 250 food and a little happiness.", E),
         Fact(g, "Food in the house starts at 50 to 99, never goes below 0 when food is taken away and has no top "
                 "limit. Food only changes "
@@ -419,12 +485,14 @@ def _needs() -> list[Fact]:
         Fact(g, "Food added past 2,147,483,647 wraps round to a large negative number (checked: 2,147,483,600 "
                 "plus 150 gives -2,147,483,546).", E),
         Fact(g, with_patcher("ClampMoneyAndFood", "food that has wrapped below 0 is put back to 2,147,483,647 in the "
-                                                  "next frame, so food stays at most 2,147,483,647."), E, sub=True),
+                                                  "next frame (frames run on real time), so food stays at most "
+                                                  "2,147,483,647."), E, sub=True),
         Fact(g, upgrade("Food Club", "$10,000", "+500 food and all four food groups for every family member at home "
-                                                "(for 24 real hours) once a game day, every "
-                                                f"{game_text(86_400)}; every missed game day is delivered at once, "
-                                                "with no limit (checked: 1, 2, 30 and 100 days give 500, 1,000, "
-                                                "15,000 and 50,000 food)."), E),
+                                                "(for 24 hours of real time) once a game day, every "
+                                                f"{game_span(86_400)}; every missed game day is delivered at once, "
+                                                "the game days while the game was closed included, with no limit "
+                                                "(checked: 1, 2, 30 and 100 game days give 500, 1,000, 15,000 and "
+                                                "50,000 food)."), E),
         Fact(g, "The info panel's bars show happiness, 100 minus hunger (\"Fed\"), energy and health.", C),
         Fact(g, "Which label sits beside which bar on the info panel.", U),
     ]
@@ -449,7 +517,7 @@ def _health() -> list[Fact]:
         Fact(g, "The per-unit Starvation and Disease losses are 1 point each, so they stop at 14 health.", E),
         Fact(g, "A starving family member still dies: the health check takes 2 points at hunger 100 (1 below 15 "
                 "health) until health reaches 0. That death is recorded as Unknown causes (checked: from 14 "
-                f"health, 0 after 90 age units, {units_text(90)}, even with every per-unit loss missed).", E),
+                f"health, 0 after 90 age units, {units_text(90)}; even with every per-unit loss missed).", E),
     ]
 
 
@@ -472,13 +540,14 @@ def _sickness() -> list[Fact]:
                 "caught is that person's first one.", E, sub=True),
         Fact(g, EXTRA_GROUP + " Their chance of falling ill is as if they had one more group: with 4 groups and "
                 "no career, 0.504% / 0.453% / 0.035% / 0.015%; with 2 groups, the 3-group row.", E),
-        Fact(g, "A symptom lasts 6 to 17 real hours, at any speed; with only symptoms, the first one goes when its "
-                "time is up.", E),
+        Fact(g, "A symptom lasts 6 to 17 hours of real time, at any speed, also while paused and while the game is "
+                "closed; with only symptoms, the first one goes at the first sickness check (every 3 age units) "
+                "after its time is up.", E),
         Fact(g, "Mild infection: each check, 50.05% chance of a new symptom when there is none; it ends with a "
                 "3.00% chance.", E),
         Fact(g, "Serious infection: each check, 50.05% chance of a new symptom while there are fewer than 2; it "
                 "ends with a 1.21% chance.", E),
-        Fact(g, "Being sick: 61% health loss per age unit, no recovery, -3 energy, a happiness trend of -150, a "
+        Fact(g, "Being sick: a 61.06% chance of losing 1 health each age unit, no recovery, -3 energy, a happiness trend of -150, a "
                 "health-check roll, and slower unwatched work.", E),
         Fact(g, "The seven symptoms, as the Doctor Consultation's diagnosis names them, and the medicine for each: "
                 "hiccups (no medicine: \"we can't help you with the hiccups\"), a sore throat (Throat Lozenges), an "
@@ -494,9 +563,10 @@ def _old_age() -> list[Fact]:
     facts = [
         Fact(g, "Old age is rolled on birthdays only. The safe age is 55 years, plus 1 year for each food group "
                 "counted, 1 for the Air Purifier, 1 for the Bathroom Upgrade and 3 if health is over 90. Past it, "
-                "the chance of dying on a birthday is 10% for each year over (100% at 10 years over).", E),
+                "the chance of dying on a birthday is 10 in 100 for each year over: 10.01% at 1 year over, 50.05% "
+                "at 5, 100% at 10.", E),
         Fact(g, "Chance of dying on a birthday, for a family member with a career, health 90 or less, no "
-                "upgrades (10% / 50% / 100% at):", E),
+                "upgrades (10.01% / 50.05% / 100% at):", E),
     ]
     for groups in range(5):
         start = 56 + groups
@@ -549,17 +619,18 @@ def _babies() -> list[Fact]:
                              "(mother 30, fertility 50: father 50 71.06% without the patch, 10.07% with it; father 60 "
                              "69.06% and 0.91%). Younger couples keep the chances above."), E),
         Fact(g, "Fertility is 15 to 89 when a family member is made, and kept 1 to 100.", E),
-        Fact(g, "Twins and triplets: single 93.0%, twins 5.25%, triplets 1.75%; each parent's fertility over 85 "
+        Fact(g, "Twins and triplets: single 92.99%, twins 5.25%, triplets 1.75%; each parent's fertility over 85 "
                 "adds its excess to both chances. Needs free child places (6 children per generation).", C),
         Fact(g, with_patcher("UpTo28Children", "experimental: 28 child places per generation instead of 6, as long "
                                                "as the house has a free place among its 30."), E, sub=True),
-        Fact(g, f"Pregnancy lasts 21 age units: {units_text(21)}.", E),
+        Fact(g, f"Pregnancy lasts 21 age units: {units_span(21)}.", E),
         Fact(g, "A baby joins the family at age 2 (40 age units). While the family is 6 or fewer, the baby's sex "
                 "is chosen to balance the house.", C),
-        Fact(g, "Wait before the next baby (real time, any speed): after a birth, 10 minutes to 4 hours 10 "
-                "minutes, longer the less both parents want children; after a try that fails, 20 minutes and a "
-                "dip in the mother's happiness; marrying clears it. Trying too soon gives the \"too soon\" "
-                "response and, if the wait was more than an hour away, shortens it to 55 minutes.", C),
+        Fact(g, "Wait before the next baby (real time, at any speed, also while paused and while the game is "
+                "closed): after a birth, 10 minutes to 4 hours 10 minutes, longer the less both parents want "
+                "children; after a try that fails, 20 minutes and a dip in the mother's happiness; marrying clears "
+                "it. Trying too soon gives the \"too soon\" response and, if the wait was more than an hour away, "
+                "shortens it to 55 minutes.", C),
         Fact(g, f"{PATCHER_PREFIX}: no wait after a failed try when the head or the spouse is 50 or older "
                 f"({setting('AllowOlderPregnancies')}), or when the couple cannot have a baby - six children "
                 f"already, or a same-sex couple ({setting('PrivateRomanticTime')}).", E, sub=True),
@@ -580,8 +651,9 @@ def _careers() -> list[Fact]:
                 "celebrates). Successes per promotion with the career room at level 1: "
                 + ", ".join(f"{n:,}" for n in successes) + "; at level 2 half as many; at level 3 "
                 "8, 34, 84, 200, 250, 334, 500.", E),
-        Fact(g, "Salary is paid every 3 age units whether or not the family member is at work: a quarter of the "
-                "salary per real hour on Normal (an eighth on Slow, half on Fast).", E),
+        Fact(g, "Salary is paid every 3 age units (30 minutes of game time) whether or not the family member is at "
+                "work, an eighth of the salary each time: a quarter of the salary per hour of real time on Normal "
+                "(an eighth on Slow, half on Fast).", E),
         Fact(g, "During a catch-up, a grown-up with a career who is not sick or pregnant also gets unwatched work "
                 "each age unit, each piece with a 1 in 6 (16.67%) chance of a paid success.", C),
         Fact(g, "How much unwatched work there is (it comes from a value the code does not explain).", U),
@@ -603,23 +675,26 @@ def _money() -> list[Fact]:
         Fact(g, "A new family starts with $50 to $189.", C),
         Fact(g, "Money never goes below $0: a payment that would leaves $0.", E),
         Fact(g, with_patcher("ClampMoneyAndFood", "money is kept at no more than $4,000,000,000, checked every "
-                                                  "frame; without it there is no top limit."), E, sub=True),
-        Fact(g, f"Interest: 10% of the money a game day, every {game_text(86_400)}.", C),
-        Fact(g, upgrade("Brokerage Account", "$10,000", "interest is 11% a game day ($110 on $1,000). Buying it again "
-                                                        "drops the rate to 1%, and each purchase after that adds 2 "
-                                                        "points, up to 11%."), E, sub=True),
+                                                  "frame (real time); without it there is no top limit."), E, sub=True),
+        Fact(g, f"Interest: 10% of the money a game day, every {game_span(86_400)}.", C),
+        Fact(g, upgrade("Brokerage Account", "$10,000", "interest is 11% a game day ($110 on $1,000), a game day being "
+                                                        "24 hours of game time. Buying it again drops the rate to 1%, "
+                                                        "and each purchase after that adds 2 points, up to 11%."),
+             E, sub=True),
         Fact(g, with_patcher("CheatUpgrades", "the interest-rate cheat sets any rate from 1% to 11% for every family; "
                                               "while it is set it is used instead of the Brokerage Account's "
                                               "(checked: 5% pays $50 on $1,000, also with the Brokerage Account)."),
              E, sub=True),
-        Fact(g, "Interest has no limit on missed days: every whole game day since it was last due is paid at "
-                "once, 10% of the money for each day (checked: 1, 2, 3, 7, 30 and 100 days on $1,000 pay $100, "
-                "$200, $300, $700, $3,000 and $10,000).", E),
+        Fact(g, "Interest has no limit on missed days: every whole game day (24 hours of game time) since it was "
+                "last due is paid at once, 10% of the money for each day, the game days while the game was closed "
+                "included (checked: 1, 2, 3, 7, 30 and 100 game days on $1,000 pay $100, $200, $300, $700, $3,000 "
+                "and $10,000).", E),
         Fact(g, "Interest is paid when the family's happiness updates (every 3 age units), and when the bank, the "
                 "store or an event checks it.", C),
         Fact(g, "Paused, no interest builds up: it runs on game time.", C),
-        Fact(g, f"The store: the specials change every {SPECIALS_REAL}; one grocery bag is half price, "
-                f"changing every {game_text(43_200)}.", C),
+        Fact(g, f"The store: the specials are drawn again when the store page opens more than {SPECIALS_REAL} "
+                "after the last draw; one grocery bag is half price, drawn again when the store page opens more "
+                f"than {game_span(SALE_GAME_SECONDS)} after the last draw.", C),
         Fact(g, upgrade("Food Club", "$10,000", "the eight grocery and organic bags cost half, rounded down "
                                                 "(Grains groceries $20 for $10, Meats organics $160 for $80)."),
              E, sub=True),
@@ -646,10 +721,10 @@ def _marriage() -> list[Fact]:
     g, E, C, U = MARRIAGE, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
         Fact(g, "The first head of the family is 24 to 29 years old, man or woman at random.", C),
-        Fact(g, f"The first dating e-mail comes {game_text(180)} after the head (or heir) joins. After the dating "
-                "page is opened, the next is 5 game minutes later for each proposal so far plus 10 for each year "
-                "the head is over 26. It comes only when exactly one family member aged 14 or more is at home.",
-             C),
+        Fact(g, f"The first dating e-mail comes {game_span(180)} after the head (or heir) joins. After the dating "
+                "page is opened, the next is 5 minutes of game time later for each proposal so far plus 10 minutes "
+                "of game time for each year the head is over 26. It comes only when exactly one family member aged "
+                "14 or more is at home.", C),
         Fact(g, "Each candidate is the opposite sex, 3 years younger to 2 years older than the head, with a "
                 "dowry of $35 to $209, doubled 15.01% of the time. Asking for another candidate loses this "
                 "one.", C),
@@ -735,10 +810,11 @@ _EVENTS = (
 def _events() -> list[Fact]:
     g, C, U = EVENTS, VERIFIED_C, UNCONFIRMED
     facts = [
-        Fact(g, f"An event is checked every {game_text(3_600)}. The first check comes {game_text(900)} after "
-                "a new family starts. Paused, none come.", C),
+        Fact(g, f"An event is checked every {game_span(3_600)}. The first check comes {game_span(900)} after "
+                "a new family starts. Paused, none come. The next check is set from the time of the check, so after "
+                "the game was closed at most one comes at once.", C),
         Fact(g, "At each check a random family member is picked; if they are alive, caught up and no e-mail is "
-                "waiting, it is an Email Event 66.02% of the time and a Popup Event 33.98%. Otherwise the check waits and "
+                "waiting, it is an Email Event 66.06% of the time and a Popup Event 33.94%. Otherwise the check waits and "
                 "tries again straight away.", C),
         Fact(g, "Each event that can happen is equally likely, and events repeat.", C),
         Fact(g, "The 71 Random Events (what the first and second choices do, money as a range):", C),
@@ -754,18 +830,18 @@ def _events() -> list[Fact]:
 def _messes() -> list[Fact]:
     g, E, C, U = MESSES, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
-        Fact(g, f"With fewer than 4 in the family a mess appears every {game_text(18_000)}; with 4 or more, "
-                f"every {game_text(9_000)}. None while paused. Up to 30 at once, house and yard "
-                "together.", C),
-        Fact(g, "What it is: a cobweb 20% (when none is out), a weed in the yard 10% (30% while a cobweb is out), "
-                "a sock 25%, a candy wrapper 25%, a dirt smudge 20%.", C),
+        Fact(g, f"With fewer than 4 in the family a mess appears every {game_span(18_000)}; with 4 or more, "
+                f"every {game_span(9_000)}. None while paused. Up to 30 at once, house and yard together; when more "
+                "than one is due, all of them appear at once.", C),
+        Fact(g, "What it is: a cobweb 20.02% (when none is out), a weed in the yard 10.01% (30.03% while a cobweb is "
+                "out), a sock 25.02%, a candy wrapper 24.99%, a dirt smudge 19.96%.", C),
         Fact(g, "Socks, weeds, wrappers and smudges together lower happiness at 10 and at 20; a clean house (0) "
                 "or 1 to 4 raises it.", C),
-        Fact(g, upgrade("Maid", "$1,000", f"every game hour ({game_text(3_600)}), in the daytime only, every sock, "
-                                          "candy wrapper, cobweb and dirt smudge is removed; a visit that falls at "
-                                          "night is skipped."), E),
-        Fact(g, upgrade("Gardener", "$1,000", "every game hour, in the daytime only, every weed in the yard is "
-                                              "removed."), E),
+        Fact(g, upgrade("Maid", "$1,000", f"every game hour ({game_text(3_600)}), in the daytime only (the game's "
+                                          "day, which follows your PC's clock), every sock, candy wrapper, cobweb "
+                                          "and dirt smudge is removed; a visit that falls at night is skipped."), E),
+        Fact(g, upgrade("Gardener", "$1,000", "every game hour (game time, as the Maid), in the daytime only, every "
+                                              "weed in the yard is removed."), E),
         Fact(g, "The kitchen garbage is full at 20.", C),
         Fact(g, "Whether a blue sock vanishes as soon as it appears.", U),
     ]
@@ -774,24 +850,26 @@ def _messes() -> list[Fact]:
 def _collectibles() -> list[Fact]:
     g, E, C, U = COLLECTIBLES, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
-        Fact(g, "A collectible may appear every frame with a 3 in 6,600 chance, at any speed; none while "
-                "paused.", C),
-        Fact(g, upgrade("Lucky Rock", "$77,777", "a 3 in 3,300 chance, so twice as often."), E, sub=True),
-        Fact(g, "How that turns into real time (about one every 73 seconds if the game draws 30 frames a "
-                "second).", U),
+        Fact(g, "A collectible may appear every frame with the code's 3 in 6,600 roll, exactly 15 in 32,768 "
+                "(0.0458%). Frames run on real time, so this is the same at any speed; none while paused.", C),
+        Fact(g, upgrade("Lucky Rock", "$77,777", "a 3 in 3,300 roll, exactly 30 in 32,768 (0.0916%) a frame "
+                                                 "(real time), so twice as often."), E, sub=True),
+        Fact(g, "How that turns into real time (about one every 73 seconds of real time if the game draws 30 "
+                "frames a second).", U),
         Fact(g, "Rarity: rare 4.00%, uncommon 13.01%, common 82.98%. Nothing appears if that item is already "
                 "out or being carried, or (photo pieces) already owned.", C),
         Fact(g, upgrade("Lucky Rock", "$77,777", "rare 8.01%, uncommon 26.03%, common 65.97%."), E, sub=True),
         Fact(g, "Selling a duplicate: $5 common, $15 uncommon, $50 rare.", C),
-        Fact(g, "A collectible stays on the ground for 2 real minutes.", U),
+        Fact(g, "A collectible stays on the ground for 2 minutes of real time.", U),
     ]
 
 
 def _malfunctions() -> list[Fact]:
     g, E, U = MALFUNCTIONS, VERIFIED_E, UNCONFIRMED
     return [
-        Fact(g, "Every 2 real seconds, at any speed and also while the game is paused, a house malfunction has a "
-                "1 in 800 chance (exactly 41 in 32,768): on average one every 26.6 real minutes.", E),
+        Fact(g, "Every 2 seconds of real time, at any speed and also while the game is paused, a house malfunction "
+                "has a 1 in 800 chance (exactly 41 in 32,768): on average one every 26.6 minutes of real time "
+                "while the game is open.", E),
         Fact(g, "Only when no malfunction is already happening; then one of 8 is picked at random, and none "
                 "happens if that one's permanent fix has been bought.", E),
         Fact(g, "A malfunction's permanent fix is set when a family member repairs that malfunction while the family "
@@ -841,10 +919,14 @@ ITEMS = {
 }
 CAREER_ROOM_PRICES = (0, 5000, 15000)        # CTech::GetPrice(room, level 1 / 2 / 3), the same for all three rooms
 # The specials refresh 0x496D80 compares GetSecondsFromGameStart 0x4036D0 (time() since the start: REAL seconds,
-# not the game clock) with its due time and moves it on 0x3840, so the specials change every 4 real hours at any
-# game speed, also while paused.
+# not the game clock) with its due time and sets it to now + 0x3840, so the specials change every 4 real hours at
+# any game speed, also counting paused and closed time.  It runs only when the store page opens (the store scene's
+# activation 0x4498C0 calls 0x496C70, 0x496CD0 and 0x496D80, their only callers there), so a draw comes at the
+# first opening after its time; the half-price grocery 0x496CD0 is the same on the game clock 0x422320.
 SPECIALS_REAL_SECONDS = 0x3840
-SPECIALS_REAL = f"{duration(SPECIALS_REAL_SECONDS)} real time (at any game speed, also while paused)"
+SPECIALS_REAL = (f"{duration(SPECIALS_REAL_SECONDS)} real time (at any game speed, also while paused and while the "
+                 "game is closed)")
+SALE_GAME_SECONDS = 0xA8C0
 # The actions the game registers: 0x480260 calls the registrars 0x452470 (306 times) and 0x452490 (10 times),
 # 316 in all (tests/test_game_mechanics.py counts them in the exe).
 REGISTERED_ACTIONS = 316
@@ -884,10 +966,11 @@ def _store() -> list[Fact]:
                 "can never be returned, and a used item cannot be returned (\"This item can't be returned, because "
                 "it has been used!\").", C),
         Fact(g, f"The specials (six places): every {SPECIALS_REAL}, the six are drawn again, at random, from the "
-                "items that may appear (each special entry below says when it may). An item cannot fill two "
-                "places at once.", C),
-        Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again every "
-                f"{game_text(43_200)}. Buying it on sale adds the price paid to the \"Coupon clipper\" trophy.", C),
+                "items that may appear (each special entry below says when it may), at the first opening of the "
+                "store page after that time. An item cannot fill two places at once.", C),
+        Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again at the first opening of "
+                f"the store page more than {game_span(SALE_GAME_SECONDS)} after the last draw. Buying it on sale "
+                "adds the price paid to the \"Coupon clipper\" trophy.", C),
         Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE} multiplies every store price, the career rooms "
                              "included, by 2, 5 or 100 (rounded down after the Food Club and Health Plan discounts; at "
                              "most $2,147,483,647). Choosing the same multiplier again, or Reset, goes back to the "
@@ -914,11 +997,13 @@ def _store_food() -> list[Fact]:
     for n in range(4, 8):
         group = _FOOD_GROUPS[n]
         facts.append(Fact(g, item(n, f"+150 food for the house, and every family member at home and alive gets the "
-                                     f"{group} food group for 24 real hours (at any speed).", "one bag"), E))
+                                     f"{group} food group for 24 hours of real time (at any speed, also while paused "
+                                     "and while the game is closed).", "one bag"), E))
     for n in range(8, 12):
         group = _FOOD_GROUPS[n - 4]
         facts.append(Fact(g, item(n, f"+250 food for the house, the {group} food group for every family member at "
-                                     "home and alive for 24 real hours, and for each of them a happiness trend of +5 "
+                                     "home and alive for 24 hours of real time, and for each of them a happiness "
+                                     "trend of +5 "
                                      "to +14 and +0 to +2 happiness.", "one bag"), E))
     facts += [
         Fact(g, "What a food group does (health, happiness, sickness and old age): see Needs and upkeep, Health, "
@@ -1034,15 +1119,16 @@ def _store_specials() -> list[Fact]:
                 "dislike it.", C, sub=True),
         Fact(g, item(54, "one of five, 20.00% each (6,554 or 6,553 rolls in 32,768): +5 to +12 happiness; -5 "
                          "happiness and the bathroom need set to 90 (\"Nature is calling!\"); -5 happiness and they "
-                         "run away; an upset stomach (a symptom, 6 to 17 real hours); or +20 health, both infections "
+                         "run away; an upset stomach (a symptom, 6 to 17 hours of real time); or +20 health, both "
+                         "infections "
                          "ended and every symptom cured except a blocked nose. " + any_time), E),
         Fact(g, item(55, "+1 to +3 happiness, and at once the sky turns to the rain on its label. Insect "
                          "collectibles appear only while the sky is in one of two of its four states, the rain this "
                          "bottle brings being one. " + any_time), C),
         Fact(g, item(56, "+1 to +3 happiness, and at once the sky turns to the sunshine on its label. "
                          + any_time), C),
-        Fact(g, f"How long it lasts, on the game clock: the rain 392 to 751 game seconds ({game_text(392)}, up to "
-                f"{game_text(751)}), the sunshine 932 to 2,431 ({game_text(932)}, up to {game_text(2_431)}). The "
+        Fact(g, f"How long it lasts, on the game clock (game time): the rain 392 to 751 game seconds "
+                f"({game_range(392, 751)}), the sunshine 932 to 2,431 ({game_range(932, 2_431)}). The "
                 "bottle holds its sky for 30 game seconds, then sets it again with the sky's own length (rain 360 to "
                 "719, sunshine 900 to 2,399); after the rain comes sunshine, after the sunshine one of the other three "
                 "skies, one of which never comes at night (checked, every roll at its lowest and highest). Paused, the "
@@ -1134,7 +1220,7 @@ def _store_other() -> list[Fact]:
                 "handler has no use for it).", C),
         Fact(g, "The store never offers the Ball: its specials table lists it in the first special place, but the "
                 "first opening of the store page fills all six places, with a draw, or in a new family's first 2 "
-                "real seconds with the kept specials, empty then (checked: the Ball is gone after either); the draw "
+                "seconds of real time with the kept specials, empty then (checked: the Ball is gone after either); the draw "
                 "never picks the Ball.", E, sub=True),
     ]
 
@@ -1173,7 +1259,7 @@ def _home() -> list[Fact]:
     facts = [
         Fact(g, "Each of the 15 is bought once, from the store's Home Improvements page, and stays for good; "
                 "everyone celebrates the purchase. Every one owned adds +10 to every family member's happiness "
-                "trend at each happiness update (every 3 age units, "
+                "trend at each happiness update (every 3 age units; "
                 f"{units_text(3)}); a family member with a matching like gets the extra shown, once per "
                 "improvement however many of the likes they have.", C),
     ]
@@ -1190,7 +1276,7 @@ def _home() -> list[Fact]:
 
 # What the activities give (t_beh.py: each action run as linked, its plan's steps through ProcessCurrentPlan) and
 # who chooses them (t_recs.py: the action records 0x482120 writes, as the chooser 0x4886E0 tests them).
-_DAY = "from sunrise until 2 hours after sunset (the PC's clock and date)"
+_DAY = "from sunrise until 2 hours after sunset (your PC's clock and date: real time)"
 _ACTIVITIES = (
     ("What the activities give, each time: \"a happiness trend\" is the hidden trend of Needs and upkeep; "
      "\"dirtiness\" and \"the bathroom need\" rise as they get worse. Each activity is chosen only while its "
@@ -1257,20 +1343,21 @@ def _patcher_special() -> list[Fact]:
         Fact(g, with_patcher("SpecialUpgrades", "the Upgrades menu's Special Upgrades page sells the six purchases "
                              "below, each kept per family. Buying an owned one again removes it, with no refund, "
                              "except the Brokerage Account (below)."), C),
-        Fact(g, upgrade("Brokerage Account", "$10,000", "interest 11% a game day instead of 10%; buying it again "
+        Fact(g, upgrade("Brokerage Account", "$10,000", "interest 11% a game day (24 hours of game time) instead of "
+                        "10%; buying it again "
                         "sets 1%, and each purchase after that adds 2 points, up to 11% (see Money and interest)."),
              E),
-        Fact(g, upgrade("Food Club", "$10,000", "a delivery at once and then every game day: +500 food and all four "
-                        "food groups for 24 real hours; a hungry family member always finds food; every grocery bag "
-                        "half price (see Needs and upkeep and Store: groceries)."), E),
+        Fact(g, upgrade("Food Club", "$10,000", "a delivery at once and then every game day (24 hours of game time): "
+                        "+500 food and all four food groups for 24 hours of real time; a hungry family member always "
+                        "finds food; every grocery bag half price (see Needs and upkeep and Store: groceries)."), E),
         Fact(g, upgrade("Health Plan", "$10,000", "the medicines, Baby Boost and the Doctor Consultation cost a "
                         "quarter (see Store: medicines)."), E),
         Fact(g, upgrade("Lucky Rock", "$77,777", "collectibles appear twice as often and are rare 8.01%, uncommon "
                         "26.03% (see Collectibles)."), E),
         Fact(g, upgrade("Maid", "$1,000", f"every game hour ({game_text(3_600)}), in the daytime, every sock, candy "
                         "wrapper, cobweb and dirt smudge is removed (see Messes)."), E),
-        Fact(g, upgrade("Gardener", "$1,000", "every game hour, in the daytime, every weed in the yard is removed "
-                        "(see Messes)."), E),
+        Fact(g, upgrade("Gardener", "$1,000", "every game hour (game time), in the daytime, every weed in the yard "
+                        "is removed (see Messes)."), E),
     ]
 
 
@@ -1342,43 +1429,47 @@ def _patcher_menu() -> list[Fact]:
     ]
 
 
+_CLOSED = "also while paused and while the game is closed"
 _TIMERS = (
-    ("Family update", "every 2 real seconds, at any speed, also while paused", VERIFIED_C),
+    ("Family update", "every 2 seconds of real time, at any speed, also while paused", VERIFIED_C),
     ("Age unit", units_text(1), VERIFIED_E),
-    ("Pregnancy", units_text(21), VERIFIED_E),
-    ("Body removed", units_text(240), VERIFIED_E),
-    ("Wait between babies", "10 minutes to 4 hours 10 minutes real time; 20 minutes after a failed try",
-     VERIFIED_C),
-    ("Symptom", "6 to 17 real hours", VERIFIED_E),
-    ("Food group", "24 real hours", VERIFIED_C),
-    ("Interest", game_text(86_400) + ", every missed day paid", VERIFIED_E),
+    ("Pregnancy", "21 age units, " + units_text(21), VERIFIED_E),
+    ("Body removed", "240 age units, " + units_text(240), VERIFIED_E),
+    ("Wait between babies", f"10 minutes to 4 hours 10 minutes of real time, {_CLOSED}; 20 minutes after a failed "
+                            "try", VERIFIED_C),
+    ("Symptom", f"6 to 17 hours of real time, {_CLOSED}", VERIFIED_E),
+    ("Food group", f"24 hours of real time, {_CLOSED}", VERIFIED_C),
+    ("Interest", game_text(86_400) + ", every missed game day paid", VERIFIED_E),
     ("Event check", game_text(3_600) + "; the first " + game_text(900), VERIFIED_C),
     ("Dating e-mail", game_text(180) + " for the first", VERIFIED_C),
     ("Mess", game_text(18_000) + "; half that with 4 or more", VERIFIED_C),
-    ("Store specials", SPECIALS_REAL, VERIFIED_C),
-    ("Half-price grocery", game_text(43_200), VERIFIED_C),
-    ("Collectible", "3 in 6,600 each frame", VERIFIED_C),
-    ("House malfunction", "1 in 800 every 2 real seconds, also while paused", VERIFIED_E),
-    ("Autosave", "every 10 real minutes, also while paused, to the same save file a quit writes", VERIFIED_E),
-    ("Day and night", "your PC's clock", VERIFIED_C),
+    ("Store specials", SPECIALS_REAL + ", drawn when the store page opens", VERIFIED_C),
+    ("Half-price grocery", game_text(SALE_GAME_SECONDS) + ", drawn when the store page opens", VERIFIED_C),
+    ("Collectible", "15 in 32,768 each frame (real time: frames are not slowed by the game speed); none while "
+                    "paused", VERIFIED_C),
+    ("House malfunction", "1 in 800 every 2 seconds of real time, also while paused", VERIFIED_E),
+    ("Autosave", "every 10 minutes of real time, also while paused, to the same save file a quit writes",
+     VERIFIED_E),
+    ("Day and night", "your PC's clock (real time)", VERIFIED_C),
 )
 
 
 def _index() -> list[Fact]:
     g, E, C, U = INDEX, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     patched = {   # timers the patcher adds or changes, after the stock timer they sit beside
-        "Collectible": [upgrade("Lucky Rock", "$77,777", "Collectible: 3 in 3,300 each frame.")],
+        "Collectible": [upgrade("Lucky Rock", "$77,777", "Collectible: 30 in 32,768 each frame (real time).")],
         "Mess": [upgrade("Maid", "$1,000", f"Maid's visit: {game_text(3_600)}, daytime only."),
                  upgrade("Gardener", "$1,000", f"Gardener's visit: {game_text(3_600)}, daytime only.")],
         "Wait between babies": [f"{PATCHER_PREFIX}: none after a failed try with a parent of 50 or older "
                                 f"({setting('AllowOlderPregnancies')}) or a couple that cannot have a baby "
                                 f"({setting('PrivateRomanticTime')})."],
         "Autosave": [(f"{PATCHER_PREFIX}: also a save right after you adopt ({setting('FixVanillaGameBugs')}); "
-                      "the 10-minute autosave is unchanged.", C)],
+                      "the autosave every 10 minutes of real time is unchanged.", C)],
         "Interest": [upgrade("Food Club", "$10,000", f"Food Club delivery: {game_text(86_400)}, every missed "
-                                                     "day delivered.")],
+                                                     "game day delivered.")],
     }
-    facts = [Fact(g, "Timers (real time):", C)]
+    facts = [Fact(g, "Timers, each on its clock (real time, game time or age units; game time with its real time "
+                     "on Normal, Slow and Fast):", C)]
     for name, length, label in _TIMERS:
         facts.append(Fact(g, f"{name}: {length}.", label, sub=True))
         facts += [Fact(g, *(item if isinstance(item, tuple) else (item, E)), sub=True)
@@ -1412,7 +1503,7 @@ def line(fact: Fact) -> str:
 def render(page: list[Fact] | None = None) -> str:
     """The whole page as text: the intro notes, then each group's heading and lines."""
     page = facts() if page is None else page
-    parts = [INTRO, PATCHER_NOTE, LABEL_NOTE, SPEED_NOTE]
+    parts = [INTRO, CLOCK_NOTE, PATCHER_NOTE, LABEL_NOTE, SPEED_NOTE]
     for group in GROUPS:
         lines = [line(f) for f in page if f.group == group]
         if lines:
@@ -1485,7 +1576,7 @@ def open_window(parent):
         text.tag_configure(label, foreground=colour, font=fonts["label"])
     ttk.Style(window).configure(LINK_STYLE, padding=LINK_PADDING)
 
-    for note in (PATCHER_NOTE, SPEED_NOTE):
+    for note in (CLOCK_NOTE, PATCHER_NOTE, SPEED_NOTE):
         text.insert("end", note + "\n", "note")
     page = facts()
     for group in GROUPS:
