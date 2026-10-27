@@ -1044,7 +1044,10 @@ def _store_specials() -> list[Fact]:
         Fact(g, "Pet Cat, Pet Dog and Pet Turtle ($500 each, one use): dropped in the house, it becomes the family's "
                 "pet; with a pet already, a question asks before it replaces it. The store offers each one unless "
                 "the family's pet is already that animal; the Pet Turtle's check tests for the dog, so with a dog "
-                "the turtle is not offered, and with a turtle it is.", C),
+                "the turtle is not offered, and with a turtle it is.", E),
+        Fact(g, with_patcher("FixVanillaGameBugs", "the Pet Turtle's check tests for the turtle, like the cat's and "
+                             "the dog's: a family with a dog is offered the turtle, and a family with a turtle is "
+                             "not."), E, sub=True),
         Fact(g, "What a pet does for the family: the pet's own code was not traced.", U, sub=True),
         Fact(g, item(47, "dropped on the computer: everyone celebrates, and the four spam e-mails (Random Events 12 "
                          "to 15) never come again. " + any_time), C),
@@ -1202,10 +1205,9 @@ def _patcher_menu() -> list[Fact]:
                       "settings.ini (checked: 12 is refused; see Money and interest)."), E),
         Fact(g, cheat("Villager Cheats page: Max health sets health 100; Max happiness and Psychotherapy set "
                       "happiness 100; Max energy sets energy 100; Fill up (Fed) sets hunger to 1 (fully fed); Cure "
-                      "illnesses clears all seven symptoms and their times; All of these does all five (checked on "
-                      "a family member at 50 health, energy and happiness and 60 hunger)."), E),
-        Fact(g, cheat("Villager Cheats page, Cure illnesses leaves a mild or serious infection in place (checked): "
-                      "only Penicillin, Vancomycin or the Imported Candy end one."), E, sub=True),
+                      "illnesses clears all seven symptoms and their times and ends a mild and a serious "
+                      "infection, as Vancomycin does; All of these does all five (checked on a family member at 50 "
+                      "health, energy and happiness and 60 hunger, with three symptoms and both infections)."), E),
         Fact(g, cheat("Villager Cheats page: Instant job promotion promotes a family member with a career one level "
                       "at once, without pay, as the Professional Career Training pop-up does (checked: Beginner to "
                       "Novice); Career Change draws a new career at random and starts it at Beginner. Neither works "

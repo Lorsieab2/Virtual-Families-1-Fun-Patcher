@@ -466,8 +466,10 @@ def test_the_patchers_store_changes():
     assert prices.label == gm.VERIFIED_C
     cheats = pin(gm.PATCHER_MENU, "Cheat Upgrades page: No Money sets $0")
     assert cheats.label == gm.VERIFIED_E and "2,147,483,000 + 10,000 becomes 2,147,483,647" in cheats.text
-    cure = pin(gm.PATCHER_MENU, "Cure illnesses leaves a mild or serious infection in place")
-    assert cure.label == gm.VERIFIED_E
+    cure = pin(gm.PATCHER_MENU, "Cure illnesses clears all seven symptoms", "ends a mild and a serious infection")
+    assert cure.label == gm.VERIFIED_E and "leaves a mild or serious infection" not in gm.render()
+    turtle = pin(gm.STORE_SPECIALS, "(Fix Vanilla Game Bugs, on by default)", "Pet Turtle's check tests for the turtle")
+    assert turtle.label == gm.VERIFIED_E and turtle.sub
 
 
 # ------------------------------------------------------------------ the window

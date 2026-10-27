@@ -17,8 +17,9 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    exact amount; food: No Food, +100, +10,000, Max (2,147,483,647)
                    or set; the bank's interest rate, 1% to 11% (remembered
                    between sessions).
-  Villager Cheats  (Every button asks you to confirm.) For one villager or everyone: max health, cure illnesses,
-                   max happiness, max energy, fill up (Fed); Instant job
+  Villager Cheats  (Every button asks you to confirm.) For one villager or everyone: max health, cure illnesses
+                   (every symptom and any infection), max happiness, max
+                   energy, fill up (Fed); Instant job
                    promotion and Career Change (adults); Boarding School (a
                    child leaves the house like going to college);
                    Systematic Desensitization (removes a dislike); Higher
@@ -78,6 +79,11 @@ The same setting fixes the Power Failure event: choosing to keep the food
 always said "This stuff still looks okay" even when people got sick. Now the
 words match what happens ("Everyone gets an upset stomach. The food was not
 ok.").
+
+It also fixes the store's Pet Turtle: the original game checked whether the
+family had a dog instead of a turtle, so a family with a dog was never offered
+the turtle (and a family with a turtle still was). Now the turtle is offered
+whenever the family has no turtle.
 
 How to patch
 ------------

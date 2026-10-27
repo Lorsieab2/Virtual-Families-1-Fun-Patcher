@@ -385,12 +385,21 @@ enum { ID_VC_LIST = 400, ID_VC_HEALTH, ID_VC_CURE, ID_VC_HAPPY, ID_VC_ENERGY, ID
        ID_VC_BOARD, ID_VC_DESENS, ID_VC_LEARN, ID_VC_PSYCHO, ID_VC_RUNNING, ID_VC_AGE18 };
 static const wchar_t *ApplyVillagerUpgrade(int id, int slot);  // villager_upgrades.inc
 
+// Cure: the seven symptoms and their end times, and both infections. The
+// infections are two flags, mild at +0x80 and serious at +0x81 (villager
+// +0x2B54 / +0x2B55; UpdateDisease 0x490640 sets them at 0x4907C1 / 0x4907B2
+// and keeps no timer for them). The game's own full cures clear exactly those
+// two bytes: Vancomycin (the drop handler, 0x446B65 / 0x446B6C) and the
+// Imported Candy's +20 health outcome (0x443A0D / 0x443A13), which then ends
+// every symptom as here.
 static void CureVillager(int i) {
     unsigned char *state = Villager(i) + 0x2AD4;
     for (int s = 0; s < 7; ++s) {
         state[0x5C + s] = 0;
         *(unsigned *)(state + 0x64 + s * 4) = 0;
     }
+    state[0x80] = 0;  // mild infection
+    state[0x81] = 0;  // serious infection
 }
 
 // Appearance: VF1 has no separate clothing or hair field. The head row
@@ -827,6 +836,27 @@ static void InstallOldestRecordGuard() {
     static const unsigned char stock[] = { 0xA1, 0x80, 0xC5, 0x50, 0x00 };  // mov eax, [0x50C580]
     InstallJump(0x489EE4, stock, 5, (void *)&OldestRecordDetour);
 }
+// FIX: A FAMILY WITH A DOG IS NEVER OFFERED THE PET TURTLE.
+// The store's offer list (the specials draw, theStoreScene 0x449480) skips a
+// pet the family already has. Its switch on the item (0x449511) sends Pet Cat
+// (61) to 0x449573, Pet Dog (62) to 0x449597 and Pet Turtle (63) to 0x4495BC,
+// and each tests the family pet's kind (pet +0x1BE0, as the drop handler sets
+// it at 0x443DA0: cat 0, dog 1, turtle 2). The cat's test is kind == 0 and the
+// dog's kind == 1, but the turtle's (0x4495D6) is also kind == 1, so with a
+// dog the turtle is skipped and with a turtle it is still offered. Its
+// compare's immediate (0x4495DC) becomes 2, the turtle's own kind. The whole
+// compare and its jump are checked against the stock bytes first; anything
+// else is left as it is.
+static bool BytesAre(unsigned address, const unsigned char *expected, int n);  // features.inc
+static bool WriteCode(unsigned address, const void *bytes, int n);              // features.inc
+static void InstallPetTurtleOfferFix() {
+    static const unsigned char stock[] = {
+        0x83, 0xB8, 0xE0, 0x1B, 0x00, 0x00, 0x01,  // cmp dword ptr [eax + 0x1BE0], 1
+        0x74, 0x07 };                              // je 0x4495E6 (not offered)
+    static const unsigned char turtle = 0x02;
+    if (BytesAre(0x4495D6, stock, sizeof stock))
+        WriteCode(0x4495DC, &turtle, 1);
+}
 // FIX: A NEW FAMILY IS LOST IF THE GAME IS CLOSED WITHOUT QUITTING.
 // The stock game saves when the intro story starts (CStoryScene::Activate
 // calls theGameState::SaveCurrentGame), which is BEFORE anyone is adopted, and
@@ -1093,6 +1123,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         HookAdoptionSave();
         InstallPowerFailureFix();
         InstallOldestRecordGuard();
+        InstallPetTurtleOfferFix();
     }
     if (SettingOn(L"UpTo28Children", false))
         LoadKidsCompanion();
