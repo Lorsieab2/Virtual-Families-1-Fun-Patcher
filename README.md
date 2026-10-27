@@ -82,8 +82,11 @@ Six settings change the base game on their own (plus the optional ones below):
   to a 0.1% floor from 69), as in the VF2 patcher.
 - **Fix Vanilla Game Bugs:** a brand-new family is kept if the game is closed
   without quitting, Power Failure's "keep the food" result text matches
-  what happens, and a family with a dog is offered the Pet Turtle (the original
-  game checked for a dog instead of a turtle).
+  what happens, a family with a dog is offered the Pet Turtle (the original
+  game checked for a dog instead of a turtle), and each outfit bought keeps its
+  own picture in the tray and puts on that outfit (the original game showed and
+  put on the last one bought for every outfit of a kind; the pictures are kept in
+  `Virtual Families 1 Patcher Data\Outfits` beside each save, and the save is not changed).
 - **Up to 28 Children** (in the patcher's own **Experimental** section, red heading, after Optional
   Patches, with the warning "Experimental: not yet tested in a running game. Back up your saves before using it."; off by default, and Enable All and `--enable-all` leave it off,
   so it is only ever ticked deliberately): one generation may have up to 28 children instead of
@@ -121,7 +124,7 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
   - **Back Up Saves:** copies the modded game's save folder
     (`Documents\LDW\Virtual Families - Modded`: the `Virtual Families<N>.ldw` slot saves, plus the patcher's own
     `Virtual Families 1 Patcher Data` folder with each save's Slot files and the Children
-    files) into a new `Backups\Backup <date and time>` folder inside it. The save folders are found
+    and Outfits files) into a new `Backups\Backup <date and time>` folder inside it. The save folders are found
     automatically (Documents is read from Windows, so a OneDrive-redirected Documents works). A running game is
     paused for the copy and resumed; every copy is checked against the original (size and SHA-256); an existing
     backup is never replaced, and a copy that fails is kept as `... INCOMPLETE` and never offered for restore.
@@ -192,7 +195,7 @@ The save tools live in `patcher/vf1_save_backup.py` (no Tk; tested with temporar
 
 - **Cut content:** restored where the game ships unused text or art.
 
-Data the game itself does not track (the purchases, the Family page's choices)
+Data the game itself does not track (the purchases, the Family page's choices, each tray outfit's picture)
 is kept per save slot in the patcher's own files under
 `Documents\LDW\<exe name>\Virtual Families 1 Patcher Data`, never inside the
 game's records.

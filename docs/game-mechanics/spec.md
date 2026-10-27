@@ -705,4 +705,10 @@ Scripts (kept outside the repo with the others): `t_beh.py`, `t_recs.py`, `t_rep
   all six (draw 0x449480, or the kept specials while 0x496D80 is not due: GetSecondsFromGameStart <= 1).
 - **Found, not changed**: the specials refresh 0x496D80 uses `GetSecondsFromGameStart` 0x4036D0 (real seconds), so
   it is every 14,400 real seconds at any speed, not game seconds (sections 16 and 17 and the page now say so); every outfit of a kind in the
-  tray shows the last one bought's picture.
+  tray shows the last one bought's picture (and putting it on gives that picture: the drop handler's 0x446EEF calls
+  0x496D10, +0x110 / +0x114). Fixed 2026-10-27 in Fix Vanilla Game Bugs (vf1fun.dll, `native/vf1fun/outfits.inc`):
+  the tray keeps only (item, uses) per place (0x8958E8, 8 x 8 bytes), so the DLL keeps each place's picture, set at
+  the buy's TrayAddItem (0x449B58), moved with the tray's swap (0x4976D6 / 0x4977D4 -> 0x497520), lent to +0x110 /
+  +0x114 for the tray's two draws (0x496FCD / 0x49703C -> 0x496A10) and given at 0x446EEF; per save in
+  `Virtual Families 1 Patcher Data\Outfits\<save file>.dat`, used only while the loaded tray and outfit fields
+  are the ones it was written with. Emulated before and after: `tests/test_outfit_pictures.py`.
