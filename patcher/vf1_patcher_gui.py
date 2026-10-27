@@ -80,7 +80,8 @@ def required_path(value: str | None, label: str) -> str:
 
 
 def local_settings_path(base_dir: Path | None = None) -> Path:
-    root = base_dir or Path(__file__).resolve().parent
+    # The \\?\ form: the patcher's folder may sit deep enough that this file's path passes MAX_PATH.
+    root = base_dir or patcher.long_path(Path(__file__).resolve().parent)
     return root / LOCAL_SETTINGS_FILE
 
 

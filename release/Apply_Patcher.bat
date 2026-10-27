@@ -1,6 +1,14 @@
 @echo off
 setlocal
 set "SCRIPT_DIR=%~dp0"
+rem The patcher's own files sit in this folder, beside this file.
+set "VF1_FILES=%SCRIPT_DIR%Virtual Families 1 Fun Patcher Files\"
+if not exist "%VF1_FILES%vf1_patcher.py" (
+  echo Could not find the "Virtual Families 1 Fun Patcher Files" folder next to this file.
+  echo Unzip the whole patcher download and keep that folder beside this file.
+  pause
+  exit /b 1
+)
 echo.
 echo Virtual Families 1 Fun Patcher - {VERSION}
 echo This creates a separate modded game folder next to the vanilla folder
@@ -36,6 +44,6 @@ if not defined VF1_PY (
   pause
   exit /b 1
 )
-%VF1_PY% "%SCRIPT_DIR%vf1_patcher.py" apply --exe "%VF1_EXE%" --manifest "%SCRIPT_DIR%manifest.json"
+%VF1_PY% "%VF1_FILES%vf1_patcher.py" apply --exe "%VF1_EXE%" --manifest "%VF1_FILES%manifest.json"
 echo.
 pause

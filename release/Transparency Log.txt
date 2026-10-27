@@ -102,7 +102,7 @@ In the modded game folder (default "Virtual Families - Modded"):
 - .vf1_patch_backups\<date_time>_manifest\: one folder per run, holding vf1_patch_backup_manifest.json,
   files\... (copies of every file the run replaced or deleted), patch_log.json (or
   patch_error_log.json if the run failed) and, after a restore, restore_log.json.
-Next to manifest.json (the patcher's own folder):
+Next to manifest.json, in the patcher's own "Virtual Families 1 Fun Patcher Files" folder:
 - patch_dry_run_log.json after a Dry Run, and patch_error_log.json when a run fails before its backup
   exists.
 - patcher_local_settings.json: the folders you chose in the window, so they are filled in next time.
@@ -119,8 +119,8 @@ Written by the modded game itself
 
 Shipped beside the patcher, never copied into the game
 ------------------------------------------------------
-- tree_pictures\: the Family Tree Maker's ready-made backgrounds and logos (the owner's pictures),
-  used only when picked:
+- Virtual Families 1 Fun Patcher Files\tree_pictures\: the Family Tree Maker's ready-made backgrounds and logos
+  (the owner's pictures), used only when picked:
   aquarium-coral.png
   aquarium-driftwood.png
   aquarium-rock-arch.png
