@@ -123,6 +123,9 @@ static void SaveVillageState(int slot) {
 
 static void ApplyVillageEffects();
 static void HelpersAfterLoad();
+static void OutfitsAfterLoad(void *state, int slot);  // outfits.inc (Fix Vanilla Game Bugs)
+static void OutfitsAfterSave(void *state, int slot);
+static void OutfitsReset();
 
 typedef bool (__thiscall *SlotFn)(void *state, int slot);
 static SlotFn OriginalGameStateLoad, OriginalGameStateSave;
@@ -146,6 +149,7 @@ static bool __fastcall GameStateLoad(void *state, void *, int slot) {
         LoadVillageState(slot);
         ApplyVillageEffects();
         HelpersAfterLoad();
+        OutfitsAfterLoad(state, slot);
     }
     return ok;
 }
@@ -160,8 +164,10 @@ static bool __fastcall GameStateSave(void *state, void *, int slot) {
         if (gSpeedBeforeSave < 999) RestoreGameTimeSpeed(gSpeedBeforeSave);  // CGameTime back to the live speed
         gSpeedBeforeSave = 0;
     }
-    if (ok && slot >= 1 && slot <= 5)
+    if (ok && slot >= 1 && slot <= 5) {
         SaveVillageState(slot);
+        OutfitsAfterSave(state, slot);
+    }
     return ok;
 }
 
@@ -175,6 +181,7 @@ static void __fastcall GameStateInitWrapper(void *state, void *) {
     gVillage.priceMultiplier = 1;
     gAdoptionMode = 0;
     ApplyVillageEffects();
+    OutfitsReset();
     GameStateInit(state);
 }
 

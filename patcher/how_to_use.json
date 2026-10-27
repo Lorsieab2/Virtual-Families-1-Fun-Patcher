@@ -4,9 +4,10 @@
     {
       "ids": ["FixVanillaGameBugs"],
       "guide": [
-        "Fixes four small bugs of the original game.",
+        "Fixes five small bugs of the original game.",
         "A brand-new family is kept even if the game is closed without Quit (a crash, say). Power Failure now tells the truth about the food. A cheat-set age no longer counts as the Oldest Villager record.",
         "A family with a dog is now offered the Pet Turtle (the game looked for a dog, not a turtle).",
+        "Each outfit you buy keeps its own picture in the tray and puts on that outfit (the game used the last one bought for all of them).",
         "Nothing to click: tick it, patch, and play as usual.",
         "On by default."
       ]

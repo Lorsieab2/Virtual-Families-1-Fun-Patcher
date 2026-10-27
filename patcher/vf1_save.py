@@ -447,4 +447,12 @@ def file_owner(relative) -> tuple[int, str] | None:
                 kind = "unreadable children sidecar" if ".unreadable-" in name.lower() else "children sidecar"
                 return owner[0], f"{kind} ({owner[1]})"
         return None
+    if parts == [PATCHER_DATA.casefold(), "outfits"]:    # vf1fun outfits.inc (Fix Vanilla Game Bugs)
+        m = _CHILDREN.match(name)
+        if m:
+            owner = slot_of_save_number(int(m.group(1)))
+            if owner and owner[0] >= 1:
+                kind = "unreadable outfits sidecar" if ".unreadable-" in name.lower() else "outfits sidecar"
+                return owner[0], f"{kind} ({owner[1]})"
+        return None
     return None

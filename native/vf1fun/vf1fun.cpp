@@ -1019,6 +1019,7 @@ static const wchar_t *FamilyFullText() {
 }
 
 #include "features.inc"
+#include "outfits.inc"
 #include "pages.inc"
 #include "family.inc"
 #include "family_page.inc"
@@ -1124,6 +1125,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         InstallPowerFailureFix();
         InstallOldestRecordGuard();
         InstallPetTurtleOfferFix();
+        InstallOutfitPictureFix();
     }
     if (SettingOn(L"UpTo28Children", false))
         LoadKidsCompanion();

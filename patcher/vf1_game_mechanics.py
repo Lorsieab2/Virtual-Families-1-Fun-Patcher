@@ -1113,9 +1113,15 @@ def _store_other() -> list[Fact]:
         Fact(g, "Which outfit the store hands over: one clothes picture drawn for the Male Outfit and one for the "
                 "Female Outfit, each 0 to 49 (1.999% or 2.002% each: 655 or 656 rolls in 32,768), drawn again when "
                 f"the store page opens once more than 14,400 game seconds ({game_text(14_400)}) have passed since the "
-                "last draw. Buying one keeps the picture drawn then, and every outfit of that kind in the tray gives "
-                "the picture of the last one bought (checked: a Male Outfit bought at picture 7 gives 7; after a "
-                "redraw to 12 it still gives 7; once a second is bought, both give 12).", E, sub=True),
+                "last draw. Buying one keeps the picture drawn then, and every outfit of that kind in the tray shows "
+                "and puts on the picture of the last one bought (checked: a Male Outfit bought at picture 7 gives 7; "
+                "after a redraw to 12 it still gives 7; once a second is bought, both show and put on 12).", E,
+             sub=True),
+        Fact(g, with_patcher("FixVanillaGameBugs", "each outfit in the tray keeps the picture it was bought at, "
+                             "also when it is moved in the tray, and putting it on gives that picture (checked: the "
+                             "first Male Outfit bought at 7 still shows and puts on 7 after a second is bought at "
+                             "12); an outfit bought before the fix shows and gives the last one bought, as before."),
+             E, sub=True),
         Fact(g, "Praising Glove (free, in the tray from the start, never used up): drop it on a family member to "
                 "praise what they are doing: that action's weight rises by a twentieth of the room left to its "
                 "maximum (at least 1), so they choose it more often; a happiness trend of +10; and a 50.05% "

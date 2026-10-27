@@ -213,6 +213,9 @@ def test_reader_never_writes(tmp_path):
     ("Virtual Families 1 Patcher Data/Children/Virtual Families42.ldw.dat", (2, "children sidecar (backup 2)")),
     ("Virtual Families 1 Patcher Data/Children/Virtual Families2.ldw.unreadable-3.dat",
      (2, "unreadable children sidecar (save)")),
+    ("Virtual Families 1 Patcher Data/Outfits/Virtual Families4.ldw.dat", (4, "outfits sidecar (save)")),
+    ("Virtual Families 1 Patcher Data/Outfits/Virtual Families4.ldw.unreadable-1.dat",
+     (4, "unreadable outfits sidecar (save)")),
 ])
 def test_file_owner(path, owner):
     assert vs.file_owner(path) == owner
@@ -221,7 +224,8 @@ def test_file_owner(path, owner):
 @pytest.mark.parametrize("path", ["Virtual Families6.ldw", "Virtual Families26.ldw", "Virtual Families61.ldw",
                                   "Virtual Families1 - Copy.ldw", "ldw.ini", "Slot 3.ini",
                                   "Virtual Families 1 Patcher Data/Slot 21.ini",
-                                  "Virtual Families 1 Patcher Data/Children/Virtual Families0.ldw.dat"])
+                                  "Virtual Families 1 Patcher Data/Children/Virtual Families0.ldw.dat",
+                                  "Virtual Families 1 Patcher Data/Outfits/Virtual Families0.ldw.dat"])
 def test_files_the_game_and_patcher_never_write(path):
     assert vs.file_owner(path) is None
 
