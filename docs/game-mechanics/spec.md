@@ -71,6 +71,7 @@ CRT static-initializer tables (`_initterm` 0x4B2464..0x4B2540 and 0x4B2544..0x4B
 | Pause | Options "Yes" 0x41E1CC: `SetSpeed(999)` and **gs+0x1B180 += 999** (add, not set). Space: paused -> speed - 999 (0 becomes 10); else pause. Options "No" sets 10 | | | VERIFIED-C |
 | Game seconds | `CGameTime::Seconds` 0x422320 = banked + (real s since the last speed change) / (speed/10). Paused, it is frozen: `SetSpeed(999)` stores speed 0 (`xor ebp, ebp` 0x42246F, stored 0x422574) and `Seconds` returns the banked value when the multiplier is 0 (0x42233C); real paused saves hold clock speed 0 | 1 game s = 2 / 1 / 0.5 real s | CGameTime 0xDA74 | VERIFIED-C |
 | Real seconds | `GetSecondsFromGameStart` 0x4036D0 = now - header epoch; keeps running while the game is closed | | header +8 (i64) | VERIFIED-C |
+| Game seconds while closed | `CGameTime` save 0x4222C0 writes speed, previous, mark (+0x28), banked (+0x2C) and the real now; the load 0x4223F0 (from 0x424B53) restores the mark unchanged, so `Seconds` counts the closed time at the saved speed (always 10: stock has no other, the patcher's `NormalSpeedForSaveFile` sets 10 before a save), with no cap; a clock saved paused (speed 0) stays frozen. The timer list `SetSpeed` rescales has its count at 0x50C5C8, which no instruction writes by address | 1 game s = 1 real s while closed | CGameTime 0xDA74 | VERIFIED-C (2026-10-27) |
 | Age unit | `AllVillagersTimeflowUpkeep` 0x489D00 adds real s since the villager's stamp to a bank, ages bank / 60 / speed units, keeps the remainder | **1 unit = 20 / 10 / 5 min; 1 year (20 units) = 6 h 40 m / 3 h 20 m / 1 h 40 m** | rec +0xA8 bank, +0xAC stamp | VERIFIED-E (`t_timeflow.py`: 1200 / 600 / 300 s give 1 unit; 1 s less gives 0) |
 | Catch-up cap | bank > 86,400 -> **86,400** and the speed rule is skipped; otherwise speed 5: > 38,200 -> 31,000; speed 20: > 23,800 -> 31,000; speed 10 and any other value: > 31,000 -> 31,000 | see table below | | VERIFIED-E |
 | While paused | speed >= 999: bank set to 0 every step: **no aging, and the paused time is never credited** | | | VERIFIED-E (1005 / 1009 / 1020: 0 units after 3 days) |
@@ -358,8 +359,9 @@ The game's own name for this (college / boarding school): UNCONFIRMED (no reader
 
 **Timing** (`UpdateScene` 0x445271..0x445358, every frame, VERIFIED-C): when game seconds >= gs+0x1B14C (file
 0x1B15C; first one 900 game s after a new village, 0x424368) and Population > 0, a random villager is picked
-(0x48A490); if that villager is alive, fully caught up (age = processed age) and no e-mail is pending: **66.02%**
-queue an island-event e-mail, **33.98%** fire a pop-up event now; either way the next check is **now + 3,600 game s
+(0x48A490); if that villager is alive, fully caught up (age = processed age) and no e-mail is pending: **66.06%**
+(rand(100) < 66 at 0x4452FC: 66 x 328 = 21,648 of 32,768; corrected 2026-10-27 from 66.02%)
+queue an island-event e-mail, **33.94%** fire a pop-up event now; either way the next check is **now + 3,600 game s
 = 2 h / 1 h / 30 min real** (paused: never, the game clock stops). Otherwise nothing happens and the check repeats next frame.
 Selection (`0x41B1F0`, VERIFIED-C): uniform (rand(count)) among events 1..71 whose `CanFire` (vtable +4) is true and
 whose e-mail flag (vtable +0x14) matches; the "fired" byte 0x502048+i is written and never read, so events repeat.
@@ -436,7 +438,7 @@ changes: UNCONFIRMED.
 | Item | Rule | Real time | Status |
 |---|---|---|---|
 | Mess spawn | `CCollectableItem::Update` 0x414BF0 (every frame, skipped while speed >= 999): every 300 game minutes (population < 4) or **150** (4+), the elapsed count of items spawn in free junk slots (30 shared, house and yard): rand(100) < 20 and no cobweb: **a cobweb** at (0x3DE, 0x2D9); < 30: weed (yard); < 55: sock; < 80: candy wrapper; else dirt smudge (house). With a cobweb already out, rolls below 20 give a weed. The population >= 6 rate (k = 3) is never taken because the >= 4 test comes first. | every 10 h / 5 h / 2.5 h, or 5 h / 2.5 h / 1.25 h with 4+ people | VERIFIED-C |
-| Spawn odds per item | cobweb 20% (if none out), weed 10% (30% with a cobweb out), sock 25%, wrapper 25%, smudge 20% | | VERIFIED-C |
+| Spawn odds per item | rand(100) at 0x414EB4: cobweb < 20 **20.02%** (if none out), weed < 30 **10.01%** (**30.03%** with a cobweb out), sock < 55 **25.02%**, wrapper < 80 **24.99%**, smudge **19.96%** (exact over rand()'s 32,768 values; corrected 2026-10-27 from the rounded 20 / 10 / 25 / 25 / 20%). Every mess owed since the last (game minutes / 300 or 150) is placed at once, as far as the free places go (0x414E6D..0x414F8F) | | VERIFIED-C |
 | Counts | socks +0x6F8, weeds +0x6FC, wrappers +0x700, smudges +0x704, cobwebs +0x708 of CCollectableItem 0x501858; feed happiness (section 2) | | VERIFIED-C |
 | Blue sock (0x7E) | the expiry check (0x414C71) removes types <= 0x7E once their expiry passes; whether a spawned 0x7E sock vanishes at once (house_store.md) | | UNCONFIRMED (not emulated) |
 | House malfunction | 2-second step 0x444ECD: rand(800) == 1 (**1 in 800 per 2 s, mean 26.7 real min, any speed and also while paused**), none of props 0x16, 0x19, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F, 0x20 active: rand(8) picks one; each is skipped while its permanent-fix flag is set (gs+0x25C/0x20C/0x21C/0x27C/0x22C/0x23C/0x26C/0x24C) | | VERIFIED-C |
@@ -472,8 +474,9 @@ the prop-to-name pairing is UNCONFIRMED.
 
 | Item | Rule | Real time | Status |
 |---|---|---|---|
-| Specials | store slots 8..13 refresh every 0x3840 = 14,400 **real** s (0x496D80 compares `GetSecondsFromGameStart` 0x4036D0, time() since the start, not the game clock 0x422320) | 4 h at every speed, also paused | VERIFIED-C (0x496D80 read 2026-10-27) |
-| On Sale | one grocery (4 + rand(8)) at half price every 0xA8C0 = 43,200 game s (0x496CD0) | 24 h / 12 h / 6 h | VERIFIED-C (house_store.md reading) |
+| Specials | store slots 8..13 refresh every 0x3840 = 14,400 **real** s (0x496D80 compares `GetSecondsFromGameStart` 0x4036D0, time() since the start, not the game clock 0x422320; due = now + 14,400) | 4 h at every speed, also paused and closed | VERIFIED-C (0x496D80 read 2026-10-27) |
+| On Sale | one grocery (4 + rand(8)) at half price every 0xA8C0 = 43,200 game s (0x496CD0 reads 0x422320; due = now + 43,200) | 24 h / 12 h / 6 h | VERIFIED-C (0x496CD0 read 2026-10-27) |
+| When | the outfit draw 0x496C70, the sale 0x496CD0 and the specials 0x496D80 run only from the store scene's activation 0x4498C0 (0x4498E7..0x4498FB), so each draw comes at the first opening of the store page after its time | | VERIFIED-C (2026-10-27) |
 | Prices | `GetPrice` 0x4968C0 (labels, buy, refund); upgrades `CTech::GetPrice` | | VERIFIED-C |
 
 ## 17. Timers (every timer found on the traced paths)
@@ -508,7 +511,7 @@ real; stopped while paused), **U** age units, **F** frames, **S** the 2-second s
 | Autosave | gs+0x1B318 (not in the save) | R | 600 s: `AutoSaveGame` 0x423920 saves when the due time < `GetSeconds` 0x401F20 (CRT `time()`, the PC clock; no speed or pause check), then due = now + 600. First due = launch + 600 (`theGameState` ctor 0x424F32). Called at 0x423290 by `theGame::GameUpdate` 0x422D90 (vtable 0x4B5E04 slot +0x1C; `ldwGame::Run` 0x402CC0 calls it every frame; every path of its 15-way scene switch reaches the check, its only `ret` is 0x4232A5) once the start-up counter theGame+0x24 is past 6. It tail-jumps to `SaveCurrentGame` 0x4238E0: Save(0), Save(slot), Save(slot+20), the slot file a quit (`Shutdown` 0x422C10: Save(slot), Save(0)) writes. Emulated (`t_autosave.py`, the update's tail and AutoSaveGame run as linked; clock and SaveCurrentGame stubbed): overdue by 1 s -> saved, next due +600; due = now or later -> no save; the same paused (speed 1009); counter 6 -> no save | 10 min, also paused | VERIFIED-E |
 | Patcher: autosave | unchanged | | the tick stub (slot 0x4B5E20, `tools/build_stub.py`) runs `VF1Fun_Tick` then jumps to the real GameUpdate 0x422D90; nothing in vf1fun touches 0x423920 or gs+0x1B318. Fix Vanilla Game Bugs (on) adds `SaveCurrentGame` after the Adopt button (`AdoptionHandleMessage`, message 8 / button 1) | 10 min, plus after Adopt | VERIFIED-C |
 | Day / night | PC clock | wall | | follows the PC | VERIFIED-C |
-| "Where have you been?" | CGameTime+0x30 | R | shown when away > 23 h (0x4160A8) | | VERIFIED-C |
+| "Where have you been?" | CGameTime+0x30 | R | shown when the whole hours away (away / 3,600, 0x4160A8) are > 23 (`cmp edi, 0x17; jbe` 0x4161D8), i.e. away >= 24 h; the load 0x4223F0 sets away to 0 for a clock saved paused | | VERIFIED-C (corrected 2026-10-27 from "> 23 h") |
 
 ## 18. Chance index (every rand call)
 
