@@ -22,7 +22,9 @@ EVIDENCE.  Every line carries one label, always shown (docs/game-mechanics/spec.
   VERIFIED-C   the rule is the game's own instruction sequence, on a call path traced from the running game;
   UNCONFIRMED  anything else: not on a traced path, reached only from player input that was not traced, a
                meaning the code does not show, or the patcher's own features read from its source.
-Nothing is inferred from save values, and code that is in the exe but not shown to run is never presented.
+Nothing is inferred from save values, and code that is in the exe but not shown to run is never presented as
+something the player can do: the few such lines (Hidden keys, clicks and cheats) start "DEAD (never runs)" and say
+why nothing reaches them.
 
 UNPATCHED AND PATCHED.  The page describes the game without the patcher.  Wherever the Fun Patcher changes what a
 line says, a line starting "With the patcher" follows it, naming the patch setting (manifest.json label) and
@@ -87,7 +89,9 @@ PATCHER_NOTE = ("This page describes the game without the patcher. Wherever the 
 LABEL_NOTE = ("Every line says what stands behind it. VERIFIED-E: the game's own code was run with the values the "
               "game gives it, and the chances counted exactly. VERIFIED-C: read in the game's own code, on a path the "
               "running game is shown to take. UNCONFIRMED: not yet shown either way. For a \"With the patcher\" "
-              "line the patcher's own code was run or read together with the game's in the same way.")
+              "line the patcher's own code was run or read together with the game's in the same way. A line starting "
+              "\"DEAD (never runs)\" is code left in the game that nothing ever reaches: it says why, and it is not "
+              "something you can do.")
 SPEED_NOTE = ("A game-time length is shown with the real time it takes on Normal, the only speed the stock game has, "
               "and on Slow and Fast, the patcher's Time Controls speeds (Slow is half speed, Fast double; at its 5x "
               "and 10x a game-time length takes 0.2 and 0.1 times its Normal real time). Chances are the game's exact odds: its random "
@@ -136,6 +140,7 @@ PAUSED = 999
 AGE_UNIT_SECONDS = 60          # x the speed value
 YEAR_UNITS = 20
 
+KEYS = "Hidden keys, clicks and cheats"
 TIME = "Time and ageing"
 NEEDS = "Needs and upkeep"
 HEALTH = "Health"
@@ -160,7 +165,7 @@ CAREER_ROOMS = "Career Room Upgrades"
 PATCHER_SPECIAL = "Patcher: Special Upgrades"
 PATCHER_MENU = "Patcher: Upgrades menu"
 INDEX = "Chance and timer index"
-GROUPS = (TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, MESSES,
+GROUPS = (KEYS, TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, MESSES,
           COLLECTIBLES, MALFUNCTIONS, STORE, STORE_FOOD, STORE_MEDS, STORE_SPECIALS, STORE_OTHER, HOME, CAREER_ROOMS,
           PATCHER_SPECIAL, PATCHER_MENU, INDEX)
 
@@ -384,6 +389,236 @@ CAREER_LIST: tuple[Career, ...] = tuple(
 # ---------------------------------------------------------------------------
 # The page
 # ---------------------------------------------------------------------------
+
+# Hidden keys, clicks and cheats (research 2026-10-27, C:\vf1\gm_research t_keys.py / keymap.py / cmap.py):
+# The engine's event pump 0x4047B0 (ldwGame::Run 0x402CC0 -> 0x40A0D0 -> 0x4092D0, every frame) polls SDL and posts
+# through ldwEventManager 0x401E80 to every active scene (ldwScene::SetActive 0x40C700 registers it):
+#   SDL_TEXTINPUT, one byte  -> (5, 0, the typed character)      0x4049C4  (so 'r' and 'R' differ)
+#   SDL_KEYDOWN Backspace    -> (5, 8, 8)                        0x40494A
+#   SDL_KEYDOWN Esc 1000, Tab 1002, Enter 1003, Delete 1013, Left 1004, Right 1005, Up 1006, Down 1007, PageUp 1008,
+#     PageDown 1009, Home 1010, End 1011, Insert 1012, F1 1018 .. F10 1027 -> (6, id, key)   tables 0x404ADC/0x404B54
+#   Alt+F4 (mod & 0x300)     -> quit, as closing the window      0x4048A8
+#   mouse move/down/up       -> (1/2/3, x, y), left button only  0x4049DE; the wheel and other buttons are dropped
+# Scene key handlers (vtable slot 2, HandleEvent(type, a, b)): store 0x4499D0 ('M'/'m'/Esc leave, 'r' redraw),
+# house 0x440E00 -> chars 0x440B40 (table 0x440D78), keys 0x440DD0 (Esc); Achievements/Adoption/Dating/Family tree
+# share 0x439150 (Esc = command 1: Back / Adopt / Marry / Back); Collection 0x437330 (Esc, F1); Details 0x44B990
+# (Esc = its back button, 1); Help 0x440260 (F1 -> house); splash 0x4488A0 (any char: next logo; F1 -> house);
+# dialogs 0x41CE50 (Enter = 1, Esc = 2), Bank 0x4152A0 / Change Player 0x41B5C0 / Diagnosis 0x416C70 (both = 1).
+# The store's 'r': 0x4499EA cmp 0x72 -> 0x496DB0 (allowed unless the specials' due time, store+0x13C, is 3 to 4 real
+# hours away: i.e. more than 3,600 real s since the draw), then the specials draw 0x449480(-1), the outfit pictures
+# 0x496C70(1) and the labels 0x449100; emulated in t_keys.py (3,600 s: nothing; 3,601 s: redrawn; 'R': nothing).
+# Clicks: the house's click 0x4415C0 (on mouse down, nobody under it) switches on the content-map object id
+# (Assets\cmap.dat bits 18..24; table 0x441ACC); the random-tip spot 0x44718C (rect +0x88..+0x94 = 171,488..221,584,
+# reached only outside the view 0,0..800,561) shows tip rand(50); the loading screen's ctor 0x440450 shows rand(30).
+# The TV remote: gs+0x17C in place, +0x178 the real hour it goes missing, +0x180/+0x184 where it lies (0x423A90
+# return, 0x423AE0 lose, 0x424460 the 2-second check, 0x4428A0/0x4429C0 the drop and the carry). The shed door:
+# gs+0x168 (0 needs fixing, 1 being fixed, 2 fixed), +0x16C open for good (0x4890B6, achievement 0x3C).
+# Dead: scene 5 (theAlignVillagerScene, with CAlignAnimScene/CEditAnimScene) is built by the loader 0x423211 but no
+# code ever sets gs+0x1B300 = 5; CLightSourceEditor (keys 0x44DB30) and CWaypointEditor (keys 0x44DED0) are static
+# objects at 0x56B070 / 0x56B08C built by the CRT initializers 0x4B17B0 / 0x4B17C0 (table 0x4B24E0), and nothing else
+# in the exe refers to either object or to their vtables, so no key ever reaches them; the house's typed F-W-K/R
+# state (scene +0x50) is written and never read.
+RANDOM_TIPS = (
+    "If you praise every behavior, how will your family members know what to do?",
+    "If you punish too many behaviors, your family members can get depressed.",
+    "Your virtual friends have minds of their own.",
+    "All work and no play makes Jack a dull boy.",
+    "It can be hard to live alone.",
+    "The house and its improvements are passed through generations.",
+    "Your new friend will be happiest with a compatible spouse.",
+    "Two people who work in the same room can share resources.",
+    "Not all jobs are equal.",
+    "Different careers have different pay curves.",
+    "Life is full of drama.",
+    "Money can't buy happiness... well, maybe it can buy a little.",
+    "Your little friends sometimes leave appliances running.",
+    "It's nice to repair the house for future generations.",
+    "An untidy house can wear down anyone's cheer eventually.",
+    "The weeds in the yard are relentless!",
+    "Different illnesses require different treatments.",
+    "Your virtual family is in the same time zone as you are.",
+    "Your little friends appreciate affection from you.",
+    "Couples who want children won't be as happy without them.",
+    "Couples who do not want children may still have them.",
+    "Couples differ in their ability to have children.",
+    "Gently selecting peeps doesn't disrupt what they're doing.",
+    "You live, and you learn.",
+    "If your virtual friends are very sad, make sure they have food.",
+    "Professional advancement can be a great joy in life.",
+    "A large family can be a great source of joy... and loose socks.",
+    "They do not like the red glove at all.",
+    "Children tend to move out at a certain age.",
+    "It's nice to stay indoors when it rains.",
+    "If your hand gets tired, give it a rest!",
+    "Praising a behavior reinforces it.",
+    "Who made this house?",
+    "Your working friends get paid hourly, too.",
+    "Save or spend? Gain bank interest or get shiny new stuff?",
+    "You can encourage meals and discourage snacking.",
+    "There is more to life than just making money.",
+    "Learn from yesterday, live for today, hope for tomorrow.",
+    "If someone is sick a lot, consult a doctor.",
+    "Happiness is a choice that requires effort at times.",
+    "Medical treatment is expensive.",
+    "It's never too late to have a happy childhood.",
+    "Random events can be good or bad.",
+    "It's good to wait for your perfect match... but for how long?",
+    "The ability to make children slowly decreases with age.",
+    "Marriage proposals come less frequently with age.",
+    "Older family members start to slow down.",
+    "Older family members change their idea of what is fun.",
+    "Kids can swim!",
+    "Collecting bugs? Try when it rains...",
+)
+
+
+def _odds(k: int, n: int) -> str:
+    """GetRandom(n) = rand() % n landing on k: '2.002%' (rand()'s 32,768 values counted)."""
+    hits = 32768 // n + (1 if k < 32768 % n else 0)
+    return f"{100 * hits / 32768:.3f}%"
+
+
+def _keys() -> list[Fact]:
+    g, E, C, U = KEYS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    tips = [Fact(g, f"Tips {n + 1} to {n + 5}: " + " ".join(f"{n + 1 + k}. \u201c{t}\u201d"
+                                                             for k, t in enumerate(RANDOM_TIPS[n:n + 5])), C, sub=True)
+            for n in range(0, len(RANDOM_TIPS), 5)]
+    return [
+        Fact(g, "How the game reads the keyboard: a letter, digit, space or other character reaches it as the "
+                "character you type, so Shift and Caps Lock matter (a small r and a capital R are different keys "
+                "to it) and on any keyboard layout it is the key that types that character. Esc, Enter, F1 and "
+                "Alt+F4 reach it as keys. Tab, the arrow keys, Insert, Delete, Home, End, Page Up, Page Down and F2 "
+                "to F10 are passed on but nothing in the game uses them, Backspace only edits a name box, and no "
+                "Ctrl, Shift or Alt combination does anything (Alt+F4 quits, the same as closing the window). Only "
+                "the left mouse button counts: the right and middle buttons and the wheel are ignored.", C),
+        Fact(g, "The store's hidden key: typing a small r while the store page is open (the R key without Shift "
+                "and with Caps Lock off; a capital R does nothing) redraws all six specials at once, for free, and "
+                "also draws new Male Outfit and Female Outfit pictures. It works only when more than 1 hour of real "
+                "time has passed since the specials were last drawn (checked: exactly 1 hour after a draw nothing "
+                "happens; 1 hour and 1 second after, they are redrawn); otherwise the key does nothing. Each redraw "
+                "starts the specials' wait again, so the next automatic change comes 4 hours of real time after the "
+                "key, and the key works again after 1 more hour of real time: at most once an hour of real time, "
+                "at any game speed, also while paused.", E),
+        Fact(g, "What the redraw does not change: the half-price grocery (checked), and it takes no money. The "
+                "new specials follow the same rules as the automatic draw (see Store: specials); the outfit "
+                f"pictures' own wait starts again too ({game_text(14_400)}).", E, sub=True),
+        Fact(g, with_patcher("FixVanillaGameBugs", "the R key's redraw is the same draw as the automatic one, so a "
+                                                   "family with a dog is offered the Pet Turtle there too, and each "
+                                                   "outfit already bought keeps its own picture."), C, sub=True),
+        Fact(g, "M (either case) or Esc on the store page goes back to the house.", C, sub=True),
+        Fact(g, "Every part of the store was checked for other keys: the store is one screen (the specials, the "
+                "groceries with the half-price grocery, the medicines, the outfits, the Home Improvements and the "
+                "career room upgrades are all on it), and its only key handler takes the small r, M and Esc. No key "
+                "changes the half-price grocery, the Home Improvements or the career room upgrades, and only the r "
+                "key redraws the outfit pictures. The buy and message dialogs over it take only Enter and Esc (see "
+                "Dialogs below).", C, sub=True),
+        Fact(g, "In the house: Space pauses and unpauses (see Time and ageing).", C),
+        Fact(g, "In the house, typed letters (either case) are shortcuts for the buttons along the bottom: S the "
+                "Store, D the Details screen (of the family member selected, or the one selected last, or the first "
+                "one; with nobody at home it does nothing), F the Family screen, C the Collections screen, T the "
+                "Trophies screen; Esc goes to the main menu.", C),
+        Fact(g, "In the house, the number keys 1 to 9 (the top row, or the number pad with Num Lock on) jump the "
+                "view to nine fixed places laid out like the number pad: 7, 8 and 9 along the back of the yard, "
+                "4, 5 and 6 across the middle of the house, 1, 2 and 3 along the front yard; left, middle and "
+                "right.", C),
+        Fact(g, "In the house, K (either case) or a capital R loses the TV remote at once: it is put down again at a "
+                "random spot (see The TV remote below). A small r does nothing in the house. M, P, the apostrophe, "
+                "the semicolon and the square brackets are taken but do nothing.", C),
+        Fact(g, "DEAD (never runs): the house also notes typing F, then W, then K or R, but nothing ever reads it; "
+                "and F leaves the house for the Family screen anyway. So the sequence does nothing beyond what each "
+                "key does on its own.", C, sub=True),
+        Fact(g, "Esc on the Adoption screen is the Adopt button: it adopts the child shown, with the name typed in "
+                "the box (the child's own name if the box is empty), exactly as clicking Adopt.", C),
+        Fact(g, "Esc on the marriage proposal screen (Virtual Families Matchmaking) is the Marry button: it accepts "
+                "the proposal, exactly as clicking Marry. To turn a proposal down, click Reject.", C),
+        Fact(g, "Esc on the Trophies and Family screens goes back to the house; on the Collections screen Esc and "
+                "F1 both do; on the Details screen Esc is its back button and keeps a name typed into its name "
+                "box. On the Help screen F1 goes straight to the house (its own button goes back to the main "
+                "menu).", C),
+        Fact(g, "Dialogs: in the message, purchase, family tree name and nickname dialogs Enter presses the first "
+                "button and Esc the second; in the Bank, Change Player and the doctor's diagnosis dialogs Enter and "
+                "Esc both press the first.", C),
+        Fact(g, "Which button is first in each of those dialogs, and whether Enter reaches a dialog while its name "
+                "box has the typing cursor (the box keeps every key but Esc for itself): not traced.", U, sub=True),
+        Fact(g, "Opening logos: any typed key or a click moves on to the next logo (each also moves on by itself "
+                "after 4 seconds of real time). F1 jumps straight to the house before the loading screen has run; "
+                "what the game does then was not traced and was not tried live.", U),
+        Fact(g, "Cheat codes: there are none. Nothing compares what you type with a hidden word; the only typed "
+                "text the game checks is a new player's name against NEW PLAYER (the box's starting text). No "
+                "other key does anything on the main menu, the Adoption, Dating, Trophies, Family, Collections or "
+                "Help screens than the ones above.", C),
+        Fact(g, "Settings in ldw.ini (in the game folder), the only outside switches the game reads: under [ldw], "
+                "FullScreen (shipped as 1) and ForceFullScreen start in full screen, ForceWindowed starts in a "
+                "window (either Force setting also hides the Options full-screen choice), ForceStaticSplash shows "
+                "still opening logos; under [LDW], Distributor adds a name to the version line on the main menu. "
+                "None unlocks a key or a cheat. The game reads no registry value and ignores its command line.", C),
+        Fact(g, "DEAD (never runs): three developer tools are left in the game: an animation aligner (it asks "
+                "before deleting a step of an animation and shows its playing speed), a light source editor "
+                "(\"Light Source Editor Enabled (F4 to exit)\", L adds a light, D deletes one) and a waypoint editor (\"Waypoint Editor "
+                "Enabled\", with keys S and W). The aligner is built when the game loads but no "
+                "button, key or code ever switches to it; the two editors are created when the game starts but "
+                "nothing ever uses them again, so their keys are never read. None can be reached in the shipped "
+                "game.", C),
+        Fact(g, "The Fun Patcher adds no key, click spot or typed code to the game itself; its own windows (the "
+                "Upgrades menu pages) close with Enter or Esc, as ordinary Windows dialogs.", U),
+        Fact(g, "Random tips, click spot: clicking a small spot just below the house view at the left of the bottom "
+                "bar (51 by 23 pixels: across from 171 to 221 and down from 562 to 584 on the 800 by 600 game "
+                "screen) shows a random tip in the message bar, with a wooden click. Every click picks again from "
+                "all 50 tips (tips 1 to 18: " + _odds(0, 50) + " each; tips 19 to 50: " + _odds(18, 50) + " each), "
+                "with no wait and no limit, so the same tip can come twice running.", C),
+        Fact(g, "What the game draws at that spot (it was not matched to the art).", U, sub=True),
+        Fact(g, "Random tips, loading screen: each time the game starts, its loading screen shows one of tips 1 to "
+                "30 (tips 1 to 8: " + _odds(0, 30) + " each; tips 9 to 30: " + _odds(8, 30) + " each).", C),
+        Fact(g, "The 50 random tips, as the game words them:", C),
+        *tips,
+        Fact(g, "First-time tips (the tip window): a tip already seen is not shown again, and at most 10 wait "
+                "in line. The first time a screen opens it shows its own: Adoption (\u201cWow! There are so many needy "
+                "little people living in your computer.\u201d ...), Store (\u201cWelcome to the Store.\u201d ...), "
+                "Details (\u201cWelcome to the Detail Screen.\u201d ...), Family (\u201cWelcome to the Family "
+                "screen!\u201d ...), Trophies (\u201cWelcome to the Trophies screen!\u201d ...), Collections "
+                "(\u201cWelcome to the Collections screen!\u201d ...) and the marriage proposal (\u201cWow! It's an "
+                "incoming marriage proposal!\u201d ...).", C),
+        Fact(g, "The other tutorial tips (39 tip texts in all) come with the tutorial's steps and with firsts such "
+                "as the first pay, a first thrown-away wrapper or a failed work try; each one's trigger was not "
+                "traced.", U, sub=True),
+        Fact(g, "Clicking things in the house (a click on a spot with nobody on it; the places are the game's own "
+                "click map):", C),
+        Fact(g, "the refrigerator: shows \u201cFood available:\u201d and how much food there is, with a door "
+                "sound.", C, sub=True),
+        Fact(g, "the kitchen trash can: shows \u201cTrash:\u201d and the trash count, with the lid sound.", C,
+             sub=True),
+        Fact(g, "the TV wall in the living room: turns the TV on, or off again (which also stops everyone watching "
+                "it); only while the TV remote is in its place, otherwise nothing.", C, sub=True),
+        Fact(g, "the bathroom's two sinks: turns both taps off when both are running; the kitchen sink: turns its "
+                "tap off when it is running.", C, sub=True),
+        Fact(g, "the office desk: switches off two of the office's running effects when they are on.", C, sub=True),
+        Fact(g, "What those two office effects look like (they were not matched to the art).", U, sub=True),
+        Fact(g, "the office computer: an office machine sound, then \u201cRouter error!\u201d while the power "
+                "failure malfunction is on, otherwise \u201cStatus: online\u201d.", C, sub=True),
+        Fact(g, "the hall cabinet: \u201cCollectibles Found:\u201d and how many of the 48 different collectibles "
+                "the family has found (\u201c... / 48\u201d).", C, sub=True),
+        Fact(g, "sounds only: the end table by the sofa plays the radio once the Radio and MP3 Player is bought; "
+                "the washer and dryer corner plays pinball once the Pinball Machine is bought; the stove and the "
+                "counter beside it play a blender and a mixer with the Kitchen career room at level 2 or 3; the "
+                "near end of the office desk plays wood scraping with the Office career room at level 3.", C,
+             sub=True),
+        Fact(g, "The TV remote: a new family's remote starts lost, lying at a random spot on the ground. Drop a "
+                "family member on it (within 30 pixels) and they start \u201cReturning the TV remote\u201d. If "
+                "they carry it to the living room's coffee table it stays there for 23 to 28 hours of real "
+                "time: it goes missing again at the start of the 24th to 28th whole hour of real time after the "
+                f"hour it came back ({_odds(0, 5)} each for the 24th, 25th and 26th, {_odds(3, 5)} for the 27th and "
+                "28th), at a new random spot. If they end anywhere else it is lost again at once at a new spot "
+                "(checked every 2 seconds of real time).", C),
+        Fact(g, "While the remote is lost, TV Night never happens and clicking the TV does nothing.", C, sub=True),
+        Fact(g, "The shed door: a new family's shed door needs fixing; its spot is at the front corner of the deck "
+                "by the sandbox. Drop a family member older than 14 years (more than 280 age units) on it and they "
+                "start \u201cFixing the shed door\u201d (a younger one does not start it). If they "
+                "finish at the shed's doorway the door is fixed, otherwise it still needs fixing; a fix still under "
+                "way when the game is closed is lost. Once it is fixed, a family member dropped on the shed starts "
+                "\u201cUnlocking shed door\u201d, which opens the shed for good and gives a trophy.", C),
+        Fact(g, "Which trophy: the code gives trophy number 60; the game's trophy list has \u201cThe shed: You "
+                "managed to open the shed.\u201d, matched by its words only.", U, sub=True),
+    ]
 
 
 def _time() -> list[Fact]:
@@ -1494,7 +1729,7 @@ def _index() -> list[Fact]:
 
 def facts() -> list[Fact]:
     """Every line of the page, in GROUPS order."""
-    out = (_time() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
+    out = (_keys() + _time() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
            + _leaving() + _marriage() + _events() + _messes() + _collectibles() + _malfunctions() + _store()
            + _store_food() + _store_meds() + _store_specials() + _store_other() + _home() + _career_rooms()
            + _patcher_special() + _patcher_menu() + _index())
@@ -1528,7 +1763,7 @@ MIN_WIDTH, MIN_HEIGHT = 600, 700
 # 3, not 4: in 4 columns the group buttons need more than the window has at its smallest (as in the Virtual Families
 # 2 patcher's window).
 LINKS_PER_ROW = 3
-# The group buttons sit in eight rows since the store groups came in (24 groups), so they are drawn compact: a
+# The group buttons sit in nine rows since the store groups and Hidden keys came in (25 groups), so they are drawn compact: a
 # button's own padding is 1 pixel top and bottom instead of ttk's default, which leaves the page itself room at the
 # window's smallest size.
 LINK_STYLE = "Mechanics.TButton"
