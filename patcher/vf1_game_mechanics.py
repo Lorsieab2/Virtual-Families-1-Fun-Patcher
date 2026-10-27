@@ -1000,8 +1000,10 @@ def _store_specials() -> list[Fact]:
         Fact(g, item(35, "+1 to +3 happiness at once. " + any_time), E),
         Fact(g, "When they finish (queued steps): a happiness trend of +35 and +10 health.", C, sub=True),
         Fact(g, item(36, "+1 to +3 happiness, then \"Exercising outdoors\". " + any_time), E),
-        Fact(g, f"{ITEMS[36][0]}: whether its queued happiness trend of +25 still comes, since the outdoor exercise "
-                "starts at once and may replace the plan that holds it.", U, sub=True),
+        Fact(g, f"{ITEMS[36][0]}: its queued happiness trend of +25 still comes. It is the second step of the plan, "
+                "and \"Exercising outdoors\" adds its own steps after it without clearing the plan (checked: after "
+                "use the plan holds the +25 trend, then the exercise, which ends with +2 health, -5 energy and a "
+                "happiness trend of +3).", E, sub=True),
         Fact(g, item(37, "+1 to +3 happiness at once."), E),
         Fact(g, "When they finish (a queued step): -15 dirtiness. The store holds one Towelette: once it is bought "
                 "the specials never offer it again.", C, sub=True),
@@ -1016,7 +1018,12 @@ def _store_specials() -> list[Fact]:
                 "up. " + any_time, E),
         Fact(g, "Turtle Adventures, Little Man Under the Sea and Pluto, the Loneliest Planet ($15 each, one use): "
                 "everyone at home starts \"Watching TV\" together. " + any_time, C),
-        Fact(g, "What watching TV gives: it is inside the TV action, which was not decoded.", U, sub=True),
+        Fact(g, "What watching TV gives: nothing to any need or stat. \"Watching TV\" takes one of six seats, turns "
+                "the TV on, sits and gets up again, and none of its steps changes a need, skill or stat (checked for "
+                "all nine of its forms).", E, sub=True),
+        Fact(g, "A family member also chooses \"Watching TV\" on their own, also when sick, while hunger is 75 or "
+                "less and energy 60 or less: three times as often when they like TV, a quarter as often when they "
+                "dislike it.", C, sub=True),
         Fact(g, item(54, "one of five, 20.00% each (6,554 or 6,553 rolls in 32,768): +5 to +12 happiness; -5 "
                          "happiness and the bathroom need set to 90 (\"Nature is calling!\"); -5 happiness and they "
                          "run away; an upset stomach (a symptom, 6 to 17 real hours); or +20 health, both infections "
@@ -1026,7 +1033,12 @@ def _store_specials() -> list[Fact]:
                          "bottle brings being one. " + any_time), C),
         Fact(g, item(56, "+1 to +3 happiness, and at once the sky turns to the sunshine on its label. "
                          + any_time), C),
-        Fact(g, "How long the rain or sunshine from a bottle lasts.", U, sub=True),
+        Fact(g, f"How long it lasts, on the game clock: the rain 392 to 751 game seconds ({game_text(392)}, up to "
+                f"{game_text(751)}), the sunshine 932 to 2,431 ({game_text(932)}, up to {game_text(2_431)}). The "
+                "bottle holds its sky for 30 game seconds, then sets it again with the sky's own length (rain 360 to "
+                "719, sunshine 900 to 2,399); after the rain comes sunshine, after the sunshine one of the other three "
+                "skies, one of which never comes at night (checked, every roll at its lowest and highest). Paused, the "
+                "game clock stops, so the sky does not change.", E, sub=True),
         Fact(g, item(57, "+1 to +3 happiness, and the dislike in the first of their three dislike places is removed; "
                          "if that place is empty nothing is removed, even when the other two hold dislikes "
                          "(checked). " + any_time), E),
@@ -1038,9 +1050,14 @@ def _store_specials() -> list[Fact]:
                          "(checked). " + any_time), E),
         Fact(g, item(59, "dropped in the yard: every weed in the yard is removed. " + any_time), C),
         Fact(g, item(60, "on a family member aged 14 or older: +4 or +5 happiness. " + any_time), E),
-        Fact(g, "Magic Barker and the Loose Screw: the story itself (the actions it starts for the reader and for "
-                "the children), and what happens when it is given to a child under 14 (the code first looks for "
-                "another family member), were not decoded.", U, sub=True),
+        Fact(g, "Magic Barker and the Loose Screw, the story: the reader starts \"Telling a story\". Given to a child "
+                "under 14, the code picks at random another family member at home to read, one aged 14 or older "
+                "with a career who is not pregnant, or one aged 55 or older; that reader gets the +4 or +5 "
+                "happiness; with nobody to pick, nobody reads. Either way every family member at home aged 14 "
+                "(280 age units) or under who is not holding a seat or other place gets +5 happiness and starts "
+                "\"Listening to a story\".", C, sub=True),
+        Fact(g, "Neither \"Telling a story\" nor \"Listening to a story\" changes a need, skill or stat: their steps "
+                "only walk, sit and play the story (checked).", E, sub=True),
         Fact(g, "Pet Cat, Pet Dog and Pet Turtle ($500 each, one use): dropped in the house, it becomes the family's "
                 "pet; with a pet already, a question asks before it replaces it. The store offers each one unless "
                 "the family's pet is already that animal; the Pet Turtle's check tests for the dog, so with a dog "
@@ -1048,7 +1065,10 @@ def _store_specials() -> list[Fact]:
         Fact(g, with_patcher("FixVanillaGameBugs", "the Pet Turtle's check tests for the turtle, like the cat's and "
                              "the dog's: a family with a dog is offered the turtle, and a family with a turtle is "
                              "not."), E, sub=True),
-        Fact(g, "What a pet does for the family: the pet's own code was not traced.", U, sub=True),
+        Fact(g, "What a pet does for the family: nothing to any need, skill or stat. There are three pets (cat, dog "
+                "and turtle); the pet's own code only walks it, plays its animations and has it follow a family "
+                "member, and no family member's code, action or update reads the pet. Dropping something on the "
+                "pet only changes what the pet does.", C, sub=True),
         Fact(g, item(47, "dropped on the computer: everyone celebrates, and the four spam e-mails (Random Events 12 "
                          "to 15) never come again. " + any_time), C),
         Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE}'s Anti-Spam Software Ownership button installs it "
@@ -1061,8 +1081,16 @@ def _store_specials() -> list[Fact]:
                          "good. Offered only while the hose has not been fixed."), C),
         Fact(g, item(46, "dropped on the birdbath: its repair can start; a finished repair fixes it for good (the "
                          "birdbath trophy). Offered only while the birdbath has not been fixed."), C),
-        Fact(g, "How long a repair of the wall, a floor spot, the hose or the birdbath takes once the item is in "
-                "place.", U, sub=True),
+        Fact(g, "How long a repair takes once the item is in place: it is done in sessions, each started by "
+                "dropping a family member aged 14 or older who is not pregnant on the spot (the floor and wall "
+                "sessions are also chosen on their own). The hose needs 1 session; the birdbath 1 (\"Installing "
+                "birdbath pump\": the dropped family member and a second one the code finds, who does the repair; "
+                "with nobody found, nothing is repaired); a floor spot 6 (17 repair steps, 3 a session); the wall "
+                "12 (2 repair steps to start it, then 24 on each of its two sides, 4 a session, the first session "
+                "included) "
+                "(checked, every roll at its lowest and highest). Each hose, floor and wall session also gives +2 "
+                "dirtiness and a happiness trend of +10. The real time between sessions is set by the player and the "
+                "family's own choices, so a repair has no fixed real length.", E, sub=True),
     ]
 
 
@@ -1074,7 +1102,12 @@ def _store_other() -> list[Fact]:
                 "outfit is for a male!\") and the Female Outfit only a female one; otherwise it stays in the tray. "
                 "In the tray an outfit is a separate item listed at $100, so returning it gives back $100, not "
                 "$225.", C),
-        Fact(g, "Which outfit the store hands over each time (its description says the stock changes).", U, sub=True),
+        Fact(g, "Which outfit the store hands over: one clothes picture drawn for the Male Outfit and one for the "
+                "Female Outfit, each 0 to 49 (1.999% or 2.002% each: 655 or 656 rolls in 32,768), drawn again when "
+                f"the store page opens once more than 14,400 game seconds ({game_text(14_400)}) have passed since the "
+                "last draw. Buying one keeps the picture drawn then, and every outfit of that kind in the tray gives "
+                "the picture of the last one bought (checked: a Male Outfit bought at picture 7 gives 7; after a "
+                "redraw to 12 it still gives 7; once a second is bought, both give 12).", E, sub=True),
         Fact(g, "Praising Glove (free, in the tray from the start, never used up): drop it on a family member to "
                 "praise what they are doing: that action's weight rises by a twentieth of the room left to its "
                 "maximum (at least 1), so they choose it more often; a happiness trend of +10; and a 50.05% "
@@ -1091,8 +1124,10 @@ def _store_other() -> list[Fact]:
                              "chair can be repaired."), C, sub=True),
         Fact(g, "Ball ($10 in the item table, never used up): dropping it on a family member does nothing (the drop "
                 "handler has no use for it).", C),
-        Fact(g, "Whether the store ever offers the Ball: its specials table lists it in the first special place "
-                "before the first draw, and nothing else was traced.", U, sub=True),
+        Fact(g, "The store never offers the Ball: its specials table lists it in the first special place, but the "
+                "first opening of the store page fills all six places, with a draw, or in a new family's first 2 "
+                "real seconds with the kept specials, empty then (checked: the Ball is gone after either); the draw "
+                "never picks the Ball.", E, sub=True),
     ]
 
 
@@ -1140,11 +1175,55 @@ def _home() -> list[Fact]:
     facts += [
         Fact(g, with_patcher("OlderVillagerMortalityCurve", "the Air Purifier and the Bathroom Upgrade no longer "
                              "change old age."), E, sub=True),
-        Fact(g, "What the activities on the Treadmill, Radio and MP3 Player, Pinball Machine, Patio Furniture, "
-                "Swimming Pool, Hammock and Outdoor Barbecue Grill give: each is inside its action, which was not "
-                "decoded; and what the Fish Tank's Magic Fish do.", U),
     ]
+    facts += [Fact(g, text, label, sub=sub) for text, label, sub in _ACTIVITIES]
     return facts
+
+
+# What the activities give (t_beh.py: each action run as linked, its plan's steps through ProcessCurrentPlan) and
+# who chooses them (t_recs.py: the action records 0x482120 writes, as the chooser 0x4886E0 tests them).
+_DAY = "from sunrise until 2 hours after sunset (the PC's clock and date)"
+_ACTIVITIES = (
+    ("What the activities give, each time: \"a happiness trend\" is the hidden trend of Needs and upkeep; "
+     "\"dirtiness\" and \"the bathroom need\" rise as they get worse. Each activity is chosen only while its "
+     "improvement is owned, and only " + _DAY + " unless it says otherwise.", VERIFIED_C, False),
+    ("Treadmill: \"Walking on the treadmill\": +8 dirtiness and a happiness trend of +4. \"Running on the "
+     "treadmill\": +6 dirtiness, a happiness trend of +2 and -8 energy.", VERIFIED_E, True),
+    ("Both are for family members aged 14 or older who are not pregnant, with health 35 or more, happiness 25 or "
+     "more, hunger 65 or less and energy 45 or more.", VERIFIED_C, True),
+    ("Radio and MP3 Player: \"Dancing\": -4 energy, a happiness trend of +2 and +2 dirtiness. \"Listening to the "
+     "radio\": a happiness trend of +4.", VERIFIED_E, True),
+    ("Both are for any age. Dancing: happiness 40 or more, hunger 75 or less, energy 50 or more. Listening: also "
+     "when sick, happiness 15 or more, hunger 75 or less, energy 20 or more.", VERIFIED_C, True),
+    ("Pinball Machine: \"Playing pinball\": a happiness trend of +5, +1 dirtiness and -3 energy.", VERIFIED_E, True),
+    ("For any age, not pregnant, with happiness 30 or more, hunger 75 or less and energy 35 or more.", VERIFIED_C,
+     True),
+    ("Patio Furniture: \"Enjoying the patio\" and \"Studying on the patio\" change no need or stat.", VERIFIED_E,
+     True),
+    ("Both only while the sky is sunny. Enjoying: any age, health 12 or more, hunger 75 or less, energy 65 or less. "
+     "Studying: ages 14 to 18, happiness 25 or more, hunger 60 or less, energy 35 or more.", VERIFIED_C, True),
+    ("Swimming Pool: \"Swimming in the pool\": +5 dirtiness, -2 energy and a happiness trend of +3. \"Splashing in "
+     "the pool\": +8 dirtiness, -2 energy and a happiness trend of +10. \"Playing in the pool\": +2 hunger, -3 "
+     "energy and a happiness trend of +1.", VERIFIED_E, True),
+    ("All three not pregnant, with health 30 or more, happiness 40 or more, hunger 75 or less and energy 25 or "
+     "more. Swimming and Playing: any age, only while the sky is sunny, hunger 5 or more. Splashing: aged 14 or "
+     "under, in any sky, hunger 20 or more.", VERIFIED_C, True),
+    ("Hammock: \"Relaxing in the hammock\": a happiness trend of -1, and nothing else.", VERIFIED_E, True),
+    ("For any age, only while the sky is sunny, with happiness 25 or more, hunger 75 or less and energy 65 or "
+     "less.", VERIFIED_C, True),
+    ("Outdoor Barbecue Grill: \"Barbecuing!\": -7 hunger and 3 food used, +4 dirtiness, +4 bathroom need and a "
+     "happiness trend of +4. \"Cleaning up BBQ\": +7 dirtiness and a happiness trend of +1.", VERIFIED_E, True),
+    ("Both for family members aged 14 or older who are not pregnant, only while the sky is sunny, with health 15 or "
+     "more, happiness 50 or more, hunger 45 or more and energy 35 or more. \"Eating a burger\" asks for health 300 "
+     "or more and nothing else starts it, so it never happens.", VERIFIED_C, True),
+    ("Collection of Paintings: the Magic Fish is one of its paintings, not in the Fish Tank. \"Admiring the Magic "
+     "Fish\" and the two \"Adjusting the painting\" actions change no need or stat.", VERIFIED_E, True),
+    ("All three need the Collection of Paintings and are for family members aged 18 or older with hunger 35 or "
+     "less (55 or less, and happiness 10 or more, to adjust the second painting) and energy 15 or more.", VERIFIED_C, True),
+    ("Fish Tank: \"Feeding the fish\": a happiness trend of +4. \"Looking at the fish\" and \"Bothering the fish\" "
+     "change no need or stat.", VERIFIED_E, True),
+    ("All three: any age, hunger 35 or less, energy 25 or more.", VERIFIED_C, True),
+)
 
 
 def _career_rooms() -> list[Fact]:

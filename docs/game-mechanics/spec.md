@@ -426,8 +426,10 @@ $0 and the refund message. The money is VERIFIED-E, the pick VERIFIED-C, so the 
 
 ## 12. Weather
 
-VF1 has **no weather system** (no CWeather class; day and night follow the PC clock, section 1). The Weather Machine
-e-mail exists (event 20); what it changes: UNCONFIRMED.
+Day and night follow the PC clock (section 1). The sky is the object 0x8352A4 (state +0, forced next +4, next change
++8 on the CGameTime clock): states 0..3, the bottles set 3 (rain) and 0 (sunshine); see section 24. The action
+records' "sky ==" field (+0x2C40) compares with its state. The Weather Machine e-mail exists (event 20); what it
+changes: UNCONFIRMED.
 
 ## 13. Messes and house malfunctions
 
@@ -652,3 +654,54 @@ on the page (groups "The Family Store" .. "Patcher: the rest of the Upgrades men
   Found: Cure illnesses cleared the seven symptoms but not an infection. Fixed 2026-10-27: it also clears the two
   infection flags (villager +0x2B54 / +0x2B55), as Vancomycin (0x446B65 / 0x446B6C) and the Imported Candy (0x443A0D /
   0x443A13) do; the infections keep no timer.
+
+## 24. Actions, plans and the nine settled items (2026-10-27)
+
+Scripts (kept outside the repo with the others): `t_beh.py`, `t_recs.py`, `t_repair.py`, `t_weather.py`,
+`t_sunscreen.py`, `t_store.py`, `findcall.py`; `behaviours.py` now scans the whole registration run
+0x480260..0x4813C0: **316** registered actions (0x1..0x151), not 217.
+
+- **Plans**: an action (behaviour) function appends steps to the family member's plan (villager + 0, 0xE1 steps of
+  0x30: +0 type, +0x28 n, +0x2C end / done) through the builders 0x48C6C0..0x48DE45 and the appender 0x48C470;
+  `UpdatePlan` 0x489540 runs `ProcessCurrentPlan` 0x48E350 on the front step until it is done, then pops it and
+  starts the next (0x48C560 / 0x48DE50); an empty plan asks the chooser 0x4886E0. Stat steps (types 0x2D..0x3B, builders
+  0x48D230 trend +, 0x48D290 trend -, 0x48D2F0 happiness -, 0x48D350 energy +, 0x48D3B0 energy -, 0x48D410 hunger +,
+  0x48D470 hunger - and food -n/2, 0x48D4D0 health +, 0x48D530 health -, 0x48D590 dirt +, 0x48D5F0 dirt -, 0x48D650
+  bathroom +, 0x48D6B0 bathroom -, 0x48D710 garbage) change stats only when processed; the start-step cases change
+  none. Type 0x46 (0x48DDE0) clears the plan and starts another action. ClearPlan is 0x48C5A0.
+- **Choice** (VERIFIED-E for the values, VERIFIED-C for their meaning): the record initializer 0x482120 writes one
+  0xC8-byte record per action (villager + id x 0xC8 + 0x2B98..): enabled, time windows (CNight 0x491690 sunrise ..
+  sunset + 2 h; 0x4916F0 sunrise .. 10:00; 0x491750 10:00 .. 16:00; 0x4917B0 17:00 .. sunset + 5 h), stat bounds,
+  age bounds (units), an owned improvement (gs + n x 16 + 0xC, n = item - 64 from the store table 0x4F1308), a prop,
+  the sky state, pregnancy, sickness; the weight x3 for the record's like (+0x2C48) or dislike (+0x2C4C), /4 for the
+  opposite. Hand-checked against the chooser's tests 0x488790..0x488F15.
+- **Activities** (`t_beh.py`, rolls low and high): treadmill 0x5A dirt +8 trend +4, 0xDD dirt +6 trend +2 energy -8;
+  radio 0xEA energy -4 trend +2 dirt +2, 0xF1 trend +4; pinball 0xDC trend +5 dirt +1 energy -3; patio 0x45, 0xC3
+  none; pool 0xA6 dirt +5 energy -2 trend +3, 0xA7 dirt +8 energy -2 trend +10, 0xD7 hunger +2 energy -3 trend +1;
+  hammock 0x2A trend -1; grill 0xDA hunger -7 food -3 dirt +4 bathroom +4 trend +4, 0xDB dirt +7 trend +1, 0xD8
+  (record health >= 300, started nowhere) never; paintings 0xE1 ("Admiring the Magic Fish", record 3 = Collection of
+  Paintings), 0xE2, 0xE3 none; fish tank 0xDE trend +4, 0xDF, 0xE0 none; TV 0x4B..0x52 and 0x12E none.
+- **Magic Barker** (item 60, 0x443CD6): age >= 280 reads (0x108), else 0x48A500(6) picks a reader (14+ with a career
+  room and not pregnant, or 55+; at home, living); reader +4..5 happiness; 0x48A7D0(5) +5 happiness and 0x48A830(0x109)
+  "Listening to a story" for everyone at home aged <= 280 with no held place (+0x1358C == -1). 0x108 / 0x109: no stat
+  steps. VERIFIED-C (picks), VERIFIED-E (plans).
+- **Pets** (0x513CC0, types cat 0, dog 1, turtle 2, `0x434780`): the pet code 0x431000..0x434D00 calls no villager stat
+  or action routine; every reference to 0x513CC0 is the scene, the store, start-up and the drop handler. VERIFIED-C.
+- **Sky** (`t_weather.py`): 0x492280(state) sets the state and +8 = clock + 900..2399 (state 0) or 360..719; the
+  bottles then call 0x4921B0(state): +4 = state, +8 = clock + 30. The update 0x492420 at clock > +8 re-applies the
+  forced state with its own length, or goes to 0 after a non-zero state, or rand(4) (rerolled while equal, state 1
+  rerolled at night) after 0. Emulated: rain 392..751, sunshine 932..2,431 game seconds.
+- **Repairs** (`t_repair.py`): the drop-on-spot handlers 0x494880 / 0x4949A0 (wall), 0x494B20 (hose), 0x494C70
+  (birdbath, 0x123 + a helper's 0x124), 0x494D90 / 0x494E30 / 0x494ED0 (floor) start sessions for age >= 280, not
+  pregnant; the repair handler 0x489020: floor counter (= the kit's 1) +1 a step, done at 18; wall stage 1 -> 3, then
+  +1 per step on 0x160 (0x95) / 0x164 (0x96), done at 24 and 24; hose 0x1D and birdbath 0x1E done at once.
+  Emulated: floor 6 sessions / 17 steps, wall 12 sessions, hose 1, birdbath 1.
+- **Sunscreen** (`t_sunscreen.py`): ClearPlan, step 9, trend +25 (0x48D230), +1..3 happiness, then NewBehavior(0x6C),
+  whose steps are appended after (0x46E980 never clears): the +25 is processed second.
+- **Store** (`t_store.py`): outfits: 0x496C70 draws rand(50) for each at clock > due (+0x118, due = draw + 14,400 game
+  s), called on the store page opening 0x4498C0; buying 0x4969A0 copies it to +0x110 / +0x114, which every tray outfit
+  (64 / 65) gives (0x496D10). The Ball (item 3) is the static first special (0x4F13A8); the first opening overwrites
+  all six (draw 0x449480, or the kept specials while 0x496D80 is not due: GetSecondsFromGameStart <= 1).
+- **Found, not changed**: the specials refresh 0x496D80 uses `GetSecondsFromGameStart` 0x4036D0 (real seconds), so
+  it is every 14,400 real seconds at any speed, not game seconds as section 16 says; every outfit of a kind in the
+  tray shows the last one bought's picture.

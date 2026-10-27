@@ -138,8 +138,7 @@ def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
 def test_unconfirmed_lines_say_what_is_not_known():
     for pattern in (r"Which label sits beside which bar", r"Which cause the game shows",
                     r"How often a family member goes to work", r"What the game calls leaving home",
-                    r"Whether game time .* while the game is closed", r"What a pet does for the family",
-                    r"How long the rain or sunshine from a bottle lasts", r"What watching TV gives"):
+                    r"Whether game time .* while the game is closed"):
         assert find(pattern)[0].label == gm.UNCONFIRMED, pattern
     # settled since: the symptoms' names (the doctor's diagnosis strings) and which career room is which
     names = find(r"^The seven symptoms, as the Doctor Consultation's diagnosis names them", gm.SICKNESS)[0]
@@ -450,6 +449,59 @@ def test_home_improvements_and_career_rooms():
     assert "Level 2 costs $5,000 and level 3 $15,000" in rooms.text
     assert "+500 at each happiness update with that room at level 2, +1,000 at level 3" in " ".join(
         texts(gm.CAREER_ROOMS))
+
+
+def test_the_nine_settled_actions_items_and_timers():
+    # t_beh.py / t_recs.py / t_repair.py / t_weather.py / t_sunscreen.py / t_store.py (docs/game-mechanics/spec.md
+    # section 24): the actions run as linked, their plans' steps through ProcessCurrentPlan
+    def one(pattern, group, label):
+        hit = find(pattern, group)[0]
+        assert hit.label == label, pattern
+        return hit.text
+    assert "none of its steps changes a need, skill or stat" in one(r"^What watching TV gives: nothing", gm.STORE_SPECIALS,
+                                                                     gm.VERIFIED_E)
+    activities = {
+        r"^Treadmill: ": ("+8 dirtiness and a happiness trend of +4", "a happiness trend of +2 and -8 energy"),
+        r"^Radio and MP3 Player: ": ("-4 energy, a happiness trend of +2 and +2 dirtiness", "radio\": a happiness trend of +4"),
+        r"^Pinball Machine: ": ("a happiness trend of +5, +1 dirtiness and -3 energy",),
+        r"^Patio Furniture: ": ("change no need or stat",),
+        r"^Swimming Pool: ": ("+5 dirtiness, -2 energy and a happiness trend of +3",
+                              "+8 dirtiness, -2 energy and a happiness trend of +10",
+                              "+2 hunger, -3 energy and a happiness trend of +1"),
+        r"^Hammock: ": ("a happiness trend of -1, and nothing else",),
+        r"^Outdoor Barbecue Grill: ": ("-7 hunger and 3 food used, +4 dirtiness, +4 bathroom need and a happiness "
+                                       "trend of +4", "+7 dirtiness and a happiness trend of +1"),
+        r"^Collection of Paintings: the Magic Fish": ("not in the Fish Tank",),
+        r"^Fish Tank: ": ("\"Feeding the fish\": a happiness trend of +4",),
+    }
+    for pattern, words in activities.items():
+        text = one(pattern, gm.HOME, gm.VERIFIED_E)
+        for w in words:
+            assert w in text, (pattern, w)
+    assert "ages 14 to 18" in one(r"^Both only while the sky is sunny", gm.HOME, gm.VERIFIED_C)
+    assert "health 300 or more" in one(r"^Both for family members aged 14 or older", gm.HOME, gm.VERIFIED_C)
+    assert "Fish Tank's Magic Fish" not in PAGE
+    assert "aged 55 or older" in one(r"^Magic Barker and the Loose Screw, the story", gm.STORE_SPECIALS, gm.VERIFIED_C)
+    assert "+5 happiness" in one(r"^Magic Barker and the Loose Screw, the story", gm.STORE_SPECIALS, gm.VERIFIED_C)
+    assert "cat, dog and turtle" in one(r"^What a pet does for the family: nothing", gm.STORE_SPECIALS, gm.VERIFIED_C)
+    sky = one(r"^How long it lasts, on the game clock", gm.STORE_SPECIALS, gm.VERIFIED_E)
+    assert "the rain 392 to 751 game seconds (6 minutes 32 seconds on Normal" in sky
+    assert "the sunshine 932 to 2,431 (15 minutes 32 seconds on Normal" in sky
+    assert (30 + 1 + 360 + 1, 30 + 1 + 719 + 1, 30 + 1 + 900 + 1, 30 + 1 + 2399 + 1) == (392, 751, 932, 2431)
+    repair = one(r"^How long a repair takes once the item is in place", gm.STORE_SPECIALS, gm.VERIFIED_E)
+    for w in ("The hose needs 1 session", "a floor spot 6 (17 repair steps, 3 a session)", "the wall 12 (2 repair steps",
+              "24 on each of its two sides, 4 a session"):
+        assert w in repair, w
+    assert -(-17 // 3) == 6 and (24 + 24) // 4 == 12
+    assert "still comes" in one(r"^Sunscreen: its queued happiness trend of \+25", gm.STORE_SPECIALS, gm.VERIFIED_E)
+    outfit = one(r"^Which outfit the store hands over: one clothes picture", gm.STORE_OTHER, gm.VERIFIED_E)
+    assert "655 or 656 rolls in 32,768" in outfit and {32768 // 50, 32768 // 50 + 1} == {655, 656}
+    assert "once a second is bought, both give 12" in outfit
+    assert "draw never picks the Ball" in one(r"^The store never offers the Ball", gm.STORE_OTHER, gm.VERIFIED_E)
+    for gone in (r"was not decoded\.$", r"were not decoded\.$", r"not traced\.$", r"Whether the store ever offers",
+                 r"^Which outfit the store hands over each time", r"^How long a repair of the wall"):
+        assert not [f for f in FACTS if f.group in (gm.STORE_SPECIALS, gm.STORE_OTHER, gm.HOME)
+                    and re.search(gone, f.text)], gone
 
 
 def test_the_patchers_store_changes():
