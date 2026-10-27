@@ -615,3 +615,35 @@ Found while checking, and corrected on the page and in section 15:
 - The "too soon" drop sets the wait to now + 3,300 s (55 minutes) only when the wait is **more** than an hour away
   (0x441320..0x441343: `now + 3,600 >= wait` skips the store); the page had said "if it was under an hour".
 - Common collectibles are 82.98% (27,192 / 32,768), not 82.99%.
+
+## 23. The store, the upgrades and the patcher's purchases (2026-10-27)
+
+Every store item, home improvement and career room, and every page of the patcher's Upgrades menu, has its own entry
+on the page (groups "The Family Store" .. "Patcher: the rest of the Upgrades menu"). Sources:
+
+- **Prices, doses, stock, names**: the item table 0x4FE1B0 + 32 x (item - 1) (+4 stock, -1 = unlimited; +8 uses,
+  -1 = never used up; +0xC price; +0x10 name), and the career rooms' CTech table 0x4EF620 (0 / 5,000 / 15,000 for
+  each room). `test_every_store_items_name_and_price_is_the_exes_item_table` reads both from the vanilla exe.
+- **Effects** (VERIFIED-E): `UseItemOnFamilyMember` 0x442B30 (items 12..17, 30..63) and the medicine / Baby Boost
+  branch of the scene's drop handler 0x4462C0 (from 0x446635), run as linked (`t_items.py`, `t_items2.py`, every
+  roll forced to its lowest and highest value; Imported Candy's rand(5) forced to each outcome). Both are reached
+  from the frame loop through theMainScene's vtable 0x4B6FFC slot +4 (`reach.py`).
+- **Queued steps** (VERIFIED-C): the stat steps an item appends to the family member's plan, run later by
+  `ProcessCurrentPlan` 0x48E350 (index = step type - 1): type 0x2D trend +n, 0x31 energy +n, 0x32 energy -n,
+  0x34 hunger -n and food -n/2, 0x35 health +n, 0x38 dirtiness -n, 0x39 bathroom need +n (builders 0x48D230 ..
+  0x48D710).
+- **Symptom names**: the Doctor Consultation's diagnosis (0x4167E0): symptom 0 hiccups (no medicine), 1 sore throat,
+  2 upset stomach, 3 headache, 4 cough, 5 skin rash, 6 blocked nose; items 20..25 cure symptoms 1..6.
+- **Home improvements**: the happiness update 0x48FF30 (+10 trend each; like bonuses: TV 0x4A +35, art 0x69 +35,
+  tools 0x50 +10, sleeping 0x25 +25, fish 0x19 +35, bathing 0x40 +25, exercising 0x38 +35, music 0x68 +35, pinball
+  0x67 +45, resting / sunlight / sitting +25, swimming 0x1C +35, solitude / quiet / resting +25, BBQ / burgers +25,
+  birds 0x20 +35; career rooms 500 x (level - 1) for cooking / computers / tools); A Box of Tools and Parts: the
+  repair behaviour 0x1F adds the permanent-fix repairs 0x20..0x27 (repair handler 0x489020 sets gs+0x20C..0x27C);
+  Sheets and Pillows: "Going to bed" (behaviour 2) adds energy +15; the events whose CanFire reads a flag (The
+  Rebate 25: TV; Birdwatcher 39: Birdhouse; BBQ Party 43: grill; An extra hammock 21, The Wrong Address 56, The
+  Delivery Truck 57, The Rare Bird 70: give the item while it is not owned).
+- **Specials draw** 0x449480: items 12..17 and 30..63 with stock, never item 42; 43..46 only while their repair is
+  not done; the pets unless that pet is owned (the turtle's check compares with the dog).
+- **The patcher**: the vf1fun.dll built from this repository's native\ (unchanged since v1.3) with its own
+  `CheatsProc` and `VillagerCheatsProc` run in `dllemu.py` (`t_cheats.py`, the dialog's Windows calls answered).
+  Found: Cure illnesses clears the seven symptoms but not an infection (reported, not changed).

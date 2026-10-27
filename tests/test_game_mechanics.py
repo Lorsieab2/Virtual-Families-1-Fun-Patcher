@@ -61,6 +61,8 @@ def test_family_words_and_no_virtual_villagers_systems():
     lowered = PAGE.lower().replace("my weather machine", "")       # a VF1 e-mail's own title
     for label, _on in gm.PATCH_SETTINGS.values():                  # the patcher's own setting names, as it shows them
         lowered = lowered.replace(label.lower(), "")
+    for page in gm.UPGRADES_PAGES:                                 # and its Upgrades menu's page titles
+        lowered = lowered.replace(page.lower(), "")
     for word in ("villager", "tribe", "village", "island", "weather", "mushroom", "tech point", "god power",
                  "heathen", "faith", "puzzle", "golden child"):
         assert word not in lowered, word
@@ -134,10 +136,23 @@ def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
 
 
 def test_unconfirmed_lines_say_what_is_not_known():
-    for pattern in (r"Which label sits beside which bar", r"symptoms' names", r"Which cause the game shows",
-                    r"How often a family member goes to work", r"Which of the three career rooms",
-                    r"What the game calls leaving home", r"Whether game time .* while the game is closed"):
+    for pattern in (r"Which label sits beside which bar", r"Which cause the game shows",
+                    r"How often a family member goes to work", r"What the game calls leaving home",
+                    r"Whether game time .* while the game is closed", r"What a pet does for the family",
+                    r"How long the rain or sunshine from a bottle lasts", r"What watching TV gives"):
         assert find(pattern)[0].label == gm.UNCONFIRMED, pattern
+    # settled since: the symptoms' names (the doctor's diagnosis strings) and which career room is which
+    names = find(r"^The seven symptoms, as the Doctor Consultation's diagnosis names them", gm.SICKNESS)[0]
+    assert names.label == gm.VERIFIED_C and "a skin rash (Cortisone Cream)" in names.text
+    rooms = find(r"^The three career rooms: room 1 is the Kitchen, room 2 the Office and room 3 the Workshop",
+                 gm.CAREERS)[0]
+    assert rooms.label == gm.VERIFIED_C
+    for gone in (r"symptoms' names and which medicine", r"Which of the three career rooms",
+                 r"Career room upgrades cost .* and how they are bought"):
+        assert not [f for f in FACTS if re.search(gone, f.text)], gone
+    # every UNCONFIRMED line says what is not known, never a vague "some" or "etc."
+    for fact in FACTS:
+        assert not re.search(r"\b(some|etc|a bit|several|various)\b", fact.text, re.IGNORECASE), fact.text
 
 
 def test_the_careers_match_the_spec_table():
@@ -215,7 +230,7 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 30
+    assert len(lines) == 64
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text
@@ -343,6 +358,116 @@ def test_maid_gardener_and_lucky_rock():
     for words in (("Lucky Rock", "Collectible: 3 in 3,300 each frame"), ("Maid's visit", "daytime only"),
                   ("Gardener's visit",), ("Food Club delivery", "every missed day delivered")):
         assert pin(gm.INDEX, *words).label == gm.VERIFIED_E
+
+
+# ------------------------------------------------------------------ the store, the upgrades and the patcher's purchases
+
+
+def exe_bytes():
+    """The vanilla exe (VF1_VANILLA_EXE or VF1_VANILLA_DIR), or skip: its item table is the prices' source."""
+    import os
+    import vf1_patcher
+    path = os.environ.get("VF1_VANILLA_EXE") or (
+        str(Path(os.environ["VF1_VANILLA_DIR"]) / vf1_patcher.VANILLA_EXE) if os.environ.get("VF1_VANILLA_DIR") else None)
+    if not path or not Path(path).is_file():
+        pytest.skip("set VF1_VANILLA_EXE (or VF1_VANILLA_DIR) to the vanilla Virtual Families game")
+    return Path(path).read_bytes()
+
+
+def test_every_store_items_name_and_price_is_the_exes_item_table():
+    import struct
+    exe = exe_bytes()
+    va = lambda a: a - 0x400000                                    # noqa: E731 -- sections are mapped 1:1
+    strings = {}                                                   # the string table: {id, key*, text*, 0}
+    for off in range(va(0x4F0000), va(0x500000), 4):
+        sid, key, text = struct.unpack_from("<III", exe, off)
+        if 0x400000 <= key < 0x600000 and 0x400000 <= text < 0x600000 and 0 <= sid < 0x2000:
+            k = exe[va(key):va(key) + 64].split(b"\0")[0]
+            if k.startswith(b"eString_"):
+                strings.setdefault(sid, exe[va(text):va(text) + 80].split(b"\0")[0].decode("latin-1"))
+    for n, (name, price) in gm.ITEMS.items():
+        rid, stock, uses, listed, short = struct.unpack_from("<iiiii", exe, va(0x4FE190 + 32 * n))
+        assert (rid, listed, strings[short]) == (n, price, name), n
+        assert uses == (-1 if n in (1, 2, 3) else 1), n            # the gloves and the Ball are never used up
+        if n >= 66:
+            assert stock == 1, n                                   # every home improvement is bought once
+    assert struct.unpack_from("<i", exe, va(0x4FE190 + 32 * 37 + 4))[0] == 1     # the store holds one Towelette
+    rooms = struct.unpack_from("<9i", exe, va(0x4EF624))           # CTech::GetPrice(room 0..2, level 1..3)
+    assert rooms == gm.CAREER_ROOM_PRICES * 3
+
+
+def test_every_store_item_has_its_own_entry():
+    store = [f.text for f in FACTS if f.group in (gm.STORE, gm.STORE_FOOD, gm.STORE_MEDS, gm.STORE_SPECIALS,
+                                                   gm.STORE_OTHER, gm.HOME)]
+    page = " ".join(store)
+    for n, (name, _price) in gm.ITEMS.items():
+        assert name in page, name
+    for n in list(range(4, 18)) + list(range(20, 38)) + list(range(42, 48)) + list(range(54, 61)) + list(range(66, 81)):
+        name, price = gm.ITEMS[n]
+        assert any(t.startswith(f"{name} (${price:,}, ") for t in store), name
+    for room in ("Kitchen", "Office", "Workshop"):
+        assert room in " ".join(texts(gm.CAREER_ROOMS))
+    for name in ("Brokerage Account", "Food Club", "Health Plan", "Lucky Rock", "Maid", "Gardener"):
+        assert any(name in t for t in texts(gm.PATCHER_SPECIAL)), name
+    menu = " ".join(texts(gm.PATCHER_MENU))
+    for page_title in gm.UPGRADES_PAGES:
+        assert page_title in menu or page_title in " ".join(texts(gm.PATCHER_SPECIAL)), page_title
+
+
+def test_the_items_numbers_are_the_emulated_ones():
+    # t_items.py / t_items2.py: UseItemOnFamilyMember 0x442B30 and the drop handler run as linked
+    drink = find(r"^Energy Drink \(\$15, one use\): -4 hunger, \+40 to \+89 energy", gm.STORE_SPECIALS)[0]
+    assert drink.label == gm.VERIFIED_E and "15.01% \"Doing Kung Fu\"" in drink.text
+    boost = find(r"^Baby Boost \(\$500, one use\)", gm.STORE_MEDS)[0]
+    assert boost.label == gm.VERIFIED_E and "1 becomes 26, 40 becomes 55, 90 becomes 93" in boost.text
+    for fertility, after in ((1, 26), (40, 55), (90, 93)):
+        assert min(100, fertility + (102 - fertility) // 4) == after
+    pen = find(r"^Penicillin \(\$45, one use\)", gm.STORE_MEDS)[0]
+    assert "energy is set to 15" in pen.text and "-3 health when health is above 10" in pen.text
+    vanc = find(r"^Vancomycin \(\$75, one use\)", gm.STORE_MEDS)[0]
+    assert "energy is set to 5" in vanc.text and "bathroom need is set to 80" in vanc.text
+    candy = find(r"^Imported Candy \(\$25, one use\)", gm.STORE_SPECIALS)[0]
+    assert "20.00% each (6,554 or 6,553 rolls in 32,768)" in candy.text
+    assert [32768 // 5 + (1 if v < 32768 % 5 else 0) for v in range(5)] == [6554, 6554, 6554, 6553, 6553]
+    book = find(r"^Encyclopedia \(\$75, one use\)", gm.STORE_SPECIALS)[0]
+    assert "328 or 327 rolls in 32,768" in book.text and {32768 // 100, 32768 // 100 + 1} == {327, 328}
+    magazines = find(r"^Kitchen Profession Magazine, Office Profession Magazine and Workshop", gm.STORE_SPECIALS)[0]
+    assert "gains 1,120 of the 3,000" in magazines.text and "a Licensed one gains 40" in magazines.text
+    assert 8 * (20 // 1) * 7 == 1120 and 8 * (20 // 4) * 1 == 40     # 8 successes x the Beginner / Licensed progress
+
+
+def test_home_improvements_and_career_rooms():
+    head = find(r"^Each of the 15 is bought once", gm.HOME)[0]
+    assert "Every one owned adds +10" in head.text
+    bonuses = {"Flat Screen TV": ("TV", 35), "Pinball Machine": ("pinball", 45), "A Box of Tools and Parts": ("tools", 10),
+               "Sheets and Pillows": ("sleeping", 25)}
+    for name, (like, extra) in bonuses.items():
+        line = find(rf"^{re.escape(name)} \(", gm.HOME)[0]
+        assert f"+{extra} more for a family member who likes {like}" in line.text, name
+    assert "fixed for good" in find(r"^A Box of Tools and Parts", gm.HOME)[0].text
+    assert "+15 energy more" in find(r"^Sheets and Pillows", gm.HOME)[0].text
+    rooms = find(r"^The Kitchen, the Office and the Workshop each start at level 1", gm.CAREER_ROOMS)[0]
+    assert "Level 2 costs $5,000 and level 3 $15,000" in rooms.text
+    assert "+500 at each happiness update with that room at level 2, +1,000 at level 3" in " ".join(
+        texts(gm.CAREER_ROOMS))
+
+
+def test_the_patchers_store_changes():
+    club = pin(gm.STORE_FOOD, "Food Club", "every bag costs half, rounded down")
+    for n in range(4, 12):
+        assert f"${gm.ITEMS[n][1] // 2}" in club.text
+    plan = pin(gm.STORE_MEDS, "Health Plan", "cost a quarter, rounded down")
+    assert "Penicillin $11" in plan.text and "Baby Boost $125" in plan.text and "Doctor Consultation $43" in plan.text
+    flea = pin(gm.STORE, "(Flea Market, on by default)", "items 12 to 17 and 20 to 63", "Get for free")
+    assert flea.label == gm.VERIFIED_C
+    chair = pin(gm.STORE_OTHER, "(Flea Market, on by default)", "Wood Furniture Repair Kit ($50)")
+    assert chair.sub
+    prices = pin(gm.STORE, "(Cheat Upgrades, on by default)", "by 2, 5 or 100", "at most $2,147,483,647")
+    assert prices.label == gm.VERIFIED_C
+    cheats = pin(gm.PATCHER_MENU, "Cheat Upgrades page: No Money sets $0")
+    assert cheats.label == gm.VERIFIED_E and "2,147,483,000 + 10,000 becomes 2,147,483,647" in cheats.text
+    cure = pin(gm.PATCHER_MENU, "Cure illnesses leaves a mild or serious infection in place")
+    assert cure.label == gm.VERIFIED_E
 
 
 # ------------------------------------------------------------------ the window

@@ -81,7 +81,12 @@ PATCH_SETTINGS = {
     "CheatUpgrades": ("Cheat Upgrades", True),
     "RollTheDice": ("Roll the Dice", True),
     "FixVanillaGameBugs": ("Fix Vanilla Game Bugs", True),
+    "FleaMarket": ("Flea Market", True),
 }
+# The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
+UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
+                  "Time Controls", "Special Upgrades", "Family: Marriage, Babies and Adoption", "Flea Market",
+                  "Roll the Dice", "Patcher Achievements", "Clothing and Hairstyles")
 
 
 def setting(key: str) -> str:
@@ -122,9 +127,19 @@ EVENTS = "Random Events"
 MESSES = "Messes"
 COLLECTIBLES = "Collectibles"
 MALFUNCTIONS = "Malfunctions"
+STORE = "Store rules"
+STORE_FOOD = "Store: groceries"
+STORE_MEDS = "Store: medicines"
+STORE_SPECIALS = "Store: specials"
+STORE_OTHER = "Store: other items"
+HOME = "Home Improvements"
+CAREER_ROOMS = "Career Room Upgrades"
+PATCHER_SPECIAL = "Patcher: Special Upgrades"
+PATCHER_MENU = "Patcher: Upgrades menu"
 INDEX = "Chance and timer index"
 GROUPS = (TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, MESSES,
-          COLLECTIBLES, MALFUNCTIONS, INDEX)
+          COLLECTIBLES, MALFUNCTIONS, STORE, STORE_FOOD, STORE_MEDS, STORE_SPECIALS, STORE_OTHER, HOME, CAREER_ROOMS,
+          PATCHER_SPECIAL, PATCHER_MENU, INDEX)
 
 
 @dataclass(frozen=True)
@@ -376,7 +391,7 @@ def _needs() -> list[Fact]:
                                                 "60 food in the house, 60 food is added first, so they always eat "
                                                 "(checked: 30 food becomes 87 after the meal, 0 becomes 57)."),
              E, sub=True),
-        Fact(g, "Not eating (no food, or the missed 50.05%) when there is some food: 30.03% chance of losing 1 "
+        Fact(g, "Not eating (no food at all, or the missed 50.05% with 50 food or less): 30.03% chance of losing 1 "
                 "health (recorded as Starvation).", E),
         Fact(g, "Waste: with 1,000 food or more, a hungry family member has a 76.05% chance each age unit of "
                 "using 3 more food.", E),
@@ -446,7 +461,7 @@ EXTRA_GROUP = ("A family member without a career (every child) counts one extra 
 
 
 def _sickness() -> list[Fact]:
-    g, E, U = SICKNESS, VERIFIED_E, UNCONFIRMED
+    g, E, C, U = SICKNESS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
         Fact(g, f"A healthy family member is checked every 3 age units ({units_text(3)}). Chance of falling ill "
                 "for a family member with a career (any sickness / a symptom / a mild infection / a serious one):",
@@ -465,8 +480,12 @@ def _sickness() -> list[Fact]:
                 "ends with a 1.21% chance.", E),
         Fact(g, "Being sick: 61% health loss per age unit, no recovery, -3 energy, a happiness trend of -150, a "
                 "health-check roll, and slower unwatched work.", E),
-        Fact(g, "The seven symptoms' names and which medicine cures which.", U),
-        Fact(g, "What the medicines, the Doctor Consultation and Baby Boost do.", U),
+        Fact(g, "The seven symptoms, as the Doctor Consultation's diagnosis names them, and the medicine for each: "
+                "hiccups (no medicine: \"we can't help you with the hiccups\"), a sore throat (Throat Lozenges), an "
+                "upset stomach (Peptic Syrup), a headache (Anti-inflammatory Pill), a cough (Antitussive Syrup), a "
+                "skin rash (Cortisone Cream) and a blocked nose (Antihistamine). A mild infection needs Penicillin, "
+                "a serious one Vancomycin.", C),
+        Fact(g, "What each medicine, the Doctor Consultation and Baby Boost do: see Store: medicines.", E),
     ]
 
 
@@ -566,8 +585,10 @@ def _careers() -> list[Fact]:
         Fact(g, "During a catch-up, a grown-up with a career who is not sick or pregnant also gets unwatched work "
                 "each age unit, each piece with a 1 in 6 (16.67%) chance of a paid success.", C),
         Fact(g, "How much unwatched work there is (it comes from a value the code does not explain).", U),
-        Fact(g, "Career room upgrades cost $0 / $5,000 / $15,000, and how they are bought.", U),
-        Fact(g, "Which of the three career rooms is which.", U),
+        Fact(g, "The three career rooms: room 1 is the Kitchen, room 2 the Office and room 3 the Workshop (the "
+                "promotion step reads the Kitchen's level for room 1, the Office's for room 2 and the Workshop's for "
+                "room 3, and each Profession Magazine works only for its own room). Upgrading them: see Career Room "
+                "Upgrades.", C),
         Fact(g, "The careers, with their career room (1, 2 or 3) and salary at each level, Beginner to Master:",
              C),
     ]
@@ -687,8 +708,10 @@ _EVENTS = (
     ("51 Small Package, 52 Medium Brown Box, 53 Sealed Green Bag", "Popup Event", "first choice: an item", UNCONFIRMED),
     ("54 A Tiny White Box", "Popup Event", "first choice: a third of the food is gone", VERIFIED_E),
     ("55 Scratch-Off Lottery Ticket", "Popup Event", "what it does", UNCONFIRMED),
-    ("56 The Wrong Address", "Popup Event", "first choice: -$100 (what you get is not confirmed)", VERIFIED_E),
-    ("57 The Delivery Truck", "Popup Event", "what it does", UNCONFIRMED),
+    ("56 The Wrong Address", "Popup Event", "first choice: -$100 and the Sheets and Pillows home improvement; it "
+     "comes only while the family has no Sheets and Pillows and has $99 or more", VERIFIED_C),
+    ("57 The Delivery Truck", "Popup Event", "first choice: the Collection of Paintings home improvement; it comes "
+     "only while the family has none (whether it costs money is not confirmed)", VERIFIED_C),
     ("58 The Talent Scout", "Popup Event", "first choice: a child leaves home", UNCONFIRMED),
     ("59 The Beauty Contest", "Popup Event", "first choice: -$10 (any prize is not confirmed)", VERIFIED_E),
     ("60 Landscaping, 61 Housekeeping", "Popup Event",
@@ -703,7 +726,8 @@ _EVENTS = (
     ("68 The Power Failure", "Popup Event", "first choice: food set to 50 to 99; second: a family member gets a symptom",
      VERIFIED_E),
     ("69 Career Change Counselor", "Popup Event", "first choice: a new career", UNCONFIRMED),
-    ("70 The Rare Bird", "Popup Event", "what it does", UNCONFIRMED),
+    ("70 The Rare Bird", "Popup Event", "first choice: -$235 to -$305 (in steps of $10) and the Birdhouse home "
+     "improvement; it comes only while the family has no Birdhouse", VERIFIED_C),
     ("71 School Fund-raiser", "Popup Event", "first choice: -$25 and +100 food", VERIFIED_E),
 )
 
@@ -770,7 +794,462 @@ def _malfunctions() -> list[Fact]:
                 "1 in 800 chance (exactly 41 in 32,768): on average one every 26.6 real minutes.", E),
         Fact(g, "Only when no malfunction is already happening; then one of 8 is picked at random, and none "
                 "happens if that one's permanent fix has been bought.", E),
+        Fact(g, "A malfunction's permanent fix is set when a family member repairs that malfunction while the family "
+                "owns A Box of Tools and Parts (see Home Improvements); without it a repair only ends the "
+                "malfunction.", VERIFIED_C, sub=True),
         Fact(g, "Which malfunction is which (leaks, clogged shower, dryer lint fire, power).", U),
+    ]
+
+
+# ---------------------------------------------------------------------------
+# The store: every item it sells, the home improvements, the career rooms, and the patcher's purchases.
+# Prices, doses and stock are the exe's item table (0x4FE1B0 + 32 x (item - 1): +4 stock, +8 doses, +0xC price,
+# +0x10 name; spec section 23), the career rooms' prices the CTech table 0x4EF620. Effects: the drop handler
+# 0x4462C0 and UseItemOnFamilyMember 0x442B30 (emulated, t_items.py / t_items2.py, every roll forced to its lowest
+# and highest value), the plan steps they queue (ProcessCurrentPlan 0x48E350, read), the happiness update 0x48FF30
+# (house upgrades and likes), theStoreScene::Buy 0x449A70 and the specials draw 0x449480. The patcher's pages:
+# vf1fun.dll's own dialog procedures (CheatsProc, VillagerCheatsProc) emulated with the game (t_cheats.py), the
+# rest read in its source on the Upgrades menu's path.
+# ---------------------------------------------------------------------------
+
+# item -> (name, price) as the exe's item table holds them (tests pin these to the exe)
+ITEMS = {
+    1: ("Praising Glove", 0), 2: ("Scolding Glove", 0), 3: ("Ball", 10),
+    4: ("Groceries: Grains", 20), 5: ("Groceries: Dairy", 30), 6: ("Groceries: Meats", 70),
+    7: ("Groceries: Fruits and Veggies", 40), 8: ("Organics: Grains", 40), 9: ("Organics: Dairy", 70),
+    10: ("Organics: Meats", 160), 11: ("Organics: Fruits and Veggies", 110), 12: ("Energy Drink", 15),
+    13: ("Chamomile Drink", 10), 14: ("Mega Chamomile Extract", 10), 15: ("Delicious Candy", 7),
+    16: ("Salty Candy", 10), 17: ("Blood Orange", 10), 18: ("Male Outfit", 225), 19: ("Female Outfit", 225),
+    20: ("Throat Lozenges", 5), 21: ("Peptic Syrup", 7), 22: ("Anti-inflammatory Pill", 5),
+    23: ("Antitussive Syrup", 7), 24: ("Cortisone Cream", 4), 25: ("Antihistamine", 5), 26: ("Penicillin", 45),
+    27: ("Vancomycin", 75), 28: ("Baby Boost", 500), 29: ("Doctor Consultation", 175), 30: ("Sweet Mango", 10),
+    31: ("Perfect Bananas", 10), 32: ("Virtuoso Fragrance for Men", 25), 33: ("Virtuosa Perfume for Women", 25),
+    34: ("Multivitamins", 9), 35: ("Antibacterial hand gel", 6), 36: ("Sunscreen", 12), 37: ("Towelette", 10),
+    38: ("Natural Fruit Candy", 10), 39: ("Licorice Candy", 10), 40: ("Mint Candy", 10), 41: ("Cinnamon Candy", 10),
+    42: ("Wood Furniture Repair Kit", 50), 43: ("Wall Repair Compound", 40), 44: ("Floor Repair Kit", 45),
+    45: ("Waterproof Tape", 35), 46: ("Fountain Pump", 85), 47: ("Anti-spam Software", 125),
+    48: ("Kitchen Profession Magazine", 25), 49: ("Office Profession Magazine", 25),
+    50: ("Workshop Profession Magazine", 25), 51: ("Turtle Adventures", 15), 52: ("Little Man Under the Sea", 15),
+    53: ("Pluto, the Loneliest Planet", 15), 54: ("Imported Candy", 25), 55: ("Bottled Tropical Rain", 18),
+    56: ("Bottled Tropical Sunshine", 18), 57: ("Desensitization Kit", 75), 58: ("Encyclopedia", 75),
+    59: ("Weed Bomb", 65), 60: ("Magic Barker and the Loose Screw", 24), 61: ("Pet Cat", 500), 62: ("Pet Dog", 500),
+    63: ("Pet Turtle", 500), 64: ("Male Outfit", 100), 65: ("Female Outfit", 100), 66: ("Flat Screen TV", 2400),
+    67: ("Collection of Paintings", 550), 68: ("Air Purifier", 250), 69: ("A Box of Tools and Parts", 1200),
+    70: ("Sheets and Pillows", 350), 71: ("Fish Tank", 850), 72: ("Bathroom Upgrade", 100), 73: ("Treadmill", 3400),
+    74: ("Radio and MP3 Player", 250), 75: ("Pinball Machine", 4500), 76: ("Patio Furniture", 1650),
+    77: ("Swimming Pool", 1600), 78: ("Hammock", 700), 79: ("Outdoor Barbecue Grill", 850), 80: ("Birdhouse", 225),
+}
+CAREER_ROOM_PRICES = (0, 5000, 15000)        # CTech::GetPrice(room, level 1 / 2 / 3), the same for all three rooms
+PRICE_MULTIPLIERS = (2, 5, 100)              # the patcher's Store, Achievement and Collection Cheats page
+CHEATS_PAGE = "the Upgrades menu's Store, Achievement and Collection Cheats page"
+
+
+def money(n: int) -> str:
+    return f"${n:,}"
+
+
+def item(n: int, text: str, doses: str = "one use") -> str:
+    """'Energy Drink ($15, one use): ...' -- the item's table name and price."""
+    name, price = ITEMS[n]
+    return f"{name} ({money(price)}, {doses}): {text}"
+
+
+def halved(n: int) -> str:
+    return money(ITEMS[n][1] // 2)
+
+
+def _store() -> list[Fact]:
+    g, E, C, U = STORE, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    return [
+        Fact(g, "The store sells, in fixed places, the eight grocery bags, the two outfits and ten health items "
+                "(the eight medicines, Baby Boost and the Doctor Consultation); six more places hold the specials, "
+                "drawn at random; its Home Improvements and Career Room Upgrades pages sell the house's permanent "
+                "upgrades.", C),
+        Fact(g, "The price is paid when the purchase is confirmed; a purchase needs at least that much money "
+                "(the bank's interest is paid first).", C),
+        Fact(g, "An item goes into the item tray with its uses: one for every item, except the two gloves and the "
+                "Ball, which are never used up. It works when it is dropped where it is meant to go: on a family "
+                "member, in the kitchen, or on the object it is for. A repair item, the Weed Bomb or the Anti-spam "
+                "Software dropped anywhere else gives \"You can't use this here!\" and stays in the tray; groceries "
+                "dropped outside the kitchen give \"Groceries must be placed in the kitchen.\" and stay.", C),
+        Fact(g, "Returning an unused item to the store gives back its listed price, not a sale price. Groceries "
+                "can never be returned, and a used item cannot be returned (\"This item can't be returned, because "
+                "it has been used!\").", C),
+        Fact(g, f"The specials (six places): every {game_text(14_400)} the six are drawn again, at random, from the "
+                "items that may appear (each special entry below says when it may). An item cannot fill two "
+                "places at once.", C),
+        Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again every "
+                f"{game_text(43_200)}. Buying it on sale adds the price paid to the \"Coupon clipper\" trophy.", C),
+        Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE} multiplies every store price, the career rooms "
+                             "included, by 2, 5 or 100 (rounded down after the Food Club and Health Plan discounts; at "
+                             "most $2,147,483,647). Choosing the same multiplier again, or Reset, goes back to the "
+                             "listed prices. Returns give back the multiplied price at the time of the return."),
+             C, sub=True),
+        Fact(g, with_patcher("FleaMarket", "the Upgrades menu's Flea Market sells every tray item except groceries "
+                             "and outfits (items 12 to 17 and 20 to 63: drinks, candies, fruit, medicines, Baby Boost, "
+                             "the Doctor Consultation, care items, repair items, Anti-spam Software, magazines, films, "
+                             "bottles, kits, the book and the pets) at their listed price, at any time, without the "
+                             "store's stock or specials; its Get for free button gives the item at no cost. Each "
+                             "works as described below."), C),
+    ]
+
+
+_FOOD_GROUPS = {4: "Grains", 5: "Dairy", 6: "Meats", 7: "Fruits and Veggies"}
+
+
+def _store_food() -> list[Fact]:
+    g, E, C = STORE_FOOD, VERIFIED_E, VERIFIED_C
+    facts = [
+        Fact(g, "Every bag is used by dropping it in the kitchen (anywhere else: \"Groceries must be placed in the "
+                "kitchen.\"); everyone then puts the groceries away. Groceries cannot be returned.", C),
+    ]
+    for n in range(4, 8):
+        group = _FOOD_GROUPS[n]
+        facts.append(Fact(g, item(n, f"+150 food for the house, and every family member at home and alive gets the "
+                                     f"{group} food group for 24 real hours (at any speed).", "one bag"), E))
+    for n in range(8, 12):
+        group = _FOOD_GROUPS[n - 4]
+        facts.append(Fact(g, item(n, f"+250 food for the house, the {group} food group for every family member at "
+                                     "home and alive for 24 real hours, and for each of them a happiness trend of +5 "
+                                     "to +14 and +0 to +2 happiness.", "one bag"), E))
+    facts += [
+        Fact(g, "What a food group does (health, happiness, sickness and old age): see Needs and upkeep, Health, "
+                "Sickness and Old age and death.", C),
+        Fact(g, upgrade("Food Club", "$10,000", "every bag costs half, rounded down: groceries "
+                        + ", ".join(f"{_FOOD_GROUPS[n]} {halved(n)}" for n in range(4, 8)) + "; organics "
+                        + ", ".join(f"{_FOOD_GROUPS[n - 4]} {halved(n)}" for n in range(8, 12)) + "."), E, sub=True),
+    ]
+    return facts
+
+
+def _store_meds() -> list[Fact]:
+    g, E, C, U = STORE_MEDS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    later = "When they finish taking it (a step queued in their plan)"
+    return [
+        Fact(g, "Each medicine is one dose, dropped on one family member, and is used up whether or not it "
+                "cures anything. A cure ends that symptom at once. Symptoms and infections: see Sickness.", C),
+        Fact(g, item(20, "cures a sore throat. Without a sore throat it does nothing."), E),
+        Fact(g, f"{later}, after a cure: -3 hunger (1 food is taken from the house) and a happiness trend of +10.",
+             C, sub=True),
+        Fact(g, item(21, "cures an upset stomach. Without an upset stomach: -10 energy and bathroom need +70 at "
+                         "once."), E),
+        Fact(g, f"{later}, after a cure: bathroom need +25 and -10 hunger (5 food is taken from the house).", C,
+             sub=True),
+        Fact(g, item(22, "cures a headache. Without a headache it does nothing."), E),
+        Fact(g, item(23, "cures a cough. Without a cough: -20 energy at once."), E),
+        Fact(g, f"{later}, after a cure: -15 energy.", C, sub=True),
+        Fact(g, item(24, "cures a skin rash. Without a skin rash it does nothing."), E),
+        Fact(g, item(25, "cures a blocked nose."), E),
+        Fact(g, f"{later}: +5 energy, with or without a blocked nose.", C, sub=True),
+        Fact(g, item(26, "ends a mild infection (the symptoms it brought stay until cured or over). Always: energy "
+                         "is set to 15, bathroom need +30, and -3 health when health is above 10 (-1 below 15 "
+                         "health, by the health limits). A child of 14 or younger then goes to bed."), E),
+        Fact(g, item(27, "ends both a mild and a serious infection. Always: energy is set to 5, bathroom need is set "
+                         "to 80, and -10 health when health is above 12 (-5 below 15 health). A child of 14 or "
+                         "younger then goes to bed."), E),
+        Fact(g, item(28, "on a family member with a career, fertility rises by a quarter of (102 - fertility), "
+                         "rounded down, and is kept at most 100 (checked: 1 becomes 26, 40 becomes 55, 90 becomes "
+                         "93), so each dose adds less. Fertility sets the chance a try for a baby works (see "
+                         "Pregnancy and babies)."), E),
+        Fact(g, "Baby Boost on a family member without a career: nothing happens and it stays in the tray.", C,
+             sub=True),
+        Fact(g, item(29, "drop it on a family member: a diagnosis e-mail arrives naming their infection (none, mild: "
+                         "take Penicillin; serious: take Vancomycin), the medicine for each symptom they have, and, "
+                         "for a family member with a career and fertility below 35, Baby Boost. It cures nothing."),
+             C),
+        Fact(g, upgrade("Health Plan", "$10,000", "the eight medicines, Baby Boost and the Doctor Consultation cost "
+                        "a quarter, rounded down: " + ", ".join(f"{ITEMS[n][0]} {money(ITEMS[n][1] // 4)}"
+                                                                 for n in range(20, 30)) + "."), E, sub=True),
+    ]
+
+
+def _store_specials() -> list[Fact]:
+    g, E, C, U = STORE_SPECIALS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    praise = ("then praises what they are doing three times (each praise: that action becomes more likely, a "
+              "happiness trend of +10 and a 50.05% chance of +1 happiness; see Store: other items, Praising Glove)")
+    any_time = "It may appear among the specials at any time."
+    return [
+        Fact(g, "Each special below is dropped on one family member unless it says otherwise, and is used up. "
+                "\"A happiness trend\" is the hidden trend the happiness update reads (see Needs and upkeep). "
+                "Gains and losses pass through the limits on the Health page and the energy limits (a gain above "
+                "80 energy is halved, a loss below 10 halved).", C),
+        Fact(g, item(12, "-4 hunger, +40 to +89 energy (checked: 50 energy becomes 90 to 100; 85 becomes 100); then "
+                         "15.01% \"Doing Kung Fu\", otherwise \"Exercising outdoors\". " + any_time), E),
+        Fact(g, item(13, "-10 to -29 energy (checked: 85 becomes 56 to 75; 5 becomes 1); then 15.01% \"Going to "
+                         "bed\", otherwise \"Taking a nap\". " + any_time), E),
+        Fact(g, item(14, "-7 hunger and no change to energy; then 15.01% \"Going to bed\", otherwise \"Taking a "
+                         "nap\". " + any_time), E),
+        Fact(g, item(15, f"-2 hunger, +2 or +3 happiness, {praise}. " + any_time), E),
+        Fact(g, item(16, "scolds what they are doing three times (each: that action becomes less likely, a happiness "
+                         "trend of -10, -1 happiness, and they run away): -3 happiness and a trend of -30 in all. "
+                         + any_time), E),
+        Fact(g, item(17, f"-3 hunger, +2 to +6 health, +2 to +4 happiness, +2 to +6 energy, {praise}. " + any_time),
+             E),
+        Fact(g, item(30, f"+2 to +6 health, +2 to +6 happiness, +2 to +6 energy, -3 hunger, {praise}. " + any_time),
+             E),
+        Fact(g, item(31, f"+2 to +6 health, -3 hunger, +2 to +6 happiness, +2 to +6 energy, {praise}. " + any_time),
+             E),
+        Fact(g, item(32, "on a family member with a career: +1 to +3 happiness at once and they start "
+                         "\"Celebrating marriage\". " + any_time), E),
+        Fact(g, "When they finish (a queued step): a happiness trend of +35. The Matriarch or the Patriarch (the code "
+                "picks one of the two by the user's sex) celebrates too. On a family member without a career they "
+                "run away instead, and it is used up. Nothing in it touches fertility or the wait for a baby.", C,
+             sub=True),
+        Fact(g, item(33, "the same as the Virtuoso Fragrance for Men, whoever uses it. " + any_time), E),
+        Fact(g, item(34, "+1 to +3 happiness, and nothing else (no health). " + any_time), E),
+        Fact(g, item(35, "+1 to +3 happiness at once. " + any_time), E),
+        Fact(g, "When they finish (queued steps): a happiness trend of +35 and +10 health.", C, sub=True),
+        Fact(g, item(36, "+1 to +3 happiness, then \"Exercising outdoors\". " + any_time), E),
+        Fact(g, f"{ITEMS[36][0]}: whether its queued happiness trend of +25 still comes, since the outdoor exercise "
+                "starts at once and may replace the plan that holds it.", U, sub=True),
+        Fact(g, item(37, "+1 to +3 happiness at once."), E),
+        Fact(g, "When they finish (a queued step): -15 dirtiness. The store holds one Towelette: once it is bought "
+                "the specials never offer it again.", C, sub=True),
+        Fact(g, "Natural Fruit Candy, Licorice Candy, Mint Candy and Cinnamon Candy ($10 each, one use): -2 hunger, "
+                f"+2 to +4 happiness, {praise}. " + any_time, E),
+        Fact(g, "Kitchen Profession Magazine, Office Profession Magazine and Workshop Profession Magazine ($25 each, "
+                "one use): only for a career in that "
+                "room (Kitchen: room 1, Office: room 2, Workshop: room 3; see Careers and promotion): 8 work "
+                "successes at once, without pay, and +8 to +15 happiness. Each success adds its usual progress "
+                "(checked: a Beginner with the room at level 1 gains 1,120 of the 3,000 a promotion needs; a "
+                "Licensed one gains 40), so one magazine can promote. On anyone else: \"Confused\", and it is used "
+                "up. " + any_time, E),
+        Fact(g, "Turtle Adventures, Little Man Under the Sea and Pluto, the Loneliest Planet ($15 each, one use): "
+                "everyone at home starts \"Watching TV\" together. " + any_time, C),
+        Fact(g, "What watching TV gives: it is inside the TV action, which was not decoded.", U, sub=True),
+        Fact(g, item(54, "one of five, 20.00% each (6,554 or 6,553 rolls in 32,768): +5 to +12 happiness; -5 "
+                         "happiness and the bathroom need set to 90 (\"Nature is calling!\"); -5 happiness and they "
+                         "run away; an upset stomach (a symptom, 6 to 17 real hours); or +20 health, both infections "
+                         "ended and every symptom cured except a blocked nose. " + any_time), E),
+        Fact(g, item(55, "+1 to +3 happiness, and at once the sky turns to the rain on its label. Insect "
+                         "collectibles appear only while the sky is in one of two of its four states, the rain this "
+                         "bottle brings being one. " + any_time), C),
+        Fact(g, item(56, "+1 to +3 happiness, and at once the sky turns to the sunshine on its label. "
+                         + any_time), C),
+        Fact(g, "How long the rain or sunshine from a bottle lasts.", U, sub=True),
+        Fact(g, item(57, "+1 to +3 happiness, and the dislike in the first of their three dislike places is removed; "
+                         "if that place is empty nothing is removed, even when the other two hold dislikes "
+                         "(checked). " + any_time), E),
+        Fact(g, item(58, "+1 to +3 happiness; one of the game's first 100 likes is drawn (1.00% each: 328 or 327 "
+                         "rolls in 32,768; the last seven, garbage, fixing, shopping, pinball, music, art and gophers, "
+                         "can never be drawn). If "
+                         "they do not already like it and one of their three like places is free, it becomes a like; "
+                         "if they dislike it, the dislike is removed, even when the like could not be added "
+                         "(checked). " + any_time), E),
+        Fact(g, item(59, "dropped in the yard: every weed in the yard is removed. " + any_time), C),
+        Fact(g, item(60, "on a family member aged 14 or older: +4 or +5 happiness. " + any_time), E),
+        Fact(g, "Magic Barker and the Loose Screw: the story itself (the actions it starts for the reader and for "
+                "the children), and what happens when it is given to a child under 14 (the code first looks for "
+                "another family member), were not decoded.", U, sub=True),
+        Fact(g, "Pet Cat, Pet Dog and Pet Turtle ($500 each, one use): dropped in the house, it becomes the family's "
+                "pet; with a pet already, a question asks before it replaces it. The store offers each one unless "
+                "the family's pet is already that animal; the Pet Turtle's check tests for the dog, so with a dog "
+                "the turtle is not offered, and with a turtle it is.", C),
+        Fact(g, "What a pet does for the family: the pet's own code was not traced.", U, sub=True),
+        Fact(g, item(47, "dropped on the computer: everyone celebrates, and the four spam e-mails (Random Events 12 "
+                         "to 15) never come again. " + any_time), C),
+        Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE}'s Anti-Spam Software Ownership button installs it "
+                             "for free, or uninstalls it."), C, sub=True),
+        Fact(g, item(43, "dropped on the damaged wall: the wall's repair can start. Offered only while the wall has "
+                         "not been repaired."), C),
+        Fact(g, item(44, "dropped on one of the three damaged floor spots: that spot's repair can start. Offered only "
+                         "while at least one of the three has not been repaired."), C),
+        Fact(g, item(45, "dropped on the leaking hose: its repair can start; a finished repair fixes the hose for "
+                         "good. Offered only while the hose has not been fixed."), C),
+        Fact(g, item(46, "dropped on the birdbath: its repair can start; a finished repair fixes it for good (the "
+                         "birdbath trophy). Offered only while the birdbath has not been fixed."), C),
+        Fact(g, "How long a repair of the wall, a floor spot, the hose or the birdbath takes once the item is in "
+                "place.", U, sub=True),
+    ]
+
+
+def _store_other() -> list[Fact]:
+    g, E, C, U = STORE_OTHER, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    return [
+        Fact(g, "Male Outfit and Female Outfit ($225 each in the store, one use): the outfit changes the family "
+                "member's clothes (their body picture). The Male Outfit only fits a male family member (\"This "
+                "outfit is for a male!\") and the Female Outfit only a female one; otherwise it stays in the tray. "
+                "In the tray an outfit is a separate item listed at $100, so returning it gives back $100, not "
+                "$225.", C),
+        Fact(g, "Which outfit the store hands over each time (its description says the stock changes).", U, sub=True),
+        Fact(g, "Praising Glove (free, in the tray from the start, never used up): drop it on a family member to "
+                "praise what they are doing: that action's weight rises by a twentieth of the room left to its "
+                "maximum (at least 1), so they choose it more often; a happiness trend of +10; and a 50.05% "
+                "chance of +1 happiness. Praising the same action a third time in a row makes them run away "
+                "instead of the trend and happiness (the weight still rises). Picking up a sock, a candy wrapper, "
+                "a weed, a cobweb or a dirt smudge, running away, and eight other actions the code lists cannot be "
+                "praised at all.", C),
+        Fact(g, "Scolding Glove (free, in the tray from the start, never used up): drop it on a family member to "
+                "scold what they are doing: that action's weight falls by a fifteenth of its distance above its "
+                "minimum (at least 1); a happiness trend of -10, -1 happiness, and they run away.", C),
+        Fact(g, item(42, "never offered: the specials draw skips it, so in the stock game the broken chair it "
+                         "repairs can never be mended. Dropped on the broken chair, its repair could start."), C),
+        Fact(g, with_patcher("FleaMarket", "the Flea Market sells the Wood Furniture Repair Kit ($50), so the "
+                             "chair can be repaired."), C, sub=True),
+        Fact(g, "Ball ($10 in the item table, never used up): dropping it on a family member does nothing (the drop "
+                "handler has no use for it).", C),
+        Fact(g, "Whether the store ever offers the Ball: its specials table lists it in the first special place "
+                "before the first draw, and nothing else was traced.", U, sub=True),
+    ]
+
+
+# Home Improvements: (item, like ids it rewards (names), trend for a matching like, what else it does, label)
+_ACTIVITY = ("A new activity: a family member dropped on it uses it, and family members choose it on their own "
+             "once it is owned.")
+_HOME = (
+    (66, "TV", 35, "The Rebate e-mail (Random Event 25) comes only once it is owned.", VERIFIED_C),
+    (67, "art", 35, "The Delivery Truck pop-up (Random Event 57) comes only while it is not owned, and its first "
+                    "choice gives it.", VERIFIED_C),
+    (68, None, 0, "+1 year on the safe age for old age (see Old age and death).", VERIFIED_E),
+    (69, "tools", 10, "Every malfunction a family member repairs from then on is fixed for good: the random "
+                      "malfunction roll never picks it again (see Malfunctions).", VERIFIED_C),
+    (70, "sleeping", 25, "Going to bed gives +15 energy more. The Wrong Address pop-up (Random Event 56) comes only "
+                         "while it is not owned and gives it for $100.", VERIFIED_C),
+    (71, "fish", 35, "", VERIFIED_C),
+    (72, "bathing", 25, "+1 year on the safe age for old age (see Old age and death).", VERIFIED_E),
+    (73, "exercising", 35, _ACTIVITY, VERIFIED_C),
+    (74, "music", 35, _ACTIVITY, VERIFIED_C),
+    (75, "pinball", 45, _ACTIVITY, VERIFIED_C),
+    (76, "resting, sunlight or sitting", 25, _ACTIVITY, VERIFIED_C),
+    (77, "swimming", 35, _ACTIVITY, VERIFIED_C),
+    (78, "solitude, quiet or resting", 25, _ACTIVITY + " The An extra hammock e-mail (Random Event 21) comes only "
+                                           "while it is not owned, and gives one free.", VERIFIED_C),
+    (79, "BBQ or burgers", 25, _ACTIVITY + " The BBQ Party pop-up (Random Event 43) comes only once it is owned.",
+     VERIFIED_C),
+    (80, "birds", 35, "The Birdwatcher Society pop-up (Random Event 39) comes only once it is owned; The Rare Bird "
+                      "pop-up (Random Event 70) comes only while it is not, and its first choice sells it for "
+                      "$235 to $305.", VERIFIED_C),
+)
+
+
+def _home() -> list[Fact]:
+    g, E, C, U = HOME, VERIFIED_E, VERIFIED_C, UNCONFIRMED
+    facts = [
+        Fact(g, "Each of the 15 is bought once, from the store's Home Improvements page, and stays for good; "
+                "everyone celebrates the purchase. Every one owned adds +10 to every family member's happiness "
+                "trend at each happiness update (every 3 age units, "
+                f"{units_text(3)}); a family member with a matching like gets the extra shown, once per "
+                "improvement however many of the likes they have.", C),
+    ]
+    for n, likes, extra, more, label in _HOME:
+        like = f"+{extra} more for a family member who likes {likes}." if likes else "No like bonus."
+        facts.append(Fact(g, item(n, f"{like} {more}".strip(), "bought once"), label))
+    facts += [
+        Fact(g, with_patcher("OlderVillagerMortalityCurve", "the Air Purifier and the Bathroom Upgrade no longer "
+                             "change old age."), E, sub=True),
+        Fact(g, "What the activities on the Treadmill, Radio and MP3 Player, Pinball Machine, Patio Furniture, "
+                "Swimming Pool, Hammock and Outdoor Barbecue Grill give: each is inside its action, which was not "
+                "decoded; and what the Fish Tank's Magic Fish do.", U),
+    ]
+    return facts
+
+
+def _career_rooms() -> list[Fact]:
+    g, E, C = CAREER_ROOMS, VERIFIED_E, VERIFIED_C
+    return [
+        Fact(g, "The Kitchen, the Office and the Workshop each start at level 1 (\"the standard ... that was "
+                "present in your house when you moved in\"). Level 2 costs $5,000 and level 3 $15,000, for each "
+                "room; level 3 needs level 2 first (\"This upgrade is not available yet!\").", C),
+        Fact(g, "A room's level multiplies the progress of every work success in its careers: level 2 doubles "
+                "it, level 3 triples it (successes per promotion: see Careers and promotion; Master needs none). "
+                "Kitchen: careers of room 1, Office: room 2, Workshop: room 3.", E),
+        Fact(g, "A family member who likes cooking (Kitchen), computers (Office) or tools (Workshop) gets a "
+                "happiness trend of +500 at each happiness update with that room at level 2, +1,000 at level 3.",
+             C),
+        Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE}'s 2x, 5x and 100x prices multiply these too "
+                             "($10,000 / $30,000 at 2x)."), C, sub=True),
+    ]
+
+
+def _patcher_special() -> list[Fact]:
+    g, E, C = PATCHER_SPECIAL, VERIFIED_E, VERIFIED_C
+    return [
+        Fact(g, with_patcher("SpecialUpgrades", "the Upgrades menu's Special Upgrades page sells the six purchases "
+                             "below, each kept per family. Buying an owned one again removes it, with no refund, "
+                             "except the Brokerage Account (below)."), C),
+        Fact(g, upgrade("Brokerage Account", "$10,000", "interest 11% a game day instead of 10%; buying it again "
+                        "sets 1%, and each purchase after that adds 2 points, up to 11% (see Money and interest)."),
+             E),
+        Fact(g, upgrade("Food Club", "$10,000", "a delivery at once and then every game day: +500 food and all four "
+                        "food groups for 24 real hours; a hungry family member always finds food; every grocery bag "
+                        "half price (see Needs and upkeep and Store: groceries)."), E),
+        Fact(g, upgrade("Health Plan", "$10,000", "the medicines, Baby Boost and the Doctor Consultation cost a "
+                        "quarter (see Store: medicines)."), E),
+        Fact(g, upgrade("Lucky Rock", "$77,777", "collectibles appear twice as often and are rare 8.01%, uncommon "
+                        "26.03% (see Collectibles)."), E),
+        Fact(g, upgrade("Maid", "$1,000", f"every game hour ({game_text(3_600)}), in the daytime, every sock, candy "
+                        "wrapper, cobweb and dirt smudge is removed (see Messes)."), E),
+        Fact(g, upgrade("Gardener", "$1,000", "every game hour, in the daytime, every weed in the yard is removed "
+                        "(see Messes)."), E),
+    ]
+
+
+def _patcher_menu() -> list[Fact]:
+    g, E, C = PATCHER_MENU, VERIFIED_E, VERIFIED_C
+    cheat = lambda text: with_patcher("CheatUpgrades", text)          # noqa: E731
+    return [
+        Fact(g, cheat("every page below is free and acts at once. No Money, No Food, every Villager Cheats button, "
+                      "the achievement and collection buttons, Divorce Spouse and Evict Family ask first. The "
+                      "Villager Cheats page acts on the family member picked in its list, or on everyone "
+                      "(Everyone)."), C),
+        Fact(g, cheat("Cheat Upgrades page: No Money sets $0; + 100 and + 10,000 add that much; Max sets "
+                      "$4,000,000,000; Set money to $ sets any amount from 0 to 4,000,000,000. Food: No Food sets "
+                      "0, + 100 and + 10,000 add that much (stopping at 2,147,483,647), Max sets 2,147,483,647, Set "
+                      "food to sets any amount up to 2,147,483,647 (checked: $1,000 becomes $0, $1,100, $11,000, "
+                      "$4,000,000,000 and $123,456; 500 food becomes 0, 600, 10,500, 2,147,483,647 and 777; "
+                      "2,147,483,000 + 10,000 becomes 2,147,483,647)."), E),
+        Fact(g, cheat("Cheat Upgrades page, Interest rate %: any rate from 1% to 11% for every family, kept in "
+                      "settings.ini (checked: 12 is refused; see Money and interest)."), E),
+        Fact(g, cheat("Villager Cheats page: Max health sets health 100; Max happiness and Psychotherapy set "
+                      "happiness 100; Max energy sets energy 100; Fill up (Fed) sets hunger to 1 (fully fed); Cure "
+                      "illnesses clears all seven symptoms and their times; All of these does all five (checked on "
+                      "a family member at 50 health, energy and happiness and 60 hunger)."), E),
+        Fact(g, cheat("Villager Cheats page, Cure illnesses leaves a mild or serious infection in place (checked): "
+                      "only Penicillin, Vancomycin or the Imported Candy end one."), E, sub=True),
+        Fact(g, cheat("Villager Cheats page: Instant job promotion promotes a family member with a career one level "
+                      "at once, without pay, as the Professional Career Training pop-up does (checked: Beginner to "
+                      "Novice); Career Change draws a new career at random and starts it at Beginner. Neither works "
+                      "on a family member without a career (\"Only adults with a career can do that.\")."), E),
+        Fact(g, cheat("Villager Cheats page: Systematic Desens. removes the dislike in the first filled dislike "
+                      "place (checked: with dislikes in the first two places, the first is removed)."), E),
+        Fact(g, cheat("Villager Cheats page: Higher Learning adds a like drawn at random that they neither like "
+                      "nor dislike, into a free like place (\"Every like slot is already full.\" when none is "
+                      "free); Add Running Like adds the like for running and removes a dislike of running."), C,
+             sub=True),
+        Fact(g, cheat("Villager Cheats page: Set Age to 18 sets the picked family member's age to 18 years (360 "
+                      "age units; checked: 30 becomes 18), for one family member only (Everyone is refused); "
+                      "Boarding School refuses a family member with a career (checked)."), E),
+        Fact(g, cheat("Villager Cheats page: Boarding School sends a child (no career) away from home the way the "
+                      "age-19 departure does (\"is going to college\"; see Leaving home)."), C, sub=True),
+        Fact(g, cheat("Villager Cheats page, Change Appearance: Change (0-49) sets the head (face and hair) and body "
+                      "(clothes) pictures to the numbers typed, each 0 to 49 (checked: 7 and 9 set; 50 refused)."),
+             E),
+        Fact(g, cheat("Villager Cheats page: Random look draws both pictures at random (0 to 49 each); the "
+                      "Clothing and Hairstyles page sets one by clicking it; the family tree portrait follows."), C,
+             sub=True),
+        Fact(g, cheat("Store, Achievement and Collection Cheats page: 2x, 5x and 100x Prices and Reset (see Store "
+                      "rules); Complete all Achievements and Reset Achievements (the game's trophies); "
+                      "Complete all collections and Reset all collections (the collectible albums); Anti-Spam "
+                      "Software Ownership (see Store: specials)."), C),
+        Fact(g, cheat("House and Yard page: fills the free mess places in the house with trash (5 dirt smudges, 5 "
+                      "socks, 5 candy wrappers) or the yard with up to 15 weeds; Clean House removes every sock, "
+                      "candy wrapper, cobweb and dirt smudge; Clean Garden every weed; it can also start all eight "
+                      "malfunctions at once or end every active one (see Messes and Malfunctions)."), C),
+        Fact(g, cheat("Time Controls page: Pause, Resume, Slow, Normal, Fast, 5x and 10x, and Time Warp: +3 years "
+                      "(see Time and ageing)."), C),
+        Fact(g, cheat("Family: Marriage, Babies and Adoption page: Enable Same-Sex Marriage and Allow Reroll of Marriage Candidates (kept per "
+                      "family); Force Marriage Email; Divorce Spouse (removes the spouse from the house and the "
+                      "family tree for good); the next pregnancy's sex (either, male, female) and number (any, "
+                      "single, twins, triplets), and Force Successful Pregnancy, each kept until a pregnancy "
+                      "succeeds; Spawn Male / Female Child and Adopt Outside Boy / Girl (age 2 to 13, an optional "
+                      "name); Adopt New Person after the family is lost; Evict Family (a new family, keeping the "
+                      "money, the house and everything owned)."), C),
+        Fact(g, with_patcher("FleaMarket", "Flea Market: see Store rules."), C),
+        Fact(g, with_patcher("RollTheDice", "Roll the Dice: $500 for a Popup Event at once (see Random Events)."),
+             C),
+        Fact(g, cheat("Patcher Achievements page: 12 milestones the patcher records per family (ages 70, 80, 90, "
+                      "100 and over 122, four rare head pictures in the family tree, the most money, the most food, "
+                      "and all of them). They are records only: they give nothing."), C),
     ]
 
 
@@ -830,7 +1309,9 @@ def _index() -> list[Fact]:
 def facts() -> list[Fact]:
     """Every line of the page, in GROUPS order."""
     out = (_time() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
-           + _leaving() + _marriage() + _events() + _messes() + _collectibles() + _malfunctions() + _index())
+           + _leaving() + _marriage() + _events() + _messes() + _collectibles() + _malfunctions() + _store()
+           + _store_food() + _store_meds() + _store_specials() + _store_other() + _home() + _career_rooms()
+           + _patcher_special() + _patcher_menu() + _index())
     return sorted(out, key=lambda f: GROUPS.index(f.group))      # stable: the order within a group is kept
 
 
@@ -856,11 +1337,16 @@ def render(page: list[Fact] | None = None) -> str:
 
 LABEL_COLOURS = {VERIFIED_E: "#1b6e20", VERIFIED_C: "#245a9a", UNCONFIRMED: "#b00020"}
 NOTE_RED = LABEL_COLOURS[UNCONFIRMED]
-WIDTH, HEIGHT = 900, 720
-MIN_WIDTH, MIN_HEIGHT = 600, 600
+WIDTH, HEIGHT = 900, 820
+MIN_WIDTH, MIN_HEIGHT = 600, 700
 # 3, not 4: in 4 columns the group buttons need more than the window has at its smallest (as in the Virtual Families
 # 2 patcher's window).
 LINKS_PER_ROW = 3
+# The group buttons sit in eight rows since the store groups came in (24 groups), so they are drawn compact: a
+# button's own padding is 1 pixel top and bottom instead of ttk's default, which leaves the page itself room at the
+# window's smallest size.
+LINK_STYLE = "Mechanics.TButton"
+LINK_PADDING = (4, 1)
 
 
 def open_window(parent):
@@ -908,6 +1394,7 @@ def open_window(parent):
     text.tag_configure("bullet", lmargin1=8, lmargin2=28, spacing3=2)
     for label, colour in LABEL_COLOURS.items():
         text.tag_configure(label, foreground=colour, font=fonts["label"])
+    ttk.Style(window).configure(LINK_STYLE, padding=LINK_PADDING)
 
     for note in (PATCHER_NOTE, SPEED_NOTE):
         text.insert("end", note + "\n", "note")
@@ -931,8 +1418,8 @@ def open_window(parent):
         text.see(f"group:{group}")
 
     for n, group in enumerate(GROUPS):
-        ttk.Button(links, text=group, command=lambda g=group: jump(g)).grid(
-            row=n // LINKS_PER_ROW, column=n % LINKS_PER_ROW, sticky="we", padx=(0, 4), pady=(0, 2))
+        ttk.Button(links, text=group, style=LINK_STYLE, command=lambda g=group: jump(g)).grid(
+            row=n // LINKS_PER_ROW, column=n % LINKS_PER_ROW, sticky="we", padx=(0, 4), pady=(0, 1))
     for column in range(LINKS_PER_ROW):
         links.columnconfigure(column, weight=1)
 
