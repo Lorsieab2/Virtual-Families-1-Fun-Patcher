@@ -96,7 +96,7 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
-- **Family History Log** (also in the **Experimental** section, off by default, never ticked by Enable All): one
+- **Family History Log** (a Main Patch, on by default; Enable All ticks it like any other): one
   log, the Family History, of every family event, in the Virtual Villagers Fun Patcher's record layout and the
   game's own words: conceptions, births (twins and triplets, with both parents), deaths with cause and age,
   marriages and remarriages (the current spouse, the earlier one and why they left; any sexes), Divorce Spouse,

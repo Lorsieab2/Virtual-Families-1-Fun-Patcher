@@ -69,7 +69,8 @@ def test_manifest_row():
     rows = [s for s in m["settings"] if s["id"] == "FamilyHistory"]
     assert len(rows) == 1
     row = rows[0]
-    assert row["label"] == "Family History Log" and row["category"] == "experimental" and row["default"] is False
+    assert row["label"] == "Family History Log" and row["category"] == "main" and row["default"] is True
+    assert "Experimental" not in row["description"]
     assert row["files"] == [{"source": "vf1logs.dll", "target": "Virtual Families 1 Patcher Files/vf1logs.dll"}]
     assert "Virtual Families 1 Patcher\\Save N\\Logs\\Family History" in row["description"]
     assert not any(s["id"] == "FamilyLogs" for s in m["settings"])

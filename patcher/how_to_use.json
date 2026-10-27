@@ -126,7 +126,7 @@
         "Each save slot gets its own log, in Virtual Families 1 Patcher\\Save N\\Logs\\Family History, beside your saves.",
         "A family started before this patch gets what its family tree holds added once, marked \"backfilled, no date\".",
         "Starting over or a new family clears that slot's log (backups are kept); evicting the family keeps it.",
-        "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself."
+        "On by default. Not yet tested in a running game; your save file itself is never changed."
       ]
     }
   ],
