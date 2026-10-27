@@ -583,3 +583,63 @@ def test_the_bullets_are_real_bullets_and_nothing_is_garbled():
     assert gm.BULLET == "\u2022 " and gm.SUB_BULLET == "    \u2013 "
     for garbled in ("\u00e2\u20ac", "\u00c3"):     # UTF-8 read as Windows-1252 ("a-hat, euro ...")
         assert garbled not in PAGE
+
+
+# ------------------------------------------------------------------ the store specials clock and the action count
+
+
+def test_the_store_specials_change_every_four_real_hours_at_any_speed():
+    # 0x496D80 compares GetSecondsFromGameStart 0x4036D0 (real seconds), not the game clock: 4 h at every speed.
+    assert gm.SPECIALS_REAL_SECONDS == 14_400
+    assert gm.SPECIALS_REAL == "4 hours real time (at any game speed, also while paused)"
+    for line in (find(r"^The store: the specials change every 4 hours real time", gm.MONEY)[0],
+                 find(r"^The specials \(six places\): every 4 hours real time", gm.STORE)[0],
+                 find(r"^Store specials: 4 hours real time", gm.INDEX)[0]):
+        assert "on Normal" not in line.text.split(";")[0] and line.label == gm.VERIFIED_C
+    # the half-price grocery stays on the game clock (0x496CD0 reads 0x422320)
+    assert find(r"^The store: the specials", gm.MONEY)[0].text.endswith(
+        "changing every 12 hours on Normal, 24 hours on Slow, 6 hours on Fast.")
+
+
+def test_the_index_counts_the_316_registered_actions():
+    line = find(r"^4,492 of them are in the family members' \d+ actions", gm.INDEX)[0].text
+    assert f" {gm.REGISTERED_ACTIONS} actions " in line and gm.REGISTERED_ACTIONS == 316
+    assert " 217 " not in PAGE
+
+
+def test_the_registered_action_count_is_read_from_the_exe(vanilla_dir):
+    # The registration run 0x480260..0x4813BE: every action is `push fn ; push id ; call registrar`.
+    exe = (vanilla_dir / "Virtual Families.exe").read_bytes()
+    pe_off = int.from_bytes(exe[0x3C:0x40], "little")
+    sections = int.from_bytes(exe[pe_off + 6:pe_off + 8], "little")
+    opt = int.from_bytes(exe[pe_off + 20:pe_off + 22], "little")
+    base = int.from_bytes(exe[pe_off + 52:pe_off + 56], "little")
+    table = pe_off + 24 + opt
+
+    def offset(va):
+        for i in range(sections):
+            s = table + 40 * i
+            rva, raw = (int.from_bytes(exe[s + o:s + o + 4], "little") for o in (12, 20))
+            size = int.from_bytes(exe[s + 8:s + 12], "little")
+            if rva <= va - base < rva + size:
+                return va - base - rva + raw
+        raise AssertionError(hex(va))
+
+    start, end = 0x480291, 0x4813BC
+    code = exe[offset(start):offset(end)]
+    calls, ids, i = {}, set(), 0
+    while i < len(code):
+        assert code[i] == 0x68, hex(start + i)                          # push fn
+        i += 5
+        if code[i] == 0x6A:                                             # push id (imm8)
+            ident, i = code[i + 1], i + 2
+        else:
+            assert code[i] == 0x68, hex(start + i)                      # push id (imm32)
+            ident, i = int.from_bytes(code[i + 1:i + 5], "little"), i + 5
+        assert code[i] == 0xE8, hex(start + i)                          # call registrar
+        target = start + i + 5 + int.from_bytes(code[i + 1:i + 5], "little", signed=True)
+        calls[target] = calls.get(target, 0) + 1
+        ids.add((target, ident))
+        i += 5
+    assert calls == {0x452470: 306, 0x452490: 10}
+    assert sum(calls.values()) == len(ids) == gm.REGISTERED_ACTIONS

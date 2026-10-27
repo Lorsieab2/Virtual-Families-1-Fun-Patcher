@@ -618,7 +618,7 @@ def _money() -> list[Fact]:
         Fact(g, "Interest is paid when the family's happiness updates (every 3 age units), and when the bank, the "
                 "store or an event checks it.", C),
         Fact(g, "Paused, no interest builds up: it runs on game time.", C),
-        Fact(g, f"The store: the specials change every {game_text(14_400)}; one grocery bag is half price, "
+        Fact(g, f"The store: the specials change every {SPECIALS_REAL}; one grocery bag is half price, "
                 f"changing every {game_text(43_200)}.", C),
         Fact(g, upgrade("Food Club", "$10,000", "the eight grocery and organic bags cost half, rounded down "
                                                 "(Grains groceries $20 for $10, Meats organics $160 for $80)."),
@@ -840,7 +840,15 @@ ITEMS = {
     77: ("Swimming Pool", 1600), 78: ("Hammock", 700), 79: ("Outdoor Barbecue Grill", 850), 80: ("Birdhouse", 225),
 }
 CAREER_ROOM_PRICES = (0, 5000, 15000)        # CTech::GetPrice(room, level 1 / 2 / 3), the same for all three rooms
-PRICE_MULTIPLIERS = (2, 5, 100)              # the patcher's Store, Achievement and Collection Cheats page
+# The specials refresh 0x496D80 compares GetSecondsFromGameStart 0x4036D0 (time() since the start: REAL seconds,
+# not the game clock) with its due time and moves it on 0x3840, so the specials change every 4 real hours at any
+# game speed, also while paused.
+SPECIALS_REAL_SECONDS = 0x3840
+SPECIALS_REAL = f"{duration(SPECIALS_REAL_SECONDS)} real time (at any game speed, also while paused)"
+# The actions the game registers: 0x480260 calls the registrars 0x452470 (306 times) and 0x452490 (10 times),
+# 316 in all (tests/test_game_mechanics.py counts them in the exe).
+REGISTERED_ACTIONS = 316
+PRICE_MULTIPLIERS = (2, 5, 100)             # the patcher's Store, Achievement and Collection Cheats page
 CHEATS_PAGE = "the Upgrades menu's Store, Achievement and Collection Cheats page"
 
 
@@ -875,7 +883,7 @@ def _store() -> list[Fact]:
         Fact(g, "Returning an unused item to the store gives back its listed price, not a sale price. Groceries "
                 "can never be returned, and a used item cannot be returned (\"This item can't be returned, because "
                 "it has been used!\").", C),
-        Fact(g, f"The specials (six places): every {game_text(14_400)} the six are drawn again, at random, from the "
+        Fact(g, f"The specials (six places): every {SPECIALS_REAL}, the six are drawn again, at random, from the "
                 "items that may appear (each special entry below says when it may). An item cannot fill two "
                 "places at once.", C),
         Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again every "
@@ -1347,7 +1355,7 @@ _TIMERS = (
     ("Event check", game_text(3_600) + "; the first " + game_text(900), VERIFIED_C),
     ("Dating e-mail", game_text(180) + " for the first", VERIFIED_C),
     ("Mess", game_text(18_000) + "; half that with 4 or more", VERIFIED_C),
-    ("Store specials", game_text(14_400), VERIFIED_C),
+    ("Store specials", SPECIALS_REAL, VERIFIED_C),
     ("Half-price grocery", game_text(43_200), VERIFIED_C),
     ("Collectible", "3 in 6,600 each frame", VERIFIED_C),
     ("House malfunction", "1 in 800 every 2 real seconds, also while paused", VERIFIED_E),
@@ -1379,7 +1387,7 @@ def _index() -> list[Fact]:
         Fact(g, "The game has 5,088 places that roll a random number; 5,087 are in code the game reaches. The gameplay ones are on "
                 "this page: hunger, eating, waste, starvation, sickness, recovery, old age, conception, twins, "
                 "careers, work, events, the dating candidate, messes, collectibles and malfunctions.", C),
-        Fact(g, "4,492 of them are in the family members' 217 actions (how long an action lasts, which variant, "
+        Fact(g, f"4,492 of them are in the family members' {REGISTERED_ACTIONS} actions (how long an action lasts, which variant, "
                 "where they walk). What those actions give was not decoded.", U),
         Fact(g, "The rest are setup, looks, names, the screen and input; the two largest groups (58 and 57 rolls) "
                 "were not decoded.", U),

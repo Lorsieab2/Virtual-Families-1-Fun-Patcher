@@ -58,7 +58,7 @@ CRT static-initializer tables (`_initterm` 0x4B2464..0x4B2540 and 0x4B2544..0x4B
     game-over tip; then the house-malfunction roll (0x444ECD). This step reads no pause flag.
   - Per frame: the island-event timer (0x445271), the marriage e-mail timer (0x4451EF), `CCollectableItem::Update`
     0x414BF0 (collectibles and messes), villager plans (0x489CC0 -> 0x486F20 -> 0x489540 -> 0x48E350).
-- **Behaviour table**: the initializer 0x480260 registers **217** behaviour functions (code 0x452420..0x480260) into
+- **Behaviour table**: the initializer 0x480260 registers **316** behaviour functions (306 through 0x452470, 10 through 0x452490; code 0x452420..0x480260; see section 24) into
   the table object 0x5AAA38 (`behaviours.py`). They hold 4,492 of the 5,087 roll sites (section 18).
 - Store, drag-and-drop and dialog handlers are player input; their dispatch through the framework was not traced, so
   rules that run only there are marked.
@@ -472,7 +472,7 @@ the prop-to-name pairing is UNCONFIRMED.
 
 | Item | Rule | Real time | Status |
 |---|---|---|---|
-| Specials | store slots 8..13 refresh every 0x3840 = 14,400 game s (0x496D80) | 8 h / 4 h / 2 h | VERIFIED-C (house_store.md reading) |
+| Specials | store slots 8..13 refresh every 0x3840 = 14,400 **real** s (0x496D80 compares `GetSecondsFromGameStart` 0x4036D0, time() since the start, not the game clock 0x422320) | 4 h at every speed, also paused | VERIFIED-C (0x496D80 read 2026-10-27) |
 | On Sale | one grocery (4 + rand(8)) at half price every 0xA8C0 = 43,200 game s (0x496CD0) | 24 h / 12 h / 6 h | VERIFIED-C (house_store.md reading) |
 | Prices | `GetPrice` 0x4968C0 (labels, buy, refund); upgrades `CTech::GetPrice` | | VERIFIED-C |
 
@@ -502,7 +502,8 @@ real; stopped while paused), **U** age units, **F** frames, **S** the 2-second s
 | Patcher: failed-try wait | gs+0x1B150 | R | not stored with a parent 50+ or a couple that cannot conceive | | VERIFIED-E |
 | Collectible lifetime | slot +8 | R | 120 s | 2 min | UNCONFIRMED (house_store.md) |
 | House malfunction | per step | S | 1 / 800 | mean 26.7 min, also paused | VERIFIED-C |
-| Store specials / sale | Inventory | G | 14,400 / 43,200 s | 8 h / 4 h / 2 h; 24 / 12 / 6 h | VERIFIED-C |
+| Store specials | Inventory +0x13C | R | 14,400 s | 4 h at every speed | VERIFIED-C |
+| Store sale | Inventory +0x120 | G | 43,200 s | 24 / 12 / 6 h | VERIFIED-C |
 | Villager positions refresh | gs+0x1B314 | R | 40 s (pushed while paused) | 40 s | VERIFIED-C |
 | Autosave | gs+0x1B318 (not in the save) | R | 600 s: `AutoSaveGame` 0x423920 saves when the due time < `GetSeconds` 0x401F20 (CRT `time()`, the PC clock; no speed or pause check), then due = now + 600. First due = launch + 600 (`theGameState` ctor 0x424F32). Called at 0x423290 by `theGame::GameUpdate` 0x422D90 (vtable 0x4B5E04 slot +0x1C; `ldwGame::Run` 0x402CC0 calls it every frame; every path of its 15-way scene switch reaches the check, its only `ret` is 0x4232A5) once the start-up counter theGame+0x24 is past 6. It tail-jumps to `SaveCurrentGame` 0x4238E0: Save(0), Save(slot), Save(slot+20), the slot file a quit (`Shutdown` 0x422C10: Save(slot), Save(0)) writes. Emulated (`t_autosave.py`, the update's tail and AutoSaveGame run as linked; clock and SaveCurrentGame stubbed): overdue by 1 s -> saved, next due +600; due = now or later -> no save; the same paused (speed 1009); counter 6 -> no save | 10 min, also paused | VERIFIED-E |
 | Patcher: autosave | unchanged | | the tick stub (slot 0x4B5E20, `tools/build_stub.py`) runs `VF1Fun_Tick` then jumps to the real GameUpdate 0x422D90; nothing in vf1fun touches 0x423920 or gs+0x1B318. Fix Vanilla Game Bugs (on) adds `SaveCurrentGame` after the Adopt button (`AdoptionHandleMessage`, message 8 / button 1) | 10 min, plus after Adopt | VERIFIED-C |
@@ -516,7 +517,7 @@ real; stopped while paused), **U** age units, **F** frames, **S** the 2-second s
 
 | Class | Sites | Meaning |
 |---|---|---|
-| behaviour | 4,492 | the 217 registered behaviours (action lengths, variants, walk targets); rewards not decoded: UNCONFIRMED |
+| behaviour | 4,492 | the 316 registered behaviours (action lengths, variants, walk targets); rewards not decoded: UNCONFIRMED |
 | island events | 67 | section 11 |
 | other | 528 in 135 functions | frame path, upkeep, setup, UI, input |
 
@@ -703,5 +704,5 @@ Scripts (kept outside the repo with the others): `t_beh.py`, `t_recs.py`, `t_rep
   (64 / 65) gives (0x496D10). The Ball (item 3) is the static first special (0x4F13A8); the first opening overwrites
   all six (draw 0x449480, or the kept specials while 0x496D80 is not due: GetSecondsFromGameStart <= 1).
 - **Found, not changed**: the specials refresh 0x496D80 uses `GetSecondsFromGameStart` 0x4036D0 (real seconds), so
-  it is every 14,400 real seconds at any speed, not game seconds as section 16 says; every outfit of a kind in the
+  it is every 14,400 real seconds at any speed, not game seconds (sections 16 and 17 and the page now say so); every outfit of a kind in the
   tray shows the last one bought's picture.
