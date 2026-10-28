@@ -59,6 +59,15 @@ The owner's four decisions were each re-checked in the stock exe before going in
     emulated, a starving family member at 14 health with every per-unit starvation roll missed reaches 0 in
     90 age units, recorded as Unknown causes.  That is shown instead.
 
+VIRTUAL FAMILIES 2 PARITY (owner, 2026-10-27: "Vf1 should also get the same stuff as vf2!!!").  The groups of the VF2
+page (src/vf2_game_mechanics.py, main af2cc46) are all here: Weather, Dropping a family member on things, Pets,
+Clothing and Hairstyles, Trophies and the heir and Actions are new, and Careers, Pregnancy and babies, Old age and
+death, Random Events and Collectibles go as deep.  Where VF2 has a mechanic this game lacks, one line says
+"not in Virtual Families 1" (NOT_IN_VF1).  Every number was read or run in VF1's own exe (per-function disassembly,
+unicorn runs of the drop-table and collectible constructors, every action's code paths, every reached call of the
+trophy counter); only two lines stay UNCONFIRMED, and each says why (only a live game run shows it).  The store's
+six random items are the Flea Market, the owner's name; the code's "specials" is named once, in Store rules.
+
 `python vf1_game_mechanics.py` prints the whole page, for review.
 """
 from __future__ import annotations
@@ -153,22 +162,33 @@ MONEY = "Money and interest"
 LEAVING = "Leaving home"
 MARRIAGE = "Dating, marriage and the next generation"
 EVENTS = "Random Events"
+WEATHER = "Weather"
 MESSES = "Messes"
 COLLECTIBLES = "Collectibles"
 MALFUNCTIONS = "Malfunctions"
 STORE = "Store rules"
 STORE_FOOD = "Store: groceries"
 STORE_MEDS = "Store: medicines"
-STORE_SPECIALS = "Store: specials"
+STORE_SPECIALS = "Store: Flea Market"
 STORE_OTHER = "Store: other items"
 HOME = "Home Improvements"
 CAREER_ROOMS = "Career Room Upgrades"
+DROPS = "Dropping a family member on things"
+PETS = "Pets"
+CLOTHING = "Clothing and Hairstyles"
+TROPHIES = "Trophies and the heir"
+ACTIONS = "Actions"
 PATCHER_SPECIAL = "Patcher: Special Upgrades"
 PATCHER_MENU = "Patcher: Upgrades menu"
 INDEX = "Chance and timer index"
-GROUPS = (KEYS, TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, MESSES,
-          COLLECTIBLES, MALFUNCTIONS, STORE, STORE_FOOD, STORE_MEDS, STORE_SPECIALS, STORE_OTHER, HOME, CAREER_ROOMS,
-          PATCHER_SPECIAL, PATCHER_MENU, INDEX)
+GROUPS = (KEYS, TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, WEATHER,
+          MESSES, COLLECTIBLES, MALFUNCTIONS, STORE, STORE_FOOD, STORE_MEDS, STORE_SPECIALS, STORE_OTHER, HOME,
+          CAREER_ROOMS, DROPS, PETS, CLOTHING, TROPHIES, ACTIONS, PATCHER_SPECIAL, PATCHER_MENU, INDEX)
+# Where Virtual Families 2 has a mechanic this game does not, the page says so in one line ending with these words.
+NOT_IN_VF1 = "not in Virtual Families 1"
+# "Flea Market" is the owner's name for the store's six random items; the game's code calls them the specials (said
+# once on the page, in Store rules). The patcher's own Upgrades-menu page of the same name is always called "the
+# patcher's Flea Market page (Upgrades menu)".
 
 
 @dataclass(frozen=True)
@@ -473,6 +493,72 @@ RANDOM_TIPS = (
 )
 
 
+# What queues each tutorial tip (the tip window's queue 0x44E180, or the tutorial check 0x44E2D0 in UpdateScene), from
+# every reached instruction that pushes the tip's text number 0x4D8..0x4FE (research 2026-10-27, p_tips.py).
+TUTORIAL_TIPS = (
+    "“Welcome to Virtual Families! ...”: the house screen, when a new family's first family member is "
+    "home.",
+    "“Good! This is how you move about the house. ...”: the house screen, once the view has been dragged.",
+    "“Perfect! A white circle highlights your little friend. ...”: clicking a family member.",
+    "“Excellent! Moving people is just that easy.”: the house screen, once a family member has been "
+    "dragged.",
+    "“Well done. Dragging someone to the bathroom sink ...”: dropping a family member on a bathroom sink.",
+    "“Good. The wrapper is being discarded. ...”: the action Throwing away a wrapper starting.",
+    "“Nice job! They really appreciate having enough to eat.”: a grocery bag dropped in the kitchen.",
+    "“Wonderful! They know that you like this behavior, ...”: praising with the green glove.",
+    "“Great! Your adoptee earned his first money ...”: a successful piece of career work.",
+    "“Good! Let's give the little person a moment to finish a work cycle. ...”: a Working on career "
+    "action starting.",
+    "“Oops! That little puff of smoke means that the work didn't go well. ...”: a piece of career work "
+    "failing.",
+    "“Good! They are going to have ...”: Trying to make a baby starting.",
+    "“Too bad! They aren't in the mood. ...”: a try for a baby refused (see Pregnancy and babies).",
+    "“Hmmm... this little person is confused. ...”: the action Confused starting.",
+    "“You have mastered the basics! ...”: the house screen, after the tutorial's last step.",
+    "Set up by number in the tutorial's start-up list: the adoption tip, the white-circle tip and the "
+    "instructions for the bathroom sink, the groceries, the praise glove, the Detail button, the career and the "
+    "Store button.",
+    "No code queues these (every instruction the game runs was searched; for the first two the code only asks "
+    "whether they have been shown): “Let's start with the basics. ...”, “Let's move your little "
+    "friend. ...”, “Let's get to know your little friend. ...”, “Hmm, the house seems pretty "
+    "messy. ...”, “You have email! ...”, “How exciting - a new marriage! ...”, "
+    "“Almost! Click and hold ...”, “Ooh! The stork brought a baby. ...”, “Virtual "
+    "Families is a true real-time simulation game. ...”, “Nice try, but children don't work. ...” "
+    "and “Nursing mothers don't work at their careers ...”.",
+)
+
+
+def _below(n: int, k: int) -> int:
+    """How many of rand()'s 32,768 values give GetRandom(n) = rand() % n below k."""
+    k = max(0, min(k, n))
+    full, rest = divmod(32768, n)
+    return full * k + min(k, rest)
+
+
+def _pct(hits: int) -> str:
+    return f"{100 * hits / 32768:.2f}%"
+
+
+def _below_pct(n: int, k: int, invert: bool = False) -> str:
+    hits = _below(n, k)
+    return _pct(32768 - hits if invert else hits)
+
+
+def _agree(w1: int, w2: int) -> str:
+    """The meeting's agreement roll (0x48724B): GetRandom(105) <= 10 x (10 - w1 / 20 - w2 / 20)."""
+    return _below_pct(105, 10 * (10 - w1 // 20 - w2 // 20) + 1)
+
+
+def _twins(bonuses) -> list[tuple[int, str, str, str]]:
+    """Impregnate 0x4864D0: twins or more if GetRandom(100) < 7 + B, then triplets if GetRandom(100) < 25 + B."""
+    out = []
+    for b in bonuses:
+        more = _below(100, 7 + b) / 32768
+        tri = more * _below(100, 25 + b) / 32768
+        out.append((b, f"{100 * (1 - more):.2f}%", f"{100 * (more - tri):.2f}%", f"{100 * tri:.2f}%"))
+    return out
+
+
 def _odds(k: int, n: int) -> str:
     """GetRandom(n) = rand() % n landing on k: '2.002%' (rand()'s 32,768 values counted)."""
     hits = 32768 // n + (1 if k < 32768 % n else 0)
@@ -493,30 +579,30 @@ def _keys() -> list[Fact]:
                 "Ctrl, Shift or Alt combination does anything (Alt+F4 quits, the same as closing the window). Only "
                 "the left mouse button counts: the right and middle buttons and the wheel are ignored.", C),
         Fact(g, "The store's hidden key: typing a small r while the store page is open (the R key without Shift "
-                "and with Caps Lock off; a capital R does nothing) redraws all six specials at once, for free, and "
+                "and with Caps Lock off; a capital R does nothing) redraws all six Flea Market items at once, for free, and "
                 "also draws new Male Outfit and Female Outfit pictures. It works only when more than 1 hour of real "
-                "time has passed since the specials were last drawn (checked: exactly 1 hour after a draw nothing "
+                "time has passed since the Flea Market was last drawn (checked: exactly 1 hour after a draw nothing "
                 "happens; 1 hour and 1 second after, they are redrawn); otherwise the key does nothing. Each redraw "
-                "starts the specials' wait again, so the next automatic change comes 4 hours of real time after the "
+                "starts the Flea Market's wait again, so the next automatic change comes 4 hours of real time after the "
                 "key, and the key works again after 1 more hour of real time: at most once an hour of real time, "
                 "at any game speed, also while paused.", E),
         Fact(g, "What the redraw does not change: the half-price grocery (checked), and it takes no money. The "
-                "new specials follow the same rules as the automatic draw (see Store: specials); the outfit "
+                "new Flea Market items follow the same rules as the automatic draw (see Store: Flea Market); the outfit "
                 f"pictures' own wait starts again too ({game_text(14_400)}).", E, sub=True),
         Fact(g, with_patcher("FixVanillaGameBugs", "the R key's redraw is the same draw as the automatic one, so a "
                                                    "family with a dog is offered the Pet Turtle there too, and each "
                                                    "outfit already bought keeps its own picture."), C, sub=True),
         Fact(g, with_patcher("StoreRefreshKey", "a patcher key: R, small or capital, on the store page redraws the "
-                             "Flea Market (the store's six random items, which the game's code calls the specials) "
+                             "Flea Market (the store's six random items) "
                              "and both outfit pictures every time it is pressed, with no 1-hour wait. It is the stock "
                              "key's own redraw, so the items and pictures follow the same draw and odds, and the next "
                              "automatic draw comes 4 hours of real time later, as after the stock key (checked: r and "
                              "R at once, again and again). The half-price grocery, its price and its wait never "
                              "change, nothing is paid, and outfits already bought keep their pictures (checked). R "
-                             "does nothing on any other screen, and nothing on the Upgrades menu's Flea Market page, "
+                             "does nothing on any other screen, and nothing on the patcher's Flea Market page (Upgrades menu), "
                              "which lists every tray item at once and has nothing to redraw."), E, sub=True),
         Fact(g, "M (either case) or Esc on the store page goes back to the house.", C, sub=True),
-        Fact(g, "Every part of the store was checked for other keys: the store is one screen (the specials, the "
+        Fact(g, "Every part of the store was checked for other keys: the store is one screen (the Flea Market, the "
                 "groceries with the half-price grocery, the medicines, the outfits, the Home Improvements and the "
                 "career room upgrades are all on it), and its only key handler takes the small r, M and Esc. No key "
                 "changes the half-price grocery, the Home Improvements or the career room upgrades, and only the r "
@@ -545,14 +631,25 @@ def _keys() -> list[Fact]:
                 "F1 both do; on the Details screen Esc is its back button and keeps a name typed into its name "
                 "box. On the Help screen F1 goes straight to the house (its own button goes back to the main "
                 "menu).", C),
-        Fact(g, "Dialogs: in the message, purchase, family tree name and nickname dialogs Enter presses the first "
-                "button and Esc the second; in the Bank, Change Player and the doctor's diagnosis dialogs Enter and "
-                "Esc both press the first.", C),
-        Fact(g, "Which button is first in each of those dialogs, and whether Enter reaches a dialog while its name "
-                "box has the typing cursor (the box keeps every key but Esc for itself): not traced.", U, sub=True),
+        Fact(g, "Dialogs: Enter is the dialog's command 1 and Esc its command 2 in the message, purchase, family "
+                "tree name and nickname dialogs; in the Bank, Change Player and the doctor's diagnosis dialogs Enter "
+                "and Esc both give command 1. The Random Event pop-ups and the tip window take no key at all.", C),
+        Fact(g, "Message boxes: command 1 is the Yes button (or OK) and command 2 the No button (or Cancel), so "
+                "Enter answers Yes or OK and Esc answers No or Cancel.", C, sub=True),
+        Fact(g, "The purchase dialog: Enter and Esc both close it without buying; only clicking its buy button "
+                "(command 3) buys.", C, sub=True),
+        Fact(g, "The family tree name and the new player's nickname dialogs: Enter is OK (the name is kept), Esc "
+                "closes without it.", C, sub=True),
+        Fact(g, "While a dialog's name box has the typing cursor, Enter does nothing: the box gets each key before "
+                "its dialog does (the newest window to open is asked first) and keeps every key except Esc for "
+                "itself. Esc still reaches the dialog.", C, sub=True),
         Fact(g, "Opening logos: any typed key or a click moves on to the next logo (each also moves on by itself "
-                "after 4 seconds of real time). F1 jumps straight to the house before the loading screen has run; "
-                "what the game does then was not traced and was not tried live.", U),
+                "after 4 seconds of real time). F1 skips the rest of the logos and the loading screen and opens the "
+                "house at once.", C),
+        Fact(g, "What the house does when F1 has skipped the loading screen: the loading screen is what sets up "
+                "the house map, the collectibles, the pictures and the family over six steps, and F1 leaves all of "
+                "them undone. Only a live game run shows what follows, and this page is built without running the "
+                "game.", U, sub=True),
         Fact(g, "Cheat codes: there are none. Nothing compares what you type with a hidden word; the only typed "
                 "text the game checks is a new player's name against NEW PLAYER (the box's starting text). No "
                 "other key does anything on the main menu, the Adoption, Dating, Trophies, Family, Collections or "
@@ -579,7 +676,10 @@ def _keys() -> list[Fact]:
                 "screen) shows a random tip in the message bar, with a wooden click. Every click picks again from "
                 "all 50 tips (tips 1 to 18: " + _odds(0, 50) + " each; tips 19 to 50: " + _odds(18, 50) + " each), "
                 "with no wait and no limit, so the same tip can come twice running.", C),
-        Fact(g, "What the game draws at that spot (it was not matched to the art).", U, sub=True),
+        Fact(g, "What is at that spot: nothing of its own. The house screen's border picture (Images\\main_BG.png, "
+                "which the house loads beside the spot's coordinates) has there a plain stretch of the light blue "
+                "edge below the bottom bar's left boxes and the top of the dark blue panel under it; no code places "
+                "any picture at those coordinates.", C, sub=True),
         Fact(g, "Random tips, loading screen: each time the game starts, its loading screen shows one of tips 1 to "
                 "30 (tips 1 to 8: " + _odds(0, 30) + " each; tips 9 to 30: " + _odds(8, 30) + " each).", C),
         Fact(g, "The 50 random tips, as the game words them:", C),
@@ -591,9 +691,9 @@ def _keys() -> list[Fact]:
                 "screen!\u201d ...), Trophies (\u201cWelcome to the Trophies screen!\u201d ...), Collections "
                 "(\u201cWelcome to the Collections screen!\u201d ...) and the marriage proposal (\u201cWow! It's an "
                 "incoming marriage proposal!\u201d ...).", C),
-        Fact(g, "The other tutorial tips (39 tip texts in all) come with the tutorial's steps and with firsts such "
-                "as the first pay, a first thrown-away wrapper or a failed work try; each one's trigger was not "
-                "traced.", U, sub=True),
+        Fact(g, "The other tutorial tips (39 tip texts in all) and what queues each one, from the code that "
+                "names it:", C, sub=True),
+        *[Fact(g, text, C, sub=True) for text in TUTORIAL_TIPS],
         Fact(g, "Clicking things in the house (a click on a spot with nobody on it; the places are the game's own "
                 "click map):", C),
         Fact(g, "the refrigerator: shows \u201cFood available:\u201d and how much food there is, with a door "
@@ -604,10 +704,14 @@ def _keys() -> list[Fact]:
                 "it); only while the TV remote is in its place, otherwise nothing.", C, sub=True),
         Fact(g, "the bathroom's two sinks: turns both taps off when both are running; the kitchen sink: turns its "
                 "tap off when it is running.", C, sub=True),
-        Fact(g, "the office desk: switches off two of the office's running effects when they are on.", C, sub=True),
-        Fact(g, "What those two office effects look like (they were not matched to the art).", U, sub=True),
-        Fact(g, "the office computer: an office machine sound, then \u201cRouter error!\u201d while the power "
-                "failure malfunction is on, otherwise \u201cStatus: online\u201d.", C, sub=True),
+        Fact(g, "the office desk: switches off the office's two computers when they are on. They are the two "
+                "office effects that the computer actions switch on as they start and off as they end: Working on "
+                "career (in the Office), Playing office, Chatting online, Selling a collectible online and Fixing "
+                "the computers; one left on stays on until a click or another of those actions ends it.", C,
+             sub=True),
+        Fact(g, "the office computer: an office machine sound, then \u201cRouter error!\u201d while the router "
+                "malfunction is on (family members call it \u201cThere is no Internet!\u201d), otherwise "
+                "\u201cStatus: online\u201d.", C, sub=True),
         Fact(g, "the hall cabinet: \u201cCollectibles Found:\u201d and how many of the 48 different collectibles "
                 "the family has found (\u201c... / 48\u201d).", C, sub=True),
         Fact(g, "sounds only: the end table by the sofa plays the radio once the Radio and MP3 Player is bought; "
@@ -629,8 +733,9 @@ def _keys() -> list[Fact]:
                 "finish at the shed's doorway the door is fixed, otherwise it still needs fixing; a fix still under "
                 "way when the game is closed is lost. Once it is fixed, a family member dropped on the shed starts "
                 "\u201cUnlocking shed door\u201d, which opens the shed for good and gives a trophy.", C),
-        Fact(g, "Which trophy: the code gives trophy number 60; the game's trophy list has \u201cThe shed: You "
-                "managed to open the shed.\u201d, matched by its words only.", U, sub=True),
+        Fact(g, "The trophy is \u201cThe shed\u201d (\u201cYou managed to open the shed.\u201d): the code gives "
+                "trophy 60, and the trophy table's row 60 names it (every row's title is the game's text number "
+                "462 + 2 x the row; see Trophies and the heir).", C, sub=True),
     ]
 
 
@@ -653,7 +758,7 @@ def _time() -> list[Fact]:
                 "game is closed, at Normal, within the time-away limits below.", C),
         Fact(g, "Paused: the game clock stops, so nothing that runs on game time moves (interest, events, the "
                 "dating e-mail, the half-price grocery, messes, the sky); collectibles stop too.", C),
-        Fact(g, "Paused, real time runs on: the store specials, food groups, symptoms and the wait between babies "
+        Fact(g, "Paused, real time runs on: the store's Flea Market, food groups, symptoms and the wait between babies "
                 "keep counting down in real time, and every 2 seconds of real time the family update, the house "
                 "malfunction roll and the autosave check still run (the family update then ages nobody).", C),
         Fact(g, "Paused: nobody ages, and the paused time is never added on later (checked with 3 days of real "
@@ -665,8 +770,10 @@ def _time() -> list[Fact]:
                 "Normal) with no limit; a family saved paused keeps its game clock stopped. So on loading, every "
                 "missed game day of interest is paid at once, and the event check, the dating e-mail and each "
                 "store draw come at most once.", C),
-        Fact(g, "Whether the messes owed for the time the game was closed appear when it is loaded (the mess timer's "
-                "place in the save was not traced).", U),
+        Fact(g, "Messes owed for the time the game was closed appear when it is loaded, all at once: the mess "
+                "timer (game time) is saved with the house's messes and loaded back, and the game clock counts the "
+                "closed time, so the first update counts every mess due since then and fills free places with "
+                "them, up to the 30 places.", C),
         Fact(g, "Time away for ageing, while the game is closed (real time away, counted at Normal, see above):",
              E),
         Fact(g, "up to 8 hours 36 minutes 40 seconds (31,000 seconds) of real time away: counted in full.", E,
@@ -742,7 +849,9 @@ def _needs() -> list[Fact]:
                                                 "(checked: 1, 2, 30 and 100 game days give 500, 1,000, 15,000 and "
                                                 "50,000 food)."), E),
         Fact(g, "The info panel's bars show happiness, 100 minus hunger (\"Fed\"), energy and health.", C),
-        Fact(g, "Which label sits beside which bar on the info panel.", U),
+        Fact(g, "On the info panel each label sits beside its own bar, top to bottom: Happiness (label 210 and bar "
+                "208 pixels down), Health (250 and 247), Fed (289 and 286) and Energy (328 and 326); the labels are "
+                "at 458 pixels across, the bars at 473.", C),
     ]
 
 
@@ -837,10 +946,27 @@ def _old_age() -> list[Fact]:
         Fact(g, "A birthday that falls inside a catch-up is rolled like any other.", E),
         Fact(g, f"A body stays until 240 age units after the last update ({units_text(240)}), then is removed.",
              E),
-        Fact(g, "Whether the death animation usually removes the body before that.", U),
-        Fact(g, "Causes of death the game can record: Unknown causes, Disease, Starvation, Old age. Work accident "
-                "and Act of Nature are never used.", C),
-        Fact(g, "Which cause the game shows for a death.", U),
+        Fact(g, "A second piece of code also removes the body: when the dead family member's plan next starts, "
+                "the death is reported and they are taken out of the house. Which of the two comes first depends on "
+                "how long the death animation plays, which only a live game run shows; this page is built without "
+                "running the game.", U),
+        Fact(g, "Causes of death: the game stores one with each family member who dies (6 causes in its list), "
+                "and only when health reaches 0:", C),
+        Fact(g, "Unknown causes: reachable. Every health change that names no cause records it: the 3-unit health "
+                "check (so a starving family member's death, above), Penicillin and Vancomycin, the actions that "
+                "take health (Squeezing a pimple -1, Playing video games -2) and the other item uses.", C, sub=True),
+        Fact(g, "Old age: reachable, the birthday roll above.", E, sub=True),
+        Fact(g, "DEAD (never recorded): Disease. Its only source is the 1-point loss of being sick, and below 15 "
+                "health a 1-point loss is halved to 0, so it never takes health to 0.", E, sub=True),
+        Fact(g, "DEAD (never recorded): Starvation. Its only sources are the two 1-point hunger losses, which stop "
+                "at 14 health the same way.", E, sub=True),
+        Fact(g, "DEAD (never recorded): Work accident and Act of Nature. No code in the game passes either "
+                "cause.", C, sub=True),
+        Fact(g, "No cause of death is ever shown: no code in the game looks up the six cause words or the "
+                "“Cause of Death” label (every instruction the game runs was searched for their numbers); "
+                "the cause is only kept in the save.", C, sub=True),
+        Fact(g, "Virtual Families 2's deaths from illness and from starvation (health reaching 0 while sick or from "
+                "missed meals): " + NOT_IN_VF1 + ".", C, sub=True),
     ]
     return facts
 
@@ -850,7 +976,34 @@ def _babies() -> list[Fact]:
     return [
         Fact(g, "Only the head couple has babies: the Matriarch (the first woman at home with a career) with the "
                 "Patriarch. A try for a baby rolls the chance below.", C),
-        Fact(g, "How often family members try for a baby on their own.", U),
+        Fact(g, "Family members never try for a baby on their own: none of the three try actions (Waiting for "
+                "someone, Embracing, Trying to make a baby) is among the actions they choose from. Every try starts "
+                "with you dropping one family member on another.", C),
+        Fact(g, "The drop: both must be 18 or older (360 age units) and have a career, or nothing happens. Then, "
+                "in order:", C, sub=True),
+        Fact(g, "no free child place and the two are a man and a woman: “They have enough kids already!” "
+                "and both shake their heads;", C, sub=True),
+        Fact(g, "the wait for the next baby (below) not over: “It is too soon to try to make a baby "
+                "again.”, both shake their heads, and if more than 1 hour of the wait is left it is cut to 55 "
+                "minutes from that moment (real time); so once you try, you never wait more than 55 minutes;",
+             C, sub=True),
+        Fact(g, "otherwise they meet (Waiting for someone and Embracing) and the meeting is checked: the other one "
+                "gone, dead (“That villager is dead!”), the same sex (“These villagers are both the "
+                "same gender.”), either one sick (“They're not feeling well enough for this!”), under "
+                "18 (“This person is too young!”) or nursing (“She's nursing a baby!”): refused;",
+             C, sub=True),
+        Fact(g, f"either one's hunger over 55, once the marriage proposal tip has been seen: refused "
+                f"(“They're too hungry to think about this!”) {_below_pct(100, 34, invert=True)} of the "
+                "time;", C, sub=True),
+        Fact(g, "then they agree with a chance set by their two wish-for-children values W1 and W2 (the save's "
+                "desire value, the one that also sets the wait after a birth): a roll of 105 at most 10 x (10 - "
+                "W1 / 20 - W2 / 20), each division rounded down, so lower values agree more often: "
+                f"{_agree(5, 5)} with both at 5 to 19, {_agree(50, 50)} with both 40 to 59, {_agree(94, 94)} with "
+                "both 80 to 94. Agreed, both start Trying to make a baby, whose plan rolls the chance below; "
+                "refused (“They can't agree it's time to have a baby.”), both start Arguing.", C,
+             sub=True),
+        Fact(g, "Every refusal at the meeting shows the tip “Too bad! They aren't in the mood. ...” and "
+                "starts Arguing for both.", C, sub=True),
         Fact(g, "Chance a try works (father 30; both parents' fertility F = 1 / 25 / 50 / 75 / 100):", E),
         Fact(g, "mother 18 to 30: 39.0% / 55.1% / 73.1% / 89.0% / 100%.", E, sub=True),
         Fact(g, "mother 31: 17.0% / 33.0% / 51.0% / 67.1% / 83.0%.", E, sub=True),
@@ -869,6 +1022,16 @@ def _babies() -> list[Fact]:
         Fact(g, "Fertility is 15 to 89 when a family member is made, and kept 1 to 100.", E),
         Fact(g, "Twins and triplets: single 92.99%, twins 5.25%, triplets 1.75%; each parent's fertility over 85 "
                 "adds its excess to both chances. Needs free child places (6 children per generation).", C),
+        Fact(g, "How they are rolled when a try works: twins or more if a roll of 100 is below 7 + B and at least "
+                "2 child places are free; then triplets if a second roll of 100 is below 25 + B and 3 are free. B "
+                "is the Matriarch's fertility over 85 plus the Patriarch's fertility over 85 (0 when 85 or less). "
+                "With enough free places:", C, sub=True),
+        *[Fact(g, f"B = {b}" + (" (both parents at 100, the most)" if b == 30 else "") + f": single {s}, twins "
+                  f"{t}, triplets {tr}.", C, sub=True) for b, s, t, tr in _twins((0, 4, 8, 10, 20, 30))],
+        Fact(g, "Fertility is 15 to 89 when a family member is made, so B is at most 8 without Baby Boost; Baby "
+                "Boost (see Store: medicines) raises it to 100.", C, sub=True),
+        Fact(g, "With only 1 free child place a try that works is always one baby; with 2, triplets turn into "
+                "twins.", C, sub=True),
         Fact(g, with_patcher("UpTo28Children", "experimental: 28 child places per generation instead of 6, as long "
                                                "as the house has a free place among its 30."), E, sub=True),
         Fact(g, f"Pregnancy lasts 21 age units: {units_span(21)}.", E),
@@ -879,6 +1042,17 @@ def _babies() -> list[Fact]:
                 "children; after a try that fails, 20 minutes and a dip in the mother's happiness; marrying clears "
                 "it. Trying too soon gives the \"too soon\" response and, if the wait was more than an hour away, "
                 "shortens it to 55 minutes.", C),
+        Fact(g, "The wait after a birth in full: 600 seconds x (5 - W1 / 20) x (5 - W2 / 20), each division rounded "
+                "down, W1 and W2 being the two parents' wish-for-children values (5 to 94 when a family member is "
+                "made): 10 minutes of real time with both at 80 or more, 1 hour 30 minutes with both 40 to 59, 4 hours 10 "
+                "minutes with both under 20; with no Patriarch it is 1 second. It is set only for a birth the game "
+                "processes while it runs.", C, sub=True),
+        Fact(g, "Its clock is the save's real-time clock (the PC's clock less the family's start): it runs at the "
+                "same pace at every game speed, while paused and while the game is closed, and nothing else moves "
+                "it on; only the drop described above reads it.", C, sub=True),
+        Fact(g, "Virtual Families 2's longer wait after a failed try (up to 12 hours 30 minutes of real time) and its "
+                "always-successful first try before the pregnancy tip: " + NOT_IN_VF1 + " (a failed try waits 20 "
+                "minutes of real time, and every try rolls).", C, sub=True),
         Fact(g, f"{PATCHER_PREFIX}: no wait after a failed try when the head or the spouse is 50 or older "
                 f"({setting('AllowOlderPregnancies')}), or when the couple cannot have a baby - six children "
                 f"already, or a same-sex couple ({setting('PrivateRomanticTime')}).", E, sub=True),
@@ -894,27 +1068,48 @@ def _careers() -> list[Fact]:
         Fact(g, "Levels: " + ", ".join(LEVELS) + ".", C),
         Fact(g, "A piece of work succeeds with a chance by level: 56.30% / 62.56% / 68.82% / 75.07% / 81.32% / "
                 "87.55% / 93.77% / 100% (Beginner to Master).", E),
-        Fact(g, "How often a family member goes to work.", U),
+        Fact(g, "How often a family member goes to work: going to work is one of the actions they choose from, "
+                "Working on career (one for each room). Each time they pick what to do next, the pick is a weighted "
+                "draw among every action they may do then; the work action may be picked only in the daytime, by "
+                "a family member aged 18 or older (360 age units) whose career is in that room, who is not "
+                "pregnant and not sick, with hunger 75 or less and energy 20 or more. Its weight starts at 500 "
+                "(the default for an action is 1,500), counts three times when they like the room's own like "
+                "(cooking for the Kitchen, computers for the Office, tools for the Workshop) and a quarter when they "
+                "dislike it, and the praise and scolding gloves move it between 50 and 45,000.", C),
+        Fact(g, "Working on career plans: a piece of career work (the success roll above), energy -2 twice, "
+                "dirtiness +1 and hunger +1 (see Actions).", C, sub=True),
         Fact(g, "Each success pays 3% of the salary and adds progress; promotion at 3,000 progress (everyone "
                 "celebrates). Successes per promotion with the career room at level 1: "
                 + ", ".join(f"{n:,}" for n in successes) + "; at level 2 half as many; at level 3 "
                 "8, 34, 84, 200, 250, 334, 500.", E),
         Fact(g, "Salary is paid every 3 age units (30 minutes of game time) whether or not the family member is at "
-                "work, an eighth of the salary each time: a quarter of the salary per hour of real time on Normal "
-                "(an eighth on Slow, half on Fast).", E),
+                "work, an eighth of the salary each time: a quarter of the salary per hour of game time (1 hour of "
+                "real time on Normal, 2 hours on Slow, 30 minutes on Fast).", E),
         Fact(g, "During a catch-up, a grown-up with a career who is not sick or pregnant also gets unwatched work "
                 "each age unit, each piece with a 1 in 6 (16.67%) chance of a paid success.", C),
-        Fact(g, "How much unwatched work there is (it comes from a value the code does not explain).", U),
+        Fact(g, "How much unwatched work: one piece for every 400 of the weight of their room's Working on career "
+                "action (above), rounded down: 1 at the starting weight of 500, 112 at the top weight of 45,000.",
+             C, sub=True),
+        Fact(g, "Virtual Families 2's 132 careers, its Advanced Career Training and Career Change services and its "
+                "31 career upgrades: " + NOT_IN_VF1 + " (108 careers, three career rooms with three levels).", C),
         Fact(g, "The three career rooms: room 1 is the Kitchen, room 2 the Office and room 3 the Workshop (the "
                 "promotion step reads the Kitchen's level for room 1, the Office's for room 2 and the Workshop's for "
                 "room 3, and each Profession Magazine works only for its own room). Upgrading them: see Career Room "
                 "Upgrades.", C),
-        Fact(g, "The careers, with their career room (1, 2 or 3) and salary at each level, Beginner to Master:",
-             C),
+        Fact(g, "Every career's pay per hour of game time (a quarter of its salary; 1 hour of game time is 1 hour "
+                "of real time on Normal), at each level from Beginner to Master, with its career room (1 Kitchen, 2 "
+                "Office, 3 Workshop):", C),
     ]
-    facts += [Fact(g, f"{c.name} (room {c.room}): " + ", ".join(str(s) for s in c.salaries) + ".", C, sub=True)
+    facts += [Fact(g, f"{c.name} (room {c.room}): ${_hourly(c.salaries[0])} per hour of game time as a Beginner, "
+                      f"${_hourly(c.salaries[-1])} as a Master (levels: "
+                      + ", ".join(_hourly(s) for s in c.salaries) + ").", C, sub=True)
               for c in CAREER_LIST]
     return facts
+
+
+def _hourly(salary: int) -> str:
+    """A salary as pay per hour of game time: salary / 8 every 30 game minutes, so salary / 4 an hour."""
+    return f"{salary / 4:g}"
 
 
 def _money() -> list[Fact]:
@@ -940,7 +1135,8 @@ def _money() -> list[Fact]:
         Fact(g, "Interest is paid when the family's happiness updates (every 3 age units), and when the bank, the "
                 "store or an event checks it.", C),
         Fact(g, "Paused, no interest builds up: it runs on game time.", C),
-        Fact(g, f"The store: the specials are drawn again when the store page opens more than {SPECIALS_REAL} "
+        Fact(g, "Virtual Families 2's limit of 2 missed game days of interest: " + NOT_IN_VF1 + ".", C, sub=True),
+        Fact(g, f"The store: the Flea Market is drawn again when the store page opens more than {SPECIALS_REAL} "
                 "after the last draw; one grocery bag is half price, drawn again when the store page opens more "
                 f"than {game_span(SALE_GAME_SECONDS)} after the last draw.", C),
         Fact(g, upgrade("Food Club", "$10,000", "the eight grocery and organic bags cost half, rounded down "
@@ -960,8 +1156,15 @@ def _leaving() -> list[Fact]:
         Fact(g, "Children never get a career, so every child who is not chosen as the heir leaves home at 19.", E),
         Fact(g, "After leaving they keep their place in the save but never age or update again and can never be "
                 "the Matriarch or Patriarch; the family size the game counts still includes them.", C),
-        Fact(g, "The Talent Scout pop-up: its first choice sends a child away.", U),
-        Fact(g, "What the game calls leaving home (college or boarding school).", U),
+        Fact(g, "The Talent Scout (a Popup Event; it comes only while a child under 14 is at home): its first "
+                "choice sends that child away from home, the same way, and pays +$500; its second choice does "
+                "nothing.", E),
+        Fact(g, "What the game calls leaving home: nothing is shown. The game has the words “{name} is going "
+                "to college!” and the tip “One of the children is now old enough to go to college!”, "
+                "but no code in the game loads either one (every instruction the game runs was searched for their "
+                "numbers).", C),
+        Fact(g, "Virtual Families 2's Boarding School service and its e-mails from children who left: "
+                + NOT_IN_VF1 + ".", C),
     ]
 
 
@@ -990,7 +1193,11 @@ def _marriage() -> list[Fact]:
         Fact(g, with_patcher("UpTo28Children", "experimental: at most 28 children per generation; the family tree "
                                                "still holds only the first 6."), E, sub=True),
         Fact(g, "Adoption Day (a Popup Event): everyone celebrates; nobody joins or leaves.", E),
-        Fact(g, "The Little Visitor Popup Event: its first choice adds a child to the family.", U),
+        Fact(g, "The Little Visitor (two Popup Events, one with a boy and one with a girl; each comes only while "
+                "someone is at home and a child place is free): its first choice adds a 3-year-old (60 age units) "
+                "boy or girl to the house and to the family tree as a child of the generation, and counts toward "
+                "the “Four is enough” and “No vacancy” trophies; its second choice does "
+                "nothing.", C),
     ]
 
 
@@ -1000,14 +1207,20 @@ _EVENTS = (
     ("2 / 3 Electric Bill Correction", "Email Event", "-$5 to $24 / +$5 to $24", VERIFIED_E),
     ("4 Spam \"Funny\"", "", "never comes", VERIFIED_C),
     ("5 / 6 Professional Association Fee / Rebate", "Email Event", "-$5 to $7 / +$5 to $14", VERIFIED_E),
-    ("7 Professional Network, 8 Professional Association Award", "Email Event", "career progress for one family member",
-     UNCONFIRMED),
-    ("9 Infringement Complaint", "Email Event", "nothing seen", UNCONFIRMED),
+    ("7 Professional Network", "Email Event", "20 pieces of unpaid career progress for a family member picked at "
+     "random among those aged 14 or older with a career who are not pregnant (a Beginner with the room at level 1 "
+     "gains 2,800 of the 3,000 a promotion needs); it comes only while there is one", VERIFIED_C),
+    ("8 Professional Association Award", "Email Event", "a promotion for a family member picked the same way, with "
+     "its new salary (a Master gets none); it comes only while there is one", VERIFIED_C),
+    ("9 Infringement Complaint", "Email Event", "a family member picked the same way loses all the progress toward "
+     "their next promotion (it is set to 0); no money changes; it comes only while there is one", VERIFIED_C),
     ("10 / 11 Tax Audit", "Email Event", "-$100 / +$100", VERIFIED_E),
     ("12 to 15 Spam (Bigger Brain, Nigerian Lottery, Car Insurance, What's What)", "Email Event", "nothing", VERIFIED_E),
     ("16 to 18 Old Friend", "Email Event", "nothing", VERIFIED_E),
     ("19 Oh! A collectible!", "Email Event", "a rare collectible", VERIFIED_C),
-    ("20 My Weather Machine", "Email Event", "what it changes", UNCONFIRMED),
+    ("20 My Weather Machine", "Email Event", "the sky turns Raining at once and is held there for 30 seconds of game "
+     "time, then the rain runs its own 6 to 12 minutes of game time (see Weather); it comes only while the sky is "
+     "Normal or Sunny", VERIFIED_C),
     ("21 An extra hammock", "Email Event", "everyone goes to the yard", VERIFIED_E),
     ("22 Birthday present, 23 Preferred Customer Rebate, 24 Craft Fair", "Email Event",
      "+$10 to $50 / +$5 to $79 / +$35 to $45", VERIFIED_E),
@@ -1018,37 +1231,66 @@ _EVENTS = (
     ("31 Best Landscape Award, 32 Kite Contest, 34 Hot Dog Contest", "Email Event", "+$5 to $50 / +$8 to $80 / +$5 to $50",
      VERIFIED_E),
     ("36 Neighborhood Children's Association", "Popup Event", "-$20 (with 2 children)", VERIFIED_E),
-    ("37 Earthquake, 38 Aesthetic Society", "Popup Event", "what they do", UNCONFIRMED),
+    ("37 Earthquake", "Popup Event", "each of the three floor spots that has been repaired breaks again with a "
+     f"{_below_pct(100, 40)} chance (each rolled on its own), so its repair can start again; it comes only while at "
+     "least one of the three is repaired; no money changes", VERIFIED_C),
+    ("38 Aesthetic Society", "Popup Event", "-$5 for every weed in the yard; it comes only while there is at least "
+     "one weed; no other money condition", VERIFIED_C),
     ("39 Birdwatcher Society", "Popup Event", "+$25, $50, $75 or $100", VERIFIED_E),
-    ("40 Allergy Season", "Popup Event", "family members get a symptom (how many is not confirmed)", VERIFIED_E),
+    ("40 Allergy Season", "Popup Event", "three picks, each a family member at home at random (the same one can "
+     "be picked again), and each one picked gets a blocked nose (a symptom, 6 to 17 hours of real time): 1 to 3 "
+     "family members", VERIFIED_E),
     ("41 Adoption Day", "Popup Event", "everyone celebrates", VERIFIED_E),
     ("42 TV Night, 43 BBQ Party", "Popup Event", "everyone joins in (needs the item)", VERIFIED_E),
     ("44 The Broken Window", "Popup Event", "+$1 to $30", VERIFIED_E),
     ("45 Photo Contest, 46 Community Association", "Popup Event", "+$25 to $125 / -$20 to $100", VERIFIED_E),
     ("47 Blowing Trash, 48 Free Lawn Service", "Popup Event", "5 to 12 wrappers in the house / 5 to 12 weeds in the yard",
      VERIFIED_E),
-    ("49 / 50 The Little Visitor", "Popup Event", "first choice: a child joins", UNCONFIRMED),
-    ("51 Small Package, 52 Medium Brown Box, 53 Sealed Green Bag", "Popup Event", "first choice: an item", UNCONFIRMED),
+    ("49 / 50 The Little Visitor", "Popup Event", "first choice: a 3-year-old boy (49) or girl (50) joins the "
+     "house and the family tree; it comes only while a child place is free", VERIFIED_C),
+    ("51 Small Package", "Popup Event", "first choice: one of the six symptom medicines (Throat Lozenges, Peptic "
+     f"Syrup, Anti-inflammatory Pill, Antitussive Syrup, Cortisone Cream, Antihistamine), {_odds(0, 6)} or "
+     f"{_odds(5, 6)} each, into the item tray for free; it comes only while the tray has a free place",
+     VERIFIED_C),
+    ("52 Medium Brown Box", "Popup Event", "first choice: one of the four grocery bags (Grains, Dairy, Meats, "
+     "Fruits and Veggies), 25.00% each, into the tray for free; only while the tray has a free place", VERIFIED_C),
+    ("53 Sealed Green Bag", "Popup Event", "first choice: one of the four organics bags, 25.00% each, into the tray "
+     "for free; only while the tray has a free place", VERIFIED_C),
     ("54 A Tiny White Box", "Popup Event", "first choice: a third of the food is gone", VERIFIED_E),
-    ("55 Scratch-Off Lottery Ticket", "Popup Event", "what it does", UNCONFIRMED),
+    ("55 Scratch-Off Lottery Ticket", "Popup Event", "first choice: -$20, then a win "
+     f"{_below_pct(100, 33)} of the time of $10 to $100 in $10 steps (10 prizes, {_odds(0, 10)} or {_odds(9, 10)} "
+     "each), which also counts toward the “Lucky winner” trophy; a loss pays nothing; it comes only while "
+     "the family has more than $21", VERIFIED_E),
     ("56 The Wrong Address", "Popup Event", "first choice: -$100 and the Sheets and Pillows home improvement; it "
      "comes only while the family has no Sheets and Pillows and has $99 or more", VERIFIED_C),
-    ("57 The Delivery Truck", "Popup Event", "first choice: the Collection of Paintings home improvement; it comes "
-     "only while the family has none (whether it costs money is not confirmed)", VERIFIED_C),
-    ("58 The Talent Scout", "Popup Event", "first choice: a child leaves home", UNCONFIRMED),
-    ("59 The Beauty Contest", "Popup Event", "first choice: -$10 (any prize is not confirmed)", VERIFIED_E),
+    ("57 The Delivery Truck", "Popup Event", "first choice: the Collection of Paintings home improvement for free "
+     "(it also counts toward the “Retail therapy” and “Dreaming of Isola” trophies); second "
+     f"choice: +$20 to +$160 in $20 steps ({_odds(0, 8)} each); it comes only while the family has no Collection of "
+     "Paintings", VERIFIED_C),
+    ("58 The Talent Scout", "Popup Event", "first choice: a child under 14 picked at random leaves home and the "
+     "family gets +$500; it comes only while there is one", VERIFIED_E),
+    ("59 The Beauty Contest", "Popup Event", "first choice: -$10, then a win of $100 "
+     f"{_below_pct(100, 33)} of the time; it comes only while a child under 14 is at home", VERIFIED_E),
     ("60 Landscaping, 61 Housekeeping", "Popup Event",
      "never shown: each has choices but no family member to act on, so the game skips them (0x41AAE1..0x41AAF1)",
      VERIFIED_C),
-    ("62 Total House Care", "Popup Event", "first choice: -$50 (the cleaning itself is not confirmed)", VERIFIED_E),
-    ("63 The Mysterious Collector", "Popup Event", "what it does", UNCONFIRMED),
+    ("62 Total House Care", "Popup Event", "first choice: -$50 and every sock, candy wrapper, weed, cobweb and dirt "
+     "smudge is removed; no money condition", VERIFIED_C),
+    ("63 The Mysterious Collector", "Popup Event", "first choice: +$20 for every common, +$30 for every uncommon and "
+     "+$100 for every rare collectible found, across all four collections; then every collection starts again from "
+     "nothing, and the progress of the four collection trophies not yet won goes back to 0; it comes only while at "
+     "least one Old Coins collectible has been found", VERIFIED_C),
     ("64 Water Pressure Surge", "Popup Event", "second choice: five leaks", VERIFIED_C),
-    ("65 Professional Career Training", "Popup Event", "first choice: -$250 (the promotion is not confirmed)", VERIFIED_E),
+    ("65 Professional Career Training", "Popup Event", "first choice: -$250 and a promotion for the Matriarch or the "
+     f"Patriarch (the Patriarch is tried first {_below_pct(100, 50)} of the time, the Matriarch otherwise, and the "
+     "other one when the first is missing); it comes only while the family has more than $255", VERIFIED_E),
     ("66 The Trainer", "Popup Event", "first choice: -$5 and all the food is gone", VERIFIED_E),
     ("67 The Cooking Class", "Popup Event", "first choice: a kitchen mess", VERIFIED_C),
     ("68 The Power Failure", "Popup Event", "first choice: food set to 50 to 99; second: a family member gets a symptom",
      VERIFIED_E),
-    ("69 Career Change Counselor", "Popup Event", "first choice: a new career", UNCONFIRMED),
+    ("69 Career Change Counselor", "Popup Event", "first choice: the Matriarch or the Patriarch (picked as for 65) "
+     "gets a new career drawn from all 108, 1 in 108 each, at Beginner with its Beginner salary; no money changes "
+     "and no money condition", VERIFIED_E),
     ("70 The Rare Bird", "Popup Event", "first choice: -$235 to -$305 (in steps of $10) and the Birdhouse home "
      "improvement; it comes only while the family has no Birdhouse", VERIFIED_C),
     ("71 School Fund-raiser", "Popup Event", "first choice: -$25 and +100 food", VERIFIED_E),
@@ -1069,6 +1311,10 @@ def _events() -> list[Fact]:
     ]
     facts += [Fact(g, f"{title}{f' ({kind})' if kind else ''}: {effect}.", label, sub=True)
               for title, kind, effect, label in _EVENTS]
+    facts.append(Fact(g, "Virtual Families 2's own events (I Ate Soup and the other happiness e-mails, Oh So Clever, "
+                         "the EPA Visit, the Chemical Manifest, the cupcake and magazine sellers, the diaper events, the "
+                         "Bug Whisperer, the Collecting Contest, Adult-proof and the notes and letters): "
+                         + NOT_IN_VF1 + ".", C))
     facts.append(Fact(g, with_patcher("RollTheDice", "Roll the Dice on the Upgrades menu costs $500 and brings a "
                                                      "Popup Event at once, picked from those that can happen as "
                                                      "above; when none can, the $500 is given back."), C))
@@ -1091,7 +1337,12 @@ def _messes() -> list[Fact]:
         Fact(g, upgrade("Gardener", "$1,000", "every game hour (game time, as the Maid), in the daytime only, every "
                                               "weed in the yard is removed."), E),
         Fact(g, "The kitchen garbage is full at 20.", C),
-        Fact(g, "Whether a blue sock vanishes as soon as it appears.", U),
+        Fact(g, f"The blue sock vanishes as soon as it appears: a sock is one of six sock pictures ({_odds(0, 6)} "
+                "for the blue one), and the blue one's number is also the last collectible-type number, so the "
+                "frame check (real time) that removes collectibles whose 2 minutes of real time are up reads its time "
+                "as well; a mess never sets that time, so the check removes the blue sock at the next frame.", C),
+        Fact(g, "Virtual Families 2's ants, the laundry-room sock pile and its house-renovation messes: "
+                + NOT_IN_VF1 + ".", C),
     ]
 
 
@@ -1102,14 +1353,100 @@ def _collectibles() -> list[Fact]:
                 "(0.0458%). Frames run on real time, so this is the same at any speed; none while paused.", C),
         Fact(g, upgrade("Lucky Rock", "$77,777", "a 3 in 3,300 roll, exactly 30 in 32,768 (0.0916%) a frame "
                                                  "(real time), so twice as often."), E, sub=True),
-        Fact(g, "How that turns into real time (about one every 73 seconds of real time if the game draws 30 "
-                "frames a second).", U),
+        Fact(g, "In real time: the game paces its frames at 30 a second (each frame waits out the rest of 1,000 / 30 "
+                "= 33 milliseconds), so while the PC keeps up there are 30 rolls a second of real time and a "
+                "collectible appears on average every 73 seconds of real time (every 36 with the Lucky Rock); a PC "
+                "that cannot keep up draws fewer frames and so fewer rolls.", C),
+        Fact(g, "At most two collectibles are out at once (two places); with both taken nothing new appears, except "
+                "the “Oh! A collectible!” e-mail's rare one, which always goes in the first place, "
+                "replacing whatever lies there.", C, sub=True),
         Fact(g, "Rarity: rare 4.00%, uncommon 13.01%, common 82.98%. Nothing appears if that item is already "
                 "out or being carried, or (photo pieces) already owned.", C),
         Fact(g, upgrade("Lucky Rock", "$77,777", "rare 8.01%, uncommon 26.03%, common 65.97%."), E, sub=True),
-        Fact(g, "Selling a duplicate: $5 common, $15 uncommon, $50 rare.", C),
-        Fact(g, "A collectible stays on the ground for 2 minutes of real time.", U),
+        Fact(g, "Where: each roll picks one of 23 spawn areas on the house map (1 in 23 each: 1,425 or 1,424 "
+                "of rand's 32,768 values), and a random walkable spot inside it. An area of the Picture Pieces is "
+                "picked again until another area comes while the shed has not been opened; an area of the Bugs "
+                "likewise while the sky is not Raining or Stormy. Then the item is one of its collection's four "
+                "of the rolled rarity (25.00% each).", C),
+        *[Fact(g, text, C, sub=True) for text in _collection_areas()],
+        Fact(g, "How long one lasts: 2 minutes of real time on the ground (120 seconds on the save's real-time "
+                "clock, the PC's clock less the family's start, set when it appears). That clock does not stop "
+                "while paused and counts the time the game is closed, so a collectible on the ground when the game "
+                "is closed is gone when it is loaded more than 2 minutes later. A family member dropped on it "
+                "starts Found a new item and carries it to the collection.", C),
+        Fact(g, "Collecting: the first of each item goes into its collection and counts toward that collection's "
+                "trophy (12 needed). A second one of an item already collected is sold online at once: $5 common, "
+                "$15 uncommon, $50 rare, counted as earnings and toward the Recycler, Monetizer and Seller "
+                "trophies.", C),
+        Fact(g, "The full-set reward: no money and no item. A full collection of 12 wins its trophy (Bugs: "
+                "Entomologist; Old Coins: Numismatist; Nuts and Twigs: Botanist; Picture Pieces: Photo finish), "
+                "and all four win Master collector; those count toward Trophy collector (all 11 collecting "
+                "trophies). The hall cabinet shows “Collectibles Found:” of 48.", C),
+        Fact(g, "Each of the 48 collectibles (the game gives them no names of their own, only their collection, "
+                "rarity and picture), with its chance per appearance; the first figure is with the shed open and "
+                "rain falling, the second with neither (only Old Coins and Nuts and Twigs can come then):", C),
+        *[Fact(g, text, C, sub=True) for text in _collectible_items()],
+        Fact(g, "Virtual Families 2's collection page of fossils and the Rockhound Certificate that opens their "
+                "areas: " + NOT_IN_VF1 + ".", C),
     ]
+
+
+# The collectible spawn areas: CCollectableItem's new-game set-up 0x414370 run as linked (p_carea.py): x0, y0, x1,
+# y1 on the house map (pixels) and the collection; the picker 0x414A20 rolls GetRandom(23) over them in this order.
+_AREAS = (
+    ("Nuts and Twigs", (1307, 80, 1717, 199)), ("Nuts and Twigs", (1439, 200, 1931, 294)),
+    ("Nuts and Twigs", (1619, 294, 1931, 520)),
+    *[("Picture Pieces", (124, 125, 867, 651))] * 4,
+    ("Bugs", (1551, 407, 1873, 679)), ("Bugs", (1551, 407, 1873, 679)), ("Bugs", (1325, 1253, 1506, 1422)),
+    ("Bugs", (116, 208, 305, 896)), ("Bugs", (116, 208, 305, 896)),
+    ("Old Coins", (415, 1403, 543, 1609)), ("Old Coins", (505, 1564, 705, 1700)), ("Old Coins", (745, 1720, 1539, 1818)),
+    ("Old Coins", (1539, 1779, 1677, 1871)), ("Old Coins", (415, 1403, 543, 1609)), ("Old Coins", (505, 1564, 705, 1700)),
+    ("Old Coins", (658, 1656, 854, 1750)), ("Old Coins", (1439, 1343, 1563, 1429)), ("Old Coins", (1672, 1203, 1738, 1261)),
+    ("Old Coins", (1725, 1140, 1793, 1198)), ("Old Coins", (1572, 308, 1672, 428)),
+)
+_COLLECTIONS = ("Old Coins", "Nuts and Twigs", "Bugs", "Picture Pieces")
+
+
+def _area_weights(open_shed: bool, raining: bool) -> dict[str, float]:
+    """Each collection's share of the appearances: its areas' GetRandom(23) counts, the re-picked ones left out."""
+    w = {name: 0 for name in _COLLECTIONS}
+    for k, (name, _) in enumerate(_AREAS):
+        if (name == "Picture Pieces" and not open_shed) or (name == "Bugs" and not raining):
+            continue
+        w[name] += _below(23, k + 1) - _below(23, k)
+    total = sum(w.values())
+    return {name: n / total for name, n in w.items()}
+
+
+def _collection_areas() -> list[str]:
+    out = []
+    share = _area_weights(True, True)
+    for name in _COLLECTIONS:
+        rects = [r for n, r in _AREAS if n == name]
+        where = "; ".join(f"x {x0:,} to {x1:,}, y {y0:,} to {y1:,}"
+                          + (f" (counted {rects.count((x0, y0, x1, y1))} times)"
+                             if rects.count((x0, y0, x1, y1)) > 1 else "")
+                          for x0, y0, x1, y1 in dict.fromkeys(rects))
+        cond = {"Bugs": ", only while the sky is Raining or Stormy",
+                "Picture Pieces": ", only once the shed has been opened, and a piece already found never comes "
+                                  "again"}.get(name, "")
+        out.append(f"{name}: {len(rects)} of the 23 areas ({100 * share[name]:.2f}% of the appearances with every "
+                   f"area open{cond}): {where} (house-map pixels).")
+    return out
+
+
+def _collectible_items() -> list[str]:
+    hits = {"common": 32768 - _below(100, 17), "uncommon": _below(100, 17) - _below(100, 4),
+            "rare": _below(100, 4)}
+    both, neither = _area_weights(True, True), _area_weights(False, False)
+    out = []
+    for name in _COLLECTIONS:
+        for rarity in ("common", "uncommon", "rare"):
+            for k in range(1, 5):
+                p1 = both[name] * hits[rarity] / 32768 / 4
+                p2 = neither[name] * hits[rarity] / 32768 / 4
+                out.append(f"{name}, {rarity} {k}: {100 * p1:.3f}% / {100 * p2:.3f}%.")
+    return out
 
 
 def _malfunctions() -> list[Fact]:
@@ -1123,7 +1460,16 @@ def _malfunctions() -> list[Fact]:
         Fact(g, "A malfunction's permanent fix is set when a family member repairs that malfunction while the family "
                 "owns A Box of Tools and Parts (see Home Improvements); without it a repair only ends the "
                 "malfunction.", VERIFIED_C, sub=True),
-        Fact(g, "Which malfunction is which (leaks, clogged shower, dryer lint fire, power).", U),
+        Fact(g, "The eight, by the action that fixes each (the fix switches that malfunction off) and the alarm the "
+                "family raises: the router (“There is no Internet!”; Fixing the router), the toilet "
+                "(“The toilet is clogged!”; Fixing the blocked toilet), the shower (“The shower is "
+                "clogged!”; Fixing the shower), three leaking sinks (“The kitchen sink is leaking!” "
+                "and “The bathroom sink is leaking!”; Fixing the leaky sink, one action for each sink), "
+                "an oven fire (“There is an oven fire!”; Putting out a stove fire) and a dryer lint "
+                "fire (“The dryer lint is burning!”; Putting out the laundry fire). The Water Pressure "
+                "Surge pop-up's five leaks are the three sinks, the toilet and the shower.", VERIFIED_C),
+        Fact(g, "Virtual Families 2's 14-way pick, its ants and the north bathroom's leaks: " + NOT_IN_VF1 + ".",
+             VERIFIED_C),
     ]
 
 
@@ -1200,7 +1546,7 @@ def _store() -> list[Fact]:
     g, E, C, U = STORE, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     return [
         Fact(g, "The store sells, in fixed places, the eight grocery bags, the two outfits and ten health items "
-                "(the eight medicines, Baby Boost and the Doctor Consultation); six more places hold the specials, "
+                "(the eight medicines, Baby Boost and the Doctor Consultation); six more places hold the Flea Market (the game's code calls these items the specials), "
                 "drawn at random; its Home Improvements and Career Room Upgrades pages sell the house's permanent "
                 "upgrades.", C),
         Fact(g, "The price is paid when the purchase is confirmed; a purchase needs at least that much money "
@@ -1213,14 +1559,14 @@ def _store() -> list[Fact]:
         Fact(g, "Returning an unused item to the store gives back its listed price, not a sale price. Groceries "
                 "can never be returned, and a used item cannot be returned (\"This item can't be returned, because "
                 "it has been used!\").", C),
-        Fact(g, f"The specials (six places): every {SPECIALS_REAL}, the six are drawn again, at random, from the "
-                "items that may appear (each special entry below says when it may), at the first opening of the "
+        Fact(g, f"The Flea Market (six places): every {SPECIALS_REAL}, the six are drawn again, at random, from the "
+                "items that may appear (each Flea Market entry below says when it may), at the first opening of the "
                 "store page after that time. An item cannot fill two places at once.", C),
-        Fact(g, "The stock game's hidden key: a small r on the store page redraws the specials and the outfit "
+        Fact(g, "The stock game's hidden key: a small r on the store page redraws the Flea Market and the outfit "
                 "pictures once more than 1 hour of real time has passed since the last draw (see Hidden keys, "
                 "clicks and cheats).", E, sub=True),
         Fact(g, with_patcher("StoreRefreshKey", "R (small or capital) on the store page redraws the store's own "
-                             "Flea Market, the six specials (not the Upgrades menu's Flea Market page), and the "
+                             "Flea Market, its six random items (not the patcher's Flea Market page on the Upgrades menu), and the "
                              "outfit pictures every time, with the game's own draw; the "
                              "half-price grocery and outfits already bought stay as they are."), E, sub=True),
         Fact(g, f"On Sale: one grocery bag (organics included) at half price, drawn again at the first opening of "
@@ -1231,12 +1577,18 @@ def _store() -> list[Fact]:
                              "most $2,147,483,647). Choosing the same multiplier again, or Reset, goes back to the "
                              "listed prices. Returns give back the multiplied price at the time of the return."),
              C, sub=True),
-        Fact(g, with_patcher("FleaMarket", "the Upgrades menu's Flea Market sells every tray item except groceries "
+        Fact(g, with_patcher("FleaMarket", "the patcher's Flea Market page (Upgrades menu) sells every tray item except groceries "
                              "and outfits (items 12 to 17 and 20 to 63: drinks, candies, fruit, medicines, Baby Boost, "
                              "the Doctor Consultation, care items, repair items, Anti-spam Software, magazines, films, "
                              "bottles, kits, the book and the pets) at their listed price, at any time, without the "
-                             "store's stock or specials; its Get for free button gives the item at no cost. Each "
+                             "store's stock or its Flea Market draw; its Get for free button gives the item at no cost. Each "
                              "works as described below."), C),
+        Fact(g, "Virtual Families 2's store tabs for furniture, renovations, services and Special Upgrades (the "
+                "Lotto Ticket, the Time Warp, Adoption Services, the Maid and Gardener services), its furniture On "
+                "Sale and its locks by generation: " + NOT_IN_VF1 + "; this store is one page with the items "
+                "above.", C),
+        Fact(g, "Virtual Families 2's six-hour Flea Market of 5 goods: " + NOT_IN_VF1 + "; here the Flea Market "
+                "has six places, drawn every 4 hours of real time.", C, sub=True),
     ]
 
 
@@ -1315,9 +1667,9 @@ def _store_specials() -> list[Fact]:
     g, E, C, U = STORE_SPECIALS, VERIFIED_E, VERIFIED_C, UNCONFIRMED
     praise = ("then praises what they are doing three times (each praise: that action becomes more likely, a "
               "happiness trend of +10 and a 50.05% chance of +1 happiness; see Store: other items, Praising Glove)")
-    any_time = "It may appear among the specials at any time."
+    any_time = "It may appear in the Flea Market at any time."
     return [
-        Fact(g, "Each special below is dropped on one family member unless it says otherwise, and is used up. "
+        Fact(g, "Each Flea Market item below is dropped on one family member unless it says otherwise, and is used up. "
                 "\"A happiness trend\" is the hidden trend the happiness update reads (see Needs and upkeep). "
                 "Gains and losses pass through the limits on the Health page and the energy limits (a gain above "
                 "80 energy is halved, a loss below 10 halved).", C),
@@ -1354,7 +1706,7 @@ def _store_specials() -> list[Fact]:
                 "happiness trend of +3).", E, sub=True),
         Fact(g, item(37, "+1 to +3 happiness at once."), E),
         Fact(g, "When they finish (a queued step): -15 dirtiness. The store holds one Towelette: once it is bought "
-                "the specials never offer it again.", C, sub=True),
+                "the Flea Market never offers it again.", C, sub=True),
         Fact(g, "Natural Fruit Candy, Licorice Candy, Mint Candy and Cinnamon Candy ($10 each, one use): -2 hunger, "
                 f"+2 to +4 happiness, {praise}. " + any_time, E),
         Fact(g, "Kitchen Profession Magazine, Office Profession Magazine and Workshop Profession Magazine ($25 each, "
@@ -1377,17 +1729,19 @@ def _store_specials() -> list[Fact]:
                          "run away; an upset stomach (a symptom, 6 to 17 hours of real time); or +20 health, both "
                          "infections "
                          "ended and every symptom cured except a blocked nose. " + any_time), E),
-        Fact(g, item(55, "+1 to +3 happiness, and at once the sky turns to the rain on its label. Insect "
-                         "collectibles appear only while the sky is in one of two of its four states, the rain this "
-                         "bottle brings being one. " + any_time), C),
-        Fact(g, item(56, "+1 to +3 happiness, and at once the sky turns to the sunshine on its label. "
-                         + any_time), C),
-        Fact(g, f"How long it lasts, on the game clock (game time): the rain 392 to 751 game seconds "
-                f"({game_range(392, 751)}), the sunshine 932 to 2,431 ({game_range(932, 2_431)}). The "
-                "bottle holds its sky for 30 game seconds, then sets it again with the sky's own length (rain 360 to "
-                "719, sunshine 900 to 2,399); after the rain comes sunshine, after the sunshine one of the other three "
-                "skies, one of which never comes at night (checked, every roll at its lowest and highest). Paused, the "
-                "game clock stops, so the sky does not change.", E, sub=True),
+        Fact(g, item(55, "+1 to +3 happiness, and at once the sky turns Stormy (rain with lightning; see Weather). "
+                         "Bug collectibles appear only while it is Raining or Stormy. " + any_time), C),
+        Fact(g, item(56, "+1 to +3 happiness, and at once the sky turns Normal, the plain sky (the code's sky 0; see "
+                         "Weather). " + any_time), C),
+        Fact(g, f"How long it lasts, on the game clock (game time): the Stormy sky 392 to 751 game seconds "
+                f"({game_range(392, 751)}), the Normal sky 932 to 2,431 ({game_range(932, 2_431)}). The "
+                "bottle holds its sky for 30 game seconds, then sets it again with the sky's own length (Stormy 360 "
+                "to 719, Normal 900 to 2,399); after Stormy comes Normal, after Normal one of Sunny, Raining and "
+                "Stormy, Sunny never at night (checked, every roll at its lowest and highest). Paused, the game "
+                "clock stops, so the sky does not change.", E, sub=True),
+        Fact(g, "Using two bottles of weather (either kind) wins the “Weather dancer” trophy.", C,
+             sub=True),
+        Fact(g, "Virtual Families 2's Fog In a Bottle and Snow in a Bottle: " + NOT_IN_VF1 + ".", C, sub=True),
         Fact(g, item(57, "+1 to +3 happiness, and the dislike in the first of their three dislike places is removed; "
                          "if that place is empty nothing is removed, even when the other two hold dislikes "
                          "(checked). " + any_time), E),
@@ -1473,15 +1827,15 @@ def _store_other() -> list[Fact]:
         Fact(g, "Scolding Glove (free, in the tray from the start, never used up): drop it on a family member to "
                 "scold what they are doing: that action's weight falls by a fifteenth of its distance above its "
                 "minimum (at least 1); a happiness trend of -10, -1 happiness, and they run away.", C),
-        Fact(g, item(42, "never offered: the specials draw skips it, so in the stock game the broken chair it "
+        Fact(g, item(42, "never offered: the Flea Market draw skips it, so in the stock game the broken chair it "
                          "repairs can never be mended. Dropped on the broken chair, its repair could start."), C),
-        Fact(g, with_patcher("FleaMarket", "the Flea Market sells the Wood Furniture Repair Kit ($50), so the "
+        Fact(g, with_patcher("FleaMarket", "the patcher's Flea Market page (Upgrades menu) sells the Wood Furniture Repair Kit ($50), so the "
                              "chair can be repaired."), C, sub=True),
         Fact(g, "Ball ($10 in the item table, never used up): dropping it on a family member does nothing (the drop "
                 "handler has no use for it).", C),
-        Fact(g, "The store never offers the Ball: its specials table lists it in the first special place, but the "
+        Fact(g, "The store never offers the Ball: its Flea Market table lists it in the first Flea Market place, but the "
                 "first opening of the store page fills all six places, with a draw, or in a new family's first 2 "
-                "seconds of real time with the kept specials, empty then (checked: the Ball is gone after either); the draw "
+                "seconds of real time with the kept Flea Market items, empty then (checked: the Ball is gone after either); the draw "
                 "never picks the Ball.", E, sub=True),
     ]
 
@@ -1530,6 +1884,8 @@ def _home() -> list[Fact]:
     facts += [
         Fact(g, with_patcher("OlderVillagerMortalityCurve", "the Air Purifier and the Bathroom Upgrade no longer "
                              "change old age."), E, sub=True),
+        Fact(g, "Virtual Families 2's Home Renovation rooms and remodels: " + NOT_IN_VF1 + "; the house's rooms are "
+                "fixed and these 15 improvements are its upgrades.", C),
     ]
     facts += [Fact(g, text, label, sub=sub) for text, label, sub in _ACTIVITIES]
     return facts
@@ -1553,22 +1909,25 @@ _ACTIVITIES = (
     ("Pinball Machine: \"Playing pinball\": a happiness trend of +5, +1 dirtiness and -3 energy.", VERIFIED_E, True),
     ("For any age, not pregnant, with happiness 30 or more, hunger 75 or less and energy 35 or more.", VERIFIED_C,
      True),
-    ("Patio Furniture: \"Enjoying the patio\" and \"Studying on the patio\" change no need or stat.", VERIFIED_E,
-     True),
-    ("Both only while the sky is sunny. Enjoying: any age, health 12 or more, hunger 75 or less, energy 65 or less. "
+    ("Patio Furniture: \"Enjoying the patio\" changes no need or stat. \"Studying on the patio\": -3 energy, a "
+     "happiness trend of +2 and +2 hunger, or nothing on the path where its code ends before the study (the "
+     "earlier reading of nothing at all was that path only).", VERIFIED_C, True),
+    ("Both only while the sky is Normal (the plain sky; see Weather). Enjoying: any age, health 12 or more, hunger 75 or less, energy 65 or less. "
      "Studying: ages 14 to 18, happiness 25 or more, hunger 60 or less, energy 35 or more.", VERIFIED_C, True),
     ("Swimming Pool: \"Swimming in the pool\": +5 dirtiness, -2 energy and a happiness trend of +3. \"Splashing in "
      "the pool\": +8 dirtiness, -2 energy and a happiness trend of +10. \"Playing in the pool\": +2 hunger, -3 "
      "energy and a happiness trend of +1.", VERIFIED_E, True),
     ("All three not pregnant, with health 30 or more, happiness 40 or more, hunger 75 or less and energy 25 or "
-     "more. Swimming and Playing: any age, only while the sky is sunny, hunger 5 or more. Splashing: aged 14 or "
+     "more. Swimming and Playing: any age, only while the sky is Normal, hunger 5 or more. Splashing: aged 14 or "
      "under, in any sky, hunger 20 or more.", VERIFIED_C, True),
-    ("Hammock: \"Relaxing in the hammock\": a happiness trend of -1, and nothing else.", VERIFIED_E, True),
-    ("For any age, only while the sky is sunny, with happiness 25 or more, hunger 75 or less and energy 65 or "
+    ("Hammock: \"Relaxing in the hammock\": with nobody in the hammock, +4 dirtiness, a happiness trend of +1 and "
+     "+2 energy; with someone already in it, a happiness trend of -1 and nothing else (the earlier reading of -1 "
+     "only was the taken hammock).", VERIFIED_C, True),
+    ("For any age, only while the sky is Normal, with happiness 25 or more, hunger 75 or less and energy 65 or "
      "less.", VERIFIED_C, True),
     ("Outdoor Barbecue Grill: \"Barbecuing!\": -7 hunger and 3 food used, +4 dirtiness, +4 bathroom need and a "
      "happiness trend of +4. \"Cleaning up BBQ\": +7 dirtiness and a happiness trend of +1.", VERIFIED_E, True),
-    ("Both for family members aged 14 or older who are not pregnant, only while the sky is sunny, with health 15 or "
+    ("Both for family members aged 14 or older who are not pregnant, only while the sky is Normal, with health 15 or "
      "more, happiness 50 or more, hunger 45 or more and energy 35 or more. \"Eating a burger\" asks for health 300 "
      "or more and nothing else starts it, so it never happens.", VERIFIED_C, True),
     ("Collection of Paintings: the Magic Fish is one of its paintings, not in the Fish Tank. \"Admiring the Magic "
@@ -1667,7 +2026,7 @@ def _patcher_menu() -> list[Fact]:
         Fact(g, cheat("Store, Achievement and Collection Cheats page: 2x, 5x and 100x Prices and Reset (see Store "
                       "rules); Complete all Achievements and Reset Achievements (the game's trophies); "
                       "Complete all collections and Reset all collections (the collectible albums); Anti-Spam "
-                      "Software Ownership (see Store: specials)."), C),
+                      "Software Ownership (see Store: Flea Market)."), C),
         Fact(g, cheat("House and Yard page: fills the free mess places in the house with trash (5 dirt smudges, 5 "
                       "socks, 5 candy wrappers) or the yard with up to 15 weeds; Clean House removes every sock, "
                       "candy wrapper, cobweb and dirt smudge; Clean Garden every weed; it can also start all eight "
@@ -1681,7 +2040,7 @@ def _patcher_menu() -> list[Fact]:
                       "succeeds; Spawn Male / Female Child and Adopt Outside Boy / Girl (age 2 to 13, an optional "
                       "name); Adopt New Person after the family is lost; Evict Family (a new family, keeping the "
                       "money, the house and everything owned)."), C),
-        Fact(g, with_patcher("FleaMarket", "Flea Market: see Store rules."), C),
+        Fact(g, with_patcher("FleaMarket", "the patcher's Flea Market page: see Store rules."), C),
         Fact(g, with_patcher("RollTheDice", "Roll the Dice: $500 for a Popup Event at once (see Random Events)."),
              C),
         Fact(g, cheat("Patcher Achievements page: 12 milestones the patcher records per family (ages 70, 80, 90, "
@@ -1704,7 +2063,7 @@ _TIMERS = (
     ("Event check", game_text(3_600) + "; the first " + game_text(900), VERIFIED_C),
     ("Dating e-mail", game_text(180) + " for the first", VERIFIED_C),
     ("Mess", game_text(18_000) + "; half that with 4 or more", VERIFIED_C),
-    ("Store specials", SPECIALS_REAL + ", drawn when the store page opens", VERIFIED_C),
+    ("Store Flea Market", SPECIALS_REAL + ", drawn when the store page opens", VERIFIED_C),
     ("Half-price grocery", game_text(SALE_GAME_SECONDS) + ", drawn when the store page opens", VERIFIED_C),
     ("Collectible", "15 in 32,768 each frame (real time: frames are not slowed by the game speed); none while "
                     "paused", VERIFIED_C),
@@ -1739,20 +2098,689 @@ def _index() -> list[Fact]:
         Fact(g, "The game has 5,088 places that roll a random number; 5,087 are in code the game reaches. The gameplay ones are on "
                 "this page: hunger, eating, waste, starvation, sickness, recovery, old age, conception, twins, "
                 "careers, work, events, the dating candidate, messes, collectibles and malfunctions.", C),
-        Fact(g, f"4,492 of them are in the family members' {REGISTERED_ACTIONS} actions (how long an action lasts, which variant, "
-                "where they walk). What those actions give was not decoded.", U),
-        Fact(g, "The rest are setup, looks, names, the screen and input; the two largest groups (58 and 57 rolls) "
-                "were not decoded.", U),
+        Fact(g, f"4,492 of them are in the family members' {REGISTERED_ACTIONS} actions and pick how long a step "
+                "lasts, which variant, where they walk, and the few ranges listed in Actions (for example Taking a nap's "
+                "+7 to +11 energy). What each action gives is in Actions.", C),
+        Fact(g, "The rest are setup, looks, names, the screen and input. The two largest groups: the 58 rolls of "
+                "the item use (see the Store groups, which give each item's ranges) and the 57 of the house's "
+                "per-frame effects (frames run on real time), which pick where and when a drip, spark or puff is "
+                "drawn and change nothing else.", C),
     ]
     return facts
+
+
+# ---------------------------------------------------------------------------
+# The groups Virtual Families 2's page has (research 2026-10-27 in C:\vf1\gm_research and the session's p_*.py
+# scripts; every address is VF1's own).
+# ---------------------------------------------------------------------------
+
+# The sky: CWeather at 0x8352A4 (no RTTI; the engine's CWeather / CSunBeam 0x834D98 / CRain 0x831D90 / CLightning
+# 0x8316EC, matched to VF2's B200 objects by their Reset signatures). Update 0x492420 (every frame, from 0x445660),
+# set 0x492280, force 0x4921B0, start 0x4923B0 (from the game start / load 0x424110), PC-minute pick 0x492230. The
+# action records' sky test is villager + id * 0xC8 + 0x2C40 (t_recs.py).
+WEATHER_NAMES = ("Normal", "Sunny", "Raining", "Stormy")
+
+
+def _weather() -> list[Fact]:
+    g, C = WEATHER, VERIFIED_C
+    return [
+        Fact(g, "The sky has four states, named as the owner names them: Normal (the code's sky 0: the plain sky, "
+                "nothing drawn over the house), Sunny (sky 1: the sun-beam effect, a grey tint with sun beams), "
+                "Raining (sky 2: rain) and Stormy (sky 3: rain with lightning).", C),
+        Fact(g, f"Normal lasts 900 to 2,399 game seconds ({game_range(900, 2_399)}); Sunny, Raining and Stormy 360 "
+                f"to 719 ({game_range(360, 719)}), each length drawn evenly. All of it is game time: paused, the sky "
+                "stands still.", C),
+        Fact(g, "After Sunny, Raining or Stormy the sky always goes back to Normal. After Normal the next is "
+                "Sunny, Raining or Stormy, 1 in 3 each by day; at night (your PC's clock) Sunny is never picked, so "
+                "it is Raining or Stormy, 1 in 2 each.", C),
+        Fact(g, "The sky is not saved. Each time a family starts or is loaded it begins Normal; then with a "
+                f"{_below_pct(100, 20)} chance it changes 30 seconds of game time later to the sky your PC clock's "
+                "minute gives (the minute's remainder after dividing by 4: 1 Sunny, 2 Raining, 3 Stormy, and 0 "
+                "Sunny as well); otherwise it stays Normal for a full Normal spell.", C),
+        Fact(g, "A new family's \u201cDo you need help?\u201d question at the start sets the sky Sunny.", C, sub=True),
+        Fact(g, "Rain wets the yard: from the start of Raining or Stormy the wetness rises by 0.83 a game second (at "
+                "most 100), and in Normal or Sunny it falls by 0.42 a game second. Once it is over 30 (after 36 game "
+                "seconds of rain, all of it game time), family members who are Chillaxing, Not feeling well or Caring for baby stop and "
+                "start Getting out of the rain. When a Raining or Stormy spell ends, everyone Drinking rain, Getting "
+                "out of the rain or Playing in puddles stops.", C),
+        Fact(g, "What the sky allows: Playing in the rain and Watching the rain only while it is Raining (not "
+                "Stormy); Enjoying the patio, Studying on the patio, Swimming and Playing in the pool, Relaxing in "
+                "the hammock, Barbecuing! and Cleaning up BBQ only while it is Normal; Bug collectibles only while "
+                "it is Raining or Stormy.", C),
+        Fact(g, "What changes it: Bottled Tropical Rain (Stormy) and Bottled Tropical Sunshine (Normal), see Store: "
+                "Flea Market; the My Weather Machine e-mail (Raining), see Random Events.", C),
+        Fact(g, "Virtual Families 2's Foggy and Snowing skies: " + NOT_IN_VF1 + ".", C),
+    ]
+
+
+# Family-member drops on the house: the drop table at 0x8754C8 (built by its CRT constructor 0x495760, run as linked:
+# p_drop.py), indexed by the content-map object under the drop (Assets\cmap.dat bits 18..24, 0x4928F0 at the drop
+# point 10 pixels up), called from the drop 0x4413B0 -> 0x441020 -> 0x493FB0.
+_DROPS = (
+    ("the hammock", "Relaxing in the hammock"),
+    ("the workshop", "Fixing the leaky sink (one of the three sink fixes), Playing in the workshop, Working on "
+                     "career or Shaking head"),
+    ("the washer and dryer", "Doing laundry"),
+    ("the treadmill's place", "Walking on the treadmill, Shaking head or Taking a nap"),
+    ("the toilet", "Fixing the blocked toilet, Nature is calling! or Shaking head"),
+    ("the bathroom sinks", "Getting a drink of water, Brushing teeth, Brushing hair, Flossing, Washing hair, "
+                           "Admiring self or Applying deodorant"),
+    ("the shower", "Taking a shower or Shaking head"),
+    ("the kitchen table", "Putting away the groceries, Sitting down to a meal, Preparing a meal or Shaking head"),
+    ("the kitchen trash can", "Taking the garbage out or Confused"),
+    ("the stove and counter", "Working on career, Preparing a meal, Looking for snacks or Shaking head"),
+    ("the TV wall", "Watching TV"),
+    ("the sandbox", "Playing in the sand"),
+    ("the office desk", "Fixing the router, Working on career, Browsing Web, Shaking head, or an action with no "
+                        "caption of its own"),
+    ("the reading seat", "Reading a magazine"),
+    ("the pool", "Swimming in the pool, Playing in the pool or Running away"),
+    ("the patio", "Enjoying the patio"),
+    ("the refrigerator", "Looking for snacks"),
+    ("the pinball corner", "Playing pinball"),
+    ("the radio's end table", "Dancing or Listening to the radio"),
+    ("the kitchen sink", "Doing the dishes, Working on career, Looking for snacks, Getting a drink or Shaking head"),
+    ("the office toys", "Playing office"),
+    ("the router", "Fixing the router"),
+    ("the barbecue grill", "Barbecuing! or Shaking head"),
+    ("the adults' bed", "Making the bed or Going to bed"),
+    ("the children's beds", "Going to bed or Making the children's beds"),
+    ("the toys", "Playing with toys"),
+    ("the study desk", "Studying (Doing homework)"),
+    ("the two flower boxes", "Watering the flowers"),
+    ("the damaged workshop wall", "Repairing the workshop wall or Confused"),
+    ("the workshop wall's other side", "Repairing the workshop wall (also \u201cWall compound has hardened!\u201d), "
+                                       "for a family member aged 14 or older who is not pregnant"),
+    ("the leaking hose", "Taping the leaky hose or Confused"),
+    ("the birdbath", "Admiring the bird bath., Installing birdbath pump or Confused"),
+    ("the three damaged floor spots", "Repairing the floor (each spot its own) or Shaking head"),
+    ("the bathroom fixtures' spot", "Fixing the blocked toilet or Fixing the shower"),
+    ("the fire spot", "Putting out the laundry fire or Putting out a stove fire"),
+    ("two more spots", "Confused"),
+    ("the blender and the mixer (in the kitchen)", "no action: with the Kitchen at level 2 or 3 the message bar says "
+                                                   "\u201c... sees the blender.\u201d or \u201c... sees the "
+                                                   "mixer.\u201d"),
+    ("the birdhouse's place", "no new action: with the Birdhouse owned the family member walks to it"),
+)
+
+
+def _drops() -> list[Fact]:
+    g, C = DROPS, VERIFIED_C
+    return [
+        Fact(g, "Dropping a family member: the game first checks for a mess or a collectible under them (a sock, "
+                "wrapper, weed, cobweb or dirt smudge starts its clean-up action; a collectible starts Found a new "
+                "item), then for a house object, then for another family member (see Pregnancy and babies for "
+                "the try for a baby).", C),
+        Fact(g, "A house object is found by the game's content map (Assets\\cmap.dat) at the drop point; each object "
+                "has its own drop code, which checks the family member and the house (age, career, owned "
+                "improvements, a malfunction under way, a free place) and starts one action, or none. The objects "
+                "and the actions their code can start (the code's checks pick which; what each action gives: see "
+                "Actions):", C),
+        *[Fact(g, f"{place}: {acts}.", C, sub=True) for place, acts in _DROPS],
+        Fact(g, "The TV remote and the shed door are not in this table: their own code handles a drop on them "
+                "(see Hidden keys, clicks and cheats).", C, sub=True),
+        Fact(g, "DEAD (never runs): one more drop code, Running away (50.05%) for a family member with one "
+                "particular dislike, belongs to an object that no place on the content map carries, so no drop "
+                "reaches it.", C, sub=True),
+        Fact(g, "Pets are not house objects: dropping a family member on the pet starts nothing.", C, sub=True),
+        Fact(g, "Virtual Families 2's furniture (bought, placed from storage, up to 30 pieces giving mood points, "
+                "with drop actions on each piece's placement map): " + NOT_IN_VF1 + "; its house objects are "
+                "fixed.", C),
+    ]
+
+
+def _pets() -> list[Fact]:
+    g, E, C = PETS, VERIFIED_E, VERIFIED_C
+    return [
+        Fact(g, "Three pets: Pet Cat, Pet Dog and Pet Turtle, $500 each, sold in the store's Flea Market (one use "
+                "each).", C),
+        Fact(g, "Dropped in the house the item becomes the family's pet; the family has at most one, and with a pet "
+                "already a question asks before the new one replaces it.", E, sub=True),
+        Fact(g, "When the Flea Market offers each: the cat unless the pet is a cat, the dog unless the pet is a dog; "
+                "the turtle's check tests for the dog, so with a dog the turtle is not offered and with a turtle it "
+                "is.", E, sub=True),
+        Fact(g, with_patcher("FixVanillaGameBugs", "the turtle's check tests for the turtle."), E, sub=True),
+        Fact(g, "What a pet does for the family: nothing to any need, skill or stat; its own code walks it, plays "
+                "its animations and has it follow a family member, and nothing in a family member's code reads it. "
+                "Dropping something on the pet only changes what the pet does; dropping a family member on it "
+                "starts nothing.", C),
+        Fact(g, "Virtual Families 2's Pets tab (12 pets, 14 with its patcher), the Food and Water Bowls, Petting "
+                "the pet and the pets' generation locks: " + NOT_IN_VF1 + ".", C),
+    ]
+
+
+def _clothing() -> list[Fact]:
+    g, E, C = CLOTHING, VERIFIED_E, VERIFIED_C
+    return [
+        Fact(g, "Clothes: a family member's body picture, one of 50 (0 to 49). The store sells a Male Outfit and a "
+                "Female Outfit, $225 each, one use, dropped on a family member of that sex; it changes their body "
+                "picture (see Store: other items for which picture and the $100 return).", C),
+        Fact(g, "The pictures the store offers: one for each outfit, 0 to 49 at random (1.999% or 2.002% each), "
+                f"drawn again at the first opening of the store page more than {game_text(14_400)} after the last "
+                "draw; the store's r key draws them too (see Hidden keys, clicks and cheats).", E, sub=True),
+        Fact(g, "Hairstyles: part of the head picture (face and hair), one of 50, set when a family member is made "
+                "and not sold anywhere in the game; from age 45 (900 age units) the game draws its older heads.", C),
+        Fact(g, with_patcher("CheatUpgrades", "the Clothing and Hairstyles page sets either picture by clicking it "
+                                              "(0 to 49), and the Villager Cheats page sets them by number or at "
+                                              "random (see Patcher: Upgrades menu)."), C, sub=True),
+        Fact(g, "Virtual Families 2's Clothing tab (Discount, Department Store and Designer outfits with their "
+                "price tiers and generation locks) and its patcher's Outfit store of bodies and hairstyles: "
+                + NOT_IN_VF1 + ".", C),
+    ]
+
+
+# The trophy table 0x4E9510 (24-byte rows: id, target, 0x77, 0, title, description; the title of row k is text
+# 0x1CE + 2k), advanced by 0x413210 (id, amount) and completed by 0x413170, which also counts trophies 98 to 100 and,
+# for rows 81 to 91, row 92. Every reached call was listed (p_ach.py, and p_ach40.py for the plan step 0x40).
+_TROPHIES = """\
+0|Gettin' paid|You earned $100.|100
+1|Bring home the bacon|You earned $1,000.|1000
+2|Mind on my money|You earned $10,000.|10000
+3|Trump this!|You earned $100,000.|100000
+4|An eventful week|You have encountered 10 email or house events.|10
+5|Never a dull moment|You have encountered 50 email or house events.|50
+6|Marry rich|You married someone with more than $200 in the bank.|1
+7|Marry for love|You married someone with less than $75 in the bank.|1
+8|A perfect match|You married someone with the same career.|1
+9|Oh, baby!|You had a baby.|1
+10|Oh, baby baby!|You had twins.|1
+11|Ohhhhh dear...|You had triplets.|1
+12|Four is enough|You had four children.|4
+13|No vacancy|You had six children.|6
+14|Boob tube|You praised someone who was turning off the TV.|1
+15|Care and feeding|You praised someone who was making a meal.|1
+16|Sleeping dragon|You praised someone who was practicing Kung Fu.|1
+17|Everything in its place|You praised someone who was cleaning the nightstand.|1
+18|Go-pher it!|You praised someone who was chasing gophers.|1
+19|That funky smell|You praised someone who was throwing out rotten fish.|1
+20|Lotta latte|You praised someone for making a latte.|1
+21|1000 strokes|You praised someone who was brushing their hair.|1
+22|Fire stopper|You praised someone who was putting out a smoking oven.|1
+23|Praising good behavior|You praised all of the above 9 behaviors.|9
+24|Praising the praiser|You praised your little people 100 times.|100
+25|Sustenance|You spent $500 on food for your little people.|500
+26|Abundance|You spent $1000 on food for your little people.|1000
+27|Gluttony|You spent $5000 on food for your little people.|5000
+28|Preparedness|You filled the kitchen with 1000 units of food.|1
+29|It's not a pyramid but...|You provided all 4 food groups in a 24 hour period.|1
+30|Nutrition snob|You provided all 4 food groups of organics.|1
+31|Coupon clipper|You saved $500 on food by finding discounts.|500
+32|A spoon full of sugar|You cured a symptom of someone who got sick.|1
+33|Not just a virus|You cured a serious infection in someone.|1
+34|Gravely ill|You cured a grave infection in someone.|1
+35|Hic|You helped someone cure hiccups.|1
+36|Fish Tycoon|You got the fish tank.|1
+37|Plant Tycoon|You watered the plants in the window boxes.|1
+38|Dreaming of Isola|You bought paintings for your house.|1
+39|Staying cool in the pool|You have a pool.|1
+40|A fun house!|You have a pinball machine.|1
+41|Let's dance|You have the radio.|1
+42|Time to Q|You have a barbecue grill.|1
+43|Retail therapy|You bought every house upgrade.|15
+44|Trick|You gave 10 pieces of nasty candy to your little friends.|10
+45|Treat|You gave 10 pieces of yummy candy to your little friends.|10
+46|Lucky winner|You won on a lottery scratch off.|1
+47|Two thumbs up|You watched 3 movies with your family.|3
+48|So like a rose|You purchased and used two perfumes.|2
+49|Weather dancer|You purchased and used two bottles of weather.|2
+50|Movin' on up|You got a promotion.|1
+51|Office overlord|One of your little friends mastered an office career.|1
+52|Cooking captain|One of your little friends mastered a kitchen career.|1
+53|Workshop warrior|One of your little friends mastered a workshop career.|1
+54|Building for the future|You upgraded a career room in the house.|1
+55|The dream kitchen|You have a level 3 kitchen for your family to enjoy.|1
+56|Office of the future|You have a level 3 office for your family to enjoy.|1
+57|Workshop of wonders|You have a level 3 workshop for your family to enjoy.|1
+58|Start with the basics|You repaired the floor in the house.|1
+59|All the walls|You completed all of the exterior wall repairs.|1
+60|The shed|You managed to open the shed.|1
+61|Splish, splash!|You fixed the birdbath.|1
+62|This old house|You completed all house repairs.|1
+63|Sticky situation|You removed a cobweb.|1
+64|Handyman|You have fixed 10 malfunctions in the house.|10
+65|Sock collector|You retrieved 10 socks in the house.|10
+66|The sock market|You retrieved 50 socks in the house.|50
+67|A perfect sock storm|You retrieved 100 socks in the house.|100
+68|Wrappers!|You disposed of 10 wrappers in the house.|10
+69|Wrap attack|You disposed of 50 wrappers in the house.|50
+70|The wrappers wrap-up|You disposed of 100 wrappers in the house.|100
+71|See spot? Run!|You cleaned 10 dirt smudges off the floor.|10
+72|Spotty behavior|You cleaned 50 dirt smudges off the floor.|50
+73|Sir spot-a-lot!|You cleaned 100 dirt smudges off the floor.|100
+74|Weed picker|You pulled 10 weeds from the yard.|10
+75|Weed whacker|You pulled 50 weeds from the yard.|50
+76|Weed obliterator|You pulled 100 weeds from the yard.|100
+77|Spring cleaning|You made your house completely free of debris and dirt.|1
+78|Order in the yard|You got rid of every weed in the yard.|1
+79|A gleaming estate|Your home is spotless inside and out.|1
+80|Where is the remote?|You helped your friends recover the remote 5 times.|5
+81|Entomologist|You completed the collection of insects.|12
+82|Numismatist|You completed the collection of coins.|12
+83|Botanist|You completed the collection of nuts and twigs.|12
+84|Photo finish|You put together the antique photo.|12
+85|Master collector|You completed all 4 collections.|4
+86|Recycler|You sold 5 common collectibles online.|5
+87|Super recycler|You sold 15 common collectibles online.|15
+88|Monetizer|You sold 5 uncommon collectibles online.|5
+89|Super monetizer|You sold 15 uncommon collectibles online.|15
+90|Super seller|You sold 5 rare collectibles online.|5
+91|Super duper seller|You sold 15 rare collectibles online.|15
+92|Trophy collector|You collected all 11 collecting trophies.|11
+93|Starting out|One of your little friends achieved the age of 35.|1
+94|All the wheels turning|One of your little friends achieved the age of 45.|1
+95|Lessons of life|One of your little friends achieved the age of 50.|1
+96|Midlife|One of your little friends achieved the age of 60.|1
+97|Wise|One of your little friends achieved the age of 65.|1
+98|Overachiever|You earned 10 trophies.|10
+99|Unachievable|You earned 50 trophies.|50
+100|The impossible dream|You earned 100 trophies!|100
+"""
+TROPHY_LIST = tuple((int(k), t, d, int(n)) for k, t, d, n in (row.split("|") for row in _TROPHIES.splitlines()))
+
+
+def _trophies() -> list[Fact]:
+    g, C = TROPHIES, VERIFIED_C
+    return [
+        Fact(g, f"The game has {len(TROPHY_LIST)} trophies (its Trophies screen; the code calls them "
+                "achievements). Each counts toward a target and is won once the count reaches it; a trophy won "
+                "stays won through every generation. A trophy gives no money and no item: winning one only "
+                "counts toward Overachiever (10), Unachievable (50) and The impossible dream (100).", C),
+        Fact(g, "What counts, where the code says more than the words: Gettin' paid to Trump this! count all money "
+                "earned (salary, interest, paid work, event prizes and collectible sales; not a dowry or a store "
+                "refund); the food trophies count the money paid for grocery and organics bags; Retail therapy "
+                "counts each of the 15 Home Improvements, also those an event gives; Handyman counts each "
+                "malfunction fixed; the age trophies come at the birthday in age units 700, 900, 1,000, 1,200 "
+                "and 1,300 (35, 45, 50, 60 and 65 years).", C),
+        Fact(g, "DEAD (never won in play): \u201cIt's not a pyramid but...\u201d. No code in the game counts toward "
+                "it (every reached call of the trophy counter was listed), so only the patcher's Complete all "
+                "Achievements gives it.", C),
+        Fact(g, "Every trophy, with the game's words and the count it needs:", C),
+        *[Fact(g, f"{title}: \u201c{desc}\u201d (needs {n:,}).", C, sub=True) for _, title, desc, n in TROPHY_LIST],
+        Fact(g, with_patcher("CheatUpgrades", "Complete all Achievements and Reset Achievements on the Store, "
+                                              "Achievement and Collection Cheats page; the patcher's own Patcher "
+                                              "Achievements are separate records (see Patcher: Upgrades menu)."),
+             C, sub=True),
+        Fact(g, "The heir: when a parent with children dies and a child is still alive, the family tree offers the "
+                "next generation; choosing an heir starts it and hides every other family member. See Dating, "
+                "marriage and the next generation.", C),
+        Fact(g, "Virtual Families 2's store locks by generation (\u201cfrom generation N\u201d): " + NOT_IN_VF1
+                + "; every store item is on sale from the first generation.", C),
+    ]
+
+
+# Every registered action (the CRT initializer 0x480260 registers 316 behaviours): its caption (the text its code
+# copies to the family member's label; two when the code picks one, for example by sex) and, for every path through
+# its code, the need-change plan steps it builds (stat steps 0x2D..0x3B, the work step 0x3F and the conception step
+# 0x41), from a recursive descent of the action and the action code it calls (p_paths.py, p_actblock.py).
+_ACTIONS = """\
+0|Caring for baby|
+1|Testing bevmac chunk|
+2|Going to bed|dirtiness +2 || energy +10, dirtiness +2 || energy +15, dirtiness +2
+3|Filling a gopher hole|dirtiness +10, energy -3
+4|Doing aerobics|energy -3, a happiness trend of +1, dirtiness +1
+5|Brushing teeth|dirtiness -5
+6|Playing on the lawn|
+7|Going to bed|dirtiness +2, energy +5
+8|Going to bed|dirtiness +2, energy +5
+9|Going to bed|dirtiness +2, energy +5
+10|Going to bed|dirtiness +2, energy +5
+11|Going to bed|dirtiness +2, energy +5
+12|Going to bed|dirtiness +2, energy +5
+13|Going to bed|dirtiness +2, energy +5
+14|Playing cook|
+15|Playing cook|
+20|Playing office|energy -2
+21|Playing in the workshop|
+22|Playing in the workshop|
+26|Cleaning up after a meal|a happiness trend of +1, energy -2, dirtiness +4, a happiness trend of +1, energy -2, dirtiness +4
+27|Doing laundry|energy -3, dirtiness +5, a happiness trend of +2
+28|Doing Kung Fu|
+29|Dusting furniture|
+30|Feeling depressed|
+31|Feeling very sick|
+32|Getting a drink|
+33|Sitting down to a meal|hunger -40, dirtiness +4, the bathroom need +6
+34|Sitting down to a meal|hunger -40, dirtiness +4, the bathroom need +6
+35|Sitting down to a meal|hunger -40, dirtiness +4, the bathroom need +6
+36|Sitting down to a meal|hunger -40, dirtiness +4
+37|Sitting down to a meal|hunger -40, dirtiness +4, the bathroom need +6
+38|Sitting down to a meal|hunger -40, dirtiness +4, the bathroom need +6
+39|Inspecting the foundation|
+40|Playing with toys|
+41|Digging a hole to China|dirtiness +10, energy -3, a happiness trend of +1 || dirtiness +30, energy -3, a happiness trend of +1
+42|Relaxing in the hammock|dirtiness +4, a happiness trend of +1, energy +2 || a happiness trend of -1
+43|Relaxing in the hammock|dirtiness +4, a happiness trend of +1, energy +2 || a happiness trend of -1
+44|Looking for snacks|hunger -2, dirtiness +2, the bathroom need +3
+50|Not feeling well|
+51|Working on career|energy -2, a piece of career work, dirtiness +1, energy -2, hunger +1
+52|Picking up a sock|dirtiness +2, a happiness trend of +10
+53|Throwing away a wrapper|dirtiness +2, kitchen garbage +1, a happiness trend of +5
+54|Pulling a weed|dirtiness +2, a happiness trend of +5
+55|Cleaning cobwebs|a happiness trend of +10
+56|Cleaning a dirt smudge|dirtiness +2, a happiness trend of +10
+57|Preparing a meal|energy -7, dirtiness +7, a happiness trend of +5, hunger +7
+58|Reading a magazine|energy +5, a happiness trend of +1 || a happiness trend of -1
+59|Taking a shower|dirtiness -20, dirtiness -30
+60|Getting some sleep|
+61|Getting some sleep|
+62|Taking a nap|a happiness trend of +1, energy +15
+63|Getting some sleep|
+64|Getting some sleep|
+65|Getting some sleep|
+66|Getting some sleep|
+67|Getting some sleep|
+68|Getting some sleep|
+69|Enjoying the patio|
+70|Turning off the shower|
+71|Turning off the TV|
+72|Turning off the stove|
+73|Turning off the stove|
+74|Turning off the stove|
+75|Watching TV|
+76|Watching TV|
+77|Watching TV|
+78|Watching TV|
+79|Watching TV|
+80|Watching TV|
+81|Watching TV|
+82|Watching TV|
+83|Checking weight|
+84|Working on career|a piece of career work, dirtiness +1, energy -2, hunger +1
+85|Working on career|a piece of career work, dirtiness +1, energy -2, hunger +1
+86||
+87||
+88||
+89||
+90|Walking on the treadmill|dirtiness +8, a happiness trend of +4
+91|Working out|energy -4, dirtiness +5
+92|Working on career|a piece of career work, dirtiness +1, energy -2, hunger +1
+93|Working on career|a piece of career work, dirtiness +1, energy -2, hunger +1
+94||
+95||
+96||
+97|Writing memoirs|
+98|Admiring the bird bath.|
+99|Playing in the sand|
+100|Poking at the plants|energy -3, dirtiness +4, a happiness trend of +2 || energy -3, dirtiness +15, a happiness trend of +2
+101|Looking for bugs|dirtiness +10 || dirtiness +20
+102|Hiding|
+103|Playing in the dirt|a happiness trend of +20, energy -5, dirtiness +20
+104|Jumping on the bed|energy -2, energy -2, energy -2, a happiness trend of +3
+105|Studying / Doing homework|energy -3, a happiness trend of +2, hunger +2
+106|Chatting online|
+107|Not feeling well|
+108|Exercising outdoors|health +2, energy -5, a happiness trend of +3
+109|Browsing Web|
+110||
+111|Browsing Web|
+112|Dusting furniture|
+113|Polishing|
+114|Using the hand vacuum|
+115|Playing in the rain|energy -5, dirtiness +10 to +29
+116|Nature is calling!|dirtiness +40, the bathroom need -40, dirtiness -30
+117|Checking out the house|
+118|Celebrating|a happiness trend of +50, energy -3, the bathroom need +2, dirtiness +2
+119|Organizing the closet|energy -3, a happiness trend of +10, dirtiness +2
+120|Watching the rain|energy +2, a happiness trend of +130
+121|Making the bed|energy -3, a happiness trend of +10, dirtiness +2
+122|Cleaning the nightstand|energy -2, a happiness trend of +5, dirtiness +1
+123|Doing Tai Chi|a happiness trend of +4, dirtiness +4
+124|Stretching|a happiness trend of +1, dirtiness +1
+126|Putting away the groceries / Peeking at the groceries|a happiness trend of +10 to +24, energy -2, a happiness trend of +4, dirtiness +2
+127|Looking for laundry|energy -2
+128|Making the children's beds|energy -5
+129|Vacuuming the living room|a happiness trend of +2, energy -6, dirtiness +6
+130|Showing baby the garden|a happiness trend of +2
+131|Showing baby the toys|a happiness trend of +2
+132|Changing baby's diapers|dirtiness +10
+133|Cuddling|energy +5, a happiness trend of +7
+134|Hiccups|
+135|Watering the flowers|energy -2, dirtiness +2, a happiness trend of +2
+136|Watering the flowers|energy -2, dirtiness +2, a happiness trend of +2
+137|Watering the flowers|energy -2, dirtiness +2, a happiness trend of +2
+138|Talking to the plants|
+139|Daydreaming in the yard|
+140|Celebrating marriage|
+141|Celebrating a new baby|
+142|Celebrating house upgrade|a happiness trend of +20
+143|Taping the leaky hose|dirtiness +2, a happiness trend of +10
+144|Fixing the chair|dirtiness +2, a happiness trend of +10
+145|Repairing the floor|dirtiness +2, a happiness trend of +10
+146|Repairing the floor|dirtiness +2, a happiness trend of +10
+147|Repairing the floor|dirtiness +2, a happiness trend of +10
+148|Repairing the workshop wall|
+149|Repairing the workshop wall|dirtiness +2, a happiness trend of +10
+150|Repairing the workshop wall|dirtiness +2, a happiness trend of +10
+151|Sweeping the floor|dirtiness -6, energy -5, a happiness trend of +2
+152|Taking a nap|energy +7 to +11, dirtiness +2
+153|Daydreaming|energy +3, a happiness trend of +3
+154|Calling children for bedtime|
+155|Making children brush teeth|
+156|Scared of the lightning|
+157|Taking the garbage out|a happiness trend of +15
+158|Arguing|a happiness trend of -10, energy -1, dirtiness +1
+159|Pleading|a happiness trend of -5
+160|Quick workout|energy -7, dirtiness +7, a happiness trend of +5
+161|Remembering the dead|
+162|Mending a button|energy -1, a happiness trend of +3
+163|Ironing|energy -1, a happiness trend of +3
+164|Dealing with all the socks|dirtiness +4, energy -3
+165|Putting away clean shirts|dirtiness +2, energy -2
+166|Swimming in the pool|dirtiness +5, energy -2, a happiness trend of +3
+167|Splashing in the pool|dirtiness +8, energy -2, a happiness trend of +10
+168|Having hiccups!|
+169|Throat doesn't feel right|
+170|Upset stomach|
+171|Owww... head hurting|
+172|Can't stop coughing...|
+173|Itchy|
+174|Sneezing|
+175||
+176||
+177|Washing hands / Washing face|dirtiness -3
+178|Putting on aftershave / Putting on makeup|a happiness trend of +1
+179|Flossing|dirtiness -3
+180|Brushing hair|dirtiness -1
+181|Washing hair|dirtiness -15
+182|Shaving / Removing makeup|dirtiness -3
+183|Gargling|dirtiness -1
+184|Putting in eye drops|energy +2
+185|Squeezing a pimple|dirtiness +3, health -1
+186|Admiring self|
+187|Applying deodorant|dirtiness -3
+188|Getting a drink of water|hunger -1
+189|Washing feet|dirtiness -4
+190|Selling a collectible online|a happiness trend of +10, energy -1
+191|Hey!|a happiness trend of -3
+192|Researching project online / Writing a paper for school|energy -3
+193|Doing homework|energy -3, a happiness trend of +2, hunger +2
+194|Taking an online test|energy -3, a happiness trend of +2, hunger +2
+195|Studying on the patio|energy -3, a happiness trend of +2, hunger +2
+196|Studying in the kitchen|energy -3, a happiness trend of +2, hunger +2
+197|Studying|energy -3, a happiness trend of +2, hunger +2
+204|Studying a recipe|
+205|Thinking about cooking|
+206|Cleaning the fridge|energy -2, a happiness trend of +2, dirtiness +3
+207|Throwing out old food|kitchen garbage +1, a happiness trend of +2
+208|Cleaning the oven|energy -2, dirtiness +3
+209|Doing the dishes|energy -2, dirtiness +2
+210|Cleaning kitchen counters|energy -2, dirtiness +3
+211|Making coffee|energy +5
+212|Checking out strange smell|kitchen garbage +1, dirtiness +4, a happiness trend of +2
+213|Heating up some food|dirtiness +2, a happiness trend of +2, hunger -5
+214|Having breakfast|dirtiness +3, a happiness trend of +2, hunger -8
+215|Playing in the pool|hunger +2, energy -3, a happiness trend of +1
+216|Eating a burger|hunger -7, energy -5, a happiness trend of +2, the bathroom need +4
+217|Making a grande latte |hunger -4, the bathroom need +5, a happiness trend of +2
+218|Barbecuing!|hunger -7, dirtiness +4, the bathroom need +4, a happiness trend of +4
+219|Cleaning up BBQ|dirtiness +7, a happiness trend of +1
+220|Playing pinball|a happiness trend of +5, dirtiness +1, energy -3
+221|Running on the treadmill|dirtiness +6, a happiness trend of +2, energy -8
+222|Feeding the fish|a happiness trend of +4
+223|Looking at the fish|
+224|Bothering the fish|
+225|Admiring the Magic Fish|
+226|Adjusting the painting|
+227|Adjusting the painting|
+228|Using the warm towel|dirtiness -2
+229|Warming hands|health +1
+230|Drying hair|health +1
+231|Drying feet|a happiness trend of +2, health +1
+232|Feeding the birds|
+233|Feeling down|
+234|Dancing|energy -4, a happiness trend of +2, dirtiness +2
+235|Stomping ants|energy -2, a happiness trend of +2
+236|Checking the outfit|
+237|Reading the newspaper|a happiness trend of +1 || a happiness trend of -1
+238|Mourning the dead|happiness -80
+239|Lying in repose|
+240|Waving goodbye|
+241|Listening to the radio|a happiness trend of +4
+242|Taking an insect outside|a happiness trend of +8
+243|Finding annoying mosquito|a happiness trend of -5, energy -5
+244|Getting attention / Telling a joke|
+245|Catching grasshoppers|energy -3, dirtiness +5 to +11, a happiness trend of +5
+246|Looking for mommy / Looking for daddy|
+247|Feeling a bit lonely|
+248|Jealous about new baby|
+249|Excited about new baby|
+250|Playing mommy|
+251|Looking for attention|energy -2
+252|Exploring|dirtiness +3 to +6, energy -2, a happiness trend of +2 to +5
+253|Calling the birds|a happiness trend of +3 to +5
+254|Calling children to eat|a happiness trend of +2
+255|Admiring stars in the sky / Looking for a falling star|a happiness trend of +1 to +5
+256|Enjoying sounds of nature|a happiness trend of +2 to +6
+257|Admiring the tools|a happiness trend of -2 to -6
+258|Working on hobby|a happiness trend of +2 to +8
+259|Playing a board game|a happiness trend of +8
+260|Shredding documents|a happiness trend of +1
+261|Playing train|energy -5
+262|Playing with the dishes|
+263|Jumpy!|
+264|Telling a story|
+265|Listening to a story|
+266|Tickling|
+267|It tickles!|
+268|Giggle party|
+269|Sorting mail|a happiness trend of +2
+270|Playing video games|a happiness trend of +5, energy -5, health -2
+271|Hiding toys|a happiness trend of +2
+272|Banging dishes!|a happiness trend of +2
+273|Drawing on the wall|a happiness trend of +2, dirtiness +5
+274|Measuring height|
+275|There is an oven fire!|
+276|The kitchen sink is leaking!|
+277|The bathroom sink is leaking!|
+278|The shower is clogged!|
+279|The toilet is clogged!|
+280|The dryer lint is burning!|
+281|There is no Internet!|
+282|Putting out a stove fire|dirtiness +4, a happiness trend of +1, energy -2
+283|Fixing the leaky sink|dirtiness +4, a happiness trend of +1, energy -2
+284|Fixing the leaky sink|dirtiness +4, a happiness trend of +1, energy -2
+285|Fixing the leaky sink|dirtiness +4, a happiness trend of +1, energy -2
+286|Fixing the shower|dirtiness +4, a happiness trend of +1, energy -2
+287|Fixing the blocked toilet|dirtiness +4, a happiness trend of +1, energy -2
+288|Putting out the laundry fire|dirtiness +4, a happiness trend of +1, energy -2
+289|Fixing the router|a happiness trend of +3
+290|Fixing the computers|a happiness trend of +5
+291|Installing birdbath pump|
+292|Installing birdbath pump|
+293|Searching the shed.|
+294||
+295|Embracing|
+296|Waiting for someone|
+297|Trying to make a baby|dirtiness +8, a happiness trend of +10, energy -8, hunger +5, a try for a baby
+298||
+299|Dancing|
+300|Relaxing|
+302|Watching TV|
+303|Confused|
+306|Found a new item|a happiness trend of +20
+307|Shaking head|
+308|Shaking head|
+309|Caring for baby|
+310|Sitting|
+311|Chatting / Praising|
+312|Thinking|
+313|Drinking rain|
+314|Stomping ants|
+315|Doing aerobics|health +1
+316|Eating|hunger -5, energy -2
+317|Dancing|
+318||
+319||
+320||
+321|A little bit lonely|
+322|Washing baby|
+323|Changing baby|
+324||
+325|Refusing|
+326|Worried about food|
+327|Chillaxing|
+328|Getting out of the rain|
+329|Resting in bed|
+330|Needs to sit down|
+331|Looking for mommy / Looking for daddy|
+332|Looking for mommy|
+333|Playing in puddles|
+334|Secretly practicing a dance|
+335|Playing in the dirt|
+336|Teaching baby words|
+337|Making sandcastles|
+"""
+ACTION_LIST = tuple((int(k), cap, tuple(o for o in outs.split(" || ") if o))
+                    for k, cap, outs in (row.split("|", 2) for row in _ACTIONS.splitlines()))
+ACTIONS_CHOSEN = 186          # actions whose record (0x482120, villager + id * 0xC8 + 0x2C5C) lets the chooser pick them
+
+
+def _actions() -> list[Fact]:
+    g, C = ACTIONS, VERIFIED_C
+    groups: dict[tuple[str, tuple[str, ...]], int] = {}
+    for _, cap, outs in ACTION_LIST:
+        if cap:
+            groups[(cap, outs)] = groups.get((cap, outs), 0) + 1
+    unnamed = [outs for _, cap, outs in ACTION_LIST if not cap]
+    lines = []
+    for (cap, outs), n in groups.items():
+        what = " Or: ".join(outs) if outs else "no need changes"
+        lines.append(f"“{cap}”{f' ({n} actions)' if n > 1 else ''}: {what}.")
+    return [
+        Fact(g, f"The game registers {len(ACTION_LIST)} actions (the code's behaviours). Below, each with every "
+                "need change its code plans, on every path through it (\u201cOr:\u201d separates paths that plan "
+                "different changes). Each planned change applies once, when its step plays; a path that ends early "
+                "(the place taken, the item missing) plans fewer or none. \u201cA happiness trend\u201d is the "
+                "hidden trend of Needs and upkeep; hunger -N also takes N / 2 food from the house, rounded down; "
+                "\u201ca piece of career work\u201d is one work roll (see Careers and promotion); \u201ca try for a "
+                "baby\u201d is the conception roll (see Pregnancy and babies).", C),
+        Fact(g, "Actions with the same caption and the same changes are listed once with how many there are (for "
+                "example the beds' Going to bed). A caption with two names is one the code picks from (for example "
+                "by the family member's sex).", C, sub=True),
+        Fact(g, f"Who chooses them: {ACTIONS_CHOSEN} actions are in each family member's own choice of what to do "
+                "(the weighted draw of Careers and promotion, each action with its own conditions); the others are "
+                "started by the game itself, by items, drops, clicks, events, the weather or other actions.", C,
+             sub=True),
+        *[Fact(g, text, C, sub=True) for text in lines],
+        Fact(g, f"{len(unnamed)} more actions copy no caption of their own: {sum(1 for o in unnamed if not o)} plan "
+                "no need changes (10 of them only start an empty plan)"
+                + ("" if all(not o for o in unnamed) else "; the rest plan: "
+                   + "; ".join(o for outs in unnamed for o in outs)) + ".", C, sub=True),
+        Fact(g, "Testing bevmac chunk is a developer test action left in the game; its own record keeps it out of "
+                "the family members' choice.", C, sub=True),
+        Fact(g, "Virtual Families 2's furniture actions (Playing pachinko, Playing foosball, Playing pool, Playing "
+                "guitar, Playing piano, Hugging the bear and the rest of its placed pieces) and its Petting the pet: "
+                + NOT_IN_VF1 + ".", C),
+    ]
 
 
 def facts() -> list[Fact]:
     """Every line of the page, in GROUPS order."""
     out = (_keys() + _time() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
-           + _leaving() + _marriage() + _events() + _messes() + _collectibles() + _malfunctions() + _store()
-           + _store_food() + _store_meds() + _store_specials() + _store_other() + _home() + _career_rooms()
-           + _patcher_special() + _patcher_menu() + _index())
+           + _leaving() + _marriage() + _events() + _weather() + _messes() + _collectibles() + _malfunctions()
+           + _store() + _store_food() + _store_meds() + _store_specials() + _store_other() + _home()
+           + _career_rooms() + _drops() + _pets() + _clothing() + _trophies() + _actions() + _patcher_special()
+           + _patcher_menu() + _index())
     return sorted(out, key=lambda f: GROUPS.index(f.group))      # stable: the order within a group is kept
 
 
