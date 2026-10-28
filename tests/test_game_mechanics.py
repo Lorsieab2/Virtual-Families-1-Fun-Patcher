@@ -1,4 +1,4 @@
-"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
+﻿"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
 
 The page is VF1's own facts only (docs/game-mechanics/spec.md and the re-checks of 2026-10-25), each line with its
 evidence label beside it, in family words, every time on its clock (real time or game time, with the real time at
@@ -46,7 +46,7 @@ def test_a_fact_with_an_unknown_label_or_group_is_refused():
     with pytest.raises(ValueError):
         gm.Fact(gm.TIME, "x", "VERIFIED")
     with pytest.raises(ValueError):
-        gm.Fact("Weather", "x", gm.VERIFIED_C)
+        gm.Fact("Furniture and Accessories", "x", gm.VERIFIED_C)
 
 
 def test_every_group_has_lines_and_they_come_in_order():
@@ -60,11 +60,14 @@ def test_every_group_has_lines_and_they_come_in_order():
 
 def test_family_words_and_no_virtual_villagers_systems():
     lowered = PAGE.lower().replace("my weather machine", "")       # a VF1 e-mail's own title
+    for quote in ("that villager is dead!", "these villagers are both the same gender."):   # the game's own words
+        lowered = lowered.replace(quote, "")
     for label, _on in gm.PATCH_SETTINGS.values():                  # the patcher's own setting names, as it shows them
         lowered = lowered.replace(label.lower(), "")
     for page in gm.UPGRADES_PAGES:                                 # and its Upgrades menu's page titles
         lowered = lowered.replace(page.lower(), "")
-    for word in ("villager", "tribe", "village", "island", "weather", "mushroom", "tech point", "god power",
+    # VF1's sky is its own (the Weather group, with the owner's names), so "weather" is no longer refused
+    for word in ("villager", "tribe", "village", "island", "mushroom", "tech point", "god power",
                  "heathen", "faith", "puzzle", "golden child"):
         assert word not in lowered, word
     assert "family member" in lowered
@@ -142,10 +145,17 @@ def test_the_extra_food_group_without_a_career_is_shown_as_emulated():
 
 
 def test_unconfirmed_lines_say_what_is_not_known():
-    for pattern in (r"Which label sits beside which bar", r"Which cause the game shows",
-                    r"How often a family member goes to work", r"What the game calls leaving home",
-                    r"Whether the messes owed for the time the game was closed"):
-        assert find(pattern)[0].label == gm.UNCONFIRMED, pattern
+    # settled 2026-10-27 (VF2 parity): each of the old open questions now has its code reading
+    for pattern in (r"^On the info panel each label sits beside its own bar", r"^No cause of death is ever shown",
+                    r"^How often a family member goes to work: going to work is one of the actions",
+                    r"^What the game calls leaving home: nothing is shown",
+                    r"^Messes owed for the time the game was closed appear when it is loaded"):
+        assert find(pattern)[0].label == gm.VERIFIED_C, pattern
+    # only a live game run may leave a line UNCONFIRMED, and then the line says so
+    open_lines = [f for f in FACTS if f.label == gm.UNCONFIRMED]
+    assert len(open_lines) == 2
+    for fact in open_lines:
+        assert "only a live game run shows" in fact.text.lower() and "without running the game" in fact.text
     # settled since: the symptoms' names (the doctor's diagnosis strings) and which career room is which
     names = find(r"^The seven symptoms, as the Doctor Consultation's diagnosis names them", gm.SICKNESS)[0]
     assert names.label == gm.VERIFIED_C and "a skin rash (Cortisone Cream)" in names.text
@@ -157,7 +167,8 @@ def test_unconfirmed_lines_say_what_is_not_known():
         assert not [f for f in FACTS if re.search(gone, f.text)], gone
     # every UNCONFIRMED line says what is not known, never a vague "some" or "etc."
     for fact in FACTS:
-        assert not re.search(r"\b(some|etc|a bit|several|various)\b", fact.text, re.IGNORECASE), fact.text
+        words = re.sub("\u201c[^\u201d]*\u201d", "", fact.text)        # the game's own quoted words are its own
+        assert not re.search(r"\b(some|etc|a bit|several|various)\b", words, re.IGNORECASE), fact.text
 
 
 def test_the_careers_match_the_spec_table():
@@ -169,8 +180,12 @@ def test_the_careers_match_the_spec_table():
         assert career.salaries == tuple(int(x) for x in row[3:11])
     assert {c.room for c in gm.CAREER_LIST[:30]} == {1} and {c.room for c in gm.CAREER_LIST[30:79]} == {2}
     assert {c.room for c in gm.CAREER_LIST[79:]} == {3}
-    listed = [f for f in FACTS if f.group == gm.CAREERS and f.sub]
-    assert len(listed) == 108 and listed[0].text == "Pastry Designer (room 1): 30, 35, 43, 48, 56, 65, 78, 100."
+    listed = [f for f in FACTS if f.group == gm.CAREERS and f.sub and "per hour of game time as a Beginner" in f.text]
+    assert len(listed) == 108 and listed[0].text == ("Pastry Designer (room 1): $7.5 per hour of game time as a "
+                                                     "Beginner, $25 as a Master (levels: 7.5, 8.75, 10.75, 12, 14, "
+                                                     "16.25, 19.5, 25).")
+    for career, fact in zip(gm.CAREER_LIST, listed):       # a quarter of the salary per hour of game time
+        assert f"(levels: {', '.join(f'{s / 4:g}' for s in career.salaries)})" in fact.text
 
 
 def test_every_event_is_listed_once():
@@ -235,7 +250,7 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 69
+    assert len(lines) == 72
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text
@@ -471,29 +486,35 @@ def test_the_nine_settled_actions_items_and_timers():
         r"^Treadmill: ": ("+8 dirtiness and a happiness trend of +4", "a happiness trend of +2 and -8 energy"),
         r"^Radio and MP3 Player: ": ("-4 energy, a happiness trend of +2 and +2 dirtiness", "radio\": a happiness trend of +4"),
         r"^Pinball Machine: ": ("a happiness trend of +5, +1 dirtiness and -3 energy",),
-        r"^Patio Furniture: ": ("change no need or stat",),
+        r"^Patio Furniture: ": ("\"Enjoying the patio\" changes no need or stat",),
         r"^Swimming Pool: ": ("+5 dirtiness, -2 energy and a happiness trend of +3",
                               "+8 dirtiness, -2 energy and a happiness trend of +10",
                               "+2 hunger, -3 energy and a happiness trend of +1"),
-        r"^Hammock: ": ("a happiness trend of -1, and nothing else",),
         r"^Outdoor Barbecue Grill: ": ("-7 hunger and 3 food used, +4 dirtiness, +4 bathroom need and a happiness "
                                        "trend of +4", "+7 dirtiness and a happiness trend of +1"),
         r"^Collection of Paintings: the Magic Fish": ("not in the Fish Tank",),
         r"^Fish Tank: ": ("\"Feeding the fish\": a happiness trend of +4",),
     }
     for pattern, words in activities.items():
-        text = one(pattern, gm.HOME, gm.VERIFIED_E)
+        text = one(pattern, gm.HOME, gm.VERIFIED_C if "Patio" in pattern else gm.VERIFIED_E)
         for w in words:
             assert w in text, (pattern, w)
-    assert "ages 14 to 18" in one(r"^Both only while the sky is sunny", gm.HOME, gm.VERIFIED_C)
+    assert "ages 14 to 18" in one(r"^Both only while the sky is Normal", gm.HOME, gm.VERIFIED_C)
+    # the hammock's two paths (0x45C8F0: gs+0x1B294 is -1 while the hammock is free)
+    hammock = one(r"^Hammock: ", gm.HOME, gm.VERIFIED_C)
+    assert "with nobody in the hammock, +4 dirtiness, a happiness trend of +1 and +2 energy" in hammock
+    assert "with someone already in it, a happiness trend of -1 and nothing else" in hammock
+    assert "-3 energy, a happiness trend of +2 and +2 hunger" in one(r"^Patio Furniture: ", gm.HOME, gm.VERIFIED_C)
+    assert "sunny" not in PAGE.replace("Sunny", "")       # the sky uses the owner's names
     assert "health 300 or more" in one(r"^Both for family members aged 14 or older", gm.HOME, gm.VERIFIED_C)
     assert "Fish Tank's Magic Fish" not in PAGE
     assert "aged 55 or older" in one(r"^Magic Barker and the Loose Screw, the story", gm.STORE_SPECIALS, gm.VERIFIED_C)
     assert "+5 happiness" in one(r"^Magic Barker and the Loose Screw, the story", gm.STORE_SPECIALS, gm.VERIFIED_C)
     assert "cat, dog and turtle" in one(r"^What a pet does for the family: nothing", gm.STORE_SPECIALS, gm.VERIFIED_C)
     sky = one(r"^How long it lasts, on the game clock", gm.STORE_SPECIALS, gm.VERIFIED_E)
-    assert "the rain 392 to 751 game seconds (6 minutes 32 seconds to 12 minutes 31 seconds real time on Normal" in sky
-    assert "the sunshine 932 to 2,431 (15 minutes 32 seconds to 40 minutes 31 seconds real time on Normal" in sky
+    assert "the Stormy sky 392 to 751 game seconds (6 minutes 32 seconds to 12 minutes 31 seconds real time on " \
+           "Normal" in sky
+    assert "the Normal sky 932 to 2,431 (15 minutes 32 seconds to 40 minutes 31 seconds real time on Normal" in sky
     assert (30 + 1 + 360 + 1, 30 + 1 + 719 + 1, 30 + 1 + 900 + 1, 30 + 1 + 2399 + 1) == (392, 751, 932, 2431)
     repair = one(r"^How long a repair takes once the item is in place", gm.STORE_SPECIALS, gm.VERIFIED_E)
     for w in ("The hose needs 1 session", "a floor spot 6 (17 repair steps, 3 a session)", "the wall 12 (2 repair steps",
@@ -601,14 +622,14 @@ def test_the_store_specials_change_every_four_real_hours_at_any_speed():
     # 0x496D80 compares GetSecondsFromGameStart 0x4036D0 (real seconds), not the game clock: 4 h at every speed.
     assert gm.SPECIALS_REAL_SECONDS == 14_400
     assert gm.SPECIALS_REAL == "4 hours real time (at any game speed, also while paused and while the game is closed)"
-    for line in (find(r"^The store: the specials are drawn again when the store page opens more than 4 hours real "
-                      r"time", gm.MONEY)[0],
-                 find(r"^The specials \(six places\): every 4 hours real time", gm.STORE)[0],
-                 find(r"^Store specials: 4 hours real time", gm.INDEX)[0]):
+    for line in (find(r"^The store: the Flea Market is drawn again when the store page opens more than 4 hours "
+                      r"real time", gm.MONEY)[0],
+                 find(r"^The Flea Market \(six places\): every 4 hours real time", gm.STORE)[0],
+                 find(r"^Store Flea Market: 4 hours real time", gm.INDEX)[0]):
         assert "on Normal" not in line.text.split(";")[0] and line.label == gm.VERIFIED_C
     # the half-price grocery stays on the game clock (0x496CD0 reads 0x422320), 0xA8C0 game seconds
     assert gm.SALE_GAME_SECONDS == 43_200
-    assert find(r"^The store: the specials", gm.MONEY)[0].text.endswith(
+    assert find(r"^The store: the Flea Market", gm.MONEY)[0].text.endswith(
         "half price, drawn again when the store page opens more than 12 hours of game time (12 hours real time on "
         "Normal, 24 hours on Slow, 6 hours on Fast) after the last draw.")
     # both are drawn only when the store page opens (0x4498C0 calls 0x496CD0 and 0x496D80), so at the first opening
@@ -630,7 +651,8 @@ def test_every_duration_names_its_clock():
     # "Make sure all the game mechanics data is accurate and specify game time vs real time" (owner, 2026-10-27):
     # every line with a length of time says "real time" or "game time"; a line counting only age units or years
     # needs neither (the Clocks note says what they are).
-    timed = [f for f in FACTS if DURATION.search(f.text)]
+    # the game's own words in curly quotes (a trophy's “24 hour period”) are quoted, not the page's timing
+    timed = [f for f in FACTS if DURATION.search(re.sub("\u201c[^\u201d]*\u201d", "", f.text))]
     assert len(timed) > 60
     for fact in timed:
         assert any(clock in fact.text for clock in CLOCKS), fact.text
@@ -661,7 +683,7 @@ def test_the_clocks_note_explains_both_clocks_and_the_age_units():
 def test_each_timer_is_on_the_clock_its_routine_reads():
     # timer_sites.tsv: which clock each routine calls (0x4036D0 / 0x401F20 real, 0x422320 game)
     real = {"Family update": "seconds of real time", "Wait between babies": "of real time",
-            "Symptom": "of real time", "Food group": "of real time", "Store specials": "real time",
+            "Symptom": "of real time", "Food group": "of real time", "Store Flea Market": "real time",
             "House malfunction": "seconds of real time", "Autosave": "minutes of real time",
             "Day and night": "real time"}
     game = ("Interest", "Event check", "Dating e-mail", "Mess", "Half-price grocery", "Age unit", "Pregnancy",
@@ -672,13 +694,13 @@ def test_each_timer_is_on_the_clock_its_routine_reads():
     for name in game:
         assert "of game time" in index[name], name
     # real-time timers run while paused and while the game is closed; the game clock runs on closed, at Normal
-    for name in ("Wait between babies", "Symptom", "Food group", "Store specials"):
+    for name in ("Wait between babies", "Symptom", "Food group", "Store Flea Market"):
         assert "also while paused and while the game is closed" in index[name], name
     closed = find(r"^Game time also runs while the game is closed", gm.TIME)[0]
     assert closed.label == gm.VERIFIED_C and "a family saved paused keeps its game clock stopped" in closed.text
     paused = find(r"^Paused: the game clock stops", gm.TIME)[0].text
     assert "the store)" not in paused and "the half-price grocery" in paused     # the specials run on real time
-    find(r"^Paused, real time runs on: the store specials", gm.TIME)
+    find(r"^Paused, real time runs on: the store's Flea Market", gm.TIME)
     assert find(r"^Ageing runs on game time", gm.TIME)[0].label == gm.VERIFIED_E
 
 

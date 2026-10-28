@@ -36,7 +36,7 @@ def test_the_group_comes_first_and_is_named_as_the_owner_asked():
 def test_the_store_key_is_a_small_r_once_an_hour_of_real_time_emulated():
     line = find(r"^The store's hidden key: typing a small r while the store page is open")
     assert line.label == gm.VERIFIED_E and not line.sub
-    for words in ("a capital R does nothing", "redraws all six specials at once, for free",
+    for words in ("a capital R does nothing", "redraws all six Flea Market items at once, for free",
                   "new Male Outfit and Female Outfit pictures", "more than 1 hour of real time",
                   "exactly 1 hour after a draw nothing happens; 1 hour and 1 second after, they are redrawn",
                   "4 hours of real time after the key", "at any game speed, also while paused"):
