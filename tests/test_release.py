@@ -97,8 +97,8 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         "vf1_save.py", "vf1_rename_family.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
         "vf1_how_to_use.py", "how_to_use.json", "stub.json",
         "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
-        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_line_colours.py", "vf1_tree_editor_tools.py",
-        "vf1_gdiplus.py",
+        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_relationships.py", "vf1_line_colours.py",
+        "vf1_tree_editor_tools.py", "vf1_gdiplus.py",
         "payload/vf1fun.dll"] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]])
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
