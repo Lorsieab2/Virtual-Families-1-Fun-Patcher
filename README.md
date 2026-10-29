@@ -186,10 +186,21 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     by the spouse's own sex), Remarried, Divorced, Deceased, Adopted, Runner, twins, the Random Event ("Popup
     Event: The Little Visitor"), the career in the game's words ("Career: Pastry Designer, Novice"), Left home.
     A spouse lost before any child is drawn with their partner's couple line.
+    The Family Member Info tab's **Relationships** list names everyone of one kind of relative to the selected
+    member -- parents and children, full and half siblings, twins and triplets, grandparents and grandchildren of
+    any generation ("Great-great-grandmother", then "3× great-grandmother"), aunts, uncles, nieces, nephews,
+    cousins of any degree and removal, half and double forms, partners (the other parent of a child, and a spouse),
+    in-laws and step-relations -- the dead and those no longer in the house marked; click a name to select them
+    (read-only; `patcher/vf1_relationships.py`, a port of the Virtual Villagers tool's). Two living family members
+    with the same name and looks are two people with their own edits (told apart by their place in the save's
+    Family Tree); older edits that cannot be told to be either one's are kept in the file but not shown. A title
+    line you retyped keeps your words with the counts and date of the tree now, and big trees are drawn faster
+    with the same picture.
     Saves and logs are only read; the tree keeps its own tree file per save. Its ready-made backgrounds and logos
     are the owner's pictures in `patcher/tree_pictures`. Modules `patcher/vf1_genealogy.py`,
     `vf1_family_history.py`, `vf1_tree_memory.py`, `vf1_family_tree*.py` and helpers; tests
-    `tests/test_family_tree.py`, `tests/test_family_tree_memory.py`.
+    `tests/test_family_tree.py`, `tests/test_family_tree_memory.py`, `tests/test_relationships.py`,
+    `tests/test_tree_living_namesakes.py`, `tests/test_tree_big_speed.py`.
   - Every button, patch and setting has a small **"?"** beside it that opens a brief How to Use guide, written
     in `patcher/how_to_use.json`; `tests/test_how_to_use.py` refuses a patch or button without one. The
     Tools tab's *Getting started* link opens the overview.

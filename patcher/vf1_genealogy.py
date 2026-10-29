@@ -93,6 +93,12 @@ class Person:
     left_how: str = ""                  # how they left home, as the Family History log says
     unknowns: list[str] = field(default_factory=list)   # what the records do not say (shown, never guessed)
     sources: list[str] = field(default_factory=list)    # where each fact came from
+    # Living namesakes (two living family members of one name, head and body): 1 the oldest, 2 the next...; 0
+    # none.  What tells them apart for good (their seat in the save's Family Tree), and what their tree edits'
+    # key adds to "name|head|body" while they have a living namesake (mark_namesakes, vf1_family_tree.entry_key).
+    namesake_rank: int = 0
+    marker: str = ""
+    edit_suffix: str = ""
 
     @property
     def key(self) -> Key:
@@ -542,6 +548,28 @@ def finish(village: Village) -> None:
     """Each member's generation and number (after the Family History and the tree file added what they know)."""
     _generations(village)
     number_people(village)
+    mark_namesakes(village)
+
+
+def mark_namesakes(village: Village) -> None:
+    """LIVING NAMESAKES (a port of the Virtual Villagers Fun Patcher v1.35.85): two living family members of one
+    name, head and body are two people, each with their own edits on the tree.  The family itself never mixes
+    them up -- each is their own seat in the save's Family Tree, and a child's parents are the couple of their
+    generation's record, never a name -- so only the tree's edits need telling apart: by the seat (`marker`),
+    which stays theirs as they age and as others die, and by the place by age only between two who share it."""
+    groups: dict[Key, list[Person]] = {}
+    for p in village.people.values():
+        p.namesake_rank, p.marker, p.edit_suffix = 0, p.seat or "?", ""
+        if p.alive and not p.upcoming:
+            groups.setdefault(p.key, []).append(p)
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda q: (-(q.age or 0), q.order_key(), q.id))
+        markers = [q.marker for q in members]
+        for rank, q in enumerate(members, 1):
+            q.namesake_rank = rank
+            q.edit_suffix = f"|{q.marker}" + (f"|{rank}" if markers.count(q.marker) > 1 else "")
 
 
 def _parents_by_sex(people: dict[int, Person], couple: list[int]) -> tuple[int | None, int | None]:
