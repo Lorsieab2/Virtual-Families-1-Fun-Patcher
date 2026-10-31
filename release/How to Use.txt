@@ -212,6 +212,26 @@ Next to the Patches tab is a Tools tab for your family saves.
                     own code was run), VERIFIED-C (read in the game's own
                     code) or UNCONFIRMED. It only reads: nothing is opened
                     or changed, so the game can stay open.
+  Picture Maker     Draws your family exactly as the game draws them and
+                    saves the pictures as PNGs with a clear background.
+                    Pick the game folder (its own pictures are used; none
+                    ship with the patcher), then:
+                    From my save: pick the save folder and the family;
+                    click anyone to see them as they look now (age, hair
+                    and face, outfit, a baby on the way), in the house in
+                    any pose, or as the big portrait of the Adoption and
+                    Dating screens. The outfits in the store and the tool
+                    tray are listed too (with Fix Vanilla Game Bugs each
+                    tray outfit keeps its own picture, as in the game).
+                    Make your own: pick gender, age (each year under 14 is
+                    drawn smaller; from 45 the older hair pictures),
+                    hair and face 0-49, outfit 0-49, pose, direction, head
+                    turn, babies on the way, something carried, shadow,
+                    ghost, and the game folder's, the stock or the
+                    patcher's own pictures.
+                    Save PNG: the game's size, 2x, 4x or your own width
+                    and height, with or without a small margin. Saves and
+                    game files are only read.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).

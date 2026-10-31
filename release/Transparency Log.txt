@@ -154,6 +154,9 @@ Shipped beside the patcher, never copied into the game
   virtual-families-2-logo.png
   virtual-families-logo.png
   wood-and-magnifier.png
+- The Picture Maker (Tools tab) ships no game pictures: it reads the chosen game folder's Images and
+  Assets\animpts.dat, and the saves, at the time it draws (the patched look of what is carried uses the
+  patcher's own payload pictures). It writes only the PNG pictures you save, where you choose.
 
 Settings and defaults
 ---------------------

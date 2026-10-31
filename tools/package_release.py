@@ -17,7 +17,8 @@ patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the tw
   manifest.json, vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
   vf1_save.py, vf1_rename_family.py (Rename Family), vf1_copy_slot.py (Copy Player Slot),
   vf1_game_speed.py (Game Speed),
-  vf1_game_mechanics.py (Game Mechanics),
+  vf1_game_mechanics.py (Game Mechanics), the Picture Maker (vf1_picture_maker.py, vf1_people_pictures.py,
+  vf1_picture_image.py),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_relationships.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
@@ -90,6 +91,9 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_copy_slot.py": (ROOT / "patcher" / "vf1_copy_slot.py").read_bytes(),
         "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
         "vf1_game_mechanics.py": (ROOT / "patcher" / "vf1_game_mechanics.py").read_bytes(),
+        "vf1_picture_maker.py": (ROOT / "patcher" / "vf1_picture_maker.py").read_bytes(),
+        "vf1_people_pictures.py": (ROOT / "patcher" / "vf1_people_pictures.py").read_bytes(),
+        "vf1_picture_image.py": (ROOT / "patcher" / "vf1_picture_image.py").read_bytes(),
         "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
         "vf1_genealogy.py": (ROOT / "patcher" / "vf1_genealogy.py").read_bytes(),
         "vf1_family_history.py": (ROOT / "patcher" / "vf1_family_history.py").read_bytes(),

@@ -1574,6 +1574,9 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
     ]
     lines += [f"  {path.name}" for path in sorted(TREE_PICTURES.glob("*.png"))]
     lines += [
+        "- The Picture Maker (Tools tab) ships no game pictures: it reads the chosen game folder's Images and",
+        "  Assets\\animpts.dat, and the saves, at the time it draws (the patched look of what is carried uses the",
+        "  patcher's own payload pictures). It writes only the PNG pictures you save, where you choose.",
         "",
         "Settings and defaults",
         "---------------------",

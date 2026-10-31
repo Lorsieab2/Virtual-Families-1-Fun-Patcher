@@ -192,6 +192,24 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     proposed lines held and which were left out. It opens no save, game file or install and writes nothing.
     Module `patcher/vf1_game_mechanics.py` (`python patcher/vf1_game_mechanics.py` prints the page), tests
     `tests/test_game_mechanics.py`.
+  - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
+    save* lists a save's family members (at home, then those who left home) and the outfits in the store and the
+    tool tray, and draws each as the game would now: their age, hair and face (head row), outfit (body row) and the
+    babies they are expecting; a tray outfit uses the outfit fix's own picture when its sidecar matches the save
+    (the patched look), else the stock game's last-bought one. *Make your own* builds anyone from gender, age, head
+    0-49, body 0-49, any of the 56 house poses (32 walking frames in 4 directions, 15 actions, 9 sitting or lying),
+    12 head turns, shadow, ghost, babies on the way and any of the 149 carried pictures, or the big portrait of the
+    Adoption, Dating and family member screens (3 expressions), or an outfit as the store shows it; with the game
+    folder's own pictures, the stock ones (Original Files) or the patcher's own (payload). PNGs are transparent,
+    at game size, 2x, 4x or a custom size. Every rule comes from the game's own draw code (CVillagerManager
+    0x48B4D0, CVillager 0x486B60, 0x496A10, Assets\animpts.dat and the loader 0x450F99, the blitter 0x404C30), and
+    `tests/test_picture_maker.py` proves it with `tests/picture_emu.py`: the game's own drawing code runs in
+    Unicorn on the vanilla exe and every planned draw (file, cell, place, scale, alpha) must equal the game's, at
+    both 53- and 64-bit x87 precision; the game's blitter draws children, ghosts and outfits over three colours and
+    the renderer's pixels must make the same screen; and an adult's PNG must equal a Pillow composite of the cells
+    at the emulated game's places. No game art ships; the pictures are read from the game folder when drawn.
+    Modules `patcher/vf1_picture_maker.py` (window), `patcher/vf1_people_pictures.py` (renderer),
+    `patcher/vf1_picture_image.py` (image, PNG, the game's blitter).
   - **Family Tree Maker:** draws a family's tree from its save, with each face from the game, and lets you mark,
     colour, arrange and export it (PNG or JPG); it is the Virtual Villagers Fun Patcher's Family Tree Maker
     (matched to its main at cdcface3: no job or skill lines on portraits). With the Family History Log it also
