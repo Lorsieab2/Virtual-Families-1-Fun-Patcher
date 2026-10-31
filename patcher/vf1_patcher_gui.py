@@ -1558,6 +1558,8 @@ class VF1PatcherGUI:
         self._help_button(family, "family_tree").pack(side="left", padx=(3, 0))
         self._link(family, "Game Mechanics...", self.game_mechanics).pack(side="left", padx=(18, 0))
         self._help_button(family, "game_mechanics").pack(side="left", padx=(3, 0))
+        self._link(family, "Picture Maker...", self.picture_maker).pack(side="left", padx=(18, 0))
+        self._help_button(family, "picture_maker").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -2146,6 +2148,25 @@ class VF1PatcherGUI:
         window = game_mechanics.open_window(self.root)
         window.transient(self.root)
         self._game_mechanics_window = window
+        return window
+
+    # ------------------------------------------------------------------ Picture Maker
+
+    def picture_maker(self):
+        """The family drawn as the game draws them, saved as PNGs (patcher/vf1_picture_maker.py). It only reads
+        the saves and the game folder.  The save folders are the Tools tab's (and the stock game's); the game
+        folders the patcher's modded output and vanilla folders."""
+        import vf1_picture_maker as picture_maker
+        _documents, folders = self._save_folders()
+        documents = save_backup.documents_folder()
+        stock = documents / "LDW" / "Virtual Families" if documents is not None else None
+        if stock is not None and stock.is_dir() and stock not in folders:
+            folders.append(stock)
+        games = [clean_path_text(var.get()) for var in (self.output_dir_var, self.game_dir_var)]
+        window = picture_maker.open_window(
+            self.root, save_folders=folders, game_folders=[Path(g) for g in games if g], hold=self._hold,
+            show_help=lambda: self._show_how_to_use("picture_maker"))
+        window.window.transient(self.root)
         return window
 
     # ------------------------------------------------------------------ Game Speed

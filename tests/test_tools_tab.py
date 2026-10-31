@@ -386,7 +386,7 @@ def test_the_tools_tab_is_laid_out_as_the_virtual_villagers_patchers(app):
     tools = app.root.nametowidget(app.sections.tabs()[1])
     links = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabel" and str(w.cget("style")) == "Link.TLabel"]
     assert links == ["Back Up Saves", "Restore Saves...", "Rename Family...", "Game Speed...", "Family Tree Maker...",
-                     "Game Mechanics...", "Getting started"]
+                     "Game Mechanics...", "Picture Maker...", "Getting started"]
     assert "Refresh" not in text_of(tools)
     boxes = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabelframe"]
     assert boxes == [gui.TOOLS_GAME_TITLE, "How to Use"]
