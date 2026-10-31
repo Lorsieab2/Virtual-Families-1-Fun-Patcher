@@ -1,6 +1,6 @@
 """The Family History log, when the Family History Log patch wrote one: every family event, which the save forgets
 and the Family Tree Maker needs (docs/FAMILY_HISTORY.md; native/vf1logs/vf1logs.cpp writes every record read here,
-and Rename Family its "Family Renamed" record).  Optional: the tree works from the save alone when there is no log,
+Rename Family its "Family Renamed" record and Copy Player Slot its "Family Copied" record).  Optional: the tree works from the save alone when there is no log,
 and then says what is not known.  Only read.
 
     <save folder>\\Virtual Families 1 Patcher\\Save <N>\\Logs\\Family History\\Family History <k>.txt
@@ -9,7 +9,7 @@ Each record is the Virtual Villagers patcher's layout: a heading "[YYYY-MM-DD HH
 "[backfilled, no date] Family Tree <g>" for what the save's Family Tree held when the log began), then
 "  Label: value" lines, a family member's own lines one step further in ("    Sex: Female"), then a blank line.
 The kinds: Conception, Birth, Death, Marriage, Divorce, Arrived, Left Home, Generation, New Generation, Random
-Event (an "Email Event" or a "Popup Event"), Roll the Dice, Evict Family, Start Over, Family Renamed, Family Tree.
+Event (an "Email Event" or a "Popup Event"), Roll the Dice, Evict Family, Start Over, Family Renamed, Family Copied, Family Tree.
 Only the records after the last Evict Family belong to the family in the save.
 """
 from __future__ import annotations
@@ -191,7 +191,7 @@ def _take(h: History, e: Entry) -> None:
         for label, value, _sub in e.fields:
             if label in EVENT_KINDS:
                 h.events.append(Event(label, value, e.get("Choice"), e.when))
-    elif e.kind == "Family Renamed":
+    elif e.kind in ("Family Renamed", "Family Copied"):     # a copy is a new name for the same family
         h.renames.append((e.get("Old name", ""), e.get("New name", "")))
 
 

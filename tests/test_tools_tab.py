@@ -314,6 +314,133 @@ def test_a_running_game_is_reported_and_nothing_changes(app, save, monkeypatch):
     dialog.destroy()
 
 
+# ------------------------------------------------------------------ Copy Player Slot
+
+
+def copy_form_saves(save):
+    """Smith in Save 1, Jones in Save 2, Saves 3 to 5 empty (their menu flags clear)."""
+    import vf1_copy_slot as cs
+    from test_rename_family import options_bytes, slot_bytes
+    (save / "Virtual Families1.ldw").write_bytes(slot_bytes("Smith"))
+    (save / "Virtual Families2.ldw").write_bytes(slot_bytes("Jones"))
+    options = bytearray(options_bytes(["Smith", "Jones", "", "", ""]))
+    for slot in (1, 2):
+        options[cs._used_offset(bytes(options), slot)] = 1
+    (save / "Virtual Families0.ldw").write_bytes(bytes(options))
+
+
+def test_copy_player_slot_is_on_the_tools_tab_with_a_question_mark(app):
+    tools = app.root.nametowidget(app.sections.tabs()[1])
+    assert "Copy Player Slot..." in text_of(tools) and "copy_player_slot" in app.help_keys
+
+
+def test_copy_player_slot_without_family_saves_says_so(app, save):
+    app.copy_player_slot()
+    assert app.shown[-1][0] == "showinfo" and "No modded family saves" in app.shown[-1][1][1]
+
+
+def test_copy_player_slot_asks_then_copies_and_reports(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    import vf1_rename_family as rf
+    copy_form_saves(save)
+    asked = []
+    monkeypatch.setattr(app, "_ask_copy", lambda parent, text: asked.append(text) or True)
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    assert dialog._vf1_folder_box.get() == "Virtual Families - Modded"
+    assert dialog._vf1_source_list.get(0, "end") == ("Save 1: Smith", "Save 2: Jones")
+    assert dialog._vf1_target_list.get(0, "end") == ("Save 3: (empty)", "Save 4: (empty)", "Save 5: (empty)")
+    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
+    assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
+    dialog._vf1_name_var.set("x" * 20)
+    assert "too long" in dialog._vf1_problem_var.get() and str(dialog._vf1_copy_button.cget("state")) == "disabled"
+    dialog._vf1_choose(1, 1)
+    dialog._vf1_name_var.set("Jones Two")
+    assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_copy_button.cget("state")) == "normal"
+    dialog._vf1_start()
+    assert asked == [gui.copy_prompt_text("Jones", 2, 4, "Jones Two", save)]
+    assert dialog.winfo_exists()
+    names = {s.slot: s.name for s in cs.read_slots(save)}
+    assert names[4] == "Jones Two" and names[2] == "Jones" and names[1] == "Smith"
+    assert app.status_var.get() == "Copy Player Slot: Jones was copied to Save 4 as Jones Two."
+    assert app.shown[-1][0] == "showinfo" and "(before copy)" in app.shown[-1][1][1]
+    assert dialog._vf1_source_list.get(0, "end")[-1] == "Save 4: Jones Two"
+    assert dialog._vf1_target_list.get(0, "end") == ("Save 3: (empty)", "Save 5: (empty)")
+    assert sb.list_backups(save)[0].before_copy
+    dialog.destroy()
+
+
+def test_copy_player_slot_with_no_empty_slot_says_so(app, save):
+    import vf1_copy_slot as cs
+    copy_form_saves(save)
+    options = bytearray((save / "Virtual Families0.ldw").read_bytes())
+    for slot in (3, 4, 5):
+        options[cs._used_offset(bytes(options), slot)] = 1
+    (save / "Virtual Families0.ldw").write_bytes(bytes(options))
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_name_var.set("Other")
+    assert "Every save slot is in use" in dialog._vf1_problem_var.get()
+    assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
+    dialog.destroy()
+
+
+def test_the_copy_prompt_names_everything_and_no_is_the_default(app, save):
+    text = gui.copy_prompt_text("Smith", 1, 4, "Smith Two", save)
+    assert text.startswith('Copy the family "Smith" from Save 1 into Save 4, as "Smith Two"?')
+    assert f"Save folder: {save}" in text and "backed up first" in text and "(before copy)" in text
+    host = tk.Toplevel(app.root)              # a shown window, as the Copy Player Slot window is
+    host.update()
+    for key in ("<Return>", "<Escape>"):
+        prompt = app._copy_prompt(host, text)
+        prompt.update()
+        assert prompt._vf1_text == text and str(prompt._vf1_no.cget("default")) == "active"
+        prompt._vf1_no.focus_force()          # a key goes to the window with the focus
+        prompt.update()
+        assert prompt.focus_get() is prompt._vf1_no
+        prompt._vf1_no.event_generate(key)
+        prompt.update()
+        assert prompt._vf1_answer == {"yes": False} and not prompt.winfo_exists()
+    prompt = app._copy_prompt(host, text)
+    prompt._vf1_yes.invoke()
+    assert prompt._vf1_answer == {"yes": True}
+    host.destroy()
+
+
+def test_copy_player_slot_declined_or_running_changes_nothing(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    copy_form_saves(save)
+    before = snapshot(save)
+    asked = []
+
+    host = tk.Toplevel(app.root)              # shown, so the prompt can take the focus (the tests' window is hidden)
+    host.update()
+
+    def say_no(parent, text):                 # the real prompt, answered with Return (No, the default)
+        prompt = app._copy_prompt(host, text)
+        asked.append(prompt._vf1_text)
+        prompt._vf1_no.focus_force()
+        prompt.update()
+        prompt._vf1_no.event_generate("<Return>")
+        prompt.update()
+        assert not prompt.winfo_exists()      # Return closed it
+        return prompt._vf1_answer["yes"]
+
+    monkeypatch.setattr(app, "_ask_copy", say_no)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_name_var.set("Nope")
+    dialog._vf1_start()
+    assert asked == [gui.copy_prompt_text("Smith", 1, 3, "Nope", save)]
+    assert snapshot(save) == before and not (save / "Backups").exists() and dialog.winfo_exists()
+    monkeypatch.setattr(app, "_ask_copy", lambda parent, text: True)
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", Running)
+    dialog._vf1_start()
+    assert snapshot(save) == before and not (save / "Backups").exists()
+    assert app.shown[-1][0] == "showerror" and "Close the game first" in app.shown[-1][1][1]
+    assert app.status_var.get() == "Copy Player Slot: nothing was copied."
+    dialog.destroy()
+    host.destroy()
+
+
 # ------------------------------------------------------------------ Game Speed
 
 
@@ -385,7 +512,7 @@ def test_the_tools_tab_is_laid_out_as_the_virtual_villagers_patchers(app):
     the next, each link with its "?"; no Refresh link (the line is read again whenever the tab is shown)."""
     tools = app.root.nametowidget(app.sections.tabs()[1])
     links = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabel" and str(w.cget("style")) == "Link.TLabel"]
-    assert links == ["Back Up Saves", "Restore Saves...", "Rename Family...", "Game Speed...", "Family Tree Maker...",
+    assert links == ["Back Up Saves", "Restore Saves...", "Rename Family...", "Copy Player Slot...", "Game Speed...", "Family Tree Maker...",
                      "Game Mechanics...", "Getting started"]
     assert "Refresh" not in text_of(tools)
     boxes = [w.cget("text") for w in walk(tools) if w.winfo_class() == "TLabelframe"]

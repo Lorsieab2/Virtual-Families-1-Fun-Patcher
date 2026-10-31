@@ -91,6 +91,11 @@ after 2000 records the next one opens file `<k+1>`. The slot is theGameState+0x1
   Old name: Smith
   New name: Brand New
 
+[...] Family Copied 1          (written by Copy Player Slot at the end of the copy's newest file)
+  Copied from: Save 1
+  Old name: Smith
+  New name: Smith Two
+
 [backfilled, no date] Family Tree 1      (an existing family's first load, once: what the save's tree holds)
   Parent: Ann                    (Sex, Head, Body one step in; "    Died: yes" for a slot of -1)
   Parent (married in): Bob

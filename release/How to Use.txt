@@ -184,6 +184,17 @@ Next to the Patches tab is a Tools tab for your family saves.
                     they are now are backed up first (as "Backup <date>
                     (before restore)"), so a restore can be undone.
                     Delete Backup removes a backup you no longer want.
+  Copy Player Slot  Quit the game first. Pick a family, an empty save
+                    slot and a new name (1 to 19 characters), then Copy.
+                    It asks first (Yes / No; Return or Escape mean No).
+                    The family is copied into that slot with everything
+                    the patcher keeps for it (its Family History log,
+                    Family Tree, extra children and outfit pictures); the
+                    family you copied is not changed. Your saves are
+                    backed up first (as "Backup <date> (before copy)").
+                    A slot in use is never written: delete a family in the
+                    game to free one (anything it left behind is cleared,
+                    and kept in the backup).
   Game Speed        Quit the game first. Pick a save (each shows its speed
                     now) and choose Paused or Normal. Paused works as if you
                     paused just before the game last saved; Normal as if you
