@@ -271,6 +271,7 @@ INCOMPLETE = " INCOMPLETE"
 BEFORE_RESTORE = "(before restore)"
 BEFORE_RENAME = "(before rename)"
 BEFORE_SPEED_CHANGE = "(before speed change)"   # Game Speed makes this backup before it writes the new speed
+BEFORE_COPY = "(before copy)"   # Copy Player Slot makes this backup before it writes the copy
 DELETE_ATTEMPTS = 5
 DELETE_RETRY_SECONDS = 0.5
 
@@ -744,7 +745,7 @@ def describe_size(size: int) -> str:
 # ---------------------------------------------------------------------------
 
 _BACKUP_NAME = re.compile(
-    r"^Backup (\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2})(?: \((\d+)\))?(?: (\(before restore\)|\(before rename\)|\(before speed change\)))?$"
+    r"^Backup (\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2})(?: \((\d+)\))?(?: (\(before restore\)|\(before rename\)|\(before speed change\)|\(before copy\)))?$"
 )
 # "Virtual Families3.ldw" (the slot save), its sidecar "...3.ldw.dat" and "...3.ldw.unreadable-K.dat".
 # Files N+20 and N+40 are the game's two older autosave copies of slot N, so they belong to
@@ -766,6 +767,7 @@ class BackupInfo:
     slots: list[int]     # the save slots whose own save file is in the backup
     before_rename: bool = False
     before_speed_change: bool = False
+    before_copy: bool = False
 
     @property
     def label(self) -> str:
@@ -776,11 +778,13 @@ class BackupInfo:
             text += " " + BEFORE_RENAME
         elif self.before_speed_change:
             text += " " + BEFORE_SPEED_CHANGE
+        elif self.before_copy:
+            text += " " + BEFORE_COPY
         return text
 
 
 def _parse_backup_name(name: str) -> tuple[datetime, int, str] | None:
-    """(when, sequence, label) -- the label "", BEFORE_RESTORE, BEFORE_RENAME or BEFORE_SPEED_CHANGE."""
+    """(when, sequence, label) -- the label "", BEFORE_RESTORE, BEFORE_RENAME, BEFORE_SPEED_CHANGE or BEFORE_COPY."""
     match = _BACKUP_NAME.match(name)
     if not match:
         return None
@@ -848,7 +852,7 @@ def list_backups(save_folder: Path) -> list[BackupInfo]:
         size = sum((entry / relative).stat().st_size for relative in files)
         found.append((when, sequence, BackupInfo(
             entry, when, label == BEFORE_RESTORE, len(files), size, slots_in(entry),
-            label == BEFORE_RENAME, label == BEFORE_SPEED_CHANGE)))
+            label == BEFORE_RENAME, label == BEFORE_SPEED_CHANGE, label == BEFORE_COPY)))
     found.sort(key=lambda item: (item[0], item[1]), reverse=True)
     return [info for _when, _sequence, info in found]
 

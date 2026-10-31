@@ -50,7 +50,19 @@ and differ in the others (a quit was last); N+40, where present, always differs 
 | `...\Children\Virtual Families<n>.ldw.unreadable-<k>.dat` | the same slot | vf1kids MoveAside: a damaged or foreign sidecar set aside, never deleted. |
 | `Virtual Families 1 Patcher Data\Outfits\Virtual Families<N>.ldw.dat`, N = 1..5 | slot N | `native/vf1fun/outfits.inc` (Fix Vanilla Game Bugs): each tray place's own outfit picture, written after `theGameState::Save(slot)` for `slot` 1..5 only (once an outfit's picture is known, or to keep an existing file up to date), read after Load(1..5). It names the tray (gs+0xDBCC) and the inventory's outfit fields (+0x108..+0x118) it was written with and is used only while the loaded save holds exactly those; never rotated. A damaged one becomes `...ldw.unreadable-<k>.dat`, never deleted. |
 
-`vf1_save.file_owner(relative_path)` implements exactly this table.
+`vf1_save.file_owner(relative_path)` implements exactly this table. Beside it the slot has its own folder,
+`Virtual Families 1 Patcher\Save <N>\` (vf1logs: `Logs\Family History\Family History <k>.txt`; the Family Tree
+Maker: `Data\Family Tree\...` and the page and pictures in `Family Tree\`), which `patcher/vf1_copy_slot.py`
+(Copy Player Slot) copies with the rest of the slot.
+
+**The slot menu's in-use flags (VERIFIED in the vanilla exe, traced for Copy Player Slot).** The options block
+keeps one byte per slot at gs+0x1B1FB + (N - 1) (file offset `header size + 0x73 + (N - 1)`). The slot menu draws
+slot N's name only when its byte is set (0x41BB1A / 0x41BBBC / 0x41BC5E / 0x41BD01 / 0x41BDBD `cmp byte [..], 0`)
+and otherwise shows the slot as empty; starting a new family in slot N sets it to 1 (0x41C1A7 / 0x41C1F3 /
+0x41C243 / 0x41C293 / 0x41C2E0, beside the name copied to gs+0x1B192 + 0x15 x (N - 1)); deleting a family clears
+it (0x41BF29 ..) and deletes only `Virtual Families<N>.ldw` (0x41BF75 -> 0x423950 -> 0x4038F0 DeleteFileA), so
+`<N+20>`, `<N+40>` and every patcher file of a deleted family stay behind. Copy Player Slot treats a slot as empty
+only when its byte is 0 and `Virtual Families<N>.ldw` is missing, and sets the byte for the slot it fills.
 
 **Slot-menu names (VERIFIED against five real folders, copies only).** In `Virtual Families0.ldw` the name of slot N
 is the NUL-terminated string at file offset `header size + 0xA + 0x15 x (N - 1)` (gs+0x1B192 + 0x15 x (N - 1) minus
