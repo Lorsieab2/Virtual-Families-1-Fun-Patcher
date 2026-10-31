@@ -15,7 +15,8 @@ and one folder, "Virtual Families 1 Fun Patcher Files" (vf1_patcher.BUNDLE_FOLDE
 patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the two .bat files run from it:
 
   manifest.json, vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
-  vf1_save.py, vf1_rename_family.py (Rename Family), vf1_game_speed.py (Game Speed),
+  vf1_save.py, vf1_rename_family.py (Rename Family), vf1_copy_slot.py (Copy Player Slot),
+  vf1_game_speed.py (Game Speed),
   vf1_game_mechanics.py (Game Mechanics), the Picture Maker (vf1_picture_maker.py, vf1_people_pictures.py,
   vf1_picture_image.py),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
@@ -87,6 +88,7 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_save_backup.py": (ROOT / "patcher" / "vf1_save_backup.py").read_bytes(),
         "vf1_save.py": (ROOT / "patcher" / "vf1_save.py").read_bytes(),
         "vf1_rename_family.py": (ROOT / "patcher" / "vf1_rename_family.py").read_bytes(),
+        "vf1_copy_slot.py": (ROOT / "patcher" / "vf1_copy_slot.py").read_bytes(),
         "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
         "vf1_game_mechanics.py": (ROOT / "patcher" / "vf1_game_mechanics.py").read_bytes(),
         "vf1_picture_maker.py": (ROOT / "patcher" / "vf1_picture_maker.py").read_bytes(),

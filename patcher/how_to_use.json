@@ -289,6 +289,17 @@
         "The Family History log, if the family has one, gets a record saying the family was renamed. Old log files keep their old name."
       ]
     },
+    "copy_player_slot": {
+      "title": "Copy Player Slot",
+      "guide": [
+        "Copies a family into an empty save slot under a new name. The family you copy is not changed.",
+        "Quit the game first, from its own menu. Click Copy Player Slot..., pick the family, pick an empty slot, type the new name (1 to 19 characters), then Copy and answer Yes.",
+        "Everything the patcher keeps for the family goes with it: its Family History log, Family Tree, extra children and outfit pictures.",
+        "Your saves are backed up first, as \"Backup <date> (before copy)\", so it can be undone with Restore Saves.",
+        "A slot already in use is never offered. To free one, delete a family in the game. Anything it left behind is cleared, and kept in the backup.",
+        "The copy's Family History log gets a record saying where it was copied from. Old log files keep their old name."
+      ]
+    },
     "game_speed": {
       "title": "Game Speed",
       "guide": [

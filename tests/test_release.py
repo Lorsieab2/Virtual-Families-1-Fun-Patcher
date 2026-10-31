@@ -94,7 +94,7 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
     folder, names = bundle
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(PLAYER_FILES + [f"{FILES}/{n}" for n in [
         "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
-        "vf1_save.py", "vf1_rename_family.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
+        "vf1_save.py", "vf1_rename_family.py", "vf1_copy_slot.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
         "vf1_picture_maker.py", "vf1_people_pictures.py", "vf1_picture_image.py",
         "vf1_how_to_use.py", "how_to_use.json", "stub.json",
         "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
