@@ -122,6 +122,11 @@ gives that outfit. The pictures are kept in the patcher's own file beside
 each save ("Virtual Families 1 Patcher Data\Outfits"); the save itself is not
 changed, and outfits bought before the fix keep the game's own picture.
 
+It also stops the Bank from closing the game: in the original game, a family
+with $0.42 or less whose members earn no pay crashed the game the moment the
+Bank button was clicked (its "Next 7 Days" chart divided by zero). Now the
+chart's bars are simply empty; every other chart looks exactly as before.
+
 R Refreshes the Store (on by default): in the store, press R (small r or
 capital R) to redraw the store's Flea Market, its six random items (the
 game's code calls them the specials), and the random Male Outfit and Female

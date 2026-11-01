@@ -1167,6 +1167,18 @@ def _money() -> list[Fact]:
         Fact(g, "Interest is paid when the family's happiness updates (every 3 age units), and when the bank, the "
                 "store or an event checks it.", C),
         Fact(g, "Paused, no interest builds up: it runs on game time.", C),
+        Fact(g, "The bank's Next 7 Days chart (its days are game days, game time): each bar is that projection of "
+                "the money (the first: the money now plus 10% interest, $0.005 and the family's pay; each next one: "
+                "1.1 times the one before plus the pay) times 140, divided by 1.2 times the last projection, whole "
+                "numbers only. A family with $0.42 or less and "
+                "nobody earning pay makes that divisor 0, and the game closes with an error the moment the Bank "
+                "button is clicked (checked: $0, $0.39 and $0.423 with no pay fault; $0.424, $1 or any pay draw "
+                "the chart).", E),
+        Fact(g, with_patcher("FixVanillaGameBugs", "with that divisor 0 the chart draws its seven bars empty instead "
+                                                   "of closing the game; every other chart is drawn exactly as "
+                                                   "before (checked: $0, $0.39 and $0.423 with no pay draw empty "
+                                                   "bars; $1, $0.424, pay 1 and pay 10 draw the same pixels as "
+                                                   "the original game)."), E, sub=True),
         Fact(g, "Virtual Families 2's limit of 2 missed game days of interest: " + NOT_IN_VF1 + ".", C, sub=True),
         Fact(g, f"The store: the Flea Market is drawn again when the store page opens more than {SPECIALS_REAL} "
                 "after the last draw; one grocery bag is half price, drawn again when the store page opens more "

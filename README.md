@@ -126,6 +126,10 @@ Six settings change the base game on their own (plus the optional ones below):
   own picture in the tray and puts on that outfit (the original game showed and
   put on the last one bought for every outfit of a kind; the pictures are kept in
   `Virtual Families 1 Patcher Data\Outfits` beside each save, and the save is not changed).
+  The bank no longer closes the game for a family with $0.42 or less whose members earn no
+  pay: the original game's Next 7 Days chart divided by 0 there (0x415392); now it draws its
+  bars empty, and every other chart is drawn exactly as before (`tests/test_bank_chart_fix.py`
+  runs the game's code and the fix in Unicorn).
 - **Up to 28 Children** (in the patcher's own **Experimental** section, red heading, after Optional
   Patches, with the warning "Experimental: not yet tested in a running game. Back up your saves before using it."; off by default, and Select All Patches, Owner's Defaults and `--enable-all` leave it off,
   so it is only ever ticked deliberately): one generation may have up to 28 children instead of
