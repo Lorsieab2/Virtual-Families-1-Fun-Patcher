@@ -17,10 +17,13 @@ How the game does it (the vanilla Virtual Families.exe 1.01.00):
   onto a new row (0x402858..0x4028B9); in the four strips nothing runs past, so the rectangles are the
   table's own.  A character with no row (0x00..0x1F, 0x80..0xA1) draws the table's first glyph, "!"
   (0x4028BB..0x4028F1 leaves its slot at 0).
-* theGraphicsManager 0x44FC90 makes the four fonts into its font list (+0 Bold 18, +4 Bold 17, +8 Bold 24,
-  +0xC Segoe UI 33) and makes Bold 24 the window's default font (0x44FD63 -> 0x4083F0).  The game reads the
-  list back only at +0 (Bold 18, at every reachable read) and +8 (that one default): Bold 17 and Segoe UI 33
-  are loaded but never drawn.
+* The font maker 0x44FC90 puts the four fonts in the font list of the singleton 0x450530 ([0x570218]): +0
+  Bold 18, +4 Bold 17, +8 Bold 24, +0xC Segoe UI 33, and makes Bold 24 the window's default font (0x44FD63 ->
+  0x4083F0).  The game reads the list back at +0 (Bold 18, everywhere else), +4 (Bold 17: only the getter
+  0x4173A0, called at 0x412EF8 by the achievement row 0x412D00, which draws the achievement's description with
+  it, 0x409D20 at 0x412F23) and +8 (that one default); +0xC only when it deletes the fonts at exit (0x450460, at
+  0x4504B7).  So Segoe UI 33 is loaded but never drawn.  tests/test_font_slots.py proves it by running, in
+  Unicorn, the font maker and every function that reads the list, with a read hook on it.
 * Text is drawn by ldwGameWindowImpl 0x409660 (DrawText; 0x409CC0 left, 0x409CD0 right-aligned at x - the
   width, 0x409D20 centred at x - width / 2, the width from ldwFont 0x402320) and 0x409450 (the same, for a
   count of characters; justified paragraphs 0x409D70).  For each character: a new line moves down the font's
@@ -120,10 +123,17 @@ FONTS = {
             "0b0a08090b0a0f0a09090607060b06050809070908060909040408040e0909090906070609080c0808070605060b0a04"
             "090908090507070d06090b060d03060b060605090804030607090e0e0f070b0b0b0b0b0b0e0908080808050505050b0c"
             "0b0b0b0b0b0b0b0b0b0b0b0909090808080808080c070808080804040404090909090909090b0909090909080908"),
-        0x4EC610, 0x421FF0, 4, False,
-        "Loaded when the game starts (0x44FCD1) but never drawn: nothing reads it back from the font list (+4); "
-        "the game reads only the list's first font, Segoe UI Bold 18, and the default Segoe UI Bold 24 "
-        "(0x44FD63)."),
+        0x4EC610, 0x421FF0, 4, True,
+        "The achievements' description font: loaded when the game starts (0x44FCD1), fetched from the font list "
+        "(+4) only by 0x4173A0, which the achievement row 0x412D00 calls at 0x412EF8, and drawn there as the "
+        "achievement's description (centred, 0x409D20 at 0x412F23).",
+        (
+            (WHITE, "white", "Drawn in white on the achievements screen (0x435360 calls 0x412D00 at 0x4353EA; the "
+                             "colour 0x5008D0, which nothing writes, so 0: the default white)."),
+            (0xFF804C05, "dark blue", "Drawn in dark blue (5, 76, 128) on the banner for a new achievement (0x413250 "
+                                      "calls 0x412D00 at 0x4133A9; colour made at 0x412E6A..0x412EB0), opaque "
+                                      "until it fades out."),
+        )),
     "SegoeUi33": GameFont(
         "SegoeUi33", "Segoe UI 33", 33, _w(
             "090c121119160709090d15070c070c1111111111111111111107071515150e1e14121316100f1516080b120f1c171711"
@@ -131,9 +141,9 @@ FONTS = {
             "11111111070e0d1c0c10150c1c0d0c150b0b09120e07060b0d101c1d1e0e1414141414141b1310101010080808081617"
             "17171717171517151515151111111010101010101a0e1010101008080808111212121212121512121212120f120f"),
         0x4EB6F0, 0x421F80, 0xC, False,
-        "Loaded when the game starts (0x44FD57) but never drawn: nothing reads it back from the font list "
-        "(+0xC); the game reads only the list's first font, Segoe UI Bold 18, and the default Segoe UI Bold 24 "
-        "(0x44FD63)."),
+        "Loaded when the game starts (0x44FD57) but never drawn: the only code that reads it back from the font "
+        "list (+0xC) is the clean-up at exit 0x450460 (at 0x4504B7), which deletes it.  Checked by running every "
+        "function that reads the list in Unicorn."),
 }
 
 # The font pictures no code loads: file -> (category name, label).
@@ -336,6 +346,8 @@ def arts(files: ga.GameFiles) -> list[ga.Art]:
     out: list[ga.Art] = []
     for font in FONTS.values():
         category = f"{CATEGORY}/{font.label}"
+        if not font.used:                        # loaded at start-up, never drawn (tests/test_font_slots.py)
+            category += " (loaded but never drawn in the game)"
         if files.has(font.file):
             out.append(ga.Art(_key(font.cls) + "/whole", category, "Whole picture", (ga.whole(font.file),),
                               font.used, font.why, LOADER_CHECK))

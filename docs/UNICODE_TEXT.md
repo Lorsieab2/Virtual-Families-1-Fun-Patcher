@@ -12,9 +12,9 @@ tested in a running game**: the live checks are at the end.
 | theStringManager | Font | Sheet | Table | Height |
 | --- | --- | --- | --- | --- |
 | +0 | SegoeUiBold18 (buttons, most dialogs) | Images\SegoeUiBold18.png | 0x4ED538 | 18 |
-| +4 | SegoeUiBold17 | Images\SegoeUiBold17.png | 0x4EC610 | 17 |
+| +4 | SegoeUiBold17 (achievement descriptions) | Images\SegoeUiBold17.png | 0x4EC610 | 17 |
 | +8 | SegoeUiBold24 | Images\SegoeUiBold24.png | 0x4EE460 | 24 |
-| +0xC | SegoeUi33 | Images\SegoeUi33.png | 0x4EB6F0 | 33 |
+| +0xC | SegoeUi33 (loaded but never drawn in the game: only the exit clean-up reads it, tests/test_font_slots.py) | Images\SegoeUi33.png | 0x4EB6F0 | 33 |
 
 A table is rows of `{character, left, top, right, bottom}` ended by character 0: 190 rows each, the characters
 0x21..0x7F, the space, and 0xA2..0xFF (as signed chars). A sheet is white letters whose alpha is the coverage; the

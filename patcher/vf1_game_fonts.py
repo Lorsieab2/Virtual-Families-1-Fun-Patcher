@@ -56,9 +56,9 @@ DEFAULT_COLOUR = 0xFFFFFFFF          # 0x4E927C
 GAME_FONTS = ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")
 GAME_FONT_USE = {
     "SegoeUiBold18": "buttons, dialogs and most of the game's text",
-    "SegoeUiBold17": "small labels",
+    "SegoeUiBold17": "achievement descriptions",
     "SegoeUiBold24": "titles",
-    "SegoeUi33": "large text",
+    "SegoeUi33": "loaded but never drawn in the game",   # tests/test_font_slots.py: only teardown reads +0xC
 }
 UNUSED_FONTS = ("SegoeUi20", "SegoeUi27", "SegoeUiBold21", "SegoeUiBold27", "SegoeUiBold33",
                 "AmericanTypewriter21", "AmericanTypewriter27", "SFCartoonistHandBold21",
