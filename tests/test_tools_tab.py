@@ -349,12 +349,14 @@ def test_copy_player_slot_asks_then_copies_and_reports(app, save, monkeypatch):
     dialog = app._show_copy_dialog(app._save_folders()[1])
     assert dialog._vf1_folder_box.get() == "Virtual Families - Modded"
     assert dialog._vf1_source_list.get(0, "end") == ("Save 1: Smith", "Save 2: Jones")
-    assert dialog._vf1_target_list.get(0, "end") == ("Save 3: (empty)", "Save 4: (empty)", "Save 5: (empty)")
+    assert dialog._vf1_target_list.get(0, "end") == ("Save 1: Smith", "Save 2: Jones", "Save 3: (empty)",
+                                                     "Save 4: (empty)", "Save 5: (empty)")
+    assert dialog._vf1_target_list.curselection() == (2,)            # the first empty slot
     assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
     assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
     dialog._vf1_name_var.set("x" * 20)
     assert "too long" in dialog._vf1_problem_var.get() and str(dialog._vf1_copy_button.cget("state")) == "disabled"
-    dialog._vf1_choose(1, 1)
+    dialog._vf1_choose(1, 3)
     dialog._vf1_name_var.set("Jones Two")
     assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_copy_button.cget("state")) == "normal"
     dialog._vf1_start()
@@ -365,12 +367,14 @@ def test_copy_player_slot_asks_then_copies_and_reports(app, save, monkeypatch):
     assert app.status_var.get() == "Copy Player Slot: Jones was copied to Save 4 as Jones Two."
     assert app.shown[-1][0] == "showinfo" and "(before copy)" in app.shown[-1][1][1]
     assert dialog._vf1_source_list.get(0, "end")[-1] == "Save 4: Jones Two"
-    assert dialog._vf1_target_list.get(0, "end") == ("Save 3: (empty)", "Save 5: (empty)")
+    assert dialog._vf1_target_list.get(0, "end")[3] == "Save 4: Jones Two"
     assert sb.list_backups(save)[0].before_copy
     dialog.destroy()
 
 
-def test_copy_player_slot_with_no_empty_slot_says_so(app, save):
+def test_copy_player_slot_offers_stale_menu_entries_as_empty(app, save):
+    """A slot whose menu flag and name are left set but whose save is gone is empty (the game clears the flag at its
+    next start), so it is offered and chosen first."""
     import vf1_copy_slot as cs
     copy_form_saves(save)
     options = bytearray((save / "Virtual Families0.ldw").read_bytes())
@@ -378,16 +382,60 @@ def test_copy_player_slot_with_no_empty_slot_says_so(app, save):
         options[cs._used_offset(bytes(options), slot)] = 1
     (save / "Virtual Families0.ldw").write_bytes(bytes(options))
     dialog = app._show_copy_dialog(app._save_folders()[1])
+    assert dialog._vf1_target_list.get(0, "end")[2:] == ("Save 3: (empty)", "Save 4: (empty)", "Save 5: (empty)")
+    assert dialog._vf1_target_list.curselection() == (2,)
     dialog._vf1_name_var.set("Other")
-    assert "Every save slot is in use" in dialog._vf1_problem_var.get()
+    assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_copy_button.cget("state")) == "normal"
+    dialog.destroy()
+
+
+def test_copy_player_slot_refuses_the_source_as_target(app, save):
+    copy_form_saves(save)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_choose(0, 0)
+    dialog._vf1_name_var.set("Other")
+    assert "cannot be copied onto itself" in dialog._vf1_problem_var.get()
     assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
+    dialog.destroy()
+
+
+def test_copy_player_slot_replaces_a_family_only_after_yes(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    copy_form_saves(save)
+    before = snapshot(save)
+    asked = []
+    answer = {"yes": False}
+    monkeypatch.setattr(app, "_ask_copy", lambda parent, text: asked.append(text) or answer["yes"])
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_choose(0, 1)                                          # Smith into Save 2, which holds Jones
+    dialog._vf1_name_var.set("Smith Two")
+    assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_copy_button.cget("state")) == "normal"
+    dialog._vf1_start()                                               # No
+    expected = gui.copy_prompt_text("Smith", 1, 2, "Smith Two", save, True, "Jones")
+    assert asked == [expected]
+    assert expected.startswith("Save 2 holds the Jones family. It will be replaced by a copy of Smith (Save 1), "
+                               "named Smith Two.")
+    assert snapshot(save) == before and not (save / "Backups").exists()
+    answer["yes"] = True
+    dialog._vf1_start()
+    names = {s.slot: s.name for s in cs.read_slots(save)}
+    assert names == {1: "Smith", 2: "Smith Two", 3: None, 4: None, 5: None}
+    aside = list((save / "Backups").glob("Replaced by copy * - Save 2 - Jones"))
+    assert len(aside) == 1 and (aside[0] / "Virtual Families2.ldw").is_file()
+    assert sb.list_backups(save)[0].before_copy and len(sb.list_backups(save)) == 1
+    assert app.shown[-1][0] == "showinfo" and "Jones's files were moved into" in app.shown[-1][1][1]
     dialog.destroy()
 
 
 def test_the_copy_prompt_names_everything_and_no_is_the_default(app, save):
     text = gui.copy_prompt_text("Smith", 1, 4, "Smith Two", save)
-    assert text.startswith('Copy the family "Smith" from Save 1 into Save 4, as "Smith Two"?')
-    assert f"Save folder: {save}" in text and "backed up first" in text and "(before copy)" in text
+    assert text == (f"Save 4 is empty. It will get a copy of Smith (Save 1), named Smith Two. The whole save folder "
+                    f"({save}) is backed up first. Copy it?")
+    assert gui.copy_prompt_text("Smith", 1, 2, "Smith Two", save, True, "Jones") == (
+        f"Save 2 holds the Jones family. It will be replaced by a copy of Smith (Save 1), named Smith Two. The whole "
+        f"save folder ({save}) is backed up first, and Jones's files are kept in Backups\\Replaced by copy <date>. "
+        "Replace it?")
     host = tk.Toplevel(app.root)              # a shown window, as the Copy Player Slot window is
     host.update()
     for key in ("<Return>", "<Escape>"):

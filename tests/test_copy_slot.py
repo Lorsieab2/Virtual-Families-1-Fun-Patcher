@@ -245,21 +245,46 @@ def test_the_backup_is_made_first(save, monkeypatch):
     assert not (backups[0].path / "Virtual Families4.ldw").exists()
 
 
-def test_a_used_target_is_refused_and_nothing_changes(save):
+def test_a_used_target_is_refused_unless_replacing_and_nothing_changes(save):
     before = tree_of(save)
-    with pytest.raises(cs.CopyError, match="Save 2 is in use"):
+    with pytest.raises(cs.CopyError, match="Save 2 holds a family"):
         cs.copy_slot(save, 1, 2, "Smith Two", processes=Processes(), now=NOW)
-    # A slot the menu calls in use, though its save is missing; and a save the menu calls empty.
-    options = (save / "Virtual Families0.ldw").read_bytes()
-    (save / "Virtual Families0.ldw").write_bytes(with_flags(options, [1, 2, 3]))
-    with pytest.raises(cs.CopyError, match="Save 3 is in use"):
-        cs.copy_slot(save, 1, 3, "Smith Two", processes=Processes(), now=NOW)
-    (save / "Virtual Families0.ldw").write_bytes(options)
+    # A save the menu calls empty still holds a family (the game sets its flag at the next start).
     (save / "Virtual Families5.ldw").write_bytes(b"x")
-    with pytest.raises(cs.CopyError, match="Save 5 is in use"):
+    with pytest.raises(cs.CopyError, match="Save 5 holds a family"):
         cs.copy_slot(save, 1, 5, "Smith Two", processes=Processes(), now=NOW)
     (save / "Virtual Families5.ldw").unlink()
     assert tree_of(save) == before and not (save / "Backups").exists()
+
+
+def test_a_stale_menu_entry_without_a_save_is_an_empty_target(save):
+    """Fish Tycoon, 2026-11-01: a slot with a stale name and in-use flag but no save was not offered. The game itself
+    clears that flag at its next start (theGameState::Load 0x4248CB), so it is empty and the copy may go there."""
+    options = rf._with_name((save / "Virtual Families0.ldw").read_bytes(),
+                            rf._menu_name_offset((save / "Virtual Families0.ldw").read_bytes(), 4),
+                            rf.OPTIONS_NAME_STRIDE, "Ghost")
+    (save / "Virtual Families0.ldw").write_bytes(with_flags(options, [1, 2, 4]))
+    slots = {s.slot: s for s in cs.read_slots(save)}
+    assert slots[4].used is True and slots[4].empty and slots[4].label == "Save 4: (empty)"
+    before = tree_of(save)
+    result = cs.copy_slot(save, 1, 4, "Smith Two", processes=Processes(), now=NOW)
+    assert not result.replaced and result.set_aside == [] and result.aside_folder is None
+    menu = (save / "Virtual Families0.ldw").read_bytes()
+    assert rf.menu_name(menu, 4) == "Smith Two" and cs.slot_used(menu, 4) is True
+    after = tree_of(save)
+    for key, value in before.items():
+        if key != "Virtual Families0.ldw":
+            assert after[key] == value, key
+
+
+def test_a_save_without_a_menu_entry_is_a_source(save):
+    options = (save / "Virtual Families0.ldw").read_bytes()
+    (save / "Virtual Families0.ldw").write_bytes(with_flags(options, [1]))      # Jones's flag clear, its save there
+    slots = {s.slot: s for s in cs.read_slots(save)}
+    assert slots[2].used is False and not slots[2].empty
+    assert slots[2].name == "Jones" and slots[2].problem is None and slots[2].label == "Save 2: Jones"
+    cs.copy_slot(save, 2, 3, "Jones Two", processes=Processes(), now=NOW)
+    assert rf.save_name((save / "Virtual Families3.ldw").read_bytes()) == "Jones Two"
 
 
 @pytest.mark.parametrize("source,target,name,words", [
@@ -322,34 +347,59 @@ def test_a_failure_part_way_leaves_no_half_copied_slot(save, monkeypatch, fail_a
     assert not list(save.rglob("*.tmp"))
 
 
-def test_a_deleted_familys_leftovers_are_cleared_and_kept_in_the_backup(save):
-    # The game's Delete clears the flag and removes only "<N>.ldw": the rest of slot 4 stays behind.
-    (save / "Virtual Families24.ldw").write_bytes(named(fixture(PAUSED_SAVE), "Gone"))
-    (save / DATA / "Slot 4.ini").write_text("[Village]\nMaid=1\nLuckyRock=1\n")
-    (save / DATA / "Children" / "Virtual Families44.ldw.dat").write_bytes(b"stale")
+def deleted_family_leftovers(save: Path) -> dict[str, bytes]:
+    """What the game's Delete leaves in slot 4: it clears the flag and removes only "<N>.ldw"."""
     stale = save / rf.LOGS_ROOT / "Save 4" / "Logs" / "Family History"
     stale.mkdir(parents=True)
-    (stale / "Family History 3.txt").write_bytes(b"Family: Gone (Save 4)\r\n")
-    (save / rf.LOGS_ROOT / "Save 4" / "Backups").mkdir()
-    (save / rf.LOGS_ROOT / "Save 4" / "Backups" / "mine.txt").write_text("kept")
+    files = {
+        "Virtual Families24.ldw": named(fixture(PAUSED_SAVE), "Gone"),
+        f"{DATA}/Slot 4.ini": b"[Village]\nMaid=1\nLuckyRock=1\n",
+        f"{DATA}/Children/Virtual Families44.ldw.dat": b"stale",
+        f"{DATA}/Outfits/Virtual Families4.ldw.unreadable-2.dat": b"stale outfit",
+        "Virtual Families 1 Patcher/Save 4/Logs/Family History/Family History 3.txt": b"Family: Gone (Save 4)\r\n",
+        "Virtual Families 1 Patcher/Save 4/Backups/mine.txt": b"kept",
+    }
+    for rel, data in files.items():
+        (save / rel).parent.mkdir(parents=True, exist_ok=True)
+        (save / rel).write_bytes(data)
+    return files
+
+
+ASIDE = "Backups/Replaced by copy 2026-10-31 14-05-09 - Save {n} - {name}"
+
+
+def test_a_deleted_familys_leftovers_are_set_aside_not_deleted(save):
+    files = deleted_family_leftovers(save)
+    before = tree_of(save)
     result = cs.copy_slot(save, 1, 4, "Smith Two", processes=Processes(), now=NOW)
     after = tree_of(save)
+    aside = save / ASIDE.format(n=4, name="(no name)")
+    assert result.aside_folder == aside and not result.replaced
+    for rel, data in files.items():
+        assert (aside / rel).read_bytes() == data, rel                 # moved, keeping its path, never deleted
+        assert (save / result.backup.backup_folder / rel).read_bytes() == data, rel     # and in the backup
+    # Nothing of the deleted family stays attached to the copy.
     assert f"{DATA}/Children/Virtual Families44.ldw.dat" not in after
-    assert "Virtual Families 1 Patcher/Save 4/Logs/Family History/Family History 3.txt" not in after
+    assert f"{DATA}/Outfits/Virtual Families4.ldw.unreadable-2.dat" not in after
+    assert not any(k.startswith("Virtual Families 1 Patcher/Save 4/") and "Family History 3" in k for k in after)
+    assert not (save / rf.LOGS_ROOT / "Save 4" / "Backups").exists()
     assert rf.save_name(after["Virtual Families24.ldw"]) == "Smith Two"
     assert after[f"{DATA}/Slot 4.ini"] == after[f"{DATA}/Slot 1.ini"]
-    assert (save / rf.LOGS_ROOT / "Save 4" / "Backups" / "mine.txt").read_text() == "kept"
-    assert {p.as_posix() for p in result.cleared} == {
-        f"{DATA}/Children/Virtual Families44.ldw.dat",
-        "Virtual Families 1 Patcher/Save 4/Logs/Family History/Family History 3.txt"}
-    backup = result.backup.backup_folder
-    assert (backup / DATA / "Children" / "Virtual Families44.ldw.dat").read_bytes() == b"stale"
-    assert (backup / "Virtual Families 1 Patcher/Save 4/Logs/Family History/Family History 3.txt").is_file()
+    assert {p.as_posix() for p in result.set_aside} == {
+        "Virtual Families24.ldw", f"{DATA}/Slot 4.ini", f"{DATA}/Children/Virtual Families44.ldw.dat",
+        f"{DATA}/Outfits/Virtual Families4.ldw.unreadable-2.dat", "Virtual Families 1 Patcher/Save 4"}
+    # Every other slot's files are unchanged.
+    for key, value in before.items():
+        if not is_slot(key, 4) and key != "Virtual Families0.ldw":
+            assert after[key] == value, key
+    # No reader takes the set-aside folder: it is not a backup, not a slot, not a save.
+    assert len(sb.list_backups(save)) == 1 and sb.list_backups(save)[0].before_copy
+    assert not any("Replaced by copy" in str(p) for s in cs.SLOTS for p in cs.slot_files(save, s))
+    assert not any("Replaced by copy" in str(p) for p in sb.files_to_back_up(save))
 
 
-def test_a_failure_puts_a_deleted_familys_leftovers_back(save, monkeypatch):
-    (save / DATA / "Children" / "Virtual Families44.ldw.dat").write_bytes(b"stale")
-    (save / DATA / "Slot 4.ini").write_text("[Village]\nMaid=1\n")
+def test_a_failure_moves_the_set_aside_files_back(save, monkeypatch):
+    deleted_family_leftovers(save)
     before = tree_of(save)
     real = cs._write_atomically
 
@@ -362,6 +412,75 @@ def test_a_failure_puts_a_deleted_familys_leftovers_back(save, monkeypatch):
     with pytest.raises(cs.CopyError, match="everything was put back"):
         cs.copy_slot(save, 1, 4, "Smith Two", processes=Processes(), now=NOW)
     assert tree_of(save) == before
+    assert not list((save / sb.BACKUPS_FOLDER).glob("Replaced by copy*"))
+
+
+# ------------------------------------------------------------------ replacing a family
+
+
+def test_replacing_a_family_sets_its_files_aside_and_copies(save, monkeypatch):
+    jones = {rel: data for rel, data in tree_of(save).items() if is_slot(rel, 2)}
+    assert "Virtual Families2.ldw" in jones and f"{DATA}/Children/Virtual Families2.ldw.dat" in jones
+    before = tree_of(save)
+    seen = []
+    real = sb.copy_save_folder
+
+    def spy(folder, now=None, suffix=""):
+        seen.append(rf.save_name((folder / "Virtual Families2.ldw").read_bytes()))
+        return real(folder, now, suffix)
+
+    monkeypatch.setattr(cs.save_backup, "copy_save_folder", spy)
+    result = cs.copy_slot(save, 1, 2, "Smith Two", processes=Processes(), now=NOW, replace=True)
+    assert seen == ["Jones"]                                          # the backup was made first, with Jones in it
+    assert result.replaced and result.replaced_name == "Jones"
+    aside = save / ASIDE.format(n=2, name="Jones")
+    assert result.aside_folder == aside
+    for rel, data in jones.items():
+        assert (aside / rel).read_bytes() == data, rel                 # set aside, never deleted
+        assert (result.backup.backup_folder / rel).read_bytes() == data, rel
+    after = tree_of(save)
+    assert rf.save_name(after["Virtual Families2.ldw"]) == "Smith Two"
+    menu = after["Virtual Families0.ldw"]
+    assert rf.menu_name(menu, 2) == "Smith Two" and cs.slot_used(menu, 2) is True
+    # No sidecar or log of Jones stays attached to the copy: slot 2 now holds exactly the copy of slot 1.
+    assert after[f"{DATA}/Outfits/Virtual Families2.ldw.dat"] == before[f"{DATA}/Outfits/Virtual Families1.ldw.dat"]
+    assert after[f"{DATA}/Slot 2.ini"] == before[f"{DATA}/Slot 1.ini"]
+    kid = gen.read_children_sidecar(after[f"{DATA}/Children/Virtual Families2.ldw.dat"])
+    assert kid.save_hash == gen.fnv1a64(after["Virtual Families2.ldw"])
+    history = after["Virtual Families 1 Patcher/Save 2/Logs/Family History/Family History 1.txt"]
+    assert history.startswith(b"Family: Smith (Save 1)")
+    assert {k for k in after if is_slot(k, 2)} == \
+        {p.as_posix() for p in result.written if p.as_posix() != "Virtual Families0.ldw"}
+    # Every other slot, and the source, are unchanged.
+    for key, value in before.items():
+        if not is_slot(key, 2) and key != "Virtual Families0.ldw":
+            assert after[key] == value, key
+    for slot in (1, 3, 4, 5):
+        assert rf.menu_name(menu, slot) == rf.menu_name(before["Virtual Families0.ldw"], slot)
+        assert cs.slot_used(menu, slot) == cs.slot_used(before["Virtual Families0.ldw"], slot)
+
+
+def test_a_failed_replace_puts_the_family_back(save, monkeypatch):
+    before = tree_of(save)
+    real = cs._write_atomically
+
+    def fail_on_options(path, data):
+        if path.name == "Virtual Families0.ldw":
+            raise OSError("locked")
+        return real(path, data)
+
+    monkeypatch.setattr(cs, "_write_atomically", fail_on_options)
+    with pytest.raises(cs.CopyError, match="everything was put back"):
+        cs.copy_slot(save, 1, 2, "Smith Two", processes=Processes(), now=NOW, replace=True)
+    assert tree_of(save) == before
+    assert not list((save / sb.BACKUPS_FOLDER).glob("Replaced by copy*"))
+
+
+def test_the_source_can_never_be_replaced(save):
+    before = tree_of(save)
+    with pytest.raises(cs.CopyError, match="another slot"):
+        cs.copy_slot(save, 1, 1, "Smith Two", processes=Processes(), now=NOW, replace=True)
+    assert tree_of(save) == before and not (save / "Backups").exists()
 
 
 def test_the_family_copied_record_is_numbered_after_earlier_ones(save):

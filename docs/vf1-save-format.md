@@ -61,8 +61,10 @@ slot N's name only when its byte is set (0x41BB1A / 0x41BBBC / 0x41BC5E / 0x41BD
 and otherwise shows the slot as empty; starting a new family in slot N sets it to 1 (0x41C1A7 / 0x41C1F3 /
 0x41C243 / 0x41C293 / 0x41C2E0, beside the name copied to gs+0x1B192 + 0x15 x (N - 1)); deleting a family clears
 it (0x41BF29 ..) and deletes only `Virtual Families<N>.ldw` (0x41BF75 -> 0x423950 -> 0x4038F0 DeleteFileA), so
-`<N+20>`, `<N+40>` and every patcher file of a deleted family stay behind. Copy Player Slot treats a slot as empty
-only when its byte is 0 and `Virtual Families<N>.ldw` is missing, and sets the byte for the slot it fills.
+`<N+20>`, `<N+40>` and every patcher file of a deleted family stay behind. Because the game rebuilds every flag from
+the saves at each start (below), the save file is what decides: Copy Player Slot treats a slot as empty when
+`Virtual Families<N>.ldw` is missing, whatever its byte and name say (a stale entry is cleared by the game's next
+start), treats a slot whose save is there as holding a family, and sets the byte for the slot it fills.
 
 **Every field of the options block (VERIFIED in the vanilla exe, every reference to gs+0x1B188..0x1B20F; audited
 for Copy Player Slot, 2026-10-31).** Only the slot-menu names and the in-use flags are per slot; everything else is

@@ -1,4 +1,5 @@
-"""Copy Player Slot: copy a family's save slot into an empty slot under a new name, in a closed game's saves.
+"""Copy Player Slot: copy a family's save slot into another slot (empty, or replacing a family when asked) under a
+new name, in a closed game's saves.
 
 The Fish & Plant Tycoon patcher's Copy Slot idea, built on Virtual Families 1's own save layout
 (docs/vf1-save-format.md section 1, every file below listed there).
@@ -48,18 +49,33 @@ What changes in the copy, and why each copied file still matches the copied save
     * Not copied: "Save <S>\\Family Tree" (the Family Tree Maker's page and pictures, made again from the save
       each time; a copy would show the source's name and slot) and "Save <S>\\Backups".
 
+Which slots are empty (the owner, 2026-11-01: "the game sees (game name)1-5.ldw as player slots")
+    * A slot is empty when "Virtual Families<T>.ldw" is not there, whatever the options file's name and in-use
+      flag for it say; a slot whose save is there holds a family (and can be copied from), whatever they say.
+      This is what the game itself does: at every start theGameState::Load 0x4247C0 rebuilds each slot's in-use
+      flag from whether "<N>.ldw" loads (0x424891 Load(N); 0x4248B0 flag = 1 on success, 0x4248CB flag = 0 on
+      failure), and the Change Player list and its New Player go by that flag (0x41BB1A .. 0x41BDBD, 0x41C1A7 ..).
+      A stale name and set flag with no save are cleared by the game's next start; the copy writes the target's
+      name and sets its flag, so the menu shows and loads the copy at once.
+
+Replacing a family (the owner, 2026-11-01: "able to overwrite existing slots, with a confirmation prompt")
+    * Any slot but the source may be the target. A target that holds a family is replaced only when asked
+      (replace=True, after the GUI's Yes / No question names the family that will be replaced).
+
 Safety
     * The game must be closed (the running-game check Rename Family uses): a running game saves by itself
       every 10 minutes and when it quits, and would write the options file over the copy's slot-menu entry.
-    * The target must be empty: its in-use flag clear and no "Virtual Families<T>.ldw". A slot in use is never
-      written. Files a family deleted in the game left behind in an empty slot (its older copies, its patcher
-      files, its folder) would mix with the copy, so they are cleared; they are in the backup first.
     * Before anything is written the whole save folder is backed up with Back Up Saves' own copier, labelled
       "(before copy)".
+    * Then everything already in the target slot (the replaced family's save, or what a family deleted in the
+      game left behind: the older copies <T+20> / <T+40>, "Slot <T>.ini", the Children and Outfits files of
+      T, T+20 and T+40, and the whole "Virtual Families 1 Patcher\\Save <T>" folder) is moved, never deleted,
+      into "Backups\\Replaced by copy <date>" keeping its path, so nothing of the old family stays attached to the
+      copy. No game or patcher code reads that folder (Restore Saves lists only "Backup <date>" folders).
     * Every file is written beside itself and swapped in with os.replace, then read back. The options file is
-      written last, so the slot appears in the menu only once everything else is in place. Any failure puts
-      every file back as it was and removes everything the copy made.
-    * Nothing of the source slot or of any other slot is written.
+      written last, so the slot appears in the menu only once everything else is in place. Any failure removes
+      everything the copy made, moves every set-aside file back and puts the options file back as it was.
+    * Nothing of the source slot or of any slot but the target is written.
 
 Nothing here touches Tk; the GUI runs it on a worker thread, and the tests drive it against a temporary save
 folder with a fake process list.
@@ -86,6 +102,7 @@ OPTIONS_SLOT_USED = 0x1B1FB             # theGameState offset of slot 1's in-use
 LOGS_ROOT = rename.LOGS_ROOT             # "Virtual Families 1 Patcher"
 DATA = save_format.PATCHER_DATA          # "Virtual Families 1 Patcher Data"
 NOT_COPIED = ("Backups", "Family Tree")  # in Save <S>: its backups, and the tree's page and pictures
+REPLACED = "Replaced by copy"            # Backups\Replaced by copy <date>: what was in the target slot
 _SIDECAR = re.compile(r"^Virtual Families(\d+)\.ldw(\.unreadable-\d+)?\.dat$", re.IGNORECASE)
 _COPIED = re.compile(r"^\[[^\]]*\] Family Copied (\d+)\r?$", re.MULTILINE)
 
@@ -126,8 +143,8 @@ class SlotInfo:
 
     @property
     def empty(self) -> bool:
-        """A slot a copy may go into: the menu shows it empty and it has no save."""
-        return self.used is False and not self.has_save
+        """No "Virtual Families<N>.ldw": the game sees no family here, whatever the options file says."""
+        return not self.has_save
 
     @property
     def label(self) -> str:
@@ -221,6 +238,32 @@ def slot_files(folder: Path, slot: int) -> list[Path]:
     return out
 
 
+def leftovers(folder: Path, slot: int) -> list[Path]:
+    """Everything already in ``slot`` (relative paths), which the copy moves aside before it writes: the game's
+    "<N>.ldw" / "<N+20>.ldw" / "<N+40>.ldw", "Slot <N>.ini", the Children and Outfits files of those numbers, and
+    the whole "Virtual Families 1 Patcher\\Save <N>" folder (its Backups included, kept with it)."""
+    out = [path for path in slot_files(folder, slot) if path.parts[0].casefold() != LOGS_ROOT.casefold()]
+    root = slot_root(folder, slot)
+    if root.exists():
+        out.append(root.relative_to(folder))
+    return out
+
+
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def set_aside_folder(folder: Path, when: datetime, slot: int, old_name: str | None) -> Path:
+    """A new "Backups\\Replaced by copy <date> - Save <N> - <old name>" folder name (not made yet)."""
+    name = _UNSAFE.sub("_", old_name or "").strip(" .") or "(no name)"
+    base = f"{REPLACED} {when.strftime('%Y-%m-%d %H-%M-%S')} - Save {slot} - {name}"
+    backups = folder / save_backup.BACKUPS_FOLDER
+    for attempt in range(1, 1000):
+        candidate = backups / (base if attempt == 1 else f"{base} ({attempt})")
+        if not candidate.exists():
+            return candidate
+    raise CopyError(f"Too many folders named {base} in {backups}.")
+
+
 # ---------------------------------------------------------------------------
 # The plan
 # ---------------------------------------------------------------------------
@@ -242,7 +285,10 @@ class CopyPlan:
     old_name: str
     new_name: str
     writes: list[Write] = field(default_factory=list)            # the copy's files
-    clear: list[tuple[Path, bytes]] = field(default_factory=list)  # a deleted family's leftovers in the target
+    set_aside: list[Path] = field(default_factory=list)          # what is in the target now, moved aside first
+    aside_folder: Path | None = None                              # Backups\Replaced by copy <date> - Save <T> - ...
+    replaced_name: str | None = None                              # the family the copy replaces (None: none, or unreadable)
+    target_save: bytes | None = None                              # the target's save as read (None: empty slot)
     options: Write | None = None                                   # written last
     left_out: list[Path] = field(default_factory=list)            # the source's files not copied (and why: above)
 
@@ -287,8 +333,10 @@ def _read(path: Path) -> bytes:
         raise CopyError(f"Could not read {path.name}: {exc}") from exc
 
 
-def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datetime) -> CopyPlan:
-    """Every file the copy writes, and every leftover it clears. Raises CopyError (nothing changed) on a refusal."""
+def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datetime,
+              replace: bool = False) -> CopyPlan:
+    """Every file the copy writes, and everything in the target it moves aside. A target that holds a family is
+    refused unless ``replace``. Raises CopyError (nothing changed) on a refusal."""
     if source not in SLOTS or target not in SLOTS:
         raise CopyError("There are only save slots 1 to 5.")
     if source == target:
@@ -312,10 +360,24 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
     used_at = _used_offset(options, target)
     if menu_at is None or used_at is None or rename.menu_name(options, target) is None:
         raise CopyError(f"The slot menu file {options_file.name} is not one this tool can read.")
-    if options[used_at] != 0 or rename.save_path(folder, target).exists():
-        raise CopyError(f"Save {target} is in use. Copy Player Slot only copies into an empty slot; nothing was changed.")
+    # The game's own test: a slot holds a family when its "<N>.ldw" is there; the options file's flag and name
+    # for it are only what the menu showed at the last start (module docstring).
+    target_file = rename.save_path(folder, target)
+    target_save = _read(target_file) if target_file.exists() else None
+    if target_save is not None and not replace:
+        raise CopyError(f"Save {target} holds a family. Copy Player Slot replaces a family only when you answer Yes "
+                        "to replacing it; nothing was changed.")
 
     plan = CopyPlan(folder, source, target, old, new_name)
+    plan.target_save = target_save
+    if target_save is not None:
+        plan.replaced_name = rename.save_name(target_save)
+        aside_name = plan.replaced_name
+    else:
+        aside_name = rename.menu_name(options, target) if options[used_at] else None
+    plan.set_aside = leftovers(folder, target)
+    if plan.set_aside:
+        plan.aside_folder = set_aside_folder(folder, when, target, aside_name)
     # The game's files: the name in each that holds the source's.
     sources: dict[int, bytes] = {}
     targets: dict[int, bytes] = {}
@@ -376,14 +438,6 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
         newest.data += prefix + history_record(source, old, new_name, when, count).encode("ascii")
         newest.what = "copied, with a Family Copied record"
 
-    # What a family deleted in the game left in the target: cleared (it is in the backup first).
-    written = {str(w.path).casefold() for w in plan.writes}
-    for relative in slot_files(folder, target):
-        raw = _read(folder / relative)
-        if str(relative).casefold() in written:
-            next(w for w in plan.writes if str(w.path).casefold() == str(relative).casefold()).original = raw
-        else:
-            plan.clear.append((relative, raw))
     menu = rename._with_name(options, menu_at, rename.OPTIONS_NAME_STRIDE, new_name)
     menu = menu[:used_at] + b"\x01" + menu[used_at + 1:]
     plan.options = Write(Path(options_file.name), menu, options, "slot menu")
@@ -423,7 +477,10 @@ class CopyResult:
     new_name: str
     backup: save_backup.BackupResult
     written: list[Path] = field(default_factory=list)
-    cleared: list[Path] = field(default_factory=list)
+    set_aside: list[Path] = field(default_factory=list)       # what was in the target (relative to the save folder)
+    aside_folder: Path | None = None                           # where it went: Backups\Replaced by copy <date> - ...
+    replaced: bool = False                                     # the target held a family
+    replaced_name: str | None = None
     left_out: list[Path] = field(default_factory=list)
 
 
@@ -441,8 +498,18 @@ def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -
         )
 
 
-def _undo(folder: Path, done: list[Write], cleared: list[tuple[Path, bytes]], made: list[Path]) -> list[str]:
-    """Put back every file the copy wrote or cleared and remove the folders it made; the ones that could not be."""
+def _remove_folders(made: list[Path]) -> None:
+    for directory in sorted(made, key=lambda p: len(p.parts), reverse=True):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
+
+def _undo(folder: Path, done: list[Write], made: list[Path], moved: list[tuple[Path, Path]],
+          aside_made: list[Path]) -> list[str]:
+    """Remove every file the copy wrote (the options file put back), move every set-aside file back, and remove
+    the folders the copy made; the ones that could not be."""
     problems: list[str] = []
     for write in reversed(done):
         path = folder / write.path
@@ -454,19 +521,13 @@ def _undo(folder: Path, done: list[Write], cleared: list[tuple[Path, bytes]], ma
                 _write_atomically(path, write.original)
         except (OSError, CopyError) as exc:
             problems.append(f"{write.path}: {exc}")
-    for relative, original in reversed(cleared):
-        path = folder / relative
+    _remove_folders(made)                       # a new "Save <T>" first, so the old one can move back
+    for relative, aside in reversed(moved):
         try:
-            if not path.exists() or path.read_bytes() != original:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                _write_atomically(path, original)
-        except (OSError, CopyError) as exc:
-            problems.append(f"{relative}: {exc}")
-    for directory in sorted(made, key=lambda p: len(p.parts), reverse=True):
-        try:
-            directory.rmdir()
-        except OSError:
-            pass
+            os.rename(aside, folder / relative)
+        except OSError as exc:
+            problems.append(f"{relative} (it is in {aside}): {exc}")
+    _remove_folders(aside_made)
     return problems
 
 
@@ -481,6 +542,16 @@ def _make_folders(path: Path, made: list[Path]) -> None:
         made.append(directory)
 
 
+def _target_as_planned(plan: CopyPlan) -> None:
+    """The target holds what the plan read: the same save (or none), and the same files to move aside."""
+    path = rename.save_path(plan.folder, plan.target)
+    now = path.read_bytes() if path.exists() else None
+    if now != plan.target_save:
+        raise CopyError(f"Save {plan.target} changed while the copy was being made.")
+    if {str(p).casefold() for p in leftovers(plan.folder, plan.target)} != {str(p).casefold() for p in plan.set_aside}:
+        raise CopyError(f"The files of Save {plan.target} changed while the copy was being made.")
+
+
 def copy_slot(
     folder: Path,
     source: int,
@@ -488,17 +559,20 @@ def copy_slot(
     new_name: str,
     processes: save_backup.ProcessController | None = None,
     now: datetime | None = None,
+    replace: bool = False,
 ) -> CopyResult:
-    """Copy save slot ``source`` of ``folder`` into the empty slot ``target`` as ``new_name``.
+    """Copy save slot ``source`` of ``folder`` into slot ``target`` as ``new_name``.
 
-    Refused (CopyError, nothing changed) when the name breaks the rule, the game is running, the target is in
-    use, or the saves cannot be read. Otherwise the folder is backed up first, every file is written through a
+    A target that holds a family is replaced only with ``replace`` (the GUI asks first). Refused (CopyError,
+    nothing changed) when the name breaks the rule, the game is running, the target holds a family and
+    ``replace`` is not set, or the saves cannot be read. Otherwise the folder is backed up first, everything in the
+    target is moved into Backups\\Replaced by copy <date> - Save <T> - <old name>, every file is written through a
     temporary file and read back, the options file last, and any failure puts everything back.
     """
     controller = processes if processes is not None else save_backup.WindowsProcesses()
     when = now or datetime.now()
     _refuse_if_running(folder, controller)
-    plan = plan_copy(folder, source, target, new_name, when)
+    plan = plan_copy(folder, source, target, new_name, when, replace=replace)
     try:
         backup = save_backup.copy_save_folder(folder, when, suffix=BACKUP_LABEL)
     except save_backup.BackupError as exc:
@@ -506,23 +580,26 @@ def copy_slot(
     # The backup took a moment; the game may have been started meanwhile.
     _refuse_if_running(folder, controller)
     done: list[Write] = []
-    cleared: list[tuple[Path, bytes]] = []
     made: list[Path] = []
+    moved: list[tuple[Path, Path]] = []
+    aside_made: list[Path] = []
     try:
+        _target_as_planned(plan)
+        if plan.aside_folder is not None:
+            if plan.aside_folder.exists():
+                raise CopyError(f"{plan.aside_folder.name} is already there; try again in a moment.")
+            for relative in plan.set_aside:
+                aside = plan.aside_folder / relative
+                _make_folders(aside, aside_made)
+                os.rename(folder / relative, aside)
+                moved.append((relative, aside))
         for write in plan.writes:
             path = folder / write.path
-            current = path.read_bytes() if path.exists() else None
-            if current != write.original:
+            if path.exists():
                 raise CopyError(f"{write.path} changed while the copy was being made.")
             _make_folders(path, made)
             done.append(write)
             _write_atomically(path, write.data)
-        for relative, original in plan.clear:
-            path = folder / relative
-            if path.read_bytes() != original:
-                raise CopyError(f"{relative} changed while the copy was being made.")
-            cleared.append((relative, original))
-            path.unlink()
         _refuse_if_running(folder, controller)
         options = plan.options
         assert options is not None
@@ -541,7 +618,7 @@ def copy_slot(
             if (folder / write.path).read_bytes() != write.data:
                 raise CopyError(f"{write.path} did not read back as written.")
     except (OSError, CopyError, save_format.SaveFormatError) as exc:
-        problems = _undo(folder, done, cleared, made)
+        problems = _undo(folder, done, made, moved, aside_made)
         if problems:
             raise CopyError(
                 f"The copy failed ({exc}) and these files could not be put back: {'; '.join(problems)}. "
@@ -550,14 +627,6 @@ def copy_slot(
         raise CopyError(
             f"The copy failed ({exc}); everything was put back as it was. A backup is in {backup.backup_folder}."
         ) from exc
-    # Folders the cleared leftovers emptied (never the slot's Backups) are tidied away.
-    for relative, _original in plan.clear:
-        parent = (folder / relative).parent
-        while parent != folder and parent.name.casefold() not in (DATA.casefold(), LOGS_ROOT.casefold()):
-            try:
-                parent.rmdir()
-            except OSError:
-                break
-            parent = parent.parent
     return CopyResult(folder, source, target, plan.old_name, new_name, backup,
-                      [w.path for w in plan.writes] + [plan.options.path], [r for r, _ in plan.clear], plan.left_out)
+                      [w.path for w in plan.writes] + [plan.options.path], list(plan.set_aside), plan.aside_folder,
+                      plan.target_save is not None, plan.replaced_name, plan.left_out)
