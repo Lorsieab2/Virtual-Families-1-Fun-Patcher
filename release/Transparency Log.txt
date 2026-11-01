@@ -176,6 +176,11 @@ Shipped beside the patcher, never copied into the game
   Its list of what a family member can carry (150 pictures, named by the patcher: the game names none)
   and of the game's 24 animations was read from the vanilla exe and is kept in vf1_people_pictures.py;
   the 15 pictures the game never shows are offered too, marked "never shown in the game".
+  Its Every picture tab also reads only the chosen game folder (Images, icon.bmp, Assets\lsmap.dat) and
+  the patcher's own payload and tree_pictures, when it draws; it writes only the PNGs you save. What it
+  knows about the game (the image table, which code draws each picture, the cells' names, the bars'
+  levels, the fonts' glyph tables, the lamps and night colours) was read from the vanilla exe and is kept in
+  vf1_game_art.py and the vf1_art_*.py modules. JPEGs are decoded by the patcher's own vf1_jpeg.py.
 
 Settings and defaults
 ---------------------

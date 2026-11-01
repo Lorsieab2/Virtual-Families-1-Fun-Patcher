@@ -82,6 +82,7 @@ RELEASE_ONLY = (
     "tests/test_engine.py::test_rebuild_keeps_remembered_cheats_and_restore_undoes_a_first_build",
     "tests/test_up_to_28_children.py::test_every_mutation_is_caught[no restore of the swapped child]",
     "tests/test_up_to_28_children.py::test_every_mutation_is_caught[free-slot cap dropped]",
+    "tests/test_game_art.py::test_every_picture_draws",
 )
 RELEASE_SKIP_REASON = "release-only (slow): run with --release or VF1_RELEASE=1"
 

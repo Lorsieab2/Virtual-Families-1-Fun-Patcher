@@ -1,4 +1,4 @@
-"""The Picture Maker's shared pieces: an RGBA image, a PNG reader and writer, the export sizes, and the
+﻿"""The Picture Maker's shared pieces: an RGBA image, a PNG reader and writer, the export sizes, and the
 game's own sprite blitter for scaled and see-through draws.  Pure Python (zlib and struct only): the
 patcher ships no Pillow.  Ported from the Fish and Plant Tycoon patcher's Picture Studio
 (src/picture_image.py), with Virtual Families 1's blitter in place of Fish Tycoon's.
@@ -494,10 +494,12 @@ def game_layer_and_touched(sheet: Image, rect: tuple[int, int, int, int], scale:
 # ------------------------------------------------------------------ export
 
 
-def export(image: Image, *, scale: int = 1, size: tuple[int, int] | None = None, margin: int = MARGIN) -> Image:
-    """Crop to the drawn pixels plus `margin` (0: none), then scale: `scale` crisply (nearest
-    neighbour) or `size=(w, h)` smoothly; a 0 in size keeps the aspect ratio."""
-    out = image.cropped(max(0, int(margin)))
+def export(image: Image, *, scale: int = 1, size: tuple[int, int] | None = None, margin: int = MARGIN,
+           crop: bool = True) -> Image:
+    """Crop to the drawn pixels plus `margin` (0: none), unless `crop` is False (the picture keeps its whole
+    size); then scale: `scale` crisply (nearest neighbour) or `size=(w, h)` smoothly; a 0 in size keeps the
+    aspect ratio."""
+    out = image.cropped(max(0, int(margin))) if crop else image.copy()
     if size is not None:
         w, h = (int(v or 0) for v in size)
         if w <= 0 and h <= 0:

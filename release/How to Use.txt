@@ -293,9 +293,23 @@ Next to the Patches tab is a Tools tab for your family saves.
                     turn, babies on the way, something carried, shadow,
                     ghost, and the game folder's, the stock or the
                     patcher's own pictures.
+                    Every picture: every picture the game has, drawn as
+                    the game draws it, sorted into categories (meters and
+                    bars, buttons, dialogs, icons, fonts, house and yard,
+                    furniture, food, weather and night, effects, animals,
+                    people, store, collectibles, screens, the patcher's
+                    own): every sprite sheet whole and every cell and
+                    animation frame, buttons in each state, the bars
+                    empty and at their levels with frame and fill joined,
+                    dialogs tiled at the game's sizes, every font glyph,
+                    each room at each Home Improvement level, night.
+                    Find searches; Show picks used, unused or not-checked
+                    pictures. "(unused)" says why the game never shows it.
                     Save PNG: the game's size, 2x, 4x or your own width
-                    and height, with or without a small margin. Saves and
-                    game files are only read.
+                    and height, with or without a small margin (Every
+                    picture can keep a picture's whole size). Save all
+                    puts each picture in a folder for its category. Saves
+                    and game files are only read.
   Game Text         Type anything and see it exactly as the game draws its
                     text, in any of the game's fonts and any colour, then
                     save it as a PNG with a clear background (the game's

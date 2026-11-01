@@ -309,6 +309,30 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     direction the renderer uses, and the carried numbers read from the exe must be the catalog's. No game art ships; the pictures are read from the game folder when drawn.
     Modules `patcher/vf1_picture_maker.py` (window), `patcher/vf1_people_pictures.py` (renderer),
     `patcher/vf1_picture_image.py` (image, PNG, the game's blitter).
+    *Every picture* lists every picture the game folder has (about 12,200 with the vanilla game), by category,
+    searchable, each drawn as the game draws it: every picture file whole and cut into the cells the game cuts
+    (the image table 0x4F2D00 and GetCellRect 0x40AD40), each cell named where the game's code says what it is;
+    and the pictures the game assembles from several draws: the bar painter 0x44EEA0's bars (the Details
+    screen's Progress, Happiness, Health, Fed and Energy, and the loading bar) empty and at each level where
+    their look changes, the achievement progress bar, the bank's 7-day chart; buttons in their three states
+    (there is no greyed-out state: 0x401938), check boxes, choices, the volume slider and scroll bars, the
+    dialog backdrops tiled from their 9 tiles at the game's sizes, mouse pointers, icons and logos; the four
+    fonts the game loads, every glyph and sample text in each colour the game uses (0x409660, tint 0x402940);
+    the yard and house from the 16 map tiles, every room at every Home Improvement level, furniture and objects
+    in every state and every TV and computer frame, weather, the rainbow and night (the 0x403B40 fill with the
+    lsmap.dat lamps); every effect, animal and food animation frame; the store items, collectibles, screens and
+    backgrounds; and the patcher's own pictures, marked "(patcher)". A picture or cell no reached code draws is
+    marked "(unused)" with the reason (for example the status-bar slices, LoadColor, the dragonflies, butterfly
+    and hummingbird, the store_* and collecting_* sheets, the 11 font files no code loads, help1-4.jpg and
+    credits.jpg). Anything not proved by emulation says "Not checked against the game". JPEGs are decoded by
+    `patcher/vf1_jpeg.py`, byte for byte as the game's own libjpeg-9.dll decodes them for SDL2_image. Save PNG,
+    or Save all (everything shown, or one group) into a folder per category, at game size, 2x, 4x or a custom
+    size, cut to the drawn pixels or at the picture's whole size. Modules `patcher/vf1_game_art.py`
+    (catalogue, drawing), `vf1_art_sheets.py` (files and cells), `vf1_art_meters.py`, `vf1_art_ui.py`,
+    `vf1_art_house.py`, `vf1_art_misc.py`, `vf1_art_fonts.py`, `vf1_jpeg.py`, `vf1_small_formats.py` (icon.bmp,
+    the DRM page's GIF); tests `tests/test_game_art.py` (the table and every cell rectangle against the exe's
+    own code) and `tests/test_art_*.py` / `tests/test_jpeg_decoder.py`, which run the game's own drawing code
+    (and libjpeg-9.dll) in Unicorn and require every draw to equal the game's.
   - **Family Tree Maker:** draws a family's tree from its save, with each face from the game, and lets you mark,
     colour, arrange and export it (PNG or JPG); it is the Virtual Villagers Fun Patcher's Family Tree Maker
     (matched to its main at cdcface3: no job or skill lines on portraits). With the Family History Log it also
