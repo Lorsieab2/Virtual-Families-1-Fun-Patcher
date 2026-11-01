@@ -29,6 +29,8 @@ drawing code for every picture listed here (tests/ui_emu.py) and compares the dr
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import vf1_game_art as ga
 import vf1_picture_image as pi
 
@@ -177,6 +179,71 @@ def achievements_bar(files: ga.GameFiles) -> tuple:
     return tuple(out)
 
 
+# ------------------------------------------------------------------ the family tree's frames
+# 0x439BA0 draws one family's row of the family tree: the parents' frame (picture 0xC1, 0x439C4D / 0x439D90)
+# at the tree's left edge less 8 (0x439C2E), the children's frames (0xC2, 0x439F16) along the row, each fully
+# opaque by 0x44F960 (alpha 1, 100%).  The row is drawn inside the tree's clip (0x408410 with the screen's +8 ..
+# +0x14: 34, 142 .. 736, 600, set at 0x438AC4), so the clip 0x407E60 cuts the parent frame's left 8 pixels.
+# A frame whose family member is gone (number -1: 0x481CF0 clears it, 0x439CCB / 0x439E06 / 0x439FA5) is drawn
+# again over itself by 0x409A80 -> the tinted blit 0x408EC0 in the colour 0x80808080 at alpha 0.3 (0x4B6A34).
+TREE_CUT = 8                                       # 0x439C2E: x - 8 against the clip's left edge
+GREY = (0x80, 0x80, 0x80, 0x80)                    # 0x439D05..0x439D1D: the bytes r, g, b, a
+GREY_ALPHA = 0.30000001192092896                   # 0x4B6A34
+
+
+@dataclass(frozen=True)
+class Greyed:
+    """The tinted blit 0x408EC0 of a whole picture (picture, colour, alpha, scale 1, a PNG), as a layer: each
+    pixel's colour c becomes (c x (255 - colour alpha) >> 8) + (colour x colour alpha >> 8) and it is laid
+    over the screen with weight (pixel alpha x trunc(alpha x 255) / 255) (0x409048..0x409154).  `make` gives
+    those pixels as a straight-alpha picture; the game's own shifts by 256 put it within 3 levels of that
+    picture laid over anything (tests/test_art_emulated_extras.py runs 0x408EC0 itself)."""
+    what: str
+    file: str
+    rect: tuple
+    x: int
+    y: int
+    scale: float = 1.0
+    alpha: float = GREY_ALPHA
+    colour: tuple = GREY
+
+    def make(self, files: ga.GameFiles) -> pi.Image:
+        return greyed_pixels(files.image(self.file), self.rect, self.colour, self.alpha)
+
+
+def greyed_pixels(sheet: pi.Image, rect: tuple, colour: tuple = GREY, alpha: float = GREY_ALPHA) -> pi.Image:
+    left, top, right, bottom = rect
+    w, h = max(0, right - left), max(0, bottom - top)
+    out = pi.Image(w, h)
+    ca = colour[3]
+    keep = 255 - ca
+    add = [(c * ca) >> 8 for c in colour[:3]]
+    a255 = int(alpha * 255)                        # 0x408F0A..0x408F14: truncated (76 for 0.3)
+    src, dst = sheet.data, out.data
+    for yy in range(h):
+        s = ((top + yy) * sheet.width + left) * 4
+        d = yy * w * 4
+        for _ in range(w):
+            for k in range(3):
+                dst[d + k] = (((src[s + k] * keep) >> 8) + add[k]) & 0xFF
+            dst[d + 3] = src[s + 3] * a255 // 255 if a255 != 255 else src[s + 3]
+            s += 4
+            d += 4
+    return out
+
+
+def tree_frame(files: ga.GameFiles, image: int, greyed: bool) -> tuple:
+    """A family tree frame as 0x439BA0 draws it, relative to the point it is drawn at: the parents' frame
+    without the 8 pixels the tree's clip cuts, the children's whole; then, for a member who is gone, the grey."""
+    name = ga.TABLE[image][0]
+    w, h = files.size(name)
+    left = TREE_CUT if image == 0xC1 else 0
+    out = [pi.Draw("frame", name, (left, 0, w, h), left, 0)]
+    if greyed:
+        out.append(Greyed("grey", name, (left, 0, w, h), left, 0))
+    return tuple(out)
+
+
 def _resolve_layers(files: ga.GameFiles, layers: tuple) -> tuple:
     return ga.resolve(files, ga.Art("x", "x", "x", layers, True, "")).layers
 
@@ -289,14 +356,30 @@ def arts(files: ga.GameFiles) -> list:
     for image, words, why, checked in (
             (0xCD, "Screen bottom bar",
              "Drawn at the bottom of the achievements, family tree, help and store screens at (0, 519) "
-             "(0x435504, 0x43A39A, 0x44024D, 0x448E8D).", f"{EMU} 0x435360 and 0x43A384..0x43A39F run in Unicorn."),
-            (0xC1, "Family tree parent frame", "Drawn around the parents on the family tree screen (0x439C4D, "
-             "0x439D90, picture 0xC1).", ""),
-            (0xC2, "Family tree child frame", "Drawn around each child on the family tree screen (0x439F16, "
-             "picture 0xC2).", "")):
+             "(0x435504, 0x43A39A, 0x44024D, 0x448E8D).", f"{EMU} 0x435360 and 0x43A384..0x43A39F run in Unicorn."),):
         name = ga.TABLE[image][0]
         if _size(files, name):
             add(f"panels/{image:02x}", PANEL, words, [ga.whole(name)], True, why, checked)
+    tree_check = (f"{EMU} (the family tree screen 0x43A1B0 and its family row 0x439BA0, with the clip 0x407E60) "
+                  "run in Unicorn for a family with a parent and a child gone")
+    for image, who, where in ((0xC1, "parent", "around each parent (0x439C4D, 0x439D90)"),
+                              (0xC2, "child", "around each child (0x439F16)")):
+        name = ga.TABLE[image][0]
+        size = _size(files, name)
+        if not size or (image == 0xC1 and size[0] <= TREE_CUT):     # nothing of it would show
+            continue
+        cut = (f" The frame is drawn {TREE_CUT} pixels left of the tree's clip edge (0x439C2E), so the clip "
+               f"0x407E60 cuts its left {TREE_CUT} pixels (a faint shadow): they never show."
+               if image == 0xC1 else " Drawn whole.")
+        add(f"panels/{image:02x}", PANEL, f"Family tree {who} frame", tree_frame(files, image, False), True,
+            f"Drawn fully opaque {where} on the family tree screen by the family row 0x439BA0 (picture "
+            f"{image:#04x}, 0x44F960).{cut}", tree_check + ".")
+        add(f"panels/{image:02x}-gone", PANEL, f"Family tree {who} frame, family member gone",
+            tree_frame(files, image, True), True,
+            f"When that {who} is no longer in the house (their number is -1: 0x481CF0 clears it) the family row "
+            f"0x439BA0 draws the frame and then the frame again in grey (colour 0x80808080, alpha 0.3: the tinted "
+            f"blit 0x409A80 -> 0x408EC0).{cut}",
+            tree_check + "; the grey's pixels match the game's own tinted blit 0x408EC0 run in Unicorn.")
 
     # mouse pointers: SetCursor 0x408340 with the hot spot (21, 24) from 0x4F11FC / 0x4F1200; 0x409358 draws it
     for image, words, why in (

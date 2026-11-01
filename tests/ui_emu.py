@@ -10,8 +10,8 @@ blitters, where every draw is recorded:
 
 * ldwGameWindowImpl::BlitRectWithAlpha 0x404C30 (surface, x, y, left, top, right, bottom, alpha, scale);
 * the plain SDL blit 0x404BC0 (surface, x, y, left, top, right, bottom), recorded as alpha 1, scale 1;
-* SDL_FillRect (the import thunk 0x497904) and the tinted blit 0x408EC0, recorded as "fill" / "tint" so a
-  test sees it if the game ever took those paths.
+* SDL_FillRect (the import thunk 0x497904) and the tinted blit 0x408EC0, recorded as "fill" / "tint" (the
+  tint with its arguments, before its clip) so a test sees it if the game ever took those paths.
 
 Stood in for (not drawing logic): theGraphicsManager's picture loaders 0x44F3E0 / 0x44F650 / 0x44F320
 (they hand out picture objects laid out as ldwImageGrid's: +4 the picture, +8 columns, +0xC rows, +0x10 /
@@ -200,8 +200,16 @@ class UiEmu:
         return run
 
     def _tint(self) -> None:
-        self.draws.append({"kind": "tint"})
-        self.u.emu_stop()
+        """The tinted blit 0x408EC0 (picture object, x, y, left, top, right, bottom, colour 0xAABBGGRR, alpha,
+        scale), recorded as it is called (before its clip 0x407E60) and not drawn."""
+        esp = self.u.reg_read(UC_X86_REG_ESP)
+        pic, x, y, x0, y0, x1, y1, colour, alpha, scale = struct.unpack("<IiiiiiiIff",
+                                                                        self.u.mem_read(esp + 4, 40))
+        image = next((i for i, g in self.grids.items() if g == pic), None)
+        self.draws.append({"kind": "tint", "image": image, "file": ga.TABLE[image][0] if image is not None else "?",
+                           "rect": (x0, y0, x1, y1), "x": x, "y": y, "colour": colour, "alpha": alpha,
+                           "scale": scale})
+        self._return(0, 0x28)
 
     def _fill(self) -> None:
         self.draws.append({"kind": "fill", "args": tuple(self._arg(k) for k in range(3))})

@@ -94,6 +94,14 @@ def merged() -> tuple[dict, dict, dict, dict]:
     return usage, labels, unused, draw
 
 
+def merged_checked() -> dict:
+    """CELL_CHECKED of every area module together: (image, cell) -> how that cell's draw was checked."""
+    out: dict = {}
+    for mod in _areas():
+        out.update(getattr(mod, "CELL_CHECKED", {}))
+    return out
+
+
 def _font_files() -> set[str]:
     try:
         import vf1_art_fonts
@@ -120,9 +128,9 @@ WHOLE_CHECKED = "The file's own pixels, as the game's picture loader reads them.
 def _cell_draw_checked(scale: float, alpha: float) -> str:
     if scale == 1.0 and alpha == 1.0:
         return CELLS_CHECKED
-    return (CELLS_CHECKED.replace("as the game's plain blit draws them", "")
-            .rstrip(", ") + f", at {scale:g} size and {alpha:g} see-through as the game's blitter 0x404C30 draws "
-            "every one of them.")
+    return (CELLS_CHECKED.replace(", as the game's plain blit draws them.", "")
+            + f", drawn at {scale:g} size and alpha {alpha:g} as the game's blitter 0x404C30 draws every one of "
+            "them.")
 
 
 def _sheet_arts(files: ga.GameFiles, name: str, path_name: str, category: str, used: bool, why: str,
@@ -147,6 +155,7 @@ def _sheet_arts(files: ga.GameFiles, name: str, path_name: str, category: str, u
                            (ga.whole(sheet),), used, why, WHOLE_CHECKED if not patcher else "", patcher))
     scale, alpha, draw_why = draw.get(image, (1.0, 1.0, "")) if image is not None else (1.0, 1.0, "")
     sizes = [files.size(s) for s in sheet_names]
+    extra_checked = merged_checked() if image is not None and not patcher else {}
     group = f"{sub}/{Path(path_name).stem if files_across == 1 else Path(path_name).name}"
     for row in range(rows):
         for col in range(cols):
@@ -160,8 +169,11 @@ def _sheet_arts(files: ga.GameFiles, name: str, path_name: str, category: str, u
             if draw_why:
                 cell_why = f"{cell_why} {draw_why}"
             layer = pi.Draw("cell", sheet_names[file_index], rect, 0, 0, scale, alpha)
+            checked = "" if patcher else _cell_draw_checked(scale, alpha)
+            if checked and (image, index) in extra_checked:
+                checked = f"{checked} {extra_checked[(image, index)]}"
             arts.append(ga.Art(f"{key_prefix}/{Path(path_name).name.lower()}/{index}", group, text, (layer,),
-                               cell_used, cell_why, "" if patcher else _cell_draw_checked(scale, alpha), patcher))
+                               cell_used, cell_why, checked, patcher))
     return arts
 
 

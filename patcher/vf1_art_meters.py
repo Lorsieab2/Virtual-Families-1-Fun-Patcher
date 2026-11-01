@@ -104,6 +104,9 @@ CHART_STATES = (
 
 CHECK_PAINTER = ("Checked against the game's own drawing code (the Details screen 0x44B890 and the bar painter "
                  "0x44EEA0, with its clip 0x407E60) run in Unicorn.")
+CHECK_DETAILS = (CHECK_PAINTER[:-1] + ": every bar draw lands inside the picture. The background part is the "
+                 "trough measured on VD_BG_2.jpg as the game's own libjpeg decodes it: the silver 290 x 30 and the "
+                 "dark lines above and below it, nothing more.")
 CHECK_LOADING = ("Checked against the game's own loading screen 0x4406D0 and bar painter 0x44EEA0 run in "
                  "Unicorn.")
 CHECK_ACH = "Checked against the game's own achievement row 0x412D00 run in Unicorn."
@@ -164,11 +167,23 @@ def painter_draws(kind: int, value: int) -> list:
     return out
 
 
+# The bars' empty troughs as painted in VD_BG_2.jpg (decoded as the game's libjpeg decodes it, vf1_jpeg): the
+# silver is the bar's own 290 x 30 (x0 .. x0 + 289, y .. y + 29; the wood touches it left and right) with dark
+# lines above and below it, (left, top, right, bottom) on the screen.  tests/test_art_emulated_extras.py measures
+# them again on the decoded picture and runs the Details screen 0x44B890 to see every bar draw lands inside.
+TROUGHS = {
+    9: (473, 138, 763, 173),            # Progress: 3 dark lines above, 2 below
+    10: (473, 206, 763, 240),           # Happiness: 2 above, 2 below
+    8: (473, 245, 763, 279),            # Health: 2 above, 2 below
+    11: (473, 284, 763, 319),           # Fed: 2 above, 3 below
+    12: (473, 324, 763, 359),           # Energy: 2 above, 3 below
+}
+
+
 def trough(kind: int) -> pi.Draw:
     """The part of the Details screen's background (drawn whole at (0, 0) by 0x44B8A5) that is the bar's
-    empty silver trough and its wooden edges."""
-    _name, x0, y, _red = KINDS[kind]
-    rect = (x0 - 4, y - 4, x0 + BAR_W + 4, y + BAR_H + 4)
+    empty silver trough with its dark lines above and below."""
+    rect = TROUGHS[kind]
     return pi.Draw("background", DETAILS_BG, rect, rect[0], rect[1])
 
 
@@ -279,7 +294,7 @@ def _details_arts() -> list[Art]:
             arts.append(Art(
                 f"meters/details/{name.lower()}/{p}", f"{CAT}/{name} bar", f"{name} bar, {_level_words(p)}",
                 (trough(kind), *painter_draws(kind, painter_value(kind, p))),
-                True, WHY_DETAILS[kind] + notes + TROUGH + WORDS.format(word=name), CHECK_PAINTER))
+                True, WHY_DETAILS[kind] + notes + TROUGH + WORDS.format(word=name), CHECK_DETAILS))
     return arts
 
 

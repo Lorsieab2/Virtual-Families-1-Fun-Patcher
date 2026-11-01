@@ -303,8 +303,10 @@ def test_unused_pictures_are_never_asked_for(code):
                     if v is not None:
                         asked.add(v)
                     break
+    # the shark (0xAA) is loaded (0x43083F) but its draw is never put in the draw list
+    # (tests/test_art_emulated_extras.py::test_the_shark_is_never_drawn)
     for image, (used, _why) in m.USAGE.items():
-        if not used and image not in [img for img, _f, _r in m.EFFECT_TABLE.values()]:
+        if not used and image not in [img for img, _f, _r in m.EFFECT_TABLE.values()] and image != 0xAA:
             assert image not in asked, hex(image)
     for image in (0x62, 0x63, 0x65, 0x66, 0x70, 0x7C, 0x7D, 0x7F):     # only the effect table names these
         assert image not in asked, hex(image)
