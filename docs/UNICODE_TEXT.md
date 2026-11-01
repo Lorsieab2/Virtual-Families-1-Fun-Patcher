@@ -119,6 +119,33 @@ The DLL draws on-the-spot letters with the same GDI steps (`native/vf1text/glyph
 tool show the same pixels; `tests/test_vf1_glyph_gdi.py` proves it through 32-bit rundll32 and inside the emulator
 with the machine's real GDI.
 
+## Use Unicode Font (overrides in-game fonts) (`UseUnicodeFont`, off by default)
+
+`vf1font.dll`: the same source as `vf1text.dll` built with `VF1_FONT_MODE` (`native/build_text.bat`), loaded by
+vf1fun.dll when this setting is on and Render Unicode with In-Game Fonts is off. The same six hooks, typing and
+UTF-8 storage; every letter except line breaks and control characters (the game's own letters too) is drawn by
+GDI in the chosen face, then Segoe UI, then the chain. The face is settings.ini `[UnicodeFont] Face=` (Segoe UI
+when absent), and `File=` names a font file in `Virtual Families 1 Patcher Files\Unicode Font\`, loaded with
+AddFontResourceExW(FR_PRIVATE) for the game only. Each game font keeps its height, baseline, weight and coverage
+curve (the shipped `Unicode Font\<font>.txt` styles); its em is fitted at first use so that "The quick brown fox
+jumps over the lazy dog 0123456789" is as wide in the face as the game font draws it (60% to 130% of its own em;
+`FitChosenFont` = `vf1_game_fonts.fit_unicode_font`). Tools tab -> **Unicode Font...** (`patcher/vf1_unicode_font.py`)
+picks the face or file, previews the four fonts as the game will draw them, and writes the section; Game Text
+can preview with it too.
+
+The two settings exclude each other (manifest `excludes`, both ways): the window unticks one when the other is
+ticked; Select All Patches and Enable All Main Patches keep Render Unicode with In-Game Fonts (on by default);
+Owner's Defaults keeps Use Unicode Font; Patch Selection Settings refuses ticking both at once; the command line
+refuses `--enable` of both and lets `--enable` of one turn the other off.
+
+Proved: `tests/test_unicode_font.py` runs the game's DrawString and GetWidth with the real vf1font.dll in Unicorn,
+its GDI calls made by real GDI, for Segoe UI, Comic Sans MS and Arial loaded from a font file, in all four fonts:
+every place, box and pixel equals the patcher's preview.
+
+Live check: tick Use Unicode Font, patch, pick Comic Sans MS with Unicode Font..., start the game: every screen's
+text is in Comic Sans, buttons and dialogs still fit, a typed accent and a Japanese name show; pick a font file and
+start again.
+
 ## The Game Text tool (Tools tab -> Game Text...)
 
 `patcher/vf1_game_text.py`: a multi-line text box; the font (the four game fonts with what they are used for,
@@ -171,5 +198,4 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
 * Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,
   unshaped.
 * vf1fun.dll's own Windows dialogs (Spawn Child's name, the Family page) still use the system code page for names.
-* Translations, the Translations window, Share on GitHub, and Use Unicode Font (overrides in-game fonts), mutually
-  exclusive with this patch.
+* Translations, the Translations window and Share on GitHub.

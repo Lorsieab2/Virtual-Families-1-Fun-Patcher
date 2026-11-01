@@ -12,3 +12,6 @@ if not exist "%BUILD%" mkdir "%BUILD%"
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars32.bat" >nul || exit /b 1
 cl /nologo /O2 /MT /EHsc /W4 /WX /LD /GS- "%ROOT%\native\vf1text\vf1text.cpp" /Fo"%BUILD%\vf1text.obj" /Fe"%BUILD%\vf1text.dll" /link kernel32.lib gdi32.lib /NXCOMPAT /SAFESEH:NO || exit /b 1
 if not exist "%BUILD%\vf1text.dll" exit /b 1
+rem The same source as vf1font.dll: Use Unicode Font (overrides in-game fonts).
+cl /nologo /O2 /MT /EHsc /W4 /WX /LD /GS- /DVF1_FONT_MODE "%ROOT%\native\vf1text\vf1text.cpp" /Fo"%BUILD%\vf1font.obj" /Fe"%BUILD%\vf1font.dll" /link kernel32.lib gdi32.lib /NXCOMPAT /SAFESEH:NO || exit /b 1
+if not exist "%BUILD%\vf1font.dll" exit /b 1

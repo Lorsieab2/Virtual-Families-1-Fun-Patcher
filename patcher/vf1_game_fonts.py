@@ -314,8 +314,25 @@ class GameFont:
             import vf1_glyph_gdi
             if vf1_glyph_gdi.AVAILABLE:
                 s = self.style
-                self._renderer = vf1_glyph_gdi.renderer(s.face, s.weight, s.em, s.baseline, self.height)
+                if self.override is not None:
+                    face, em = self.override
+                    self._renderer = vf1_glyph_gdi.renderer(face, s.weight, em, s.baseline, self.height,
+                                                            vf1_glyph_gdi.UNICODE_FONT_FALLBACKS)
+                else:
+                    self._renderer = vf1_glyph_gdi.renderer(s.face, s.weight, s.em, s.baseline, self.height)
         return self._renderer
+
+    override: tuple[str, int] | None = None      # Use Unicode Font: (face, fitted em)
+
+    def with_unicode_font(self, face: str = "Segoe UI") -> "GameFont":
+        """This font as Use Unicode Font (overrides in-game fonts) draws it: every letter by Windows in `face` (then
+        Segoe UI and the chain), at this font's height, baseline and weight, the size fitted by fit_unicode_font."""
+        import copy
+        other = copy.copy(self)
+        other._made = {}
+        other._renderer = None
+        other.override = (face, fit_unicode_font(self, face))
+        return other
 
     def glyph(self, letter: str) -> Glyph:
         """A whole character as the patched game draws it."""
@@ -327,12 +344,12 @@ class GameFont:
                 letter = composed
         if len(letter) == 1 and ord(letter) < 0x100 and (ord(letter) < 0x20 or 0x7F < ord(letter) < 0xA0):
             return self.game_glyph(0) if ord(letter) not in self.native else self.game_glyph(ord(letter))
-        if self.has_native(letter):
+        if self.override is None and self.has_native(letter):
             return self.game_glyph(ord(letter))
         if letter in self._made:
             return self._made[letter]
         made = None
-        if self.glyphs is not None:
+        if self.glyphs is not None and self.override is None:
             image = self.glyphs.letter(letter, self.height)
             if image is not None:
                 made = Glyph(image, image.width, "patcher-made")
@@ -403,6 +420,29 @@ class GameFont:
         for g, x, y in self.layout(text):
             paint(out, g.image, x, y, colour)
         return out
+
+
+FIT_REFERENCE = "The quick brown fox jumps over the lazy dog 0123456789"
+
+
+def fit_unicode_font(font: "GameFont", face: str) -> int:
+    """Use Unicode Font's size for `font` in `face` (vf1font.dll's FitChosenFont, the same arithmetic): the em at
+    which FIT_REFERENCE is as wide in `face` as the game font draws it, kept within 60% to 130% of the font's own
+    em; the font's own em when `face` is not installed."""
+    import vf1_glyph_gdi
+    s = font.style
+    if s is None or not vf1_glyph_gdi.AVAILABLE:
+        return s.em if s else font.height
+    game = sum(font.box(ord(c))[2] - font.box(ord(c))[0] for c in FIT_REFERENCE)
+    probe = vf1_glyph_gdi.Renderer(face, s.weight, s.em, s.baseline, font.height, ())
+    try:
+        width = probe.extent(FIT_REFERENCE)
+    finally:
+        probe.close()
+    if width <= 0 or game <= 0:
+        return s.em
+    em = (s.em * game * 2 + width) // (2 * width)
+    return max(s.em * 6 // 10, min(s.em * 13 // 10, em))
 
 
 def _f32(v: float) -> float:

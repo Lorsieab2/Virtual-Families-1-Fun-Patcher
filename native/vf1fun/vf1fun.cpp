@@ -1030,16 +1030,18 @@ static void LoadLogsCompanion() {
     LogsEvent = (LogsEventFn)GetProcAddress(logs, "VF1Logs_Event");
 }
 
-// ---------------------------------------------------------------- Render Unicode with In-Game Fonts
-// The feature is its own DLL, vf1text.dll, installed beside this one only while the RenderUnicodeInGameFonts
-// setting is on (patcher/manifest.json). This DLL only loads it; typing, storing and drawing text are that DLL's.
-static void LoadTextCompanion() {
+// ---------------------------------------------------------------- Render Unicode with In-Game Fonts / Use Unicode Font
+// Each is its own DLL, installed beside this one only while its setting is on (patcher/manifest.json): vf1text.dll
+// (RenderUnicodeInGameFonts) or vf1font.dll (UseUnicodeFont, the same source built to draw every letter with the
+// chosen font). The two settings cannot both be on; if both were, only vf1text.dll is loaded. This DLL only loads
+// it; typing, storing and drawing text are that DLL's.
+static void LoadTextCompanion(const wchar_t *name) {
     wchar_t path[MAX_PATH];
     InitSettingsPath();
     wcscpy_s(path, MAX_PATH, SettingsPath);
     wchar_t *slash = wcsrchr(path, L'\\');
     if (!slash) return;
-    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1text.dll");
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), name);
     HMODULE text = LoadLibraryW(path);
     if (!text) return;
     typedef int (__cdecl *StartupFn)();
@@ -1175,7 +1177,9 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     if (SettingOn(L"FamilyHistory", false))   // after vf1kids.dll: it chains that DLL's hooks
         LoadLogsCompanion();
     if (SettingOn(L"RenderUnicodeInGameFonts", false))
-        LoadTextCompanion();
+        LoadTextCompanion(L"vf1text.dll");
+    else if (SettingOn(L"UseUnicodeFont", false))
+        LoadTextCompanion(L"vf1font.dll");
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {

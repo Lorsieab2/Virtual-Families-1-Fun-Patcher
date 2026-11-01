@@ -505,6 +505,7 @@ class PatchSetting:
     category: str = "main"
     requires: tuple[str, ...] = ()
     files: tuple[SettingFile, ...] = ()
+    excludes: tuple[str, ...] = ()     # settings that cannot be on with this one (always both ways)
 
     @property
     def experimental(self) -> bool:
@@ -538,6 +539,12 @@ def manifest_settings(manifest: dict[str, Any]) -> dict[str, PatchSetting]:
         requires = tuple(normalize_setting_id(r, f"setting {setting_id} requires") for r in requires_raw)
         if setting_id in requires:
             raise PatchError(f"Setting {setting_id} cannot require itself.")
+        excludes_raw = raw.get("excludes", [])
+        if not isinstance(excludes_raw, list):
+            raise PatchError(f"Setting {setting_id}: excludes must be an array of setting ids.")
+        excludes = tuple(normalize_setting_id(r, f"setting {setting_id} excludes") for r in excludes_raw)
+        if setting_id in excludes:
+            raise PatchError(f"Setting {setting_id} cannot exclude itself.")
         files_raw = raw.get("files", [])
         if not isinstance(files_raw, list):
             raise PatchError(f"Setting {setting_id}: files must be an array.")
@@ -576,13 +583,69 @@ def manifest_settings(manifest: dict[str, Any]) -> dict[str, PatchSetting]:
             category=category,
             requires=requires,
             files=tuple(files),
+            excludes=excludes,
         )
     for setting in settings.values():
         unknown = [r for r in setting.requires if r not in settings]
         if unknown:
             raise PatchError(f"Setting {setting.id} requires unknown setting(s): {', '.join(unknown)}")
+        unknown = [r for r in setting.excludes if r not in settings]
+        if unknown:
+            raise PatchError(f"Setting {setting.id} excludes unknown setting(s): {', '.join(unknown)}")
+        clash = [r for r in setting.excludes if r in setting.requires]
+        if clash:
+            raise PatchError(f"Setting {setting.id} both requires and excludes {', '.join(clash)}.")
+    # exclusion goes both ways
+    for setting in list(settings.values()):
+        for other in setting.excludes:
+            if setting.id not in settings[other].excludes:
+                o = settings[other]
+                settings[other] = PatchSetting(o.id, o.label, o.description, o.default, o.category, o.requires,
+                                               o.files, o.excludes + (setting.id,))
+    for setting in settings.values():
+        both_default = [o for o in setting.excludes if setting.default and settings[o].default]
+        if both_default:
+            raise PatchError(f"Settings {setting.id} and {both_default[0]} exclude each other, so they cannot "
+                             "both be on by default.")
     setting_prerequisites(settings)  # rejects cycles
     return settings
+
+
+def setting_exclusions(settings: dict[str, PatchSetting]) -> dict[str, frozenset[str]]:
+    """Each setting's mutually exclusive settings (both ways)."""
+    return {setting_id: frozenset(setting.excludes) for setting_id, setting in settings.items()}
+
+
+def resolve_exclusions(settings: dict[str, PatchSetting], selected: set[str], prefer: set[str] | frozenset = (),
+                       explicit: set[str] | frozenset = ()) -> set[str]:
+    """`selected` with no two mutually exclusive settings on. Two named explicitly (`explicit`) is an error the
+    player must settle; otherwise the one in `prefer` wins, then one named explicitly, then the one on by default,
+    then the first in the manifest."""
+    chosen = set(selected)
+    order = list(settings)
+    for setting_id in order:
+        if setting_id not in chosen:
+            continue
+        for other in sorted(settings[setting_id].excludes, key=order.index):
+            if other not in chosen or setting_id not in chosen:
+                continue
+            pair = (setting_id, other)
+            if setting_id in explicit and other in explicit:
+                raise PatchError(f"{settings[setting_id].label} and {settings[other].label} cannot both be on: "
+                                 "they exclude each other. Choose one.")
+            def rank(s: str) -> tuple:
+                return (s in prefer, s in explicit, settings[s].default, -order.index(s))
+            keep = max(pair, key=rank)
+            chosen.discard(other if keep == setting_id else setting_id)
+    return chosen
+
+
+def excludes_note(setting: PatchSetting, settings: dict[str, PatchSetting]) -> str:
+    """The bold note for a setting that cannot be on with another."""
+    if not setting.excludes:
+        return ""
+    labels = ", ".join(settings[o].label for o in setting.excludes if o in settings)
+    return f" **Cannot be on with {labels}: ticking one unticks the other.**"
 
 
 def setting_dependencies(settings: dict[str, PatchSetting]) -> dict[str, frozenset[str]]:
@@ -635,7 +698,8 @@ def resolve_enabled_settings(settings: dict[str, PatchSetting], args: argparse.N
         raise PatchError(f"Setting(s) both enabled and disabled: {', '.join(both)}")
     enabled |= set(enable)
     enabled -= set(disable)
-    return enabled
+    # Mutually exclusive settings: both named with --enable is refused; one named with --enable turns the other off.
+    return resolve_exclusions(settings, enabled, explicit=set(enable))
 
 
 def effective_settings_report(settings: dict[str, PatchSetting], selected: set[str]) -> dict[str, Any]:
@@ -674,6 +738,7 @@ def settings_log(settings: dict[str, PatchSetting], selected: set[str],
                 "default": setting.default,
                 "category": setting.category,
                 "requires": list(setting.requires),
+            "excludes": list(setting.excludes),
                 "files": [f.target for f in setting.files],
                 "enabled": setting.id in effective,
                 **({"selected": setting.id in selected} if report is not None else {}),
@@ -1367,6 +1432,7 @@ def list_manifest_settings(args: argparse.Namespace) -> int:
         if setting.description:
             line += f": {setting.description}"
         line += requires_note(setting.requires, settings).replace("**", "")
+        line += excludes_note(setting, settings).replace("**", "")
         print(line)
     return 0
 
@@ -1590,13 +1656,17 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
         "  Experimental: not yet tested in a running game. Back up your saves before using it.",
         "- The cheats are off by default: Cheat Upgrades, Flea Market and Free and Guaranteed Cheats.",
         "- Presets in the patcher window: Select All Patches (every setting except the Experimental ones),",
-        "  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children)",
-        "  and Deselect All Patches (none). Patch Selection Settings ticks or unticks chosen settings by name.",
+        "  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children, with",
+        "  Use Unicode Font instead of Render Unicode with In-Game Fonts) and Deselect All Patches (none). Patch",
+        "  Selection Settings ticks or unticks chosen settings by name.",
+        "- Use Unicode Font (overrides in-game fonts) and Render Unicode with In-Game Fonts cannot both be on:",
+        "  ticking one unticks the other, and the command line refuses both with --enable.",
     ]
     for setting in settings.values():
         state = "on" if setting.default else "off"
         lines.append(f"- {setting.id} [{state}] ({setting.category}): {setting.label}")
-        lines.append(f"  {setting.description}{requires_note(setting.requires, settings)}")
+        lines.append(f"  {setting.description}{requires_note(setting.requires, settings)}"
+                     f"{excludes_note(setting, settings)}")
     lines += [
         "",
         "Restore",

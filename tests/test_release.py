@@ -92,7 +92,7 @@ def test_the_gui_finds_its_files_from_another_folder(bundle, tmp_path):
 
 def test_bundle_layout_matches_the_vf2_release(bundle):
     folder, names = bundle
-    assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(PLAYER_FILES + [f"{FILES}/{n}" for n in [
+    assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(set(PLAYER_FILES + [f"{FILES}/{n}" for n in [
         "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
         "vf1_save.py", "vf1_rename_family.py", "vf1_copy_slot.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
         "vf1_picture_maker.py", "vf1_people_pictures.py", "vf1_picture_image.py",
@@ -101,9 +101,10 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_relationships.py", "vf1_line_colours.py",
         "vf1_tree_editor_tools.py", "vf1_gdiplus.py",
         "vf1_text.py", "vf1_game_fonts.py", "vf1_glyph_gdi.py", "vf1_glyph_maker.py", "vf1_game_text.py",
+        "vf1_unicode_font.py",
         "payload/vf1fun.dll"] + [f"payload/UnicodeText/{p.name}" for p in (ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")
                                  if p.stem not in ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
-            (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]])
+            (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]]))
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == VERSION
     assert manifest["payload"]["vf1fun.dll"]["size"] == (folder / "payload" / "vf1fun.dll").stat().st_size

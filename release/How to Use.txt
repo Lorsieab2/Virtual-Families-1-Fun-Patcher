@@ -147,6 +147,14 @@ patch (or in the original game) the save still loads and works, but an
 accented letter shows as two or three odd letters (Zoe with two dots shows as
 "ZoÃ«"). Not yet tested in a running game.
 
+Use Unicode Font (overrides in-game fonts) (off by default; Owner's Defaults
+ticks it): the game's text is drawn in a font you choose instead of its own
+letters, in any language. Pick the font with Unicode Font... on the Tools
+tab (any installed font or a .ttf/.otf file; Segoe UI if you pick none).
+Each text size keeps its height and colour and is sized so a line is as wide
+as before. It cannot be on with Render Unicode with In-Game Fonts: ticking
+one unticks the other. Typing and names work the same with either.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).
@@ -298,6 +306,11 @@ Next to the Patches tab is a Tools tab for your family saves.
                     in the game too), or if Windows draws it. Fonts marked
                     unused are in the game folder but never shown by the
                     game. Only the game folder is read.
+  Unicode Font      Chooses the font Use Unicode Font draws the game's
+                    text with: pick the modded game folder, then a font
+                    from the list or a font file. The preview shows the
+                    game's four text sizes as the game will draw them.
+                    Save; the game uses it from its next start.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).

@@ -167,6 +167,17 @@ Six settings change the base game on their own (plus the optional ones below):
   Its own DLL, `vf1text.dll`; all of it is run on the real exe in the emulator, including letters drawn by the
   machine's own GDI. **Not live tested yet** -- see `docs/UNICODE_TEXT.md`.
 
+- **Use Unicode Font (overrides in-game fonts)** (a Main Patch, off by default; Owner's Defaults ticks it): the
+  same typing and storage, but every letter, the game's own too, is drawn by Windows in a font chosen with
+  **Unicode Font...** on the Tools tab (any installed font or a .ttf/.otf/.ttc file; Segoe UI when none), then
+  Segoe UI and the same fallback chain. Each of the four game fonts keeps its height, baseline, weight and
+  colour; its size is fitted so a reference line is as wide as the game font draws it (60% to 130% of its own
+  size), so layouts still fit. It cannot be on with Render Unicode with In-Game Fonts: manifest `excludes`,
+  enforced in the window (ticking one unticks the other; Select All and Enable All Main Patches keep Render;
+  Owner's Defaults keeps Use Unicode Font), in Patch Selection Settings (ticking both is refused) and on the
+  command line (`--enable` of both is refused). Its own DLL, `vf1font.dll`: the same source as `vf1text.dll`
+  built with `VF1_FONT_MODE`.
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## The patcher window: Patches and Tools
@@ -263,6 +274,10 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     the sheet. A character picker searches by name or code point and says where each letter comes from (the game,
     patcher-made, drawn by Windows, or missing). "As the stock game shows it" draws the same text's UTF-8 bytes as
     the unpatched game would. Module `patcher/vf1_game_text.py` (fonts in `vf1_game_fonts.py`).
+  - **Unicode Font...:** the font Use Unicode Font draws with: the modded folder, an installed font or a font
+    file (copied into `Virtual Families 1 Patcher Files\Unicode Font`), a preview of the four game fonts as the
+    game will draw them, and Save (settings.ini `[UnicodeFont] Face=` and `File=`). Module
+    `patcher/vf1_unicode_font.py`.
   - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
     save* lists a save's family members (at home, then those who left home) and the outfits in the store and the
     tool tray, and draws each as the game would now: their age, hair and face (head row), outfit (body row) and the
@@ -383,7 +398,8 @@ copies as arguments.
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
   `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
   `native\build_logs.bat` builds `build\vf1logs.dll` (the Family History Log) and
-  `native\build_text.bat` builds `build\vf1text.dll` (Render Unicode with In-Game Fonts).
+  `native\build_text.bat` builds `build\vf1text.dll` (Render Unicode with In-Game Fonts) and
+  `build\vf1font.dll` (Use Unicode Font).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

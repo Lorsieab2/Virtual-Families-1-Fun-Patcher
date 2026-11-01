@@ -159,7 +159,18 @@
         "Letters the game's fonts lack are made in the same style: accents from the game's own letters, the rest drawn by Windows in the font's size.",
         "Names stay in the save's own name spaces. A letter beyond A to Z uses up more of the room, so a family name holds fewer of them.",
         "With the patch off, or in the stock game, the save still works, but an accented letter shows as two or three odd letters.",
-        "On by default. Not yet tested in a running game."
+        "On by default. It cannot be on with Use Unicode Font. Not yet tested in a running game."
+      ]
+    },
+    {
+      "ids": ["UseUnicodeFont"],
+      "guide": [
+        "Draws all of the game's text in a font you choose instead of the game's own letters, in any language.",
+        "Pick the font with Unicode Font... on the Tools tab: any installed font or a font file. Segoe UI if you pick none.",
+        "Each of the game's text sizes keeps its height and colour, and is sized so a line is as wide as before, so screens still fit.",
+        "It cannot be on with Render Unicode with In-Game Fonts: ticking one unticks the other. Typing and names work the same with either.",
+        "With it off, or in the original game, the save still works, but an accented letter shows as two or three odd letters.",
+        "Off by default (Owner's Defaults ticks it). Not yet tested in a running game."
       ]
     }
   ],
@@ -395,6 +406,16 @@
         "Each character says if the font has it, if the patcher made it in the font's style, or if Windows draws it. (patcher-made) letters show in the game too.",
         "Fonts marked unused are in the game folder but never shown by the game; their letter spacing was worked out from the picture.",
         "Save PNG saves a clear picture at the game's size, 2x, 4x or your own size. Only the game folder is read."
+      ]
+    },
+    "unicode_font": {
+      "title": "Unicode Font",
+      "guide": [
+        "Chooses the font Use Unicode Font draws the game's text with.",
+        "Pick the modded game folder, then a font from the list or Choose a font file... (a .ttf or .otf file).",
+        "The preview shows the game's four text sizes exactly as the game will draw them. Press Save.",
+        "The game uses it from its next start. Use Unicode Font must be ticked and patched too.",
+        "Letters the font lacks come from Segoe UI and the other Windows fonts. Saves and game files are not changed."
       ]
     }
   }

@@ -21,6 +21,8 @@ SPEC = {
         'Writes a Family History log of every family event, as it happens, in the Virtual Villagers Fun Patcher\'s record layout and the game\'s own words: conceptions, births (twins and triplets, with both parents), deaths with their cause and age, marriages and remarriages (the current spouse, the earlier one and why they left), Divorce Spouse, everyone who joins (Adopt Outside Child, The Little Visitor, Spawn Child, Adopt New Person) or leaves home (college, Boarding School, The Talent Scout), Next Generation and its heir, a new family, Start Over, Evict Family, Roll the Dice, and every Random Event as an Email Event or a Popup Event by the subject line or title the player sees. The Family Tree Maker reads it for what the save forgets. Each save slot has its own log beside the save (Virtual Families 1 Patcher\\Save N\\Logs\\Family History). A family that already exists gets what its Family Tree holds, marked "backfilled, no date", once. A new family or Start Over clears that slot\'s folder (a Backups folder in it is kept). The save file itself is not changed. Not yet tested in a running game. Installs its own small DLL, vf1logs.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.'),
     'RenderUnicodeInGameFonts': ('Render Unicode with In-Game Fonts',
         'Lets the game take and show any letter or symbol in Unicode: accents (French, Turkish, Polish, Vietnamese...), Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and the rest. Typing in the game\'s own name boxes accepts every character the keyboard gives (accent keys, dead keys, Alt codes and an input method\'s text), and backspace deletes a whole character. Every piece of text is drawn with the game\'s own fonts: the game\'s own letter when it has one; otherwise a patcher-made letter in that font\'s style (accented letters are built from the game\'s own letters and accents); otherwise a letter Windows draws on the spot in the font\'s size, weight and colour (Segoe UI, then Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others); otherwise a small box. Names are kept in the save as UTF-8 inside the game\'s own name fields, which are not made any bigger: a name is cut only between whole characters, and a letter beyond A-Z takes 2 to 4 of a field\'s bytes (a family name holds 19). Old saves read exactly as before. The stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example "Zoë" as "ZoÃ«"). Installs its own small DLL, vf1text.dll, and the patcher-made letters (the Unicode Text folder) in the Virtual Families 1 Patcher Files folder; the game\'s own art is not changed, and unticking the setting removes them.'),
+    'UseUnicodeFont': ('Use Unicode Font (overrides in-game fonts)',
+        'Draws all of the game\'s text with a Unicode font of your choice instead of the game\'s own letters: any font installed in Windows or a .ttf or .otf file, picked with Unicode Font... on the Tools tab (Segoe UI when none is picked). Characters the chosen font lacks come from Segoe UI and then the Windows fonts for other scripts (Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others, and Noto when installed). Each of the game\'s four fonts keeps its height, baseline, weight and colour, and its size is fitted so that a line of text is as wide as the game\'s own, so screens still fit. Everything Render Unicode with In-Game Fonts does for typing and keeping names works the same: any character can be typed in the game\'s name boxes and is kept in the save as UTF-8 in the game\'s own name fields; the stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example "Zoë" as "ZoÃ«"). Installs its own small DLL, vf1font.dll, and the fonts\' size data (the Unicode Font folder) in the Virtual Families 1 Patcher Files folder; the game\'s own art is not changed, and unticking the setting removes them.'),
     'AllowOlderPregnancies': ('Allow Older Pregnancies',
         'Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.'),
     'ClampMoneyAndFood': ('Clamp Max Money and Food',
@@ -69,8 +71,12 @@ MANIFEST_ROWS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
 # stuff you mentioned default off (except in owner's defaults)"; "Keep off by default: All items show in flea
 # market/outfits/hairstyles"). Everything that costs or adds content stays on.
 CHEATS_DEFAULT_OFF = frozenset({"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"})
+# Use Unicode Font (overrides in-game fonts): off by default, on in Owner's Defaults (the owner, 2026-11-01); it cannot
+# be on with Render Unicode with In-Game Fonts, which is on by default.
+OVERRIDES_DEFAULT_OFF = frozenset({"UseUnicodeFont"})
 OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS
-                                       if row.get("category") == "experimental") | CHEATS_DEFAULT_OFF
+                                       if row.get("category") == "experimental") | CHEATS_DEFAULT_OFF | \
+    OVERRIDES_DEFAULT_OFF
 
 
 def test_shipped_manifest_offers_every_setting_all_on():
@@ -81,20 +87,23 @@ def test_shipped_manifest_offers_every_setting_all_on():
         expected = setting_id not in OWNER_APPROVED_DEFAULT_OFF
         assert (s.label, s.description, s.default) == (label, description, expected), setting_id
     assert {k for k, s in settings.items() if not s.default} == set(OWNER_APPROVED_DEFAULT_OFF)
-    assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children", "CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"}
+    assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children", "CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket",
+                                          "UseUnicodeFont"}
+    assert settings["UseUnicodeFont"].excludes == ("RenderUnicodeInGameFonts",)
+    assert settings["RenderUnicodeInGameFonts"].excludes == ("UseUnicodeFont",)
     # Family History Log: a Main Patch, on by default (the owner, 2026-10-26: "don't put it under experimental")
     assert settings["FamilyHistory"].category == "main" and settings["FamilyHistory"].default is True
-    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF - CHEATS_DEFAULT_OFF)
+    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF - CHEATS_DEFAULT_OFF - OVERRIDES_DEFAULT_OFF)
     assert all(settings[k].category == "optional" for k in CHEATS_DEFAULT_OFF)
 
 
 def test_enable_all_leaves_experimental_settings_off():
     settings = vp.manifest_settings(json.loads(MANIFEST.read_text(encoding="utf-8")))
     every = vp.resolve_enabled_settings(settings, ns(enable_all=True, disable_all=False, enable=None, disable=None))
-    assert every == set(settings) - {"UpTo28Children"} and "FamilyHistory" in every
+    assert every == set(settings) - {"UpTo28Children", "UseUnicodeFont"} and "FamilyHistory" in every
     named = vp.resolve_enabled_settings(settings, ns(enable_all=True, disable_all=False, enable=["UpTo28Children"],
                                                      disable=None))
-    assert named == set(settings)
+    assert named == set(settings) - {"UseUnicodeFont"}
     defaults = vp.resolve_enabled_settings(settings, ns(enable_all=False, disable_all=False, enable=None, disable=None))
     assert "UpTo28Children" not in defaults and "FamilyHistory" in defaults
     assert settings["FixVanillaGameBugs"].category == "main"
@@ -258,7 +267,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "0", "FleaMarket": "0", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
@@ -286,7 +295,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert vp.DLL_REL in summary["unchanged_files"]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "1", "FleaMarket": "1", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
