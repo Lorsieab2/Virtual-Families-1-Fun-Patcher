@@ -114,15 +114,17 @@ PATCH_SETTINGS = {
     "AllowOlderPregnancies": ("Allow Older Pregnancies", True),
     "ClampMoneyAndFood": ("Clamp Max Money and Food", True),
     "SpecialUpgrades": ("Add visible mobile version purchases", True),
-    "CheatUpgrades": ("Cheat Upgrades", True),
+    "CheatUpgrades": ("Cheat Upgrades", False),
     "RollTheDice": ("Roll the Dice", True),
     "FixVanillaGameBugs": ("Fix Vanilla Game Bugs", True),
-    "FleaMarket": ("Flea Market", True),
+    "FleaMarket": ("Flea Market", False),
+    "FreeAndGuaranteedCheats": ("Free and Guaranteed Cheats", False),
     "StoreRefreshKey": ("R Refreshes the Store", True),
 }
 # The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
 UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
-                  "Time Controls", "Special Upgrades", "Family: Marriage, Babies and Adoption", "Flea Market",
+                  "Time Controls", "Special Upgrades", "Services", "Family: Marriage, Babies and Children",
+                  "Flea Market",
                   "Roll the Dice", "Patcher Achievements", "Clothing and Hairstyles")
 
 
@@ -788,10 +790,11 @@ def _time() -> list[Fact]:
                 "birthday and birth checks before the house is drawn again.", E, sub=True),
         Fact(g, "\"Where have you been?\" is shown after 24 hours or more of real time away (the whole hours away "
                 "must be more than 23), but not for a family saved paused.", C, sub=True),
-        Fact(g, with_patcher("CheatUpgrades", "Time Warp on the Time Controls page ages everyone at home 61 age "
-                                              "units (3 years and 1 unit) at once, past the time-away limits above, "
-                                              "running every unit's checks; the money gained in a warp stops at $750 "
-                                              "more than before it. It works while paused too."), E),
+        Fact(g, with_patcher("SpecialUpgrades", "Time Warp ($2,000, Virtual Families 2's price; the Services page) "
+                                                "ages everyone at home 61 age units (3 years and 1 unit) at once, past "
+                                                "the time-away limits above, running every unit's checks; the money "
+                                                "gained in a warp stops at $750 more than before it. It works while "
+                                                "paused too."), E),
     ]
 
 
@@ -1090,8 +1093,14 @@ def _careers() -> list[Fact]:
         Fact(g, "How much unwatched work: one piece for every 400 of the weight of their room's Working on career "
                 "action (above), rounded down: 1 at the starting weight of 500, 112 at the top weight of 45,000.",
              C, sub=True),
-        Fact(g, "Virtual Families 2's 132 careers, its Advanced Career Training and Career Change services and its "
-                "31 career upgrades: " + NOT_IN_VF1 + " (108 careers, three career rooms with three levels).", C),
+        Fact(g, "Virtual Families 2's 132 careers and its 31 career upgrades: " + NOT_IN_VF1 + " (108 careers, "
+                "three career rooms with three levels).", C),
+        Fact(g, with_patcher("SpecialUpgrades", "the Services page sells Virtual Families 2's Advanced Career Training "
+                             "(a promotion to the next level with its new salary, through the same call as the "
+                             "Professional Career Training pop-up; $1,100 times the career level + 1: $1,100 for a "
+                             "Beginner up to $7,700 for an Exceptional; not sold to a Master) and Career Change "
+                             "($1,200: a new career drawn at random from Virtual Families 1's 108, at Beginner), to a "
+                             "grown-up with a career (checked: Practiced costs $5,500)."), E),
         Fact(g, "The three career rooms: room 1 is the Kitchen, room 2 the Office and room 3 the Workshop (the "
                 "promotion step reads the Kitchen's level for room 1, the Office's for room 2 and the Workshop's for "
                 "room 3, and each Profession Magazine works only for its own room). Upgrading them: see Career Room "
@@ -1163,8 +1172,10 @@ def _leaving() -> list[Fact]:
                 "to college!” and the tip “One of the children is now old enough to go to college!”, "
                 "but no code in the game loads either one (every instruction the game runs was searched for their "
                 "numbers).", C),
-        Fact(g, "Virtual Families 2's Boarding School service and its e-mails from children who left: "
-                + NOT_IN_VF1 + ".", C),
+        Fact(g, with_patcher("SpecialUpgrades", "the Services page sells Virtual Families 2's Boarding School "
+                             "($1,500, a child without a career): the child leaves home the way the age-19 departure "
+                             "does (checked: refused to a family member with a career)."), E),
+        Fact(g, "Virtual Families 2's e-mails from children who left: " + NOT_IN_VF1 + ".", C),
     ]
 
 
@@ -1315,9 +1326,10 @@ def _events() -> list[Fact]:
                          "the EPA Visit, the Chemical Manifest, the cupcake and magazine sellers, the diaper events, the "
                          "Bug Whisperer, the Collecting Contest, Adult-proof and the notes and letters): "
                          + NOT_IN_VF1 + ".", C))
-    facts.append(Fact(g, with_patcher("RollTheDice", "Roll the Dice on the Upgrades menu costs $500 and brings a "
-                                                     "Popup Event at once, picked from those that can happen as "
-                                                     "above; when none can, the $500 is given back."), C))
+    facts.append(Fact(g, with_patcher("RollTheDice", "Roll the Dice on the Upgrades menu costs $2,000 (Virtual "
+                                                     "Families 2's price; free with Free and Guaranteed Cheats) and "
+                                                     "brings a Popup Event at once, picked from those that can happen "
+                                                     "as above; when none can, the $2,000 is given back."), C))
     return facts
 
 
@@ -1581,12 +1593,19 @@ def _store() -> list[Fact]:
                              "and outfits (items 12 to 17 and 20 to 63: drinks, candies, fruit, medicines, Baby Boost, "
                              "the Doctor Consultation, care items, repair items, Anti-spam Software, magazines, films, "
                              "bottles, kits, the book and the pets) at their listed price, at any time, without the "
-                             "store's stock or its Flea Market draw; its Get for free button gives the item at no cost. Each "
-                             "works as described below."), C),
-        Fact(g, "Virtual Families 2's store tabs for furniture, renovations, services and Special Upgrades (the "
-                "Lotto Ticket, the Time Warp, Adoption Services, the Maid and Gardener services), its furniture On "
+                             "store's stock or its Flea Market draw. Its Get for free button gives the item at no "
+                             "cost only with Free and Guaranteed Cheats too; without it the button is hidden and "
+                             "refused (checked). Each works as described below."), C),
+        Fact(g, "Virtual Families 2's store tabs for furniture and renovations, its Lotto Ticket, its furniture On "
                 "Sale and its locks by generation: " + NOT_IN_VF1 + "; this store is one page with the items "
                 "above.", C),
+        Fact(g, with_patcher("SpecialUpgrades", "Virtual Families 2's services and its Time Warp and Adoption "
+                             "Services are sold on the Upgrades menu's Services page at its prices (Time Warp $2,000, "
+                             "Adoption Services $4,000, Boarding School $1,500, Systematic Desensitization $2,500, "
+                             "Psychotherapy $1,750, Higher Learning Classes $1,000, Advanced Career Training $1,100 "
+                             "times the career level + 1, Career Change $1,200); the price shown is for the family "
+                             "member picked. A family that cannot afford one is refused and nothing changes; all are "
+                             "free with Free and Guaranteed Cheats (checked)."), E),
         Fact(g, "Virtual Families 2's six-hour Flea Market of 5 goods: " + NOT_IN_VF1 + "; here the Flea Market "
                 "has six places, drawn every 4 hours of real time.", C, sub=True),
     ]
@@ -1774,8 +1793,9 @@ def _store_specials() -> list[Fact]:
                 "pet only changes what the pet does.", C, sub=True),
         Fact(g, item(47, "dropped on the computer: everyone celebrates, and the four spam e-mails (Random Events 12 "
                          "to 15) never come again. " + any_time), C),
-        Fact(g, with_patcher("CheatUpgrades", f"{CHEATS_PAGE}'s Anti-Spam Software Ownership button installs it "
-                             "for free, or uninstalls it."), C, sub=True),
+        Fact(g, with_patcher("FreeAndGuaranteedCheats", f"with Cheat Upgrades too, {CHEATS_PAGE}'s Anti-Spam "
+                             "Software Ownership button installs it for free, or uninstalls it; without Free and "
+                             "Guaranteed Cheats the button is hidden and refused (checked)."), E, sub=True),
         Fact(g, item(43, "dropped on the damaged wall: the wall's repair can start. Offered only while the wall has "
                          "not been repaired."), C),
         Fact(g, item(44, "dropped on one of the three damaged floor spots: that spot's repair can start. Offered only "
@@ -1997,32 +2017,21 @@ def _patcher_menu() -> list[Fact]:
                       "2,147,483,000 + 10,000 becomes 2,147,483,647)."), E),
         Fact(g, cheat("Cheat Upgrades page, Interest rate %: any rate from 1% to 11% for every family, kept in "
                       "settings.ini (checked: 12 is refused; see Money and interest)."), E),
-        Fact(g, cheat("Villager Cheats page: Max health sets health 100; Max happiness and Psychotherapy set "
+        Fact(g, cheat("Villager Cheats page: Max health sets health 100; Max happiness sets "
                       "happiness 100; Max energy sets energy 100; Fill up (Fed) sets hunger to 1 (fully fed); Cure "
                       "illnesses clears all seven symptoms and their times and ends a mild and a serious "
                       "infection, as Vancomycin does; All of these does all five (checked on a family member at 50 "
                       "health, energy and happiness and 60 hunger, with three symptoms and both infections)."), E),
-        Fact(g, cheat("Villager Cheats page: Instant job promotion promotes a family member with a career one level "
-                      "at once, without pay, as the Professional Career Training pop-up does (checked: Beginner to "
-                      "Novice); Career Change draws a new career at random and starts it at Beginner. Neither works "
-                      "on a family member without a career (\"Only adults with a career can do that.\")."), E),
-        Fact(g, cheat("Villager Cheats page: Systematic Desens. removes the dislike in the first filled dislike "
-                      "place (checked: with dislikes in the first two places, the first is removed)."), E),
-        Fact(g, cheat("Villager Cheats page: Higher Learning adds a like drawn at random that they neither like "
-                      "nor dislike, into a free like place (\"Every like slot is already full.\" when none is "
-                      "free); Add Running Like adds the like for running and removes a dislike of running."), C,
-             sub=True),
+        Fact(g, cheat("Villager Cheats page: Add Running Like adds the like for running and removes a dislike of "
+                      "running."), C, sub=True),
         Fact(g, cheat("Villager Cheats page: Set Age to 18 sets the picked family member's age to 18 years (360 "
-                      "age units; checked: 30 becomes 18), for one family member only (Everyone is refused); "
-                      "Boarding School refuses a family member with a career (checked)."), E),
-        Fact(g, cheat("Villager Cheats page: Boarding School sends a child (no career) away from home the way the "
-                      "age-19 departure does (\"is going to college\"; see Leaving home)."), C, sub=True),
+                      "age units; checked: 30 becomes 18), for one family member only (Everyone is refused)."), E),
         Fact(g, cheat("Villager Cheats page, Change Appearance: Change (0-49) sets the head (face and hair) and body "
                       "(clothes) pictures to the numbers typed, each 0 to 49 (checked: 7 and 9 set; 50 refused)."),
              E),
         Fact(g, cheat("Villager Cheats page: Random look draws both pictures at random (0 to 49 each); the "
-                      "Clothing and Hairstyles page sets one by clicking it; the family tree portrait follows."), C,
-             sub=True),
+                      "Clothing and Hairstyles page (with Free and Guaranteed Cheats too) sets one by clicking it; "
+                      "the family tree portrait follows."), C, sub=True),
         Fact(g, cheat("Store, Achievement and Collection Cheats page: 2x, 5x and 100x Prices and Reset (see Store "
                       "rules); Complete all Achievements and Reset Achievements (the game's trophies); "
                       "Complete all collections and Reset all collections (the collectible albums); Anti-Spam "
@@ -2031,17 +2040,36 @@ def _patcher_menu() -> list[Fact]:
                       "socks, 5 candy wrappers) or the yard with up to 15 weeds; Clean House removes every sock, "
                       "candy wrapper, cobweb and dirt smudge; Clean Garden every weed; it can also start all eight "
                       "malfunctions at once or end every active one (see Messes and Malfunctions)."), C),
-        Fact(g, cheat("Time Controls page: Pause, Resume, Slow, Normal, Fast, 5x and 10x, and Time Warp: +3 years "
-                      "(see Time and ageing)."), C),
-        Fact(g, cheat("Family: Marriage, Babies and Adoption page: Enable Same-Sex Marriage and Allow Reroll of Marriage Candidates (kept per "
-                      "family); Force Marriage Email; Divorce Spouse (removes the spouse from the house and the "
-                      "family tree for good); the next pregnancy's sex (either, male, female) and number (any, "
-                      "single, twins, triplets), and Force Successful Pregnancy, each kept until a pregnancy "
-                      "succeeds; Spawn Male / Female Child and Adopt Outside Boy / Girl (age 2 to 13, an optional "
-                      "name); Adopt New Person after the family is lost; Evict Family (a new family, keeping the "
-                      "money, the house and everything owned)."), C),
+        Fact(g, cheat("Time Controls page: Pause, Resume, Slow, Normal, Fast, 5x and 10x (the Time Warp is sold "
+                      "on the Services page: see Time and ageing)."), C),
+        Fact(g, cheat("Family: Marriage, Babies and Children page: Enable Same-Sex Marriage and Allow Reroll of "
+                      "Marriage Candidates (kept per family); Force Marriage Email; Divorce Spouse (spouse leaves: "
+                      "removed from the house and the family tree for good); the next pregnancy's sex (either, "
+                      "male, female) and number (any, single, twins, triplets), each kept until a pregnancy "
+                      "succeeds, and Force Successful Pregnancy (only with Free and Guaranteed Cheats too; without "
+                      "it the box is hidden and an armed one does nothing, checked); Adopt New Person after the "
+                      "family is lost (opens the game's own Adoption screen); Evict Family (everyone leaves the "
+                      "house: a new family, keeping the money, the house and everything owned)."), E),
+        Fact(g, cheat("Family page, Spawn child in house (male) / (female): the couple's own child, aged 2 to 13 "
+                      "with an optional name, appears in the house at once with their names as its parents and a "
+                      "look inherited from them, and is added to the family tree as their child. No game event, "
+                      "e-mail or popup is shown, and it is not a birth."), C, sub=True),
+        Fact(g, cheat("Family page, Spawn outside child in house (male) / (female): a child from outside, aged 2 to "
+                      "13 with an optional name, appears in the house at once with no parents and the game's own "
+                      "random look, and is added to the family tree as an adopted child: what the Little Visitor "
+                      "event's Adopt choice does, without its popup or any other game event."), C, sub=True),
+        Fact(g, with_patcher("SpecialUpgrades", "Adoption Services ($4,000, the Services page): spawn outside child "
+                             "in house, 3 years old (60 age units), male or female equally likely, added to the "
+                             "family tree as an adopted child; no game event or popup (checked)."), E),
+        Fact(g, with_patcher("SpecialUpgrades", "the Services page's services for the family member picked: "
+                             "Systematic Desensitization ($2,500) removes every dislike (refused when there is none); "
+                             "Psychotherapy ($1,750): happiness below 25 becomes 30 to 49, from 25 to 49 it becomes 55 "
+                             "to 74, from 50 it rises by 5 to 24 (at most 100); Higher Learning Classes ($1,000): one "
+                             "new like drawn at random from Virtual Families 1's likes not already liked, into a free "
+                             "like place (refused when none is free), and that like leaves the dislikes (all checked)."),
+             E),
         Fact(g, with_patcher("FleaMarket", "the patcher's Flea Market page: see Store rules."), C),
-        Fact(g, with_patcher("RollTheDice", "Roll the Dice: $500 for a Popup Event at once (see Random Events)."),
+        Fact(g, with_patcher("RollTheDice", "Roll the Dice: $2,000 for a Popup Event at once (see Random Events)."),
              C),
         Fact(g, cheat("Patcher Achievements page: 12 milestones the patcher records per family (ages 70, 80, 90, "
                       "100 and over 122, four rare head pictures in the family tree, the most money, the most food, "
@@ -2260,9 +2288,11 @@ def _clothing() -> list[Fact]:
                 "draw; the store's r key draws them too (see Hidden keys, clicks and cheats).", E, sub=True),
         Fact(g, "Hairstyles: part of the head picture (face and hair), one of 50, set when a family member is made "
                 "and not sold anywhere in the game; from age 45 (900 age units) the game draws its older heads.", C),
-        Fact(g, with_patcher("CheatUpgrades", "the Clothing and Hairstyles page sets either picture by clicking it "
-                                              "(0 to 49), and the Villager Cheats page sets them by number or at "
-                                              "random (see Patcher: Upgrades menu)."), C, sub=True),
+        Fact(g, with_patcher("FreeAndGuaranteedCheats", "with Cheat Upgrades too, the Clothing and Hairstyles "
+                                                        "page sets either picture by clicking it (0 to 49); without "
+                                                        "Free and Guaranteed Cheats it is greyed and refused "
+                                                        "(checked). The Villager Cheats page sets them by number or "
+                                                        "at random (see Patcher: Upgrades menu)."), E, sub=True),
         Fact(g, "Virtual Families 2's Clothing tab (Discount, Department Store and Designer outfits with their "
                 "price tiers and generation locks) and its patcher's Outfit store of bodies and hairstyles: "
                 + NOT_IN_VF1 + ".", C),

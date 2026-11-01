@@ -1,14 +1,9 @@
-// villager_upgrades.inc -- the Virtual Families 2 patcher's villager-details
-// upgrades that exist in Virtual Families 1, as free rows on the Villager
-// Cheats page (VF2 sells them for coins; every Cheat Upgrade is free):
-//   Boarding School            a child leaves the house like the game's own
-//                              "is going to college" departure
-//   Systematic Desensitization removes one dislike
-//   Higher Learning Classes    adds a like the villager neither has nor dislikes
-//   Psychotherapy              overcomes depression (fills happiness)
+// villager_upgrades.inc -- the Virtual Families 2 patcher's villager-details cheats that exist in Virtual
+// Families 1, as free rows on the Villager Cheats page:
 //   Add Running Like           gives the liking for running, clears the dislike
 //   Set Age to 18              this villager only
-// "Advanced Career Training" (promotion) and "Career Change" are in vf1fun.cpp.
+// and helpers of VF2's paid services (services.inc): Boarding School (a child leaves the house like the game's
+// own "is going to college" departure) and the likes and dislikes lists.
 //
 // Likes and dislikes are two 3-slot lists of indexes (-1 = empty) at villager
 // +0x13620 and +0x1362C, into the comma-separated name lists of strings 0x45B
@@ -78,37 +73,6 @@ static const wchar_t *GiveLike(int i, const char *name) {
     return 0;
 }
 
-static const wchar_t *RemoveOneDislike(int i) {
-    int *d = Dislikes(i);
-    for (int s = 0; s < 3; ++s)
-        if (d[s] != -1) { d[s] = -1; return 0; }
-    return L"Has no dislikes.";
-}
-
-static const wchar_t *LearnNewLike(int i) {
-    const char *likes = LikeNames(), *dislikes = DislikeNames();
-    int total = NameCount(likes);
-    if (total <= 0) return L"The game has no likes list.";
-    for (int tries = 0; tries < 400; ++tries) {
-        char name[48];
-        if (!NameAt(likes, GetRandom(total), name, sizeof name)) continue;
-        int like = NameIndex(likes, name), dislike = NameIndex(dislikes, name);
-        int *l = Likes(i), *d = Dislikes(i);
-        bool taken = false;
-        for (int s = 0; s < 3; ++s) {
-            if (l[s] == like) taken = true;
-            if (dislike >= 0 && d[s] == dislike) taken = true;
-        }
-        if (!taken) return GiveLike(i, name);
-    }
-    return L"Nothing new to learn.";
-}
-
-static const wchar_t *Psychotherapy(int i) {
-    *Stat(i, STAT_HAPPINESS) = 100;
-    return 0;
-}
-
 // Age in units is villager +0x2A34, 20 units = 1 year. Written directly to 360 (18 years) for everyone,
 // exactly as the Virtual Families 2 patcher's VF2SetSelectedVillagerAge does (owner decision: "Set age to 18"
 // directly sets the age).
@@ -134,10 +98,6 @@ static const wchar_t *BoardingSchool(int i) {
 
 static const wchar_t *ApplyVillagerUpgrade(int id, int slot) {
     switch (id) {
-    case ID_VC_BOARD: return BoardingSchool(slot);
-    case ID_VC_DESENS: return RemoveOneDislike(slot);
-    case ID_VC_LEARN: return LearnNewLike(slot);
-    case ID_VC_PSYCHO: return Psychotherapy(slot);
     case ID_VC_RUNNING: return GiveLike(slot, "running");
     case ID_VC_AGE18: return SetAgeTo18(slot);
     }

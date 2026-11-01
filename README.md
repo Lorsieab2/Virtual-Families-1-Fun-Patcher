@@ -7,60 +7,93 @@ adding features from Virtual Families 2 and new cheats.
 
 The store gets a new **Upgrades** button, next to Done. It opens ordinary
 Windows dialogs, the way the Virtual Villagers Fun Patcher works. The pages
-(Cheat Upgrades, Flea Market, Roll the Dice and Special Upgrades are separate
-patch settings you can switch off):
+(Cheat Upgrades, Flea Market, Free and Guaranteed Cheats, Roll the Dice and
+Special Upgrades are separate patch settings you can switch off; **Cheat
+Upgrades, Flea Market and Free and Guaranteed Cheats are off by default**):
 
-- **Cheat Upgrades:**
+- **Cheat Upgrades** (off by default):
   - money: No Money, +100, +10,000, Max, or set an exact amount;
   - food: No Food, +100, +10,000, Max, or set an exact amount;
   - change the bank's interest rate (1% to 11%), which is remembered between sessions.
   - Cheat money doesn't count toward the money achievements. The Clamp Max Money and Food setting keeps both at the VF2 maximums.
-- **Villager Cheats:** for one villager or everyone (each button asks you to confirm):
+- **Villager Cheats** (Cheat Upgrades): for one villager or everyone (each button asks you to confirm):
   - max health, cure illnesses (every symptom and any infection, mild or serious), max happiness, max energy, fill up (Fed);
-  - Instant job promotion, and Career Change (adults with a career);
-  - Boarding School: a child leaves the house, as in the game's own "going to
-    college" departure;
-  - Systematic Desensitization (removes a dislike), Higher Learning Classes (a
-    new like), Psychotherapy (overcomes depression), Add Running Like;
-  - Set Age to 18 (the selected villager only);
+  - Add Running Like; Set Age to 18 (the selected villager only);
   - Change Appearance: any of the game's 50 heads (face and hairstyle) and 50
     bodies (clothes), or a random look. VF1 has no separate clothing or hair
     field, so these two rows are the whole look.
-- **Store, Achievement and Collection Cheats:** store price multipliers,
-  complete or reset achievements and collections.
-- **House and Yard:** fill the house with trash or the yard with weeds, Clean
+- **Store, Achievement and Collection Cheats** (Cheat Upgrades): store price multipliers,
+  complete or reset achievements and collections, and Anti-Spam Software
+  Ownership (also needs Free and Guaranteed Cheats).
+- **House and Yard** (Cheat Upgrades): fill the house with trash or the yard with weeds, Clean
   House, Clean Garden, trigger or fix all house malfunctions.
-- **Time Controls:** pause, resume, 2x / 5x / 10x speed, time warp (+3
-  years).
-- **Special Upgrades:** VF2-style purchases (Brokerage Account, Food Club,
+- **Time Controls** (Cheat Upgrades): pause, resume, Slow, Normal, Fast, 5x and 10x speed.
+- **Special Upgrades** (on by default): VF2-style purchases (Brokerage Account, Food Club,
   Health Plan, Lucky Rock) plus a Maid and a Gardener who keep the house and
-  yard clean, and the Anti-spam Software (no computer needed). Each asks for
-  confirmation and shows a "Purchased" message; buying one again removes it
-  (no refund), as in VF2. Flea Market purchases and Roll the Dice do the same.
-- **Family:**
+  yard clean. Each asks for confirmation and shows a "Purchased" message;
+  buying one again removes it (no refund), as in VF2.
+- **Services** (with Special Upgrades, on by default): Virtual Families 2's store
+  services and upgrades at VF2's prices. Pick a family member and an item; the
+  price is shown for that family member, and a family that cannot afford it is
+  refused with nothing changed:
+  - Time Warp, $2,000: the whole family lives 3 years (61 age units) at once;
+    the money it brings is capped at $750;
+  - Adoption Services, $4,000: spawn outside child in house (3 years old, male
+    or female at random), added to the Family Tree as an adopted child;
+  - Boarding School, $1,500 (children): the child leaves home, as a child going
+    to college does;
+  - Systematic Desensitization, $2,500: every dislike is removed;
+  - Psychotherapy, $1,750: happiness below 25 becomes 30-49, 25-49 becomes
+    55-74, from 50 it rises by 5-24 (at most 100);
+  - Higher Learning Classes, $1,000: one new like at random, if a like place is
+    free (VF1's own likes list);
+  - Advanced Career Training, $1,100 x (career level + 1), adults: a
+    promotion with its new salary; not sold to a Master;
+  - Career Change, $1,200, adults: a new career at random (VF1's 108), at
+    Beginner.
+- **Family** (Cheat Upgrades):
   - Enable Same-Sex Marriage, and Allow Reroll of Marriage Candidates;
-  - Force Marriage Email, and Divorce Spouse;
-  - next pregnancy one-shots: force success, boys or girls, singleton, twins
-    or triplets;
-  - Spawn Male Child and Spawn Female Child (age 2-13, optional name; a child of
-    the current couple, with their looks);
-  - Adopt Outside Boy and Adopt Outside Girl (age 2-13, optional name; the
-    abandoned-child adoption of the game's own Little Visitor event: an
-    outside child with no parents in the house joins the Family Tree);
-  - Adopt New Person (only after "your family has been lost"), which keeps
-    your money and the Family Tree;
-  - Evict Family: resets the Family Tree and starts a new family, keeping the
-    money and the house.
+  - Force Marriage Email, and Divorce Spouse (spouse leaves);
+  - next pregnancy one-shots: boys or girls, singleton, twins or triplets, and
+    Force Successful Pregnancy (also needs Free and Guaranteed Cheats);
+  - **Spawn child in house (male / female)**: the couple's own child, age 2-13,
+    optional name, with their names as parents and their looks; it appears in
+    the house at once (no game event or popup);
+  - **Spawn outside child in house (male / female)**: a child from outside,
+    age 2-13, optional name, with no parents and the game's random look, added
+    to the Family Tree as adopted; what the game's own Little Visitor event's
+    Adopt choice does, without its popup;
+  - Adopt New Person (only after "your family has been lost"; opens the game's
+    own Adoption screen), which keeps your money and the Family Tree;
+  - Evict Family (everyone leaves the house): resets the Family Tree and starts
+    a new family, keeping the money and the house.
 - **Patcher Achievements:** the Virtual Families 2 patcher's achievements that
   fit this game, with the same names (Lucky 70's, Great 80's, Mighty 90's,
   Centenarian, Oldest Person in History, Return of the Rainbow, Spiky!,
   Blue's Clues, A Decade in Blue,
   Achiever Extraordinaire; the maximum coins and food ones use the clamp's limits), kept per village on their own page. The game's
   Trophies screen is unchanged.
-- **Flea Market:** every tray item the store sells, to buy or get for free.
-- **Roll the Dice:** costs $500, and a Popup Event happens right away,
+- **Flea Market** (off by default): a page listing every tray item the store
+  sells, to buy at its normal price at any time. Get for free also needs Free
+  and Guaranteed Cheats.
+- **Free and Guaranteed Cheats** (off by default): the cheats that give
+  something for nothing or never fail. With it on (each also needs its own
+  page): Force Successful Pregnancy, the Clothing and Hairstyles page (gives
+  any outfit or hairstyle free), Anti-Spam Software Ownership, the Flea
+  Market's Get for free, and every Services item and Roll the Dice for free.
+  Without it those buttons are hidden and the paid items cost their prices.
+- **Roll the Dice:** costs $2,000 (VF2's price), and a Popup Event happens right away,
   through the game's own event system.
 - **Counters** on the menu: Generation and Oldest Villager.
+
+**Presets** (as in the Virtual Villagers Fun Patcher, each with a "?" guide):
+**Select All Patches** ticks every setting except the Experimental ones;
+**Default Patches** ticks the defaults (every setting except Cheat Upgrades,
+Flea Market, Free and Guaranteed Cheats and Up to 28 Children); **Owner's
+Defaults** ticks every setting except Up to 28 Children; **Deselect All
+Patches** unticks everything. **Patch Selection Settings...** opens a window
+with a search box and one checkbox per patch: tick some and press **Tick
+These** or **Untick These**; a patch that needs another ticks it too.
 
 Six settings change the base game on their own (plus the optional ones below):
 - **Older Villager Mortality Curve:** VF2's calibrated old-age death curve, with
@@ -76,7 +109,7 @@ Six settings change the base game on their own (plus the optional ones below):
   Flea Market, the six random items (the game's code calls them the specials), and the random Male Outfit and
   Female Outfit pictures, every time, with the game's own draw and odds. The original game has the same hidden
   key, a small r only, once more than 1 hour of real time has passed since the last draw. The half-price
-  grocery, the other items and prices, and outfits already bought (each keeps its picture) are unchanged; R
+  grocery, the other items and prices, and outfits already bought (each keeps its picture) are unchanged; it works with the Flea Market page and Free and Guaranteed Cheats on or off; R
   does nothing on any other screen or in the Upgrades menu's Flea Market page, which lists every tray item at once.
 - **Behavior Label Variants** (optional): the caption under a villager varies, using the VF2 patcher's own captions,
   for TV, reading, the web, video games, board games, homework, the sandbox, the flower boxes, naps (with the
@@ -94,7 +127,7 @@ Six settings change the base game on their own (plus the optional ones below):
   put on the last one bought for every outfit of a kind; the pictures are kept in
   `Virtual Families 1 Patcher Data\Outfits` beside each save, and the save is not changed).
 - **Up to 28 Children** (in the patcher's own **Experimental** section, red heading, after Optional
-  Patches, with the warning "Experimental: not yet tested in a running game. Back up your saves before using it."; off by default, and Enable All and `--enable-all` leave it off,
+  Patches, with the warning "Experimental: not yet tested in a running game. Back up your saves before using it."; off by default, and Select All Patches, Owner's Defaults and `--enable-all` leave it off,
   so it is only ever ticked deliberately): one generation may have up to 28 children instead of
   6. Only the first 6 appear in the Family Tree, as before; every child, the
   7th to the 28th included, can be chosen to inherit the house in Next
@@ -106,7 +139,7 @@ Six settings change the base game on their own (plus the optional ones below):
   It is its own DLL, `vf1kids.dll`, installed only while the setting is on.
   **Not live tested yet** -- see `docs/UP_TO_28_CHILDREN.md`.
 
-- **Family History Log** (a Main Patch, on by default; Enable All ticks it like any other): one
+- **Family History Log** (a Main Patch, on by default; Select All Patches ticks it like any other): one
   log, the Family History, of every family event, in the Virtual Villagers Fun Patcher's record layout and the
   game's own words: conceptions, births (twins and triplets, with both parents), deaths with cause and age,
   marriages and remarriages (the current spouse, the earlier one and why they left; any sexes), Divorce Spouse,
