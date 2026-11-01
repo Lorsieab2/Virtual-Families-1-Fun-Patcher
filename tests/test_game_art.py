@@ -134,15 +134,23 @@ def test_find_and_the_words(files):
     assert (ga.CHECK in art.note()) == (not art.checked)
 
 
-@pytest.fixture
-def window(game):
-    root = tk.Tk()
+@pytest.fixture(scope="module")
+def tk_root():
+    try:
+        root = tk.Tk()
+    except tk.TclError as exc:
+        pytest.skip(f"no Tk display: {exc}")
     root.withdraw()
-    win = pm.PictureMaker(root, game_folders=[game])
+    yield root
+    root.destroy()
+
+
+@pytest.fixture
+def window(tk_root, game):
+    win = pm.PictureMaker(tk_root, game_folders=[game])
     win.quiet = True
     yield win
     win.close()
-    root.destroy()
 
 
 def test_the_tab_finds_shows_and_saves(window, game, tmp_path):
