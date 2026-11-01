@@ -129,8 +129,10 @@ static bool NotNeeded(unsigned cp) {
 }
 
 static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n) {
-    for (int k = -1; k < (int)(sizeof FallbackFaces / sizeof FallbackFaces[0]); ++k) {
-        const wchar_t *name = k < 0 ? s.face : FallbackFaces[k];
+    // the font's own face; with Use Unicode Font, the chosen font and then Segoe UI; then the chain
+    for (int k = -2; k < (int)(sizeof FallbackFaces / sizeof FallbackFaces[0]); ++k) {
+        const wchar_t *name = k == -2 ? s.face : k == -1 ? L"Segoe UI" : FallbackFaces[k];
+        if (k == -1 && (!FontMode || SameNoCase(name, s.face))) continue;
         if (k >= 0 && SameNoCase(name, s.face)) continue;
         GdiFace *g = FaceFor(name, s.em, s.weight);
         if (!g || !g->ok) continue;

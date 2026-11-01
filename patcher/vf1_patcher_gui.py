@@ -65,6 +65,9 @@ EXPERIMENTAL_WARNING = patcher.EXPERIMENTAL_WARNING
 # The settings the Owner's Defaults button leaves OFF, by exact id. The owner (2026-11-01): "I usually enable
 # everything except the 28-child patch" -- every other setting is ticked, the cheats included.
 OWNERS_DEFAULT_OFF_SETTING_IDS = frozenset({"UpTo28Children"})
+# Of two settings that cannot be on together, the one Owner's Defaults ticks (the owner, 2026-11-01: Use Unicode Font
+# rather than Render Unicode with In-Game Fonts).
+OWNERS_DEFAULT_PREFERRED_IDS = frozenset({"UseUnicodeFont"})
 SETTING_CATEGORY_LOOKUP = {key: (label, color) for key, label, color in SETTING_CATEGORIES}
 
 
@@ -209,7 +212,7 @@ def setting_description_text(setting: patcher.PatchSetting, settings: dict[str, 
     """The grey line under a checkbox: id, default, description, then the bold dependency note."""
     state = "default on" if setting.default else "default off"
     details = f"{setting.id} - {state} - {setting.description}" if setting.description else f"{setting.id} - {state}"
-    return details + patcher.requires_note(prerequisites, settings)
+    return details + patcher.requires_note(prerequisites, settings) + patcher.excludes_note(setting, settings)
 
 
 def estimate_wrapped_lines(text: str, pixel_width: int, measure_text: object) -> int:
@@ -1121,8 +1124,9 @@ class VF1PatcherGUI:
                 var.set(not self.settings[setting_id].experimental)
 
     def select_owners_defaults(self) -> None:
-        """Owner's Defaults: the owner's own choice, every patch except OWNERS_DEFAULT_OFF_SETTING_IDS."""
-        with self._bulk_setting_change():
+        """Owner's Defaults: the owner's own choice, every patch except OWNERS_DEFAULT_OFF_SETTING_IDS; of two patches
+        that cannot be on together, the one in OWNERS_DEFAULT_PREFERRED_IDS."""
+        with self._bulk_setting_change(prefer=OWNERS_DEFAULT_PREFERRED_IDS):
             for setting_id, var in self.setting_vars.items():
                 var.set(setting_id not in OWNERS_DEFAULT_OFF_SETTING_IDS)
 
@@ -1199,6 +1203,17 @@ class VF1PatcherGUI:
                 messagebox.showinfo("Patch Selection Settings", "Tick at least one patch in the list first.",
                                     parent=dialog)
                 return
+            if tick:
+                for sid in chosen:
+                    clash = [o for o in self.settings[sid].excludes if o in chosen]
+                    if clash:
+                        self.last_selection_problem = (
+                            f"{self.settings[sid].label} and {self.settings[clash[0]].label} cannot both be on. "
+                            "Choose one of them.")
+                        if not getattr(self, "quiet_selection", False):
+                            messagebox.showerror("Patch Selection Settings", self.last_selection_problem,
+                                                 parent=dialog)
+                        return
             self.set_named_settings(chosen, tick)
             labels = [self.settings[sid].label for sid in chosen]
             count = sum(1 for sid in chosen if self.setting_vars[sid].get() == tick)
@@ -1220,8 +1235,9 @@ class VF1PatcherGUI:
                     self._tick_prerequisites(setting_id)
 
     @contextlib.contextmanager
-    def _bulk_setting_change(self):
-        """Set many checkboxes, then make the result consistent once."""
+    def _bulk_setting_change(self, prefer=frozenset()):
+        """Set many checkboxes, then make the result consistent once (of two patches that cannot be on together,
+        the one in `prefer`, else the one on by default)."""
         previous = self._syncing_settings
         self._syncing_settings = True
         try:
@@ -1229,7 +1245,7 @@ class VF1PatcherGUI:
         finally:
             self._syncing_settings = previous
         if not previous:
-            self._normalize_setting_selection()
+            self._normalize_setting_selection(prefer)
 
     def _on_setting_toggled(self, setting_id: str) -> None:
         """Dependencies close in both directions.
@@ -1247,9 +1263,14 @@ class VF1PatcherGUI:
             self._syncing_settings = True
             try:
                 self._tick_prerequisites(setting_id)
+                # ticking one of two patches that cannot be on together unticks the other
+                setting = self.settings.get(setting_id)
+                for other in (setting.excludes if setting else ()):
+                    if other in self.setting_vars:
+                        self.setting_vars[other].set(False)
             finally:
                 self._syncing_settings = False
-        self._normalize_setting_selection()
+        self._normalize_setting_selection(frozenset({setting_id}) if var.get() else frozenset())
 
     def _tick_prerequisites(self, setting_id: str) -> None:
         for other in sorted(self.setting_prerequisites.get(setting_id, frozenset())):
@@ -1257,14 +1278,20 @@ class VF1PatcherGUI:
             if other_var is not None:
                 other_var.set(True)
 
-    def _normalize_setting_selection(self) -> None:
-        """Untick any setting whose prerequisite is unticked."""
+    def _normalize_setting_selection(self, prefer=frozenset()) -> None:
+        """Untick any setting whose prerequisite is unticked, and one of any two that cannot be on together."""
         previous = self._syncing_settings
         self._syncing_settings = True
         try:
             changed = True
             while changed:
                 changed = False
+                if self.settings:
+                    ticked = self.selected_settings()
+                    keep = patcher.resolve_exclusions(self.settings, ticked, prefer=set(prefer))
+                    for setting_id in ticked - keep:
+                        self.setting_vars[setting_id].set(False)
+                        changed = True
                 for setting_id, var in self.setting_vars.items():
                     prerequisites = self.setting_prerequisites.get(setting_id, frozenset())
                     satisfied = all(self.setting_vars[o].get() for o in prerequisites if o in self.setting_vars)
@@ -1679,6 +1706,8 @@ class VF1PatcherGUI:
         self._help_button(family, "picture_maker").pack(side="left", padx=(3, 0))
         self._link(family, "Game Text...", self.game_text).pack(side="left", padx=(18, 0))
         self._help_button(family, "game_text").pack(side="left", padx=(3, 0))
+        self._link(family, "Unicode Font...", self.unicode_font).pack(side="left", padx=(18, 0))
+        self._help_button(family, "unicode_font").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -2520,6 +2549,17 @@ class VF1PatcherGUI:
         window = game_text_window.open_window(
             self.root, game_folders=[Path(g) for g in games if g], hold=self._hold,
             show_help=lambda: self._show_how_to_use("game_text"))
+        window.window.transient(self.root)
+        return window
+
+    def unicode_font(self):
+        """The font Use Unicode Font draws the game's text with (patcher/vf1_unicode_font.py), written into the
+        modded folder's settings.ini [UnicodeFont]."""
+        import vf1_unicode_font as unicode_font_window
+        games = [clean_path_text(self.output_dir_var.get())]
+        window = unicode_font_window.open_window(
+            self.root, game_folders=[Path(g) for g in games if g], hold=self._hold,
+            show_help=lambda: self._show_how_to_use("unicode_font"))
         window.window.transient(self.root)
         return window
 

@@ -267,6 +267,20 @@ class Renderer:
                     out.data[at:at + 4] = bytes((255, 255, 255, a))
         return out, name
 
+    def extent(self, text: str, face: str | None = None) -> int:
+        """GetTextExtentPoint32W's width of `text` in `face` (the renderer's own by default); 0 when the face is not
+        installed."""
+        if not AVAILABLE:
+            return 0
+        f = self._face(face or self.faces[0])
+        if not f.ok:
+            return 0
+        old = gdi32.SelectObject(self._dc, f.font)
+        size = wintypes.SIZE()
+        gdi32.GetTextExtentPoint32W(self._dc, text, _units(text), ctypes.byref(size))
+        gdi32.SelectObject(self._dc, old)
+        return int(size.cx)
+
     def close(self) -> None:
         for face in self._loaded.values():
             if face.font:
@@ -301,8 +315,64 @@ def missing_box(height: int, baseline: int, em: int) -> pi.Image:
 
 
 @lru_cache(maxsize=None)
-def renderer(face: str, weight: int, em: int, baseline: int, height: int) -> Renderer:
-    return Renderer(face, weight, em, baseline, height)
+def renderer(face: str, weight: int, em: int, baseline: int, height: int,
+             fallbacks: tuple = FALLBACK_FACES) -> Renderer:
+    return Renderer(face, weight, em, baseline, height, fallbacks)
+
+
+# Use Unicode Font: the chosen font, then Segoe UI, then the chain (vf1font.dll's ChooseFace).
+UNICODE_FONT_FALLBACKS = ("Segoe UI",) + FALLBACK_FACES
+_private: set[str] = set()
+
+
+def add_private_font(path) -> bool:
+    """A .ttf / .otf file made usable by this process only (AddFontResourceExW, FR_PRIVATE), as vf1font.dll does in
+    the game."""
+    if not AVAILABLE:
+        return False
+    key = str(path)
+    if key in _private:
+        return True
+    gdi32.AddFontResourceExW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.c_void_p]
+    if gdi32.AddFontResourceExW(key, 0x10, None) > 0:
+        _private.add(key)
+        return True
+    return False
+
+
+def font_file_family(data: bytes) -> str | None:
+    """The name Windows knows a TrueType or OpenType font file's family by (name ID 1, Windows English first), or
+    None. A collection (.ttc) gives its first font's."""
+    try:
+        base = 0
+        if data[:4] == b"ttcf":
+            base = struct.unpack_from(">I", data, 12)[0]
+        count = struct.unpack_from(">H", data, base + 4)[0]
+        name_at = None
+        for i in range(count):
+            tag, _sum, offset, _length = struct.unpack_from(">4sIII", data, base + 12 + 16 * i)
+            if tag == b"name":
+                name_at = offset
+        if name_at is None:
+            return None
+        _fmt, n, strings = struct.unpack_from(">HHH", data, name_at)
+        found: dict[tuple, str] = {}
+        for i in range(n):
+            platform, _encoding, language, name_id, length, offset = struct.unpack_from(
+                ">6H", data, name_at + 6 + 12 * i)
+            if name_id != 1:
+                continue
+            raw = data[name_at + strings + offset:name_at + strings + offset + length]
+            if platform in (0, 3):
+                text = raw.decode("utf-16-be", errors="replace")
+            elif platform == 1:
+                text = raw.decode("mac_roman", errors="replace")
+            else:
+                continue
+            found[(platform == 3 and language == 0x409, platform == 3, -i)] = text
+        return found[max(found)] if found else None
+    except (struct.error, IndexError):
+        return None
 
 
 def letters(text: str) -> list[str]:

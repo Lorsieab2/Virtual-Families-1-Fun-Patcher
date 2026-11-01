@@ -29,9 +29,25 @@
 //
 // The C runtime is not used (no CRT start-up runs under the tests' emulator): memory comes from the process
 // heap, strings are walked by hand.
+//
+// Built a second time with VF1_FONT_MODE as vf1font.dll -- Use Unicode Font (overrides in-game fonts), the
+// setting that cannot be on with Render Unicode with In-Game Fonts: the same hooks, typing and storage, but every
+// letter, the game's own ones too, is drawn by Windows with the font chosen in the patcher (settings.ini
+// [UnicodeFont] Face= and File=, Segoe UI when none), then Segoe UI and the fallback chain. Each game font keeps
+// its height, baseline and weight; the size is fitted so that "The quick brown fox jumps over the lazy dog
+// 0123456789" is as wide as the game font draws it, so layouts still fit (FitChosenFont, the same as
+// patcher/vf1_game_fonts.fit_unicode_font). Its files are "Unicode Font\<font>.txt" (the styles).
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+#ifdef VF1_FONT_MODE
+static const bool FontMode = true;
+#define SUB_FOLDER L"Unicode Font\\"
+#else
+static const bool FontMode = false;
+#define SUB_FOLDER L"Unicode Text\\"
+#endif
 
 #include "extenders.inc"
 
@@ -251,6 +267,7 @@ struct FontExtra {
 };
 static FontExtra *Fonts[8];
 static wchar_t Folder[MAX_PATH];      // ...\Virtual Families 1 Patcher Files\Unicode Text\ (with the slash)
+static wchar_t PatcherFolder[MAX_PATH];   // ...\Virtual Families 1 Patcher Files\ (with the slash)
 static char FolderUtf8[MAX_PATH * 3];
 
 static unsigned Hash(const unsigned char *s, unsigned n) {
@@ -313,6 +330,8 @@ static SDL_Surface *TintedSheet(Sheet *sheet, unsigned colour) {
     return s;
 }
 
+static void FitChosenFont(FontExtra *f, void *impl);   // Use Unicode Font: below
+
 static FontExtra *ExtraFor(void *impl) {
     for (int i = 0; i < 8; ++i)
         if (Fonts[i] && Fonts[i]->impl == impl) return Fonts[i];
@@ -329,6 +348,7 @@ static FontExtra *ExtraFor(void *impl) {
         if (Known[i].table == table) name = Known[i].name;
     Copy(f->name, name, Len(name) + 1);
     LoadGlyphFile(f);
+    if (FontMode) FitChosenFont(f, impl);
     Fonts[slot] = f;
     return f;
 }
@@ -355,7 +375,8 @@ static Letter LetterFor(FontExtra *f, void *impl, const unsigned *cps, int i, in
     }
     if (j - i == 1) {
         if (cp < 0x20 || (cp >= 0x80 && cp < 0xA0)) { l.byte = (int)cp; return l; }   // as the stock game
-        if (cp < 0x100 && GameHasByte(impl, cp)) { l.byte = (int)cp; return l; }
+        // Use Unicode Font draws every letter with the chosen font, the game's own ones too
+        if (!FontMode && cp < 0x100 && GameHasByte(impl, cp)) { l.byte = (int)cp; return l; }
     }
     unsigned char key[64];
     unsigned n = 0;
@@ -401,6 +422,75 @@ static bool ImplValid(void *impl) {
 static void SourceRect(void *impl, int byte, ldwRect *r) {
     SourceRectFn fn = ((SourceRectFn *)*(void ***)impl)[1];
     fn(impl, (int)(signed char)byte, r);
+}
+
+// ================================================================ Use Unicode Font
+// The chosen font: settings.ini [UnicodeFont] Face= (Segoe UI when none), and File= a .ttf/.otf the patcher copied
+// beside this DLL (loaded for this game only). Each game font keeps its height, baseline and weight; its em is
+// fitted so that FitReference is as wide as the game font draws it, within 60% to 130% of the font's own em
+// (patcher/vf1_game_fonts.fit_unicode_font, the same arithmetic).
+static const char FitReference[] = "The quick brown fox jumps over the lazy dog 0123456789";
+static wchar_t ChosenFace[64];
+
+static void ReadChosenFont() {
+    if (ChosenFace[0]) return;
+    wchar_t ini[MAX_PATH];
+    unsigned at = WLen(PatcherFolder);
+    const wchar_t *name = L"settings.ini";
+    if (at + 13 >= MAX_PATH) return;
+    Copy(ini, PatcherFolder, at * 2);
+    Copy(ini + at, name, (WLen(name) + 1) * 2);
+    GetPrivateProfileStringW(L"UnicodeFont", L"Face", L"Segoe UI", ChosenFace, 64, ini);
+    if (!ChosenFace[0]) Copy(ChosenFace, L"Segoe UI", 9 * 2);
+    wchar_t file[MAX_PATH];
+    GetPrivateProfileStringW(L"UnicodeFont", L"File", L"", file, MAX_PATH, ini);
+    if (file[0]) {
+        // only a plain file name in the patcher's "Unicode Font" folder
+        bool plain = true;
+        for (wchar_t *p = file; *p; ++p) if (*p == L'\\' || *p == L'/' || *p == L':') plain = false;
+        unsigned fl = WLen(Folder), nl = WLen(file);
+        if (plain && fl + nl < MAX_PATH) {
+            wchar_t full[MAX_PATH];
+            Copy(full, Folder, fl * 2);
+            Copy(full + fl, file, (nl + 1) * 2);
+            AddFontResourceExW(full, FR_PRIVATE, 0);
+        }
+    }
+}
+
+static int FaceWidth(const wchar_t *face, int em, int weight, const char *text) {
+    GdiFace *g = FaceFor(face, em, weight);
+    if (!g || !g->ok) return 0;
+    wchar_t w[64];
+    int n = 0;
+    while (text[n] && n < 63) { w[n] = (wchar_t)(unsigned char)text[n]; ++n; }
+    HGDIOBJ old = SelectObject(GlyphDC, g->font);
+    SIZE size = { 0, 0 };
+    GetTextExtentPoint32W(GlyphDC, w, n, &size);
+    SelectObject(GlyphDC, old);
+    return size.cx;
+}
+
+static void SourceRect(void *impl, int byte, ldwRect *r);
+
+static void FitChosenFont(FontExtra *f, void *impl) {
+    ReadChosenFont();
+    unsigned n = WLen(ChosenFace);
+    Copy(f->style.face, ChosenFace, (n + 1) * 2);
+    int game = 0;
+    for (const char *p = FitReference; *p; ++p) {
+        ldwRect r;
+        SourceRect(impl, (unsigned char)*p, &r);
+        game += r.right - r.left;
+    }
+    int em0 = f->style.em;
+    int width = FaceWidth(f->style.face, em0, f->style.weight, FitReference);
+    if (width <= 0 || game <= 0) return;      // not installed: the chain draws it at the font's own size
+    int em = (em0 * game * 2 + width) / (2 * width);
+    int lo = em0 * 6 / 10, hi = em0 * 13 / 10;
+    if (em < lo) em = lo;
+    if (em > hi) em = hi;
+    f->style.em = em;
 }
 
 struct Run {

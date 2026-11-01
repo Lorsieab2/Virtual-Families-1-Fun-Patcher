@@ -230,6 +230,9 @@ class GameTextWindow:
         self.background_var = tk.StringVar(master=self.window, value=PREVIEW_BACKGROUNDS[0][0])
         self.zoom_var = tk.StringVar(master=self.window, value="2x")
         self.stock_var = tk.BooleanVar(master=self.window, value=False)
+        self.unicode_var = tk.BooleanVar(master=self.window, value=False)
+        self.unicode_face_var = tk.StringVar(master=self.window, value="Segoe UI")
+        self._overrides: dict = {}
         self.size_var = tk.StringVar(master=self.window, value="1x")
         self.width_var = tk.StringVar(master=self.window)
         self.height_var = tk.StringVar(master=self.window)
@@ -303,6 +306,14 @@ class GameTextWindow:
             ttk.Radiobutton(view, text=z, value=z, variable=self.zoom_var, command=self.refresh).pack(side="left")
         ttk.Checkbutton(view, text="As the stock game shows it (without the patch)", variable=self.stock_var,
                         command=self.refresh).pack(side="left", padx=(12, 0))
+        override = ttk.Frame(left)
+        override.pack(fill="x", pady=(4, 0))
+        ttk.Checkbutton(override, text="As Use Unicode Font draws it, with:", variable=self.unicode_var,
+                        command=self.refresh).pack(side="left")
+        faces = ttk.Combobox(override, textvariable=self.unicode_face_var, width=30, values=self._faces())
+        faces.pack(side="left", padx=4)
+        faces.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
+        faces.bind("<Return>", lambda _e: self.refresh())
         holder = ttk.Frame(left)
         holder.pack(fill="both", expand=True, pady=(6, 0))
         holder.rowconfigure(0, weight=1)
@@ -414,7 +425,22 @@ class GameTextWindow:
         labels = list(self.font_box.cget("values"))
         label = self.font_var.get()
         index = labels.index(label) if label in labels else 0
-        return self.fonts.font(self.font_names[index])
+        font = self.fonts.font(self.font_names[index])
+        if self.unicode_var.get() and font.style is not None:
+            face = self.unicode_face_var.get().strip() or "Segoe UI"
+            key = (font.name, face)
+            if key not in self._overrides:
+                self._overrides[key] = font.with_unicode_font(face)
+            return self._overrides[key]
+        return font
+
+    @staticmethod
+    def _faces() -> list[str]:
+        try:
+            import vf1_unicode_font
+            return vf1_unicode_font.installed_faces()
+        except Exception:
+            return ["Segoe UI"]
 
     # ---------------------------------------------------------------- colour
     def _colour_chosen(self) -> None:

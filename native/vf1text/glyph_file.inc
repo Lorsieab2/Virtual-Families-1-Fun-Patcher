@@ -9,7 +9,11 @@ static bool FindFolder() {
     for (wchar_t *p = path; *p; ++p) if (*p == L'\\' || *p == L'/') slash = p;
     if (!slash) return false;
     slash[1] = 0;
-    const wchar_t *sub = L"Unicode Text\\";
+    const wchar_t *sub = SUB_FOLDER;
+    unsigned pl = WLen(path);
+    if (pl + 16 < MAX_PATH) {                               // settings.ini sits beside this DLL
+        Copy(PatcherFolder, path, (pl + 1) * 2);
+    }
     unsigned at = WLen(path), sl = WLen(sub);
     if (at + sl + 64 >= MAX_PATH) return false;
     Copy(Folder, path, at * 2);
@@ -91,10 +95,10 @@ static void LoadGlyphFile(FontExtra *f) {
     unsigned size = 0;
     char *text = ReadWhole(path, &size);
     if (!text) return;
-    // the sheet
+    // the sheet (Use Unicode Font draws every letter itself: no patcher-made sheet, only the styles)
     char png[MAX_PATH * 3 + 40];
     unsigned fl = Len(FolderUtf8);
-    if (fl + nl + 5 < sizeof png) {
+    if (!FontMode && fl + nl + 5 < sizeof png) {
         Copy(png, FolderUtf8, fl);
         Copy(png + fl, f->name, nl);
         Copy(png + fl + nl, ".png", 5);

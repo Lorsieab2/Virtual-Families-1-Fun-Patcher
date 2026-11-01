@@ -28,6 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 GLYPHS = ROOT / "patcher" / "payload" / "UnicodeText"
 DLL_PATH = "C:\\Game\\Virtual Families 1 Patcher Files\\vf1text.dll"
 FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Text\\"
+FONT_FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Font\\"   # vf1font.dll's
+SETTINGS_INI = "C:\\Game\\Virtual Families 1 Patcher Files\\settings.ini"
 FONT_CTORS = {   # name: (table, spacing) -- found by vf1_game_fonts.find_game_fonts
     "SegoeUi33": 0x4EB6F0, "SegoeUiBold17": 0x4EC610, "SegoeUiBold18": 0x4ED538, "SegoeUiBold24": 0x4EE460,
 }
@@ -37,8 +39,11 @@ RGBA_MASKS = (0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000)
 class TextWorld:
     """One emulated process: the game's fonts, a screen, a text box; vf1text.dll installed or not."""
 
-    def __init__(self, exe: Path, dll: Path, game_dir: Path, *, install: bool, real_gdi: bool = False):
+    def __init__(self, exe: Path, dll: Path, game_dir: Path, *, install: bool, real_gdi: bool = False,
+                 ini: dict | None = None):
         self.real_gdi = real_gdi
+        self.ini = dict(ini or {})        # settings.ini: (section, key) -> value
+        self.font_files: dict[str, Path] = {}   # a font file the DLL loads (its game path) -> this machine's copy
         import vf1_picture_image as pi
         self.pi = pi
         self.game_dir = Path(game_dir)
@@ -198,9 +203,10 @@ class TextWorld:
 
         def create_file(em):
             path = em.wstr(em.arg(0))
-            if not path.startswith(FOLDER):
+            prefix = next((f for f in (FOLDER, FONT_FOLDER) if path.startswith(f)), None)
+            if prefix is None:
                 return 0xFFFFFFFF, 28
-            local = GLYPHS / path[len(FOLDER):]
+            local = GLYPHS / path[len(prefix):]
             if not local.is_file():
                 return 0xFFFFFFFF, 28
             self.handles += 4
@@ -224,6 +230,14 @@ class TextWorld:
             if em.arg(3):
                 em.w32(em.arg(3), 0x20)
             return 1, 16
+
+        def profile_string(em):
+            section, key, default, buf, size, path = (em.arg(i) for i in range(6))
+            assert em.wstr(path) == SETTINGS_INI
+            value = self.ini.get((em.wstr(section), em.wstr(key)), em.wstr(default))
+            data = (value[:size - 1] + "\0").encode("utf-16-le")
+            em.write(buf, data)
+            return len(value[:size - 1]), 24
 
         def load_library(em):
             name = em.wstr(em.arg(0)).lower()
@@ -253,7 +267,7 @@ class TextWorld:
             "HeapAlloc": lambda em: (em.alloc(max(4, em.arg(2))), 12),
             "HeapFree": lambda em: (1, 12), "VirtualProtect": virtual_protect,
             "FlushInstructionCache": lambda em: (1, 12), "GetCurrentProcess": lambda em: (0xFFFFFFFF, 0),
-            "LoadLibraryW": load_library,
+            "LoadLibraryW": load_library, "GetPrivateProfileStringW": profile_string,
         })
         for name in ("CreateCompatibleDC", "CreateFontW", "SelectObject", "GetTextFaceW", "GetFontData",
                      "GetTextExtentPoint32W", "GetTextMetricsW", "CreateDIBSection", "SetBkMode", "SetTextColor",
@@ -478,6 +492,15 @@ class RealGdi:
             gdi.GdiFlush()
             em.write(fake_bits, c.string_at(real_bits, size))
             return ok, 20
+
+        def add_font(em):
+            path = em.wstr(em.arg(0))
+            local = W.font_files.get(path)
+            if local is None:
+                return 0, 12
+            return (1 if self.g.add_private_font(local) else 0), 12
+
+        W.e.imports["AddFontResourceExW"] = log("AddFontResourceExW", add_font)
 
         def delete(em):
             real = self.handles.pop(em.arg(0), None)

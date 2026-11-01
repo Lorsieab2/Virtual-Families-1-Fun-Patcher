@@ -27,7 +27,7 @@ CONTROLS = {
     "patch_selection_settings", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
     "rename_family", "copy_player_slot", "game_speed", "game_mechanics", "family_tree", "picture_maker",
-    "game_text",
+    "game_text", "unicode_font",
 }
 
 # Words a player never sees in the patcher or the game.

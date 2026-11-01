@@ -23,7 +23,7 @@ patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the tw
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_relationships.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
   and logos in tree_pictures/), the Game Text tool and Render Unicode with In-Game Fonts' shared text rule
-  (vf1_text.py, vf1_game_fonts.py, vf1_glyph_gdi.py, vf1_glyph_maker.py, vf1_game_text.py, and
+  (vf1_text.py, vf1_game_fonts.py, vf1_glyph_gdi.py, vf1_glyph_maker.py, vf1_game_text.py, vf1_unicode_font.py, and
   payload/UnicodeText), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
@@ -112,6 +112,7 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_glyph_gdi.py": (ROOT / "patcher" / "vf1_glyph_gdi.py").read_bytes(),
         "vf1_glyph_maker.py": (ROOT / "patcher" / "vf1_glyph_maker.py").read_bytes(),
         "vf1_game_text.py": (ROOT / "patcher" / "vf1_game_text.py").read_bytes(),
+        "vf1_unicode_font.py": (ROOT / "patcher" / "vf1_unicode_font.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }

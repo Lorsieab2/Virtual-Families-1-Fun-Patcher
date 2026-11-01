@@ -101,6 +101,38 @@
       ]
     },
     {
+      "id": "UseUnicodeFont",
+      "label": "Use Unicode Font (overrides in-game fonts)",
+      "description": "Draws all of the game's text with a Unicode font of your choice instead of the game's own letters: any font installed in Windows or a .ttf or .otf file, picked with Unicode Font... on the Tools tab (Segoe UI when none is picked). Characters the chosen font lacks come from Segoe UI and then the Windows fonts for other scripts (Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others, and Noto when installed). Each of the game's four fonts keeps its height, baseline, weight and colour, and its size is fitted so that a line of text is as wide as the game's own, so screens still fit. Everything Render Unicode with In-Game Fonts does for typing and keeping names works the same: any character can be typed in the game's name boxes and is kept in the save as UTF-8 in the game's own name fields; the stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example \"Zoë\" as \"ZoÃ«\"). Installs its own small DLL, vf1font.dll, and the fonts' size data (the Unicode Font folder) in the Virtual Families 1 Patcher Files folder; the game's own art is not changed, and unticking the setting removes them.",
+      "default": false,
+      "category": "main",
+      "excludes": [
+        "RenderUnicodeInGameFonts"
+      ],
+      "files": [
+        {
+          "source": "vf1font.dll",
+          "target": "Virtual Families 1 Patcher Files/vf1font.dll"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold18.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Font/SegoeUiBold18.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold17.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Font/SegoeUiBold17.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold24.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Font/SegoeUiBold24.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUi33.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Font/SegoeUi33.txt"
+        }
+      ]
+    },
+    {
       "id": "AllowOlderPregnancies",
       "label": "Allow Older Pregnancies",
       "description": "Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.",

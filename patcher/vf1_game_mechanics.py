@@ -121,6 +121,7 @@ PATCH_SETTINGS = {
     "FreeAndGuaranteedCheats": ("Free and Guaranteed Cheats", False),
     "StoreRefreshKey": ("R Refreshes the Store", True),
     "RenderUnicodeInGameFonts": ("Render Unicode with In-Game Fonts", True),
+    "UseUnicodeFont": ("Use Unicode Font (overrides in-game fonts)", False),
 }
 # The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
 UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
@@ -663,6 +664,10 @@ def _keys() -> list[Fact]:
                              "text is drawn with the game's own fonts, with patcher-made letters in the same style "
                              "for the ones they lack. The stock game shows such a name as other Latin-1 letters, "
                              "one per byte, and saves it unchanged."), E, sub=True),
+        Fact(g, with_patcher("UseUnicodeFont", "the same typing and names, but every letter, the game's own too, is "
+                             "drawn in a font you choose with Unicode Font... (Segoe UI if none), each of the four "
+                             "text sizes keeping its height, baseline and weight and sized so a line is as wide as "
+                             "before. It cannot be on with Render Unicode with In-Game Fonts."), E, sub=True),
         Fact(g, "Opening logos: any typed key or a click moves on to the next logo (each also moves on by itself "
                 "after 4 seconds of real time). F1 skips the rest of the logos and the loading screen and opens the "
                 "house at once.", C),

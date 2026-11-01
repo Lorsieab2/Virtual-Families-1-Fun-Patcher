@@ -139,7 +139,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
     app.select_default_settings()
     assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
     app.select_all_settings()                    # Select All Patches leaves the Experimental setting off
-    assert app.selected_settings() == set(DEFAULTS) - {"UpTo28Children"}
+    assert app.selected_settings() == set(DEFAULTS) - {"UpTo28Children", "UseUnicodeFont"}
     app.setting_vars["UpTo28Children"].set(True)  # ticked deliberately
     assert "UpTo28Children" in app.selected_settings()
 
@@ -149,7 +149,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
 # that costs or adds content stays on; Up to 28 Children stays off (Experimental).
 DEFAULTS = {
     "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-    "UpTo28Children": False, "FamilyHistory": True, "RenderUnicodeInGameFonts": True,
+    "UpTo28Children": False, "FamilyHistory": True, "RenderUnicodeInGameFonts": True, "UseUnicodeFont": False,
     "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
     "SpecialUpgrades": True, "CheatUpgrades": False, "FleaMarket": False, "FreeAndGuaranteedCheats": False,
     "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
@@ -163,11 +163,11 @@ def test_each_preset_ticks_exactly_its_set(app):
     app.clear_all_settings()                                             # Deselect All Patches
     assert app.selected_settings() == set()
     app.select_owners_defaults()                                         # Owner's Defaults
-    assert app.selected_settings() == everything - {"UpTo28Children"}
+    assert app.selected_settings() == everything - {"UpTo28Children", "RenderUnicodeInGameFonts"}
     assert {"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"} <= app.selected_settings()
     assert gui.OWNERS_DEFAULT_OFF_SETTING_IDS == frozenset({"UpTo28Children"})
     app.select_all_settings()                                            # Select All Patches: no Experimental
-    assert app.selected_settings() == everything - {"UpTo28Children"}
+    assert app.selected_settings() == everything - {"UpTo28Children", "UseUnicodeFont"}
     app.setting_vars["UpTo28Children"].set(True)
     app.select_default_settings()                                        # Default Patches: the manifest's
     assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
