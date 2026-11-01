@@ -271,11 +271,12 @@ static const wchar_t *DivorceSpouse() {
 }
 
 // ---------------------------------------------------------------- children
+// The name field holds 24 bytes and its NUL (the game writes at most 0x19); the name is stored as UTF-8, cut only
+// between whole characters (text_names.inc), so nothing that fits is lost and nothing is cut in half.
 static void SetName(int slot, const wchar_t *name) {
     char s[26] = { 0 };
     if (!name || !name[0]) return;
-    WideCharToMultiByte(CP_ACP, 0, name, -1, s, 25, 0, 0);
-    s[24] = 0;
+    if (FitNameUtf8(name, s, 24) <= 0) return;
     strncpy_s((char *)(Villager(slot) + 0x2A44), 0x19, s, _TRUNCATE);
 }
 
@@ -315,26 +316,7 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
     if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
     int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
     if (slot < 0) return L"The house is full.";
-    // SetName fits a name into a 24-byte field and drops one that does not fit
-    // at all, so cut the typed name first: to at most 24 UTF-16 units, then
-    // back off one unit at a time while its code-page bytes still exceed 24.
-    // A cut never ends on a high surrogate (0xD800-0xDBFF), so a non-BMP
-    // character is kept whole or dropped whole and never becomes a lone '?'.
-    // The child then keeps the name typed up to that point. SetName is shared
-    // with Spawn Child and is not changed.
-    wchar_t fit[25] = { 0 };
-    if (name) {
-        size_t n = wcslen(name);
-        if (n > 24) n = 24;
-        char probe[25];
-        while (n > 0) {
-            if (name[n - 1] >= 0xD800 && name[n - 1] <= 0xDBFF) { n--; continue; }
-            if (WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)) break;
-            n--;
-        }
-        wcsncpy_s(fit, 25, name, n);
-    }
-    SetName(slot, fit);
+    SetName(slot, name);   // SetName fits the name to its field, whole characters only
     AddOffspring(FamilyTree, Villager(slot));
     LogFamilyEvent(LOGS_ADOPT_CHILD, slot);
     IncrementProgress(Achievements, 0xC, 1);

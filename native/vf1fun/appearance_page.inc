@@ -74,7 +74,7 @@ static void FillList(HWND dlg, int keep) {
     for (int i = 0; i < VillagerSlots; ++i) {
         if (!VillagerPresent(i)) continue;
         wchar_t line[128];
-        swprintf(line, 128, L"%.40hs\t%ls   Hair %d   Outfit %d", (const char *)(Villager(i) + 0x2A44),
+        swprintf(line, 128, L"%.40ls\t%ls   Hair %d   Outfit %d", NameW((const char *)(Villager(i) + 0x2A44), 0x19),
                  *(int *)(Villager(i) + 0x2A38) == 1 ? L"Female" : L"Male", *Head(i), *Body(i));
         int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
         SendMessageW(list, LB_SETITEMDATA, row, i);
@@ -142,7 +142,7 @@ static void Apply(HWND dlg, int n) {
     if (who < 0) return;
     if ((*(int *)(Villager(who) + 0x2A38) != 1) != gMale) return;  // gender-locked
     wchar_t text[200];
-    swprintf(text, 200, L"Change %.40hs's %ls to #%d?", (const char *)(Villager(who) + 0x2A44),
+    swprintf(text, 200, L"Change %.40ls's %ls to #%d?", NameW((const char *)(Villager(who) + 0x2A44), 0x19),
              gOutfits ? L"outfit" : L"hairstyle", n);
     if (!Confirm(dlg, text)) return;
     // The head and body rows are the same 0-49 numbers for both genders (each gender draws them from its own sheet).

@@ -23,6 +23,8 @@
 #include <intrin.h>
 #include <shlobj.h>
 
+#include "text_names.inc"
+
 // ---------------------------------------------------------------- game ABI
 struct ldwPoint { int x, y; };
 
@@ -465,8 +467,8 @@ static void FillVillagerList(HWND dlg) {
         if (!VillagerPresent(i))
             continue;
         wchar_t line[128];
-        swprintf(line, 128, L"%.40hs\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d",
-                 (const char *)(Villager(i) + 0x2A44), *Stat(i, STAT_HEALTH), *Stat(i, STAT_HAPPINESS),
+        swprintf(line, 128, L"%.40ls\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d",
+                 NameW((const char *)(Villager(i) + 0x2A44), 0x19), *Stat(i, STAT_HEALTH), *Stat(i, STAT_HAPPINESS),
                  Fed(i), *Stat(i, STAT_ENERGY), *Head(i), *Body(i));
         row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
         SendMessageW(list, LB_SETITEMDATA, row, i);
@@ -498,7 +500,7 @@ static bool ConfirmVillagerCheat(HWND dlg, int id) {
     int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
     wchar_t text[256];
     if (who < 0) swprintf(text, 256, L"%s for EVERYONE in the house?", action);
-    else swprintf(text, 256, L"%s for %.40hs?", action, (const char *)(Villager(who) + 0x2A44));
+    else swprintf(text, 256, L"%s for %.40ls?", action, NameW((const char *)(Villager(who) + 0x2A44), 0x19));
     return Confirm(dlg, text);
 }
 
