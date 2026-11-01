@@ -627,12 +627,18 @@ class WaitWindow(tk.Toplevel):
             self.destroy()
 
 
-def copy_prompt_text(source_name: str | None, source: int, target: int, new_name: str, folder: Path) -> str:
-    """Copy Player Slot's question: the family and its slot, the slot it goes into, the new name and the save folder."""
-    return (f"Copy the family \"{source_name or '(no name)'}\" from Save {source} into Save {target}, as \"{new_name}\"?\n\n"
-            f"Save folder: {folder}\n\n"
-            f"The save folder is backed up first, as Backup <date> (before copy). Anything a family deleted in the "
-            f"game left behind in Save {target} is cleared (it stays in the backup). Save {source} is not changed.")
+def copy_prompt_text(source_name: str | None, source: int, target: int, new_name: str, folder: Path,
+                     replaced: bool = False, old_name: str | None = None) -> str:
+    """Copy Player Slot's question (the wording every patcher shares, the owner 2026-11-01): for a target that holds
+    a family (``replaced``) it names that family and says it will be replaced; otherwise it says the slot is empty."""
+    source_text = source_name or "(no name)"
+    old_text = old_name or "(unreadable)"
+    if replaced:
+        return (f"Save {target} holds the {old_text} family. It will be replaced by a copy of {source_text} "
+                f"(Save {source}), named {new_name}. The whole save folder ({folder}) is backed up first, and "
+                f"{old_text}'s files are kept in Backups\\Replaced by copy <date>. Replace it?")
+    return (f"Save {target} is empty. It will get a copy of {source_text} (Save {source}), named {new_name}. The "
+            f"whole save folder ({folder}) is backed up first. Copy it?")
 
 
 class VF1PatcherGUI:
@@ -2151,7 +2157,7 @@ class VF1PatcherGUI:
     # ------------------------------------------------------------------ Copy Player Slot
 
     def copy_player_slot(self) -> tk.Toplevel | None:
-        """Pick a save folder, a family to copy, an empty slot and a new name (the Fish & Plant Tycoon patcher's
+        """Pick a save folder, a family to copy, a slot (empty, or one to replace) and a new name (the Fish & Plant Tycoon patcher's
         Copy Slot, laid out as Rename Family). The lists are read from the saves and are only for choosing; every
         refusal comes from vf1_copy_slot. The copy itself runs off the main thread."""
         documents, folders = self._save_folders()
@@ -2211,18 +2217,20 @@ class VF1PatcherGUI:
         dialog, frame = self._scrolling_dialog("Copy Player Slot")
         ttk.Label(
             frame,
-            text=("Copies a family into an empty save slot under a new name, with everything the patcher keeps for "
+            text=("Copies a family into another save slot under a new name, with everything the patcher keeps for "
                   "it (its Family History log, Family Tree files, Children, Outfits and Slot files). The family you "
                   "copy is not changed. The game must be closed: it saves by itself every 10 minutes and when you "
                   "quit it, which would write over the new slot. The save folder is backed up first, into <save "
-                  "folder>\\Backups\\Backup <date and time> (before copy)."),
+                  "folder>\\Backups\\Backup <date and time> (before copy). A slot with no save file is empty, as the "
+                  "game sees it. Copying into a slot that holds a family replaces that family (you are asked first); "
+                  "its files are kept in Backups\\Replaced by copy <date>."),
             wraplength=560, justify="left",
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
         folder_var = tk.StringVar()
         name_var = tk.StringVar()
         counter_var = tk.StringVar()
         problem_var = tk.StringVar()
-        state: dict = {"slots": [], "families": [], "empties": []}
+        state: dict = {"slots": [], "families": [], "targets": []}
 
         ttk.Label(frame, text="Save folder:").grid(row=1, column=0, sticky="w")
         folder_box = ttk.Combobox(frame, textvariable=folder_var, values=[folder.name for folder in folders],
@@ -2231,7 +2239,7 @@ class VF1PatcherGUI:
         ttk.Label(frame, text="Copy family:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
         source_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
         source_list.grid(row=2, column=1, columnspan=2, sticky="we", pady=(4, 2))
-        ttk.Label(frame, text="Into empty slot:").grid(row=3, column=0, sticky="nw", pady=(4, 0))
+        ttk.Label(frame, text="Into slot:").grid(row=3, column=0, sticky="nw", pady=(4, 0))
         target_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
         target_list.grid(row=3, column=1, columnspan=2, sticky="we", pady=(4, 2))
         ttk.Label(frame, text="New name:").grid(row=4, column=0, sticky="w", pady=(8, 0))
@@ -2259,7 +2267,7 @@ class VF1PatcherGUI:
             name = name_var.get()
             counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
             counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
-            source, target = chosen(source_list, "families"), chosen(target_list, "empties")
+            source, target = chosen(source_list, "families"), chosen(target_list, "targets")
             problem = None
             if folder() is None:
                 problem = "No save folder was found for this game."
@@ -2267,10 +2275,10 @@ class VF1PatcherGUI:
                 problem = "Choose a family to copy."
             elif source.problem:
                 problem = source.problem
-            elif not state["empties"]:
-                problem = "Every save slot is in use. Delete a family in the game first to free a slot."
             elif target is None:
-                problem = "Choose an empty slot to copy into."
+                problem = "Choose a slot to copy into."
+            elif target.slot == source.slot:
+                problem = "Choose another slot to copy into: a family cannot be copied onto itself."
             elif name:
                 problem = rename_family.name_problem(name)
             problem_var.set(problem or "")
@@ -2279,38 +2287,41 @@ class VF1PatcherGUI:
         def load_slots(*_args) -> None:
             source_list.delete(0, "end")
             target_list.delete(0, "end")
-            state["slots"], state["families"], state["empties"] = [], [], []
+            state["slots"], state["families"], state["targets"] = [], [], []
             where = folder()
             if where is not None:
                 state["slots"] = copy_slot.read_slots(where)
                 state["families"] = [info for info in state["slots"] if info.name is not None]
-                state["empties"] = [info for info in state["slots"] if info.empty]
+                state["targets"] = list(state["slots"])          # any slot but the source; a used one is replaced
                 for info in state["families"]:
                     source_list.insert("end", info.label)
-                for info in state["empties"]:
+                for info in state["targets"]:
                     target_list.insert("end", info.label)
                 first = next((n for n, info in enumerate(state["families"]) if not info.problem), None)
                 if first is not None:
                     source_list.selection_set(first)
-                if state["empties"]:
-                    target_list.selection_set(0)
+                empty = next((n for n, info in enumerate(state["targets"]) if info.empty), None)
+                if empty is not None:
+                    target_list.selection_set(empty)
             refresh_check()
 
         def start() -> None:
-            source, target, where = chosen(source_list, "families"), chosen(target_list, "empties"), folder()
-            if source is None or target is None or where is None:
+            source, target, where = chosen(source_list, "families"), chosen(target_list, "targets"), folder()
+            if source is None or target is None or where is None or target.slot == source.slot:
                 return
             new_name = name_var.get()
             problem = rename_family.name_problem(new_name)
             if problem is not None:
                 messagebox.showerror("Copy Player Slot", problem, parent=dialog)
                 return
-            if not self._ask_copy(dialog, copy_prompt_text(source.name, source.slot, target.slot, new_name, where)):
+            replacing = not target.empty
+            if not self._ask_copy(dialog, copy_prompt_text(source.name, source.slot, target.slot, new_name, where,
+                                                           replacing, target.name)):
                 return
             try:
                 result = self._run_with_wait(
                     "Copying the family…\n\nThe save folder is backed up first.",
-                    lambda: copy_slot.copy_slot(where, source.slot, target.slot, new_name))
+                    lambda: copy_slot.copy_slot(where, source.slot, target.slot, new_name, replace=replacing))
             except (copy_slot.CopyError, save_backup.BackupError, OSError) as exc:
                 self.status_var.set("Copy Player Slot: nothing was copied.")
                 messagebox.showerror("Copy Player Slot", str(exc), parent=dialog)
@@ -2318,7 +2329,13 @@ class VF1PatcherGUI:
                 return
             self.status_var.set(f"Copy Player Slot: {result.old_name or '(no name)'} was copied to Save "
                                 f"{result.target} as {result.new_name}.")
-            cleared = f" {len(result.cleared)} file(s) a deleted family left there were cleared." if result.cleared else ""
+            if result.replaced:
+                cleared = (f" {result.replaced_name or 'The old family'}'s files were moved into "
+                           f"{result.aside_folder}.")
+            elif result.set_aside:
+                cleared = f" What a deleted family left there was moved into {result.aside_folder}."
+            else:
+                cleared = ""
             messagebox.showinfo(
                 "Copy Player Slot",
                 f"\"{result.old_name or '(no name)'}\" (Save {result.source}) was copied to Save {result.target} as "

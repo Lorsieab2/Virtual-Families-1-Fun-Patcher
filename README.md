@@ -156,10 +156,13 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     The slot's Children files that matched the renamed saves are re-matched to them (as Copy Player Slot does),
     so the game keeps every extra child (7 to 28) on the next load; one that did not match is left as it is.
     The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
-  - **Copy Player Slot...:** copies a family into an empty save slot under a new name, in a closed game's saves.
-    Pick the family, an empty slot (one the slot menu shows empty, with no save) and the new name (the Rename
-    Family rule); it asks Yes / No first, naming the family, both slots, the new name and the save folder (No is
-    the default: Return and Escape answer No). A slot is the game's `Virtual Families<N>.ldw` and its two older copies `<N+20>` / `<N+40>`, the
+  - **Copy Player Slot...:** copies a family into another save slot under a new name, in a closed game's saves.
+    Pick the family, any other slot and the new name (the Rename Family rule). A slot with no
+    `Virtual Families<N>.ldw` is empty whatever `Virtual Families0.ldw` still says for it, and a slot whose save is
+    there holds a family: the game does the same, rebuilding every slot's menu flag from whether its save loads at
+    each start (`theGameState::Load` 0x4247C0). A slot that holds a family is replaced; the Yes / No question then
+    starts "Save <N> holds the <old name> family. It will be replaced by a copy of ..." (No is the default: Return
+    and Escape answer No). A slot is the game's `Virtual Families<N>.ldw` and its two older copies `<N+20>` / `<N+40>`, the
     patcher's `Slot <N>.ini`, `Children\Virtual Families<n>.ldw.dat` and `Outfits\Virtual Families<n>.ldw.dat`
     (and their `.unreadable-<k>.dat`) in `Virtual Families 1 Patcher Data`, and the `Virtual Families 1
     Patcher\Save <N>` folder (Family History log, Family Tree files): all are copied with the target's numbers.
@@ -168,9 +171,11 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     without it the menu shows the slot empty). Children files are re-matched to the copied save's bytes, the
     Family Tree files are renamed for the new slot, and the copied log gets one `Family Copied` record; outfit
     pictures need no change. The generated tree page and pictures and the slot's `Backups` are not copied. It
-    backs up first as `Backup <date> (before copy)`, refuses while the game runs or when the target is in use,
-    clears what a family deleted in the game left in the target, writes every file through a temporary file,
-    the slot menu last, reads everything back, and puts everything back if anything fails. Module
+    backs up first as `Backup <date> (before copy)`, refuses while the game runs, then moves everything already
+    in the target (a replaced family's save, `<N+20>` / `<N+40>`, sidecars and `Save <N>` folder, or what a family
+    deleted in the game left) into `Backups\Replaced by copy <date> - Save <N> - <old name>\` keeping their paths
+    (never deleted; Restore Saves never lists that folder), writes every file through a temporary file, the slot
+    menu last, reads everything back, and moves everything back if anything fails. Module
     `patcher/vf1_copy_slot.py`, tests `tests/test_copy_slot.py`.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
