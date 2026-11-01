@@ -62,6 +62,23 @@ def function_text(source, signature):
     raise AssertionError("unterminated function")
 
 
+_COMMENT_OR_STRING = re.compile(
+    r'L?"(?:\\.|[^"\\\n])*"'     # string literals: kept, so "//" inside a string is not a comment
+    r'|/\*.*?\*/'                # block comments: removed
+    r'|//[^\n]*',                # line comments: removed
+    re.S)
+
+
+def strip_comments(text):
+    """`text` with // line comments and /* block comments */ replaced by a space. String literals stay."""
+    return _COMMENT_OR_STRING.sub(lambda m: m.group(0) if m.group(0)[0] in 'L"' else " ", text)
+
+
+def calls_earn(body, earn):
+    """True when `body` has a real `earn();` call, not one inside a comment."""
+    return f"{earn}();" in strip_comments(body)
+
+
 def enum_names():
     body = re.search(r"enum \{ (ACH_LUCKY_70.*?ACH_COUNT) \};", ACH_SRC, re.S).group(1)
     return [n.strip() for n in body.replace("\n", " ").split(",") if n.strip()]
@@ -108,7 +125,28 @@ def test_saved_mask_covers_every_bit_and_the_total_matches_the_table():
 def test_each_feature_calls_its_earn_function_where_the_work_is_done(enum, name, how, earn, where):
     source, signature = where
     body = function_text(source, signature)
-    assert f"{earn}();" in body, f"{earn}() is not called from the feature's own code path"
+    assert calls_earn(body, earn), f"{earn}() is not called from the feature's own code path"
+
+
+@pytest.mark.parametrize("line, counts", [
+    ("// EarnLoveIsLove();", False),
+    ("    //EarnLoveIsLove();", False),
+    ("/* EarnLoveIsLove(); */", False),
+    ("/*\n    EarnLoveIsLove();\n*/", False),
+    ("EarnLoveIsLove(); // real call, comment after it", True),
+    ("if (x) EarnLoveIsLove();", True),
+])
+def test_only_a_live_earn_call_counts_not_one_inside_a_comment(line, counts):
+    body = f"static void SameGenderWedding(int a) {{\n    {line}\n}}"
+    assert calls_earn(body, "EarnLoveIsLove") is counts
+
+
+def test_a_commented_out_call_in_a_real_feature_fails_the_check():
+    # The live function with its real call commented out must no longer pass the check.
+    live = function_text(FAMILY_SRC, r"static void SameGenderWedding\(")
+    assert calls_earn(live, "EarnLoveIsLove")
+    commented = live.replace("EarnLoveIsLove();", "// EarnLoveIsLove();")
+    assert not calls_earn(commented, "EarnLoveIsLove")
 
 
 @pytest.mark.parametrize("enum, name, how, earn, where", NEW, ids=[n[1] for n in NEW])
