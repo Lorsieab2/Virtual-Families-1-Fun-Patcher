@@ -23,24 +23,40 @@ static bool NameExtender(unsigned cp) {
     return false;
 }
 
-// The name in a save field (up to its NUL or `cap` bytes) as text for a window, by the one rule. The result lives
-// until four more names have been read.
+// One character limit for every name box (vf1text.dll / vf1font.dll, native/vf1text/names.inc): a name longer than
+// its save field is kept there as its short form, the whole name in the save's Names file. Set by LoadTextCompanion
+// when one of the two is installed; without them a name is only what fits its field.
+typedef const char *(__cdecl *TextFullNameFn)(const char *stored);
+typedef int (__cdecl *TextStoreNameFn)(const char *full, int room, char *out);
+static TextFullNameFn TextFullName;
+static TextStoreNameFn TextStoreName;
+
+// The name in a save field (up to its NUL or `cap` bytes) as text for a window, by the one rule: the whole name when
+// it is a short form. The result lives until four more names have been read.
 static const wchar_t *NameW(const char *bytes, int cap = 64) {
-    static wchar_t ring[4][160];
+    static wchar_t ring[4][VF1_NAME_BOX_BYTES + 8];
     static int next;
     wchar_t *out = ring[next];
     next = (next + 1) & 3;
     out[0] = 0;
     if (!bytes) return out;
+    char field[64];
+    if (TextFullName && cap < (int)sizeof field) {
+        int k = 0;
+        while (k < cap && bytes[k]) { field[k] = bytes[k]; ++k; }
+        field[k] = 0;
+        const char *whole = TextFullName(field);
+        if (whole && whole != field) { bytes = whole; cap = VF1_NAME_BOX_BYTES; }
+    }
     int n = 0;
     while (n < cap && bytes[n]) ++n;
-    int got = n ? MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes, n, out, 159) : 0;
+    int got = n ? MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes, n, out, VF1_NAME_BOX_BYTES + 7) : 0;
     if (got > 0 || n == 0) {
         out[got] = 0;
         return out;
     }
     int k = 0;
-    for (int i = 0; i < n && k < 159; ++i) {
+    for (int i = 0; i < n && k < VF1_NAME_BOX_BYTES + 7; ++i) {
         unsigned b = (unsigned char)bytes[i];
         out[k++] = (wchar_t)((b >= 0x80 && b < 0xA0) ? NameCp1252[b - 0x80] : b);
     }
@@ -48,11 +64,12 @@ static const wchar_t *NameW(const char *bytes, int cap = 64) {
     return out;
 }
 
-// `name` as UTF-8 in at most `room` bytes (plus a NUL), cut only between whole characters (vf1_text.cut_to_bytes).
+// `name` as UTF-8 in at most `room` bytes (plus a NUL) and VF1_NAME_LETTERS characters, cut only between whole
+// characters (vf1_text.cut_to_bytes).
 static int FitNameUtf8(const wchar_t *name, char *out, int room) {
-    unsigned cps[128];
-    int n = 0;
-    for (int i = 0; name && name[i] && n < 128; ++i) {
+    static unsigned cps[VF1_NAME_BOX_BYTES + 8];
+    int n = 0, letters = 0;
+    for (int i = 0; name && name[i] && n < VF1_NAME_BOX_BYTES + 8; ++i) {
         unsigned c = name[i];
         if (c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF) {
             c = 0x10000 + ((c - 0xD800) << 10) + (name[i + 1] - 0xDC00);
@@ -86,13 +103,23 @@ static int FitNameUtf8(const wchar_t *name, char *out, int room) {
                 piece[bytes++] = (char)(0x80 | ((c >> 6) & 0x3F)); piece[bytes++] = (char)(0x80 | (c & 0x3F));
             }
         }
-        if (used + bytes > room) break;
+        if (used + bytes > room || letters == VF1_NAME_LETTERS) break;
         memcpy(out + used, piece, bytes);
         used += bytes;
+        ++letters;
         i = j;
     }
     out[used] = 0;
     return used;
+}
+
+// A typed name into a member's 24-byte name field (plus its NUL): the name cut to the one limit; then its short form
+// and the Names file when vf1text.dll / vf1font.dll is installed, else what fits the field.
+static int StoreTypedName(const wchar_t *name, char *field25) {
+    static char whole[VF1_NAME_BOX_BYTES + 1];
+    if (FitNameUtf8(name, whole, VF1_NAME_BOX_BYTES) <= 0) return 0;
+    if (TextStoreName) return TextStoreName(whole, 24, field25);
+    return FitNameUtf8(name, field25, 24);
 }
 
 // For the tests (tests/test_vf1fun_names.py): the two rules, one call each.

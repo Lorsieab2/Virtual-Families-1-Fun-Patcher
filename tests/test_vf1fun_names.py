@@ -80,3 +80,19 @@ def test_control_characters_and_lone_surrogates_are_never_stored(emu):
                                   b"\x93Hi\x94", "\U0001f44d".encode()])
 def test_a_stored_name_reads_by_the_one_rule(emu, data):
     assert name_w(emu, data) == vf1_text.decode(data)
+
+
+def test_a_typed_name_is_cut_to_the_one_name_limit(emu):
+    """One character limit for every name box: SetName's whole name (StoreTypedName) keeps at most NAME_LETTERS
+    characters and NAME_BOX_BYTES bytes, cut between whole characters."""
+    room = vf1_text.NAME_BOX_BYTES
+    assert fit(emu, "a" * 400, room) == b"a" * vf1_text.NAME_LETTERS
+    assert fit(emu, "\u00e9" * 400, room) == ("\u00e9" * vf1_text.NAME_LETTERS).encode()
+    assert fit(emu, "\U0001F600" * 400, room) == ("\U0001F600" * vf1_text.NAME_LETTERS).encode()
+    joined = "\U0001F469\u200D\U0001F469\u200D\U0001F467"
+    assert fit(emu, joined * 100, room) == (joined * 66).encode()
+
+
+def test_a_stored_short_form_reads_as_the_whole_name_only_through_the_text_companion(emu):
+    # without vf1text.dll / vf1font.dll (TextFullName unset) a short form is shown as it is stored
+    assert name_w(emu, b"Annabella Rosa...") == "Annabella Rosa..."

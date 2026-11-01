@@ -272,11 +272,13 @@ static const wchar_t *DivorceSpouse() {
 
 // ---------------------------------------------------------------- children
 // The name field holds 24 bytes and its NUL (the game writes at most 0x19); the name is stored as UTF-8, cut only
-// between whole characters (text_names.inc), so nothing that fits is lost and nothing is cut in half.
+// between whole characters (text_names.inc), so nothing that fits is lost and nothing is cut in half. A longer name
+// (up to the one name limit) is stored as its short form, the whole name in the save's Names file, when
+// vf1text.dll or vf1font.dll is installed (StoreTypedName).
 static void SetName(int slot, const wchar_t *name) {
     char s[26] = { 0 };
     if (!name || !name[0]) return;
-    if (FitNameUtf8(name, s, 24) <= 0) return;
+    if (StoreTypedName(name, s) <= 0) return;
     strncpy_s((char *)(Villager(slot) + 0x2A44), 0x19, s, _TRUNCATE);
 }
 

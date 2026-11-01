@@ -27,6 +27,10 @@ The limit
     other character 2 to 4, and the 19 bytes are counted, never a character cut in two. Control characters
     are refused. Spaces are kept as typed. A name that breaks the rule is refused, never truncated. The
     stock game (or the patch off) shows such a name as other Latin letters, and stores it back unchanged.
+    One character limit for every name box (docs/UNICODE_TEXT.md): the tool takes up to vf1_text.NAME_LETTERS
+    (300) characters, as the game's own boxes do with either Unicode setting on. A name longer than the 19 bytes
+    is stored in the save and the slot menu as its short form (vf1_names.short_form), and the whole name goes in
+    the slot's Names file, written first and put back if the rename fails.
 
 Safety
     * The game must be closed: a running game rewrites its saves by itself every 10 minutes and when it
@@ -68,14 +72,17 @@ from datetime import datetime
 from pathlib import Path
 
 import vf1_genealogy as gen
+import vf1_names
 import vf1_save as save_format
 import vf1_save_backup as save_backup
 import vf1_text
 
 SLOTS = (1, 2, 3, 4, 5)
 BACKUP_LABEL = save_backup.BEFORE_RENAME
-# The most characters the tool accepts (see the module notes).
-MAX_LENGTH = 19
+# The most characters the tool accepts: the one name limit (vf1_text.NAME_LETTERS). The save's field keeps 19 bytes;
+# a longer name is stored there as its short form, the whole name in the slot's Names file (vf1_names).
+MAX_LENGTH = vf1_text.NAME_LETTERS
+FIELD_BYTES = vf1_names.FAMILY_ROOM
 FAMILY_NAME_FIELD = 0x1C                 # bytes reserved at theGameState+0x1B12C
 OPTIONS_FIRST_NAME = 0x1B192             # theGameState offset of slot 1's menu name
 OPTIONS_NAME_STRIDE = 0x15               # bytes per slot-menu name
@@ -95,16 +102,15 @@ def printable(ch: str) -> bool:
 
 
 def room_used(name: str) -> int:
-    """How much of the name field ``name`` fills: its UTF-8 length (one per letter A to Z, 2 to 4 for others)."""
-    return len(vf1_text.encode(name))
+    """How many characters ``name`` has, as a player counts them (the one name limit counts these)."""
+    return vf1_text.char_count(name)
 
 
 def room_text(name: str) -> str:
-    """The name box's counter: "7 / 19 characters", saying when a letter takes more than one."""
-    used = room_used(name)
-    text = f"{used} / {MAX_LENGTH} characters"
-    if used != len(name):
-        text += " (letters beyond A to Z count as 2 to 4)"
+    """The name box's counter: "7 / 300 characters", saying when the save keeps a short form."""
+    text = f"{room_used(name)} / {MAX_LENGTH} characters"
+    if len(vf1_text.encode(name)) > FIELD_BYTES:
+        text += " (the save keeps a short form; the whole name is in its Names file)"
     return text
 
 
@@ -139,8 +145,9 @@ def name_problem(name: str) -> str | None:
         return f"Virtual Families cannot use these characters in a name: {shown}."
     used = room_used(name)
     if used > MAX_LENGTH:
-        return (f"{used} characters is too long: a family name can have at most {MAX_LENGTH} "
-                f"(an accented or other letter beyond A to Z counts as 2 to 4).")
+        return f"{used} characters is too long: a family name can have at most {MAX_LENGTH}."
+    if len(vf1_text.encode(name)) > vf1_names.NAME_BOX_BYTES:
+        return vf1_names.name_problem(name)
     if not name.strip(" "):
         return "A name cannot be only spaces."
     return None
@@ -224,6 +231,7 @@ def read_slots(folder: Path) -> list[SlotInfo]:
     except OSError:
         options = b""
     options_ok = bool(options) and menu_name(options, 1) is not None
+    book = vf1_names.Book(folder)
     slots: list[SlotInfo] = []
     for slot in SLOTS:
         path = save_path(folder, slot)
@@ -236,6 +244,8 @@ def read_slots(folder: Path) -> list[SlotInfo]:
             slots.append(SlotInfo(slot, None, f"The save could not be read: {exc}"))
             continue
         name = save_name(data)
+        if name is not None:
+            name = book.full(slot, name)          # a short form is shown as the whole name (vf1_names)
         info = SlotInfo(slot, name)
         if name is None:
             info.problem = f"{path.name} is not a Virtual Families save this tool can read."
@@ -316,8 +326,35 @@ def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -
         )
 
 
+@dataclass
+class NamesChange:
+    """The slot's Names file with the new name's line (vf1_names); original None when there was no file."""
+    path: Path
+    original: bytes | None
+    updated: bytes
+
+
+def stored_name(folder: Path, slot: int, new_name: str) -> tuple[str, NamesChange | None]:
+    """What the save's 19-byte field stores for ``new_name`` (itself, or its short form), and the Names file change
+    that keeps the whole name (None when none is needed)."""
+    book = vf1_names.Book(folder)
+    stored, entry = book.store(slot, new_name, FIELD_BYTES)
+    if entry is None:
+        return stored, None
+    path = vf1_names.names_path(folder, slot)
+    try:
+        original = path.read_bytes()
+    except FileNotFoundError:
+        original = None
+    except OSError as exc:
+        raise RenameError(f"Could not read {path.name}: {exc}") from exc
+    book.add(slot, entry)
+    return stored, NamesChange(path, original, vf1_names.render(book.slots[slot]))
+
+
 def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list[FileChange]]:
-    """The old name, and the new bytes of every save file that holds it."""
+    """The old name (whole), and the new bytes of every save file that holds it: each gets ``new_name`` as the save
+    stores it (stored_name)."""
     save = save_path(folder, slot)
     try:
         data = save.read_bytes()
@@ -329,8 +366,11 @@ def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list
     offset = _save_name_offset(data)
     if old is None or offset is None:
         raise RenameError(f"{save.name} is not a Virtual Families save this tool can read.")
+    old_stored = old
+    old = vf1_names.Book(folder).full(slot, old)
     if old == new_name:
         raise RenameError(f"Save {slot} is already called {new_name}.")
+    stored, _ = stored_name(folder, slot, new_name)
     options = options_path(folder)
     try:
         menu = options.read_bytes()
@@ -339,7 +379,7 @@ def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list
     menu_offset = _menu_name_offset(menu, slot)
     if menu_offset is None or menu_name(menu, slot) is None:
         raise RenameError(f"The slot menu file {options.name} is not one this tool can read.")
-    changes = [FileChange(save, data, _with_name(data, offset, FAMILY_NAME_FIELD, new_name))]
+    changes = [FileChange(save, data, _with_name(data, offset, FAMILY_NAME_FIELD, stored))]
     for step in GENERATIONS:
         path = save_path(folder, slot + step)
         try:
@@ -349,10 +389,10 @@ def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list
         except OSError as exc:
             raise RenameError(f"Could not read {path.name}: {exc}") from exc
         older_offset = _save_name_offset(older)
-        if older_offset is None or save_name(older) != old:
+        if older_offset is None or save_name(older) != old_stored:
             continue        # another family, or not a save: left alone
-        changes.append(FileChange(path, older, _with_name(older, older_offset, FAMILY_NAME_FIELD, new_name)))
-    changes.append(FileChange(options, menu, _with_name(menu, menu_offset, OPTIONS_NAME_STRIDE, new_name)))
+        changes.append(FileChange(path, older, _with_name(older, older_offset, FAMILY_NAME_FIELD, stored)))
+    changes.append(FileChange(options, menu, _with_name(menu, menu_offset, OPTIONS_NAME_STRIDE, stored)))
     return old, changes
 
 
@@ -458,6 +498,7 @@ def rename_family(
     when = now or datetime.now()
     _refuse_if_running(folder, controller)
     old, changes = plan_save_changes(folder, slot, new_name)
+    stored, names = stored_name(folder, slot, new_name)
     children = plan_children_changes(folder, slot, changes)
     changes = changes[:-1] + children + changes[-1:]        # the options file stays last
     notes = plan_log_notes(folder, slot, old, new_name, when)
@@ -469,7 +510,15 @@ def rename_family(
     _refuse_if_running(folder, controller)
     done: list[FileChange] = []
     appended: list[LogNote] = []
+    names_written = False
     try:
+        if names is not None:                       # the whole name first: a short form never stands alone
+            current = names.path.read_bytes() if names.path.exists() else None
+            if current != names.original:
+                raise RenameError(f"{names.path.name} changed while it was being renamed.")
+            names.path.parent.mkdir(parents=True, exist_ok=True)
+            names_written = True
+            _write_atomically(names.path, names.updated)
         for change in changes:
             if change.path.read_bytes() != change.original:
                 raise RenameError(f"{change.path.name} changed while it was being renamed.")
@@ -496,11 +545,21 @@ def rename_family(
                         children_match(change.path, other.updated) for other in changes if other not in children):
                     raise RenameError(f"{change.path.name} does not match the renamed save.")
                 continue
-            holds = (menu_name(data, slot) if change.path == options else save_name(data)) == new_name
+            holds = (menu_name(data, slot) if change.path == options else save_name(data)) == stored
             if not holds:
                 raise RenameError(f"{change.path.name} does not hold the new name.")
+        if vf1_names.Book(folder).full(slot, stored) != new_name:
+            raise RenameError("The slot's Names file does not hold the new name.")
     except (OSError, RenameError) as exc:
         problems = _restore(done, appended)
+        if names_written:
+            try:
+                if names.original is None:
+                    names.path.unlink(missing_ok=True)
+                else:
+                    _write_atomically(names.path, names.original)
+            except (OSError, RenameError) as undo:
+                problems.append(f"{names.path.name}: {undo}")
         if problems:
             raise RenameError(
                 f"The rename failed ({exc}) and these files could not be put back: "
@@ -510,5 +569,6 @@ def rename_family(
             f"The rename failed ({exc}); every file was put back as it was. A backup is in {backup.backup_folder}."
         ) from exc
     return RenameResult(folder, slot, old, new_name, backup,
-                        [change.path for change in changes if change not in children], [note.path for note in notes],
+                        [change.path for change in changes if change not in children] + ([names.path] if names else []),
+                        [note.path for note in notes],
                         [change.path for change in children])

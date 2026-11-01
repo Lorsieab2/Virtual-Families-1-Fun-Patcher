@@ -288,7 +288,7 @@ def test_a_save_without_a_menu_entry_is_a_source(save):
 
 
 @pytest.mark.parametrize("source,target,name,words", [
-    (1, 1, "A", "another slot"), (3, 4, "A", "has no family"), (1, 4, "x" * 20, "too long"), (1, 6, "A", "1 to 5"),
+    (1, 1, "A", "another slot"), (3, 4, "A", "has no family"), (1, 4, "x" * 301, "too long"), (1, 6, "A", "1 to 5"),
 ])
 def test_other_refusals(save, source, target, name, words):
     before = tree_of(save)
@@ -531,3 +531,31 @@ def test_a_real_save_copies_and_parses_the_same_but_the_name(tmp_path):
     menu = (folder / "Virtual Families0.ldw").read_bytes()
     assert rf.menu_name(menu, 5) == "Copied Family" and cs.slot_used(menu, 5) is True
     assert (folder / "Virtual Families1.ldw").read_bytes() == source
+
+
+# ------------------------------------------------------------------ one character limit for every name box
+def test_a_long_new_name_and_the_names_file_go_with_the_copy(save):
+    import vf1_names
+    vf1_names.write(vf1_names.names_path(save, 1), [vf1_names.Entry("Annabella Rosa...", 18, "Annabella Rosalind " * 10)])
+    name = "Smith Two, the Second Branch of the Smith Family Tree"
+    result = cs.copy_slot(save, 1, 4, name, processes=Processes(), now=NOW)
+    stored = vf1_names.short_form(name, 19, {"Annabella Rosa...": "Annabella Rosalind " * 10})
+    copied = (save / "Virtual Families4.ldw").read_bytes()
+    assert rf.save_name(copied) == stored and len(stored.encode()) <= 19
+    assert rf.menu_name((save / "Virtual Families0.ldw").read_bytes(), 4) == stored
+    entries = vf1_names.read_slot(save, 4)
+    assert vf1_names.Entry("Annabella Rosa...", 18, "Annabella Rosalind " * 10) in entries   # the members' names
+    assert vf1_names.Entry(stored, 19, name) in entries
+    assert vf1_names.read_slot(save, 1) == [vf1_names.Entry("Annabella Rosa...", 18, "Annabella Rosalind " * 10)]
+    assert {s.slot: s.name for s in cs.read_slots(save)}[4] == name
+    assert result.new_name == name
+    assert "Names/Virtual Families1.ldw.txt" in {p.as_posix().split("Data/", 1)[-1] for p in cs.slot_files(save, 1)}
+
+
+def test_a_long_name_copied_from_a_slot_without_a_names_file(save):
+    import vf1_names
+    name = "x" * 40
+    cs.copy_slot(save, 1, 4, name, processes=Processes(), now=NOW)
+    stored = rf.save_name((save / "Virtual Families4.ldw").read_bytes())
+    assert vf1_names.read_slot(save, 4) == [vf1_names.Entry(stored, 19, name)]
+    assert not vf1_names.names_path(save, 1).exists()

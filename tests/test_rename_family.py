@@ -95,14 +95,18 @@ def add_history(folder: Path, slot: int, *numbers: int, text="Smith history\r\n"
 
 @pytest.mark.parametrize("name", ["A", "Smith Family", "Zed-9 & Co.", "x" * 19, " Spaced ",
                                   # Render Unicode with In-Game Fonts: UTF-8, 19 bytes (patcher/vf1_text.py)
-                                  "Caf\u00e9", "\u4e2d\u6587", "\u00e9" * 9 + "x", "Zo\u00eb \U0001f44d\U0001f3fd"])
+                                  "Caf\u00e9", "\u4e2d\u6587", "\u00e9" * 9 + "x", "Zo\u00eb \U0001f44d\U0001f3fd",
+                                  # one character limit for every name box: 300 (a longer name than
+                                  # the field is kept as a short form, the whole name in its Names file)
+                                  "x" * 20, "\u00e9" * 10, "\u4e2d" * 7, "x" * 300, "\U0001F600" * 300])
 def test_names_the_game_can_store_are_accepted(name):
     assert rf.name_problem(name) is None
 
 
 @pytest.mark.parametrize("name,words", [
-    ("", "Type a name"), ("x" * 20, "too long"), ("   ", "only spaces"), ("\u00e9" * 10, "too long"),
-    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 7, "too long"),
+    ("", "Type a name"), ("x" * 301, "too long"), ("   ", "only spaces"), ("\u00e9" * 301, "too long"),
+    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 301, "too long"),
+    ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 67, "1,200 bytes"),
     ("Bad\x85", "characters"),
 ])
 def test_names_it_cannot_store_are_refused(name, words):
@@ -190,7 +194,7 @@ def test_the_longest_name_fits_and_shortening_zeroes_the_rest(save):
 
 
 @pytest.mark.parametrize("slot,name,words", [
-    (1, "x" * 20, "too long"), (1, "", "Type a name"), (1, "Smith", "already called"),
+    (1, "x" * 301, "too long"), (1, "", "Type a name"), (1, "Smith", "already called"),
     (4, "Fresh", "no family"), (6, "Fresh", "no save slot"),
 ])
 def test_refused_renames_change_nothing(save, slot, name, words):
@@ -362,3 +366,58 @@ def test_a_copy_of_a_real_save_folder_renames_and_reads_back(tmp_path):
     assert renamed.money == old.money and renamed.food == old.food and renamed.generation == old.generation
     assert rf.menu_name((folder / "Virtual Families0.ldw").read_bytes(), 5) == "Renamed Clan"
     assert {s.slot: s.name for s in rf.read_slots(folder)}[1] == slots[1].name
+
+
+# ------------------------------------------------------------------ one character limit for every name box
+LONG_NAME = "The Extraordinarily Long Family Name of the Montclair-Rivière Household " * 3
+
+
+def test_a_long_name_keeps_its_short_form_in_the_saves_and_the_whole_name_in_the_names_file(save):
+    import vf1_names
+    name = LONG_NAME.strip()
+    result = rf.rename_family(save, 1, name, Processes(), NOW)
+    stored = vf1_names.short_form(name, 19, {})
+    assert len(stored.encode()) <= 19 and stored.endswith("...")
+    after = tree(save)
+    assert vs.parse_save(after["Virtual Families1.ldw"]).family_name == stored
+    assert vs.parse_save(after["Virtual Families21.ldw"]).family_name == stored
+    assert rf.menu_name(after["Virtual Families0.ldw"], 1) == stored
+    assert vf1_names.read_slot(save, 1) == [vf1_names.Entry(stored, 19, name)]
+    assert result.new_name == name and vf1_names.names_path(save, 1) in result.changed
+    assert {s.slot: s.name for s in rf.read_slots(save)}[1] == name
+    assert vs.read_save(save / "Virtual Families1.ldw").family_name == name
+    assert vs.read_save(save / "Virtual Families1.ldw", whole_names=False).family_name == stored
+    # renaming again from the long name: the old name in the record is the whole one
+    again = rf.rename_family(save, 1, "Smith", Processes(), NOW)
+    assert again.old_name == name
+    assert vs.parse_save((save / "Virtual Families1.ldw").read_bytes()).family_name == "Smith"
+
+
+def test_two_long_names_that_start_alike_get_different_short_forms(save):
+    import vf1_names
+    a, b = LONG_NAME[:60] + "A", LONG_NAME[:60] + "B"
+    rf.rename_family(save, 1, a, Processes(), NOW)
+    rf.rename_family(save, 2, b, Processes(), NOW)
+    sa = vs.parse_save((save / "Virtual Families1.ldw").read_bytes()).family_name
+    sb_ = vs.parse_save((save / "Virtual Families2.ldw").read_bytes()).family_name
+    assert sa != sb_ and sb_.endswith("2...")
+    names = {s.slot: s.name for s in rf.read_slots(save)}
+    assert (names[1], names[2]) == (a, b)
+
+
+def test_a_failed_long_rename_puts_the_names_file_back(save, monkeypatch):
+    import vf1_names
+    real = rf._write_atomically
+    calls = []
+
+    def failing(path, data):
+        calls.append(path)
+        if path.name == "Virtual Families0.ldw":
+            raise OSError("disk full")
+        real(path, data)
+    monkeypatch.setattr(rf, "_write_atomically", failing)
+    before = tree(save)
+    with pytest.raises(rf.RenameError, match="put back"):
+        rf.rename_family(save, 1, LONG_NAME.strip(), Processes(), NOW)
+    assert tree(save) == before
+    assert not vf1_names.names_path(save, 1).exists()

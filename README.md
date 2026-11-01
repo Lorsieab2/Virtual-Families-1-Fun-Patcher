@@ -207,7 +207,8 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
     part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
   - **Rename Family...:** renames a family in a closed game's saves (the game must not be running). Pick a save
-    slot and type the new name (printable ASCII, 1 to 19 characters; refused, never cut). It writes the verified
+    slot and type the new name (1 to 300 characters, refused, never cut; a name longer than the save's 19 bytes is
+    kept there as its short form and whole in the slot's Names file, `docs/UNICODE_TEXT.md`). It writes the verified
     family-name field of the slot save (and of its two older autosave copies when they hold the old name) and the
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
     `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. A family

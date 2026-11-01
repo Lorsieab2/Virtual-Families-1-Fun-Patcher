@@ -246,7 +246,7 @@ Next to the Patches tab is a Tools tab for your family saves.
                     (before restore)"), so a restore can be undone.
                     Delete Backup removes a backup you no longer want.
   Copy Player Slot  Quit the game first. Pick a family, a save slot and
-                    a new name (1 to 19 characters), then Copy.
+                    a new name (1 to 300 characters), then Copy.
                     It asks first (Yes / No; Return or Escape mean No).
                     The family is copied into that slot with everything
                     the patcher keeps for it (its Family History log,

@@ -1048,7 +1048,10 @@ static void LoadTextCompanion(const wchar_t *name) {
     if (!text) return;
     typedef int (__cdecl *StartupFn)();
     StartupFn startup = (StartupFn)GetProcAddress(text, "VF1Text_Startup");
-    if (startup) startup();   // not installed (a site already changed): the game draws text as before
+    if (!startup || !startup()) return;   // not installed (a site already changed): the game draws text as before
+    // One character limit for every name box: the whole names (text_names.inc)
+    TextFullName = (TextFullNameFn)GetProcAddress(text, "VF1Text_FullName");
+    TextStoreName = (TextStoreNameFn)GetProcAddress(text, "VF1Text_StoreName");
 }
 
 // "This family already has six children." -- or the 28 when Up to 28 Children is installed.

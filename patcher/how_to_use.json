@@ -335,7 +335,7 @@
       "title": "Rename Family",
       "guide": [
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
-        "Quit the game first, from its own menu. Click Rename Family..., pick the family, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
+        "Quit the game first, from its own menu. Click Rename Family..., pick the family, type the new name (1 to 300 characters), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
         "Any letter works, accents and other alphabets too; each beyond A to Z takes 2 to 4 of the 19. The game shows them with Render Unicode with In-Game Fonts on.",
         "The Family History log, if the family has one, gets a record saying the family was renamed. Old log files keep their old name."
@@ -345,7 +345,7 @@
       "title": "Copy Player Slot",
       "guide": [
         "Copies a family into another save slot under a new name. The family you copy is not changed.",
-        "Quit the game first, from its own menu. Click Copy Player Slot..., pick the family, pick a slot, type the new name (1 to 19 characters), then Copy and answer Yes.",
+        "Quit the game first, from its own menu. Click Copy Player Slot..., pick the family, pick a slot, type the new name (1 to 300 characters), then Copy and answer Yes.",
         "Everything the patcher keeps for the family goes with it: its Family History log, Family Tree, extra children and outfit pictures.",
         "Your saves are backed up first, as \"Backup <date> (before copy)\", so it can be undone with Restore Saves.",
         "A slot with no save file is empty, even if the game's menu still showed a name for it.",

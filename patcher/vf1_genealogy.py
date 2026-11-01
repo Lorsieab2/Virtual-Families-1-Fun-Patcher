@@ -408,6 +408,15 @@ def load_village(folder: Path, game: int = GAME, slot: int = 1, full_names: bool
         raise GenealogyError(f"{path.name} is not a Virtual Families save the patcher can read: {exc}") from exc
     family = build_family(save, slot, data=data, sidecar=_sidecar(folder, slot, data))
     family.sources.insert(0, str(path))
+    # One character limit for every name box: a name the save keeps as its short form is the whole name its Names
+    # file keeps (vf1_names) -- before the tree file and the Family History log, which hold whole names.
+    import vf1_names
+    book = vf1_names.Book(folder)
+    if any(book.slots.values()):
+        family.tribe = book.full(slot, family.tribe)
+        for p in family.people.values():
+            p.name = book.full(slot, p.name)
+            p.former = [book.full(slot, n) for n in p.former]
     if remember:
         vf1_tree_memory.remember(folder, slot, save, family)
     history = vf1_family_history.read(folder, slot)

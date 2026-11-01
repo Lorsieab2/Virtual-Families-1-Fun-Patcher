@@ -91,6 +91,7 @@ from datetime import datetime
 from pathlib import Path
 
 import vf1_genealogy as gen
+import vf1_names
 import vf1_rename_family as rename
 import vf1_text
 import vf1_save as save_format
@@ -105,6 +106,7 @@ DATA = save_format.PATCHER_DATA          # "Virtual Families 1 Patcher Data"
 NOT_COPIED = ("Backups", "Family Tree")  # in Save <S>: its backups, and the tree's page and pictures
 REPLACED = "Replaced by copy"            # Backups\Replaced by copy <date>: what was in the target slot
 _SIDECAR = re.compile(r"^Virtual Families(\d+)\.ldw(\.unreadable-\d+)?\.dat$", re.IGNORECASE)
+_NAMES = re.compile(r"^Virtual Families(\d+)\.ldw\.txt$", re.IGNORECASE)    # vf1_names: the whole names
 _COPIED = re.compile(r"^\[[^\]]*\] Family Copied (\d+)\r?$", re.MULTILINE)
 
 
@@ -175,6 +177,8 @@ def read_slots(folder: Path) -> list[SlotInfo]:
             out.append(SlotInfo(slot, None, True, used, f"The save could not be read: {exc}"))
             continue
         name = rename.save_name(data)
+        if name is not None:
+            name = vf1_names.Book(folder).full(slot, name)      # a short form shows as the whole name
         info = SlotInfo(slot, name, True, used)
         if name is None:
             info.problem = f"{path.name} is not a Virtual Families save this tool can read."
@@ -222,14 +226,14 @@ def slot_files(folder: Path, slot: int) -> list[Path]:
     ini = Path(DATA) / f"Slot {slot}.ini"
     if (folder / ini).is_file():
         out.append(ini)
-    for sub in ("Children", "Outfits"):
+    for sub in ("Children", "Outfits", vf1_names.FOLDER):
         where = folder / DATA / sub
         try:
             entries = sorted(where.iterdir(), key=lambda p: p.name.casefold())
         except OSError:
             entries = []
         for entry in entries:
-            match = _SIDECAR.match(entry.name)
+            match = (_NAMES if sub == vf1_names.FOLDER else _SIDECAR).match(entry.name)
             if match and entry.is_file() and int(match.group(1)) in _numbers(slot):
                 out.append(Path(DATA) / sub / entry.name)
     root = slot_root(folder, slot)
@@ -352,9 +356,18 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
         raise CopyError(f"Save {source} has no family ({save.name} is missing).") from exc
     except OSError as exc:
         raise CopyError(f"Could not read {save.name}: {exc}") from exc
-    old = rename.save_name(data)
-    if old is None:
+    old_stored = rename.save_name(data)
+    if old_stored is None:
         raise CopyError(f"{save.name} is not a Virtual Families save this tool can read.")
+    # One character limit for every name box: the save keeps the short form of a longer name, the whole name is
+    # in the slot's Names file (vf1_names), which the copy carries with one more line for the new name.
+    book = vf1_names.Book(folder)
+    old = book.full(source, old_stored)
+    stored, entry = book.store(target, new_name, vf1_names.FAMILY_ROOM)
+    target_names = [e for e in book.slots[source]]
+    if entry is not None or (stored != new_name and all(e.short != stored for e in target_names)):
+        target_names = [e for e in target_names if e.short != stored] + [
+            entry or vf1_names.Entry(stored, vf1_names.FAMILY_ROOM, new_name)]
     options_file = rename.options_path(folder)
     options = _read(options_file)
     menu_at = rename._menu_name_offset(options, target)
@@ -373,6 +386,8 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
     plan.target_save = target_save
     if target_save is not None:
         plan.replaced_name = rename.save_name(target_save)
+        if plan.replaced_name is not None:
+            plan.replaced_name = book.full(target, plan.replaced_name)
         aside_name = plan.replaced_name
     else:
         aside_name = rename.menu_name(options, target) if options[used_at] else None
@@ -389,8 +404,8 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
         raw = data if number == source else _read(path)
         copy = raw
         at = rename._save_name_offset(raw)
-        if at is not None and rename.save_name(raw) == old:
-            copy = rename._with_name(raw, at, rename.FAMILY_NAME_FIELD, new_name)
+        if at is not None and rename.save_name(raw) == old_stored:
+            copy = rename._with_name(raw, at, rename.FAMILY_NAME_FIELD, stored)
         sources[number], targets[number] = raw, copy
     newest_history: tuple[int, int] | None = None     # (file number, index in writes)
     copied_numbers: list[int] = []
@@ -418,6 +433,9 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
         elif parts[0].casefold() == DATA.casefold() and len(parts) == 3 and parts[1].casefold() == "children":
             body, rebound = _rebind_children(raw, sources, targets)
             what = "matched to the copy" if rebound else "copied"
+        elif parts[0].casefold() == DATA.casefold() and len(parts) == 3 and parts[1] == vf1_names.FOLDER:
+            body = vf1_names.render(target_names) if int(_NAMES.match(parts[2]).group(1)) == source else raw
+            what = "copied, with the new name" if body != raw else "copied"
         elif relative.suffix.lower() == ".tree":
             body = _rewrite_tree(raw, relative.name, source, target, new_name)
             what = "renamed" if body != raw else "copied"
@@ -439,7 +457,10 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
         newest.data += prefix + vf1_text.encode(history_record(source, old, new_name, when, count))
         newest.what = "copied, with a Family Copied record"
 
-    menu = rename._with_name(options, menu_at, rename.OPTIONS_NAME_STRIDE, new_name)
+    names_dest = vf1_names.names_path(Path(), target)
+    if target_names and all(w.path != names_dest for w in plan.writes):     # the source had no Names file
+        plan.writes.append(Write(names_dest, vf1_names.render(target_names), None, "the whole names"))
+    menu = rename._with_name(options, menu_at, rename.OPTIONS_NAME_STRIDE, stored)
     menu = menu[:used_at] + b"\x01" + menu[used_at + 1:]
     plan.options = Write(Path(options_file.name), menu, options, "slot menu")
     return plan
@@ -611,7 +632,9 @@ def copy_slot(
         # Read the copy back through the same readers the slot list uses.
         menu = (folder / options.path).read_bytes()
         copied = rename.save_path(folder, target).read_bytes()
-        if rename.save_name(copied) != new_name or rename.menu_name(menu, target) != new_name \
+        book = vf1_names.Book(folder)
+        if book.full(target, rename.save_name(copied) or "") != new_name \
+                or book.full(target, rename.menu_name(menu, target) or "") != new_name \
                 or slot_used(menu, target) is not True:
             raise CopyError(f"Save {target} does not hold the new name.")
         save_format.parse_save(copied)
