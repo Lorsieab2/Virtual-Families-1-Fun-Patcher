@@ -23,7 +23,8 @@ SETTINGS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
 # Every button, tool and setting in the window, by its guide key. A new button gets a guide and a line here.
 CONTROLS = {
     "getting_started", "game_folder", "patch_manifest", "output_location", "backup_folder", "load_manifest",
-    "defaults", "enable_all", "disable_all", "enable_main", "enable_optional", "dry_run", "enable_disable",
+    "select_all", "default_patches", "owners_defaults", "deselect_all", "enable_main", "enable_optional",
+    "patch_selection_settings", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
     "rename_family", "copy_player_slot", "game_speed", "game_mechanics", "family_tree", "picture_maker",
     "game_text",
@@ -88,7 +89,23 @@ def test_each_guide_is_brief_and_plain():
 
 def test_the_experimental_patch_guide_says_so():
     text = " ".join(how.guide(how.patch_key("UpTo28Children"), "x").lines)
-    assert "Experimental" in text and "Enable All" in text and "Back Up Saves" in text
+    assert "Experimental" in text and "Select All Patches" in text and "Owner's Defaults" in text
+    assert "Back Up Saves" in text
+
+
+def test_the_preset_guides_name_what_they_tick():
+    # the Virtual Villagers Fun Patcher's four preset buttons and its Patch Selection Settings, with its titles
+    assert {k: how.control_title(k) for k in ("select_all", "default_patches", "owners_defaults", "deselect_all",
+                                              "patch_selection_settings")} == {
+        "select_all": "Select All Patches", "default_patches": "Default Patches",
+        "owners_defaults": "Owner's Defaults", "deselect_all": "Deselect All Patches",
+        "patch_selection_settings": "Patch Selection Settings"}
+    owner = " ".join(how.guide("owners_defaults").lines)
+    assert "every patch except Up to 28 Children" in owner and "Free and Guaranteed Cheats" in owner
+    default = " ".join(how.guide("default_patches").lines)
+    assert "Cheat Upgrades, Flea Market, Free and Guaranteed Cheats" in default
+    assert "Tick These" in " ".join(how.guide("patch_selection_settings").lines)
+    assert "search" in " ".join(how.guide("patch_selection_settings").lines)
 
 
 def test_the_guides_ship_with_the_patcher():

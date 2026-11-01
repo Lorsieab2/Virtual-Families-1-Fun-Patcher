@@ -48,9 +48,11 @@
     {
       "ids": ["SpecialUpgrades"],
       "guide": [
-        "Adds Special Upgrades to the new Upgrades button in the store: Brokerage Account, Food Club, Health Plan and Lucky Rock.",
-        "It also adds a Maid and a Gardener who keep the house and yard clean.",
-        "Each one asks you to confirm and then shows Purchased. Buying one again removes it, with no refund."
+        "Adds Special Upgrades to the new Upgrades button in the store: Brokerage Account, Food Club, Health Plan, Lucky Rock, a Maid and a Gardener.",
+        "Also a Services page with the Virtual Families 2 store's services at its prices: Time Warp $2,000, Adoption Services $4,000, Boarding School $1,500,",
+        "Systematic Desensitization $2,500, Psychotherapy $1,750, Higher Learning Classes $1,000, Advanced Career Training $1,100 x (career level + 1) and Career Change $1,200.",
+        "Pick a family member, then an item: its price is shown for that family member. Each one asks you to confirm.",
+        "If you cannot afford it, nothing is bought and nothing changes. On by default."
       ]
     },
     {
@@ -58,16 +60,25 @@
       "guide": [
         "Adds cheat pages to the Upgrades button in the store: money, food, the bank's interest rate, villager cheats, store prices, achievements, house and yard mess, time controls and the Family page.",
         "Click Upgrades next to Done in the store, then pick a page. Every cheat button asks you to confirm.",
-        "Cheat money does not count toward the money achievements.",
-        "Back up your saves first if you plan to experiment: use Back Up Saves on the Tools tab."
+        "Force Successful Pregnancy, Clothing and Hairstyles and Anti-Spam also need Free and Guaranteed Cheats.",
+        "Off by default. Back up your saves first if you plan to experiment: use Back Up Saves on the Tools tab."
       ]
     },
     {
       "ids": ["FleaMarket"],
       "guide": [
-        "Adds a Flea Market page to the Upgrades button with every tray item the store sells.",
-        "Click an item to buy it, or to get it for free.",
-        "Buying one again removes it, as with the Special Upgrades."
+        "Adds a Flea Market page to the Upgrades button that lists every tray item the store sells, at any time.",
+        "Click an item and Buy to buy it at its normal price.",
+        "Get for free also needs Free and Guaranteed Cheats. Off by default; R Refreshes the Store works either way."
+      ]
+    },
+    {
+      "ids": ["FreeAndGuaranteedCheats"],
+      "guide": [
+        "The cheats that give something for nothing or never fail: Force Successful Pregnancy, the Clothing and Hairstyles page, Anti-Spam Software Ownership and the Flea Market's Get for free.",
+        "It also makes every paid item free: the Services page and Roll the Dice.",
+        "Each button also needs its own page: Cheat Upgrades, Flea Market, Special Upgrades or Roll the Dice.",
+        "Off by default: without it those buttons are hidden and the paid items cost their prices."
       ]
     },
     {
@@ -76,14 +87,14 @@
         "In the store, press R (small or capital) to get a new Flea Market (the six random items) and new random clothes.",
         "It works every time you press it. The original game has the same key, but only once an hour.",
         "The half-price grocery, the other items and prices, and any outfit you already bought stay as they are.",
-        "R does nothing anywhere else. On by default."
+        "R does nothing anywhere else. On by default, with or without the Flea Market page."
       ]
     },
     {
       "ids": ["RollTheDice"],
       "guide": [
         "Adds a Roll the Dice page to the Upgrades button.",
-        "It costs $500 and a Popup Event happens right away.",
+        "It costs $2,000, the Virtual Families 2 price, and a Popup Event happens right away (free with Free and Guaranteed Cheats).",
         "Anything can happen, good or bad. Back up your saves first if you care about the family."
       ]
     },
@@ -124,7 +135,7 @@
       "guide": [
         "One generation may have up to 28 children instead of 6. Only the first 6 appear in the Family Tree, but any child can be chosen to inherit the house.",
         "Nothing to click. Children 7 to 28 are remembered in a small file beside each save; the save itself is not changed.",
-        "Experimental: not yet tested in a running game. It is never ticked by Enable All; tick it yourself.",
+        "Experimental: not yet tested in a running game. Select All Patches and Owner's Defaults never tick it; tick it yourself.",
         "Back up your saves before using it: use Back Up Saves on the Tools tab."
       ]
     },
@@ -201,22 +212,32 @@
         "A patch that needs another says so in bold, and ticking it ticks the other one too."
       ]
     },
-    "defaults": {
-      "title": "Defaults",
-      "guide": [
-        "Ticks the patches that are on by default.",
-        "The Experimental ones are left unticked."
-      ]
-    },
-    "enable_all": {
-      "title": "Enable All",
+    "select_all": {
+      "title": "Select All Patches",
       "guide": [
         "Ticks every patch except the Experimental ones, which you tick yourself.",
+        "That includes Cheat Upgrades, Flea Market and Free and Guaranteed Cheats.",
         "Click Enable/Disable Patches afterwards to apply it."
       ]
     },
-    "disable_all": {
-      "title": "Disable All",
+    "default_patches": {
+      "title": "Default Patches",
+      "guide": [
+        "Ticks the recommended set: what a fresh install starts with.",
+        "Every patch except Cheat Upgrades, Flea Market, Free and Guaranteed Cheats and the Experimental Up to 28 Children.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "owners_defaults": {
+      "title": "Owner's Defaults",
+      "guide": [
+        "Ticks the patcher owner's own choice: every patch except Up to 28 Children.",
+        "That includes Cheat Upgrades, Flea Market and Free and Guaranteed Cheats, so every cheat is on and every paid item is free.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "deselect_all": {
+      "title": "Deselect All Patches",
       "guide": [
         "Unticks every patch, so you can tick just the ones you want.",
         "Applying it gives you the original game in a modded folder."
@@ -233,6 +254,15 @@
       "title": "Enable all Optional Content",
       "guide": [
         "Ticks every patch under Optional Patches and leaves the others as they are.",
+        "Click Enable/Disable Patches afterwards to apply it."
+      ]
+    },
+    "patch_selection_settings": {
+      "title": "Patch Selection Settings",
+      "guide": [
+        "Opens a list of every patch by name, with a search box to find one quickly.",
+        "Tick the patches you want, then press Tick These to turn them on, or Untick These to turn them off.",
+        "A patch that needs another patch turns that one on too, just as when you tick it yourself.",
         "Click Enable/Disable Patches afterwards to apply it."
       ]
     },

@@ -45,6 +45,7 @@ extern "C" __declspec(dllexport) void __cdecl T_Install() { InstallStoreRefreshK
 extern "C" __declspec(dllexport) int __cdecl T_On() { return gStoreRefreshKeyOn; }
 extern "C" __declspec(dllexport) void __cdecl T_InstallOutfits() { InstallOutfitPictureFix(); }
 extern "C" __declspec(dllexport) int __cdecl T_Picture(int place, int item) { return OutfitPicture(place, item); }
+extern "C" __declspec(dllexport) int __cdecl T_ReadFree() { return ReadFreeCheatsSetting(); }
 '''
 
 
@@ -89,6 +90,16 @@ def test_every_byte_is_checked_before_anything_is_written():
     key_part, allowed_part = checks.split("allowed[]")
     assert code(key_part) == STOCK_KEY
     assert code(allowed_part.split("if (")[0]) == STOCK_ALLOWED
+
+
+def test_r_depends_on_no_other_setting():
+    """The owner: "R needs to work regardless of if everything already shows or not if the patch is on." Only
+    StoreRefreshKey decides: the key's install and detour read no setting, not the Flea Market page's nor Free
+    and Guaranteed Cheats'."""
+    start = CPP[CPP.index("VF1Fun_Startup() {"):]
+    assert re.search(r'if \(SettingOn\(L"StoreRefreshKey", true\)\)\n\s+InstallStoreRefreshKey\(\);', start)
+    for word in ("SettingOn", "gFreeCheats", "FleaMarket", "GetPrivateProfile"):
+        assert word not in INC, word
 
 
 def test_install_jump_never_overruns_its_buffer():
@@ -246,6 +257,27 @@ def test_patched_r_and_capital_r_redraw_every_time(emu):
         assert now["bought"] == before["bought"]                 # the last bought outfits' fields
         seen.add(tuple(now["specials"]))
     assert len(seen) > 1
+
+
+@pytest.mark.parametrize("flea, free", [(0, 0), (1, 0), (0, 1), (1, 1)])
+def test_patched_r_redraws_whatever_the_flea_market_and_free_cheats_settings(emu, flea, free):
+    """R redraws the store's six specials and both outfits with the Flea Market page and Free and Guaranteed
+    Cheats on or off: the settings.ini that the DLL reads at startup answers each combination."""
+    def profile(e):
+        return {"FleaMarket": flea, "FreeAndGuaranteedCheats": free}.get(e.wstr(e.arg(1)), e.arg(2)), 16
+
+    def module_file(e):
+        path = "C:\\Game\\Virtual Families 1 Patcher Files\\vf1fun.dll\0".encode("utf-16-le")
+        e.write(e.arg(1), path)
+        return len(path) // 2 - 1, 12
+    emu.imports.update({"GetPrivateProfileIntW": profile, "GetModuleFileNameW": module_file})
+    assert emu.call(emu.dll_export("T_ReadFree")) == free
+    emu.call(emu.dll_export("T_Install"))
+    assert emu.call(emu.dll_export("T_On")) == 1
+    for ch in ("r", "R", "r"):
+        changed, labels, r, _, now = press(emu, ch, 0)
+        assert {"specials", "pictures"} <= changed and labels == 1 and r == 0
+        assert all(now["specials"]) and len(set(now["specials"])) == 6
 
 
 def test_patched_other_keys_are_the_stock_games(emu):
