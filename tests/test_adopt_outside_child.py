@@ -53,7 +53,11 @@ def test_adopted_name_is_cut_to_fit_by_setname():
     assert "SetName(slot, name)" in body
     assert "CP_ACP" not in body
     setname = re.search(r"static void SetName\(.*?\n\}\n", FAMILY, re.S).group(0)
-    assert "FitNameUtf8(name, s, 24)" in setname and "CP_ACP" not in setname
+    assert "StoreTypedName(name, s)" in setname and "CP_ACP" not in setname
+    # StoreTypedName: the name cut to the one name limit, then its short form (vf1text) or what fits the 24 bytes
+    names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
+    store = names[names.index("static int StoreTypedName"):]
+    assert "TextStoreName(whole, 24, field25)" in store and "FitNameUtf8(name, field25, 24)" in store
 
 
 def test_adopted_name_never_splits_a_surrogate_pair():
@@ -62,7 +66,7 @@ def test_adopted_name_never_splits_a_surrogate_pair():
     names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
     fit = names[names.index("static int FitNameUtf8"):]
     assert "c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF" in fit
-    assert "if (used + bytes > room) break;" in fit
+    assert "if (used + bytes > room || letters == VF1_NAME_LETTERS) break;" in fit
 
 
 def test_evidence_recorded():

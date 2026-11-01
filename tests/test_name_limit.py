@@ -433,8 +433,9 @@ def test_a_short_form_is_drawn_as_the_whole_name_fitted(dll, vanilla_dir, font):
     assert w.draw(short_full.encode(), font) == w.draw(b"Bo Li", font)
 
 
-def test_another_slot_shows_only_family_names(dll, vanilla_dir):
-    """The slot menu draws every slot's family name; a member's short form of another slot stays as it is."""
+def test_another_slots_name_is_shown_whole(dll, vanilla_dir):
+    """The slot menu draws every slot's family name while another slot is played: a short form is unique across all
+    five slots' Names files, so one found in another slot's file is that name."""
     full = "Family Name Of Four Words And More"
     short = vf1_names.short_form(full, 19, {})
     w = with_book(dll, vanilla_dir, [vf1_names.Entry(short, 19, full)], slot=4)
