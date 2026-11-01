@@ -213,16 +213,29 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     babies they are expecting; a tray outfit uses the outfit fix's own picture when its sidecar matches the save
     (the patched look), else the stock game's last-bought one. *Make your own* builds anyone from gender, age, head
     0-49, body 0-49, any of the 56 house poses (32 walking frames in 4 directions, 15 actions, 9 sitting or lying),
-    12 head turns, shadow, ghost, babies on the way and any of the 149 carried pictures, or the big portrait of the
-    Adoption, Dating and family member screens (3 expressions), or an outfit as the store shows it; with the game
+    12 head turns, the game's 24 animations, shadow, ghost, babies on the way and anything carried, or the big
+    portrait of the Adoption, Dating and family member screens (3 expressions), or an outfit as the store shows it.
+    *Carrying* (both tabs) offers all 150 pictures a family member can be drawn holding (carrying.png's 78 and
+    collectables_small.png's 72), named, grouped by kind and listed with the actions that carry them, read from
+    the exe: every carry step (0x48CE70, 0x486A10) and where its number comes from (a constant, rand(n) + c, the
+    grocery picker 0x47C1F0, the TV remote and shed door drops, the collectible and mess pick-ups). 135 are shown
+    by the game; the 15 it never shows are offered too, marked so with the reason: seven unused carrying.png
+    pictures (pizza, champagne, pot of stew, cutting board, soda, basket of odds and ends, paint can), the baby
+    bundle (the game draws the babies on the way instead; drawn at the first baby's spot, marked "not checked
+    against the game"), the blue sock (it vanishes the frame it appears), the second cobweb (never spawned) and
+    the five blank cells. *Animation* sets the pose and direction from the game's table 0x4FBE90; five
+    animations draw what is carried and the babies 10 or 20 pixels lower (0x48A105), the newspaper and magazines
+    while lying down, and one hides the shadow (0x48B694). With the game
     folder's own pictures, the stock ones (Original Files) or the patcher's own (payload). PNGs are transparent,
     at game size, 2x, 4x or a custom size. Every rule comes from the game's own draw code (CVillagerManager
     0x48B4D0, CVillager 0x486B60, 0x496A10, Assets\animpts.dat and the loader 0x450F99, the blitter 0x404C30), and
     `tests/test_picture_maker.py` proves it with `tests/picture_emu.py`: the game's own drawing code runs in
     Unicorn on the vanilla exe and every planned draw (file, cell, place, scale, alpha) must equal the game's, at
     both 53- and 64-bit x87 precision; the game's blitter draws children, ghosts and outfits over three colours and
-    the renderer's pixels must make the same screen; and an adult's PNG must equal a Pillow composite of the cells
-    at the emulated game's places. No game art ships; the pictures are read from the game folder when drawn.
+    the renderer's pixels must make the same screen; an adult's PNG must equal a Pillow composite of the cells
+    at the emulated game's places; every carried number under every animation must draw as the game does, every
+    carried picture's PNG must equal the Pillow composite, the animation start 0x485D50 must leave the pose and
+    direction the renderer uses, and the carried numbers read from the exe must be the catalog's. No game art ships; the pictures are read from the game folder when drawn.
     Modules `patcher/vf1_picture_maker.py` (window), `patcher/vf1_people_pictures.py` (renderer),
     `patcher/vf1_picture_image.py` (image, PNG, the game's blitter).
   - **Family Tree Maker:** draws a family's tree from its save, with each face from the game, and lets you mark,

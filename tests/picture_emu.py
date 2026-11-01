@@ -275,8 +275,9 @@ class Emu:
     # -------------------------------------------------------------- scenes
     def villager(self, *, female: bool, age: int, head: int, body: int, pose: int, direction: int = 0,
                  head_turn: int = 5, ghost: bool = False, carried: int = -1, babies: int = 0,
-                 x: int = 2000, y: int = 2000) -> int:
-        """Villager 0 set up for a draw; (x, y) is its place (+0x13544 / +0x13548)."""
+                 animation: int = 0, x: int = 2000, y: int = 2000) -> int:
+        """Villager 0 set up for a draw; (x, y) is its place (+0x13544 / +0x13548); `animation` is the animation
+        playing (+0x13588; the pose and direction given are the ones it put in place)."""
         v = VILLAGER0
         self.u.mem_write(v, bytes(0x145FC))
         self.w32(v + 0x2A34, age)
@@ -293,7 +294,7 @@ class Emu:
         self.w32(v + 0x13568, 0)
         self.w32(v + 0x13580, direction)
         self.w32(v + 0x13584, head_turn)
-        self.w32(v + 0x13588, 0)
+        self.w32(v + 0x13588, animation)
         self.w32(v + 0x1358C, carried)
         self.u.mem_write(v + 0x13540, bytes([1 if ghost else 0]))
         self.wf(v + 0x2B80, 0.0)                     # the ghost's timer: just risen

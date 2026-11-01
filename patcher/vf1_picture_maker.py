@@ -1,4 +1,4 @@
-"""The Picture Maker (Tools tab -> "Picture Maker..."): the family in a save, and family members you make
+﻿"""The Picture Maker (Tools tab -> "Picture Maker..."): the family in a save, and family members you make
 yourself, drawn exactly as Virtual Families draws them, saved as transparent PNG pictures.
 
 Laid out as the Fish and Plant Tycoon patcher's Picture Studio (src/picture_studio.py):
@@ -65,6 +65,7 @@ def custom_fields() -> list[tuple[str, str, list]]:
         ("pose", "Pose", pp.pose_choices()),
         ("direction", "Direction", list(pp.DIRECTIONS)),
         ("head_turn", "Head turn", list(pp.HEAD_TURN_CHOICES)),
+        ("animation", "Animation", pp.animation_choices()),
         ("expression", "Expression", list(pp.EXPRESSION_CHOICES)),
         ("babies", "Babies on the way", [(0, "None"), (1, "One"), (2, "Twins"), (3, "Triplets")]),
         ("carried", "Carrying", pp.carried_choices()),
@@ -76,16 +77,45 @@ def custom_fields() -> list[tuple[str, str, list]]:
 
 CUSTOM_DEFAULTS = {"view": "house", "female": True, "age": 18 * 20, "head": 0, "body": 0,
                    "pose": pp.STANDING_POSE, "direction": 0, "head_turn": pp.FRONT_HEAD, "expression": 0,
-                   "babies": 0, "carried": -1, "shadow": True, "ghost": False, "look": "game"}
+                   "babies": 0, "carried": -1, "shadow": True, "ghost": False, "look": "game",
+                   "animation": pp.NO_ANIMATION}
 # Which fields each picture uses (the others are greyed out).
 USES = {
     "house": {"view", "female", "age", "head", "body", "pose", "direction", "head_turn", "babies", "carried",
-              "shadow", "ghost", "look"},
+              "animation", "shadow", "ghost", "look"},
     "portrait": {"view", "female", "age", "head", "body", "expression", "look"},
     "outfit": {"view", "female", "body", "look"},
 }
-# From my save: the drawing choices for a family member (the save keeps no pose).
-SAVED_FIELDS = ("view", "pose", "direction", "head_turn", "expression", "shadow", "ghost")
+# From my save: the drawing choices for a family member (the save keeps no pose and nothing carried).
+SAVED_FIELDS = ("view", "pose", "direction", "head_turn", "animation", "carried", "expression", "shadow", "ghost")
+
+
+def animation_greys(spec: dict) -> set[str]:
+    """The fields an animation sets for itself (greyed out while it is picked): its pose, and its direction when it
+    has one of its own (not a walking direction the game picks at random)."""
+    animation = spec.get("animation", pp.NO_ANIMATION)
+    if animation is None or animation == pp.NO_ANIMATION:
+        return set()
+    pose, direction = pp.ANIMATIONS[animation]
+    return ({"pose"} if pose >= 0 else set()) | ({"direction"} if direction != -2 else set())
+
+
+def carried_text(spec: dict) -> str:
+    """The words under the picture for what is carried and the animation, with the not-checked mark where the
+    picture is not the game's own draw."""
+    words = []
+    if spec.get("view", "house") == "house":
+        note = pp.carried_note(spec.get("carried", -1))
+        thing = pp.carried_thing(spec.get("carried", -1))
+        if thing is not None and not thing.from_game:
+            note = f"{CHECK}: {note}"
+        if note:
+            words.append(note)
+        animation = spec.get("animation", pp.NO_ANIMATION)
+        if animation is not None and animation != pp.NO_ANIMATION and pp.ANIMATIONS[animation][0] < 0:
+            words.append(f"{CHECK}: animation {animation + 1} has no pose of its own (the game never plays it); "
+                         "it is drawn with the pose picked above.")
+    return " ".join(words)
 
 _open_window: PictureMaker | None = None
 
@@ -242,6 +272,15 @@ class PictureMaker:
         values = [c[0] for c in choices]
         box.current(values.index(value) if value in values else 0)
         box.bind("<<ComboboxSelected>>", lambda _e: on_change())
+        longest = max(len(c[1]) for c in choices)
+        if longest > 46:                              # the list opens wide enough for its longest line
+            def widen(box=box, longest=longest) -> None:
+                try:
+                    popdown = box.tk.call("ttk::combobox::PopdownWindow", box)
+                    box.tk.call(f"{popdown}.f.l", "configure", "-width", longest + 2)
+                except tk.TclError:
+                    pass
+            box.configure(postcommand=widen)
         return {"box": box, "choices": choices}
 
     @staticmethod
@@ -430,15 +469,19 @@ class PictureMaker:
         thing = self.selected_thing()
         if thing is None:
             return
+        chosen = {k: self._value(b) for k, b in self.saved_boxes.items()}
+        uses = (USES[chosen["view"]] | {"ghost"}) - animation_greys(chosen)
         for key, entry in self.saved_boxes.items():
-            uses = USES[self._value(self.saved_boxes["view"])] | {"ghost"}
             entry["box"].configure(state="readonly" if thing.person is not None and key in uses else "disabled")
         text = thing.item.detail
+        if thing.person is not None:
+            extra = carried_text(chosen)
+            text += f" {extra}" if extra else ""
         if thing.dead:
             text += (f" {CHECK}: how the game shows a deceased family member when this save is opened (shown "
                      "here as the ghost the game draws when one dies).")
         if thing.person is not None:
-            text += " The save keeps no pose: pick one below."
+            text += " The save keeps no pose and nothing carried: pick them below."
         self._render_into("save", self.save_preview, lambda: self.render_thing(thing), text)
 
     def _render_into(self, which: str, preview: dict, make, text: str) -> None:
@@ -483,12 +526,15 @@ class PictureMaker:
         ttk.Label(left, text=("Ages: the game draws everyone under 14 a little smaller each year younger, and "
                               "from 45 with the older hair and face pictures; the stage names are the patcher's. "
                               "A walking step's direction picks its column; the direction also puts what is "
-                              "carried behind (1 and 4) or in front (2 and 3)."),
+                              "carried behind (1 and 4) or in front (2 and 3). An animation sets the pose and "
+                              "direction the game gives it, and five of them draw what is carried (and the babies "
+                              "on the way) 10 or 20 pixels lower. Carrying lists every picture a family member can "
+                              "be drawn holding: the ones the game shows first, then the ones it never shows."),
                   wraplength=480, justify="left", foreground="#555555").grid(
             row=len(self.custom_boxes), column=0, columnspan=2, sticky="w", pady=(10, 0))
         ttk.Label(left, text=(f"{CHECK}: whether the game itself ever shows a given pose with a given head turn "
-                              "(it picks them as family members move about), and the few activities during which it "
-                              "draws what is carried 10 or 20 pixels lower (here: an ordinary moment)."),
+                              "or a given thing with a given animation (it picks them as family members move "
+                              "about)."),
                   wraplength=480, justify="left", foreground="#a05000").grid(
             row=len(self.custom_boxes) + 1, column=0, columnspan=2, sticky="w", pady=(6, 0))
         right = ttk.Frame(tab)
@@ -515,11 +561,13 @@ class PictureMaker:
         if not hasattr(self, "custom_boxes"):
             return
         spec = self.custom_spec()
+        uses = USES[spec["view"]] - animation_greys(spec)
         for key, entry in self.custom_boxes.items():
-            entry["box"].configure(state="readonly" if key in USES[spec["view"]] else "disabled")
+            entry["box"].configure(state="readonly" if key in uses else "disabled")
         note = "" if spec["look"] == "game" else (
             "Stock pictures (the patcher's backups of the ones it replaced)." if spec["look"] == "stock"
             else "The patcher's own pictures for what is carried.")
+        note = " ".join(w for w in (note, carried_text(spec)) if w)
         self._render_into("custom", self.custom_preview, lambda: pp.render(self.art(spec["look"]), spec), note)
 
     # ---------------------------------------------------------------- saving
@@ -529,9 +577,16 @@ class PictureMaker:
     def picture_name(self, which: str) -> str:
         if which == "save":
             thing = self.selected_thing()
-            return pi.safe_file_name(thing.item.label if thing else "picture")
+            label = thing.item.label if thing else "picture"
+            carried = pp.carried_thing(self._value(self.saved_boxes["carried"]))
+            if thing is not None and thing.person is not None and carried is not None \
+                    and self._value(self.saved_boxes["view"]) == "house":
+                label += f" carrying {carried.name}"
+            return pi.safe_file_name(label)
         names = []
-        for key in ("female", "age", "head", "body", "pose"):
+        for key in ("female", "age", "head", "body", "pose", "carried"):
+            if key == "carried" and self.custom_spec()["carried"] == -1:
+                continue
             if key in USES[self.custom_spec()["view"]]:
                 entry = self.custom_boxes[key]
                 names.append(entry["choices"][max(0, entry["box"].current())][1])
