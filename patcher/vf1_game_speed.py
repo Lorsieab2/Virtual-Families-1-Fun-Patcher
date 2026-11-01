@@ -81,7 +81,14 @@ Safety
     * Before anything is written the whole save folder is backed up with Back Up Saves' own copier, labelled
       "(before speed change)".
     * The save is written beside itself and swapped in with os.replace, then read back and checked field by field
-      (and every other byte unchanged); any failure puts it back exactly as it was. No log and no data file is written.
+      (and every other byte unchanged); any failure puts it back exactly as it was. No log is written.
+    * The Children files (Up to 28 Children) name the FNV-1a 64 hash and size of the save they were written with, and
+      vf1kids takes the children from one only when the loaded save still has them (vf1kids.cpp AfterLoad; otherwise
+      it keeps only the extra children still at home). Each of the slot's Children files (N, N+20, N+40) that
+      described the save BEFORE the change is re-matched to it, exactly as Copy Player Slot does
+      (vf1_genealogy.rekey_children_sidecar: the new hash and size and the file's own checksum, nothing else),
+      written the same way and read back; one that described another save, or is damaged, is left as it is. The
+      Outfits files are tied to the tray and inventory, not to the save's bytes, so they are never touched.
 
 Nothing here touches Tk; the GUI runs it on a worker thread, and the tests drive it against a temporary copy of a
 save folder with a fake process list and a fixed clock.
@@ -92,10 +99,11 @@ import os
 import struct
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import vf1_genealogy as gen
 import vf1_rename_family as rename_family
 import vf1_save as save_format
 import vf1_save_backup as save_backup
@@ -362,6 +370,7 @@ class SpeedResult:
     after: str
     backup: save_backup.BackupResult
     changed: Path
+    rematched: list[Path] = field(default_factory=list)     # Children files re-matched to the changed save
 
 
 def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -> None:
@@ -407,36 +416,46 @@ def set_speed(
         raise SpeedError(f"Could not read {path.name}: {exc}") from exc
     updated = changed_bytes(original, target, unix_now)
     before = read_state(original)
+    children = gen.children_rekeys(folder, slot, [(original, updated)])
     try:
         backup = save_backup.copy_save_folder(folder, when, suffix=BACKUP_LABEL)
     except save_backup.BackupError as exc:
         raise SpeedError(f"The backup before the speed change failed, so nothing was changed. {exc}") from exc
     _refuse_if_running(folder, controller)        # the backup took a moment
-    written = False
+    written: list[tuple[Path, bytes]] = []
     try:
         if path.read_bytes() != original:
             raise SpeedError(f"{path.name} changed while its speed was being set.")
-        written = True
+        for sidecar, old, _new in children:
+            if sidecar.read_bytes() != old:
+                raise SpeedError(f"{sidecar.name} changed while the speed was being set.")
+        written.append((path, original))
         _write_atomically(path, updated)
         data = path.read_bytes()
         state = read_state(data)
         if data != updated or state is None or state.label != target \
                 or not only_speed_fields_differ(original, data):
             raise SpeedError(f"{path.name} does not hold the new speed.")
+        for sidecar, old, new in children:
+            written.append((sidecar, old))
+            _write_atomically(sidecar, new)
+            if not rename_family.children_match(sidecar, data):
+                raise SpeedError(f"{sidecar.name} does not match the changed save.")
     except (OSError, SpeedError) as exc:
-        problem = None
-        if written:
+        problems = []
+        for where, before_bytes in reversed(written):
             try:
-                if path.read_bytes() != original:
-                    _write_atomically(path, original)
+                if where.read_bytes() != before_bytes:
+                    _write_atomically(where, before_bytes)
             except (OSError, SpeedError) as undo:
-                problem = str(undo)
-        if problem:
+                problems.append(f"{where.name}: {undo}")
+        if problems:
             raise SpeedError(
-                f"The speed change failed ({exc}) and {path.name} could not be put back ({problem}). "
+                f"The speed change failed ({exc}) and these files could not be put back: {'; '.join(problems)}. "
                 f"Your backup is in {backup.backup_folder}."
             ) from exc
         raise SpeedError(
             f"The speed change failed ({exc}); the save was put back as it was. A backup is in {backup.backup_folder}."
         ) from exc
-    return SpeedResult(folder, slot, before.label if before else "?", target, backup, path)
+    return SpeedResult(folder, slot, before.label if before else "?", target, backup, path,
+                       [sidecar for sidecar, _old, _new in children])

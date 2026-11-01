@@ -64,7 +64,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import struct
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -245,19 +244,8 @@ class CopyPlan:
 
 def _rebind_children(data: bytes, sources: dict[int, bytes], targets: dict[int, bytes]) -> tuple[bytes, bool]:
     """A Children file made to describe the copy of the source save it described; unchanged if it described none."""
-    sidecar = gen.read_children_sidecar(data)
-    if sidecar is None:
-        return data, False
-    for number, source in sources.items():
-        if sidecar.save_size == len(source) and sidecar.save_hash == gen.fnv1a64(source):
-            copy = targets[number]
-            if copy == source:
-                return data, False
-            out = bytearray(data)
-            struct.pack_into("<QI", out, 24, gen.fnv1a64(copy), len(copy))
-            struct.pack_into("<Q", out, len(out) - 8, gen.fnv1a64(bytes(out[:-8])))
-            return bytes(out), True
-    return data, False
+    rekeyed = gen.rekey_children_sidecar(data, [(source, targets[number]) for number, source in sources.items()])
+    return (data, False) if rekeyed is None else (rekeyed, True)
 
 
 def _rewrite_tree(data: bytes, name: str, source: int, target: int, new_name: str) -> bytes:

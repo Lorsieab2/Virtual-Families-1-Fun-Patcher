@@ -31,6 +31,14 @@ Game speed Paused in the backup
     catches up on the real time since it was made. The live saves are never
     changed. A copy already Paused, at another speed or unreadable is kept
     byte for byte; the older autosave copies <N+20> / <N+40> are not touched.
+    The pause changes the copy's bytes, and each Up to 28 Children file names
+    the hash and size of the save it was written with (vf1kids takes the
+    children from it only when the loaded save still has them), so each of
+    the slot's Children files in the backup (N, N+20, N+40) that described
+    the save before the pause is re-matched to the paused copy, exactly as
+    Copy Player Slot does; one that described another save, or is damaged,
+    is kept byte for byte. The Outfits files are tied to the tray and the
+    inventory, not to the save's bytes, so they are copied as they are.
 
 Restore
     A backup is restored -- the whole save folder, or one save slot -- only
@@ -249,7 +257,9 @@ class BackupResult:
     paused_slots: list[str] = field(default_factory=list)   # slot saves whose copy was set to Paused
     # ... and each one's bytes as they were (the original's), so a failed restore puts them back
     # exactly: pausing changes the game clock too, which no speed write could undo.
+    # The Children files re-matched to a paused copy are in it too, as they were.
     unpaused_bytes: dict[Path, bytes] = field(default_factory=dict)
+    rematched_children: list[str] = field(default_factory=list)   # Children files matched to a paused copy
     # Slot saves whose copy was not set to Paused (another speed, or not a save Game Speed can read): kept as they were.
     not_paused: list[tuple[str, str]] = field(default_factory=list)
 
@@ -418,6 +428,7 @@ def copy_save_folder(save_folder: Path, now: datetime | None = None, suffix: str
             result.files.append(copied)
         # Every file is copied and verified; now the copy of each family save is set to Paused (the live
         # save folder is never written).
+        paused_saves: list[tuple[Path, bytes, bytes]] = []
         for copied in result.files:
             if not is_slot_save(copied.relative):
                 continue
@@ -435,6 +446,8 @@ def copy_save_folder(save_folder: Path, now: datetime | None = None, suffix: str
             result.unpaused_bytes[copied.relative] = original
             if copied.times is not None:
                 _keep_times(staging / copied.relative, copied.times)   # the pause rewrote it
+            paused_saves.append((copied.relative, original, paused))
+        _rematch_children(staging, result, paused_saves)
         result.backup_folder = _finish_backup(staging, when, suffix)
     except (OSError, BackupError) as exc:
         where = _set_aside(staging, INCOMPLETE)
@@ -457,6 +470,30 @@ def copy_save_folder(save_folder: Path, now: datetime | None = None, suffix: str
 # Game Speed's own (vf1_game_speed.changed_bytes), which writes exactly what the game's Pause writes.
 # Only a family at Normal is paused; a save already Paused, at any other speed, or not a save Game Speed
 # can read is left byte for byte as it is.
+
+
+def _rematch_children(staging: Path, result: BackupResult, paused_saves: list[tuple[Path, bytes, bytes]]) -> None:
+    """Each Children file in the backup that described a save before its pause, re-matched to the paused copy."""
+    import vf1_genealogy as gen             # imported here, like vf1_game_speed
+
+    by_path = {copied.relative: copied for copied in result.files}
+    for relative, original, paused in paused_saves:
+        match = re.fullmatch(r"(.*\D)(\d+)\.ldw", relative.name, re.IGNORECASE)
+        if match is None:
+            continue
+        for path, old, new in gen.children_rekeys(staging, int(match.group(2)), [(original, paused)], match.group(1)):
+            sidecar = path.relative_to(staging)
+            _write_save(path, new, old)
+            check = gen.read_children_sidecar(path.read_bytes())
+            if check is None or check.save_hash != gen.fnv1a64(paused) or check.save_size != len(paused):
+                raise BackupError(f"The backup's {path.name} did not match the paused copy of {relative.name}.")
+            result.unpaused_bytes[sidecar] = old
+            result.rematched_children.append(sidecar.name)
+            copied = by_path.get(sidecar)
+            if copied is not None:
+                copied.size, copied.sha256 = _hash_file(path)
+                if copied.times is not None:
+                    _keep_times(path, copied.times)
 
 
 class NotPaused(BackupError):
@@ -754,6 +791,7 @@ _SLOT_LDW = re.compile(r"^(?:.*\D)?(\d+)\.ldw(?:\.dat|\.unreadable-\d+\.dat)?$",
 # The patcher's per-save files: "Slot 3.ini", "Slot 3 Achievements.ini" ...
 _SLOT_NAMED = re.compile(r"^Slot (\d+)\b.*$", re.IGNORECASE)
 ENGINE_LOG = "ldwLog.txt"
+PATCHER_SLOT_ROOT = "Virtual Families 1 Patcher"   # its "Save <N>" folders hold each slot's logs and trees
 SHARED = "shared"       # the options file (Virtual Families0.ldw): not any one slot
 
 
@@ -806,6 +844,13 @@ def file_slot(relative: Path) -> int | str:
         if number == 0:
             return SHARED
         return number % 20 if number <= 45 and 1 <= number % 20 <= 5 else "unknown"
+    # The patcher's own folder for a slot, "Virtual Families 1 Patcher\\Save 3\\..." (its logs and the Family Tree
+    # Maker's files): slot 3's, so a one-slot restore restores it with the slot's save.
+    parts = relative.parts
+    if len(parts) >= 3 and parts[0].casefold() == PATCHER_SLOT_ROOT.casefold():
+        folder = re.fullmatch(r"Save (\d+)", parts[1], re.IGNORECASE)
+        if folder and 1 <= int(folder.group(1)) <= 5:
+            return int(folder.group(1))
     match = _SLOT_NAMED.match(name)
     if match:
         return int(match.group(1))

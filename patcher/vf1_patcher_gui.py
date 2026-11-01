@@ -2116,7 +2116,9 @@ class VF1PatcherGUI:
                 "Rename Family",
                 f"\"{result.old_name or '(no name)'}\" is now \"{result.new_name}\" (Save {result.slot}, "
                 f"{where.name}).\n\n{len(result.changed)} save file(s) changed and read back; {len(result.notes)} "
-                f"log(s) noted the rename.\n\nBackup: {result.backup.backup_folder}",
+                f"log(s) noted the rename."
+                + (f" {len(result.rematched)} Children file(s) matched to the renamed save." if result.rematched else "")
+                + f"\n\nBackup: {result.backup.backup_folder}",
                 parent=dialog)
             name_var.set("")
             load_slots()
