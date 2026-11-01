@@ -25,6 +25,11 @@ these functions in Unicorn and compares every draw and pixel):
   age / 700 + 0.5 (0x4868F0) and the head at (age / 14 + 80) / 100 (0x48B5FF); from 45 (900) the head
   column moves 12 on, into the ..._heads10.png file (0x48B5AE).  A ghost (+0x13540) is drawn at
   0.75 x (1 - t / 30) alpha and without a shadow (0x48B510).
+* What is carried (0x48A100, the number at +0x1358C): carrying.png's cell n for 0-77 at (x - 10, y - 10),
+  collectables_small.png's cell n - 78 from 78 at (x, y); 3 is never drawn so (the babies on the way are).  The
+  animation playing (+0x13588) lowers it, and the babies, by 10 (animations 2, 9, 17, 18) or 20 (23), and
+  animation 6 has no shadow (0x48B694).  carried_things() lists all 150 pictures with the actions that carry each
+  (read from the exe) and why the 15 the game never shows are never shown.
 * The portrait of the Adoption, Dating and family member screens (0x486B60): the big body (pose 56) and
   a big head, expression 12 + n % 3 (0x486C9C), the older look 6 columns on from 45 (0x486CD2).
 * An outfit in the store or the tool tray (0x496A10): the actions sheet's column 14 (standing, facing
@@ -89,6 +94,15 @@ FRONT_HEAD = 5               # head column 5 looks straight out
 LOWERED_POSES = (48, 54)     # 0x48B578: drawn 20 pixels lower
 HEAD_TURNS = 12
 EXPRESSIONS = 3
+
+# The animations (CVillager 0x485D50 keeps the id at +0x13588 and takes the pose and direction from the table
+# 0x4FBE90 through 0x451690; an id outside 0..23 reads as 0): (pose, direction), -1 / -2 keep the family member's.
+ANIMATIONS = ((2, -2), (32, 3), (48, 6), (36, 4), (-1, -1), (1, -2), (36, 4), (48, 6), (36, 4), (54, 1), (40, 0),
+              (41, 1), (42, 2), (43, 3), (44, 6), (45, 4), (46, 6), (47, 0), (49, 3), (51, 0), (53, 3), (50, 0),
+              (52, 3), (55, 2))
+NO_ANIMATION = -1
+NO_SHADOW_ANIMATION = 6                  # 0x48B694: no shadow while it plays
+CARRY_LOWER = {2: 10, 9: 10, 17: 10, 18: 10, 23: 20}   # 0x48A105: what is carried (and the babies) drawn lower
 
 
 def pose_sheet(pose: int, female: bool) -> tuple[int, int]:
@@ -322,6 +336,24 @@ class HouseView:
     shadow: bool = True
     ghost: bool = False
     carried: int = -1        # -1 nothing; 0..77 carrying.png; 78.. collectables_small.png (villager +0x1358C)
+    animation: int = NO_ANIMATION    # villager +0x13588: the animation playing (-1: none, the pose and direction as given)
+
+
+def view_pose(view: HouseView) -> tuple[int, int]:
+    """(pose, direction) the house draw reads (+0x13560 / +0x13580): an animation's own (0x485D50 -> 0x451690,
+    table 0x4FBE90).  A direction of -2 is a walking direction the game picks at random (0x451350: one of the
+    four), here the view's; -1 becomes 2 (0x485DBE).  Animation 5's pose is -1, which no picture has: it is never
+    played, and is drawn here with the view's pose (not from the game)."""
+    if view.animation == NO_ANIMATION:
+        return view.pose, view.direction
+    if not 0 <= view.animation < len(ANIMATIONS):
+        raise pi.PictureError(f"There is no animation {view.animation}.")
+    pose, direction = ANIMATIONS[view.animation]
+    if direction == -2:
+        direction = view.direction
+    elif not 0 <= direction < 8:
+        direction = 2
+    return (view.pose if pose < 0 else pose), direction
 
 
 def house_plan(art: Art, person: Person, view: HouseView) -> list[pi.Draw]:
@@ -332,13 +364,18 @@ def house_plan(art: Art, person: Person, view: HouseView) -> list[pi.Draw]:
     female, age = person.female, person.age
     s_body, s_head = body_scale(age), head_scale(age)
     alpha = pi.f32(0.75) if view.ghost else 1.0
+    view_pose_, direction = view_pose(view)
+    if not 0 <= view_pose_ < PORTRAIT_POSE:
+        raise pi.PictureError(f"There is no house pose {view_pose_}.")
+    view = HouseView(view_pose_, direction, view.head_turn, view.shadow, view.ghost, view.carried, view.animation)
     pose = view.pose + 8 * view.direction if view.pose <= 7 else view.pose
     if not 0 <= pose < 32 and view.pose <= 7:
         raise pi.PictureError("A walking step has four directions.")
     lowered = 20 if view.pose in LOWERED_POSES else 0
     plan: list[pi.Draw] = []
-    # The shadow (0x48B6CA): the shadow picture at the scale of the body, centred on the feet, none for a ghost.
-    if view.shadow and not view.ghost:
+    # The shadow (0x48B6CA): the shadow picture at the scale of the body, centred on the feet, none for a ghost
+    # and none while animation 6 plays (0x48B694).
+    if view.shadow and not view.ghost and view.animation != NO_SHADOW_ANIMATION:
         file, rect = whole(art, SHADOW)
         plan.append(pi.Draw("shadow", file, rect, -math.trunc(34.0 * s_body), -math.trunc(32.0 * s_body),
                             pi.percent_scale(s_body)[1], alpha))
@@ -370,6 +407,7 @@ def _carried_draws(art: Art, person: Person, view: HouseView, s_body: float, low
     zoom z (0x56B800 + 0x300C, 1 at the game's size; 0x48B78E..0x48B7D2)."""
     x = math.trunc(-28.0 * s_body) + math.trunc(7 * s_body)
     y = math.trunc(-81.0 * s_body) + math.trunc(33 * s_body) + lowered
+    y += CARRY_LOWER.get(view.animation, 0)        # 0x48A105..0x48A138: lower still during five animations
     out: list[pi.Draw] = []
     if person.babies > 0:
         spots = [(x - 10, y - 10)]
@@ -381,7 +419,10 @@ def _carried_draws(art: Art, person: Person, view: HouseView, s_body: float, low
             file, rect = cell(art, CARRYING, BUNDLE % 13, BUNDLE // 13)
             out.append(pi.Draw("baby on the way", file, rect, sx, sy))
     item = view.carried
-    if item >= 0 and item != BUNDLE:
+    if item == UNSHOWN_BUNDLE:              # never a game draw: the carrying.png rule (the first baby's spot)
+        file, rect = cell(art, CARRYING, BUNDLE % 13, BUNDLE // 13)
+        out.append(pi.Draw("carried (never shown in the game)", file, rect, x - 10, y - 10))
+    elif item >= 0 and item != BUNDLE:
         if item >= CARRYING_CELLS:
             k = item - CARRYING_CELLS
             file, rect = cell(art, COLLECTABLES, k % 6, k // 6)
@@ -389,6 +430,225 @@ def _carried_draws(art: Art, person: Person, view: HouseView, s_body: float, low
         else:
             file, rect = cell(art, CARRYING, item % 13, item // 13)
             out.append(pi.Draw("carried", file, rect, x - 10, y - 10))
+    return out
+
+
+# ------------------------------------------------------------------ everything a family member can carry
+#
+# Read from the vanilla exe (VERIFIED-C; tests/test_picture_maker.py checks the draws in Unicorn): a family member
+# carries what their plan's carry step says (step type 0x10, built by 0x48CE70, run at 0x48E458 through
+# CVillager 0x486A10, which keeps it at +0x1358C), and the game's own code picks the item: a constant, a random one
+# of a run (rand(7) + 13: a bowl, rand(3) + 57: a ruler, hammer or flashlight, rand(2) + 52 / 55, rand(2) + 29), a
+# grocery from 0x47C1F0 (by what the house has), or what a family member is dropped on (0x413420: the TV remote
+# 0x32, the shed door 0x33, and a collectible or mess, its own number).  Each plan's actions are the registered
+# behaviours whose code (or a helper only they call) queues that step.  A number above 0x90 is refused
+# (0x4135C0), a plan's end or reset puts -1 back (or 3 while expecting, 0x48C687), and 3 is never drawn as a
+# carried thing (0x48A1C7: the babies on the way are drawn instead).  The game names none of them: the names
+# here are the patcher's, from the pictures.
+CARRYING_NAMES = (
+    "Laundry basket (empty)", "Folded clothes", "Basket of dirty laundry", "Baby bundle", "Wooden plank",
+    "Basket of clean laundry", "Clay pot", "Bunch of flowers", "Fish", "Crab", "Cake", "Wrench", "Pizza",
+    "Bowl of candy", "Bowl of purple berries", "Bowl of green and blue candy", "Bowl of crackers", "Bowl of rice",
+    "Bowl of cereal rings", "Bowl of red berries", "Plate", "Bottle of champagne", "Small saucepan",
+    "Saucepan of vegetables", "Pot of stew", "Frying pan", "Two saucepans", "Jug", "Frying pan of vegetables",
+    "Cooking pot with a lid", "Cooking pot", "Bag of pasta", "Cutting board", "Bottle of soda", "Bottle of cleaner",
+    "Checkers board", "Fire extinguisher", "Red rose", "Plunger", "Green bucket", "Bucket of plaster",
+    "Garbage bag", "Feather duster", "Basket of odds and ends", "Watering can", "Paint can and brush",
+    "Hand vacuum", "Pliers", "Newspaper", "Magazines", "TV remote", "Shed door knob", "Yellow folder",
+    "Sheets of paper", "Stack of documents", "Stapler", "Tape dispenser", "Ruler", "Hammer", "Flashlight", "Gift",
+    "Mug of coffee", "Letters", "Cleaning rag", "Dirty dishes", "Baguette", "Bag of chips", "Loaf of bread",
+    "Carton of milk", "Wheel of cheese", "Yogurt", "Chicken", "Steak", "Ground beef", "Cucumber", "Eggplant",
+    "Lettuce", "Hamburger",
+)
+CARRYING_KINDS = {
+    "Food": (8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 21, 24, 31, 33, 61, 65, 66, 67, 68, 69, 70, 71, 72, 73,
+             74, 75, 76, 77),
+    "Kitchen": (20, 22, 23, 25, 26, 27, 28, 29, 30, 32, 64),
+    "Laundry": (0, 1, 2, 5),
+    "Cleaning": (34, 38, 39, 41, 42, 46, 63),
+    "Tools and repairs": (4, 11, 36, 40, 43, 44, 45, 47, 51, 57, 58, 59),
+    "Office and study": (6, 52, 53, 54, 55, 56),
+    "Reading and mail": (48, 49, 62),
+    "Games, gifts and flowers": (7, 35, 37, 50, 60),
+    "Baby": (3,),
+}
+# carried value: the actions (behaviour ids) whose plans carry it
+CARRIED_BY = {
+    0: (27,), 1: (119, 122, 127, 162, 163, 165), 2: (164,), 4: (93,), 5: (27, 163), 6: (93,), 7: (161,),
+    8: (14, 57, 85, 126, 207, 212, 213), 9: (57, 85, 126, 207, 213), 10: (57, 85, 126, 140, 207, 213),
+    11: (93, 257, 283, 284, 285), 13: (1, 14, 15, 57, 85, 126, 207, 213), 14: (1, 14, 15, 57, 85, 126, 207, 213),
+    15: (1, 14, 15, 57, 85), 16: (1, 14, 15, 57, 85), 17: (1, 14, 15, 57, 85, 93), 18: (1, 14, 15, 57, 85),
+    19: (1, 14, 15, 57, 85), 20: (57,), 22: (14, 15, 57, 85), 23: (14, 85), 25: (14, 57, 85, 207, 214), 26: (85,),
+    27: (57, 85), 28: (85,), 29: (14, 57, 207), 30: (14,), 31: (14, 57, 85, 126, 207, 213), 34: (93, 206),
+    35: (259,), 36: (282, 288), 37: (140, 297), 38: (286, 287), 39: (148,), 40: (148,), 41: (157,), 42: (29, 151),
+    44: (136, 137), 46: (129,), 47: (22,), 48: (237,), 49: (57, 58, 85, 204, 264), 50: (91,), 51: (92,),
+    52: (51, 192, 193), 53: (51, 192, 193), 54: (97, 195, 196, 197, 260), 55: (51,), 56: (51,), 57: (21, 22, 274),
+    58: (21, 22, 93), 59: (21, 22), 60: (141, 271), 61: (211, 214), 62: (269,),
+    63: (208, 219, 283, 284, 285, 286, 287), 64: (26, 57, 85, 262, 272),
+    65: (57, 85, 126, 207, 213, 214, 222, 232), 66: (57, 85, 126, 207, 213), 67: (57, 85, 126, 207, 213),
+    68: (57, 85, 126, 207, 213, 214, 217), 69: (57, 85, 126, 207, 213), 70: (57, 85, 126, 207, 213),
+    71: (57, 85, 126, 207, 213), 72: (57, 85, 126, 207, 213), 73: (57, 85, 126, 207, 213),
+    74: (57, 85, 126, 207, 213), 75: (57, 85, 126, 207, 213), 76: (57, 85, 126, 207, 213),
+    77: (57, 85, 126, 207, 213, 216),
+}
+# The captions (vf1_game_mechanics.ACTION_LIST, the game's own strings); 91 and 92 are the drops on the TV remote
+# and the shed door (0x4428A0 / 0x4429C0), which carry no behaviour number of their own.
+ACTION_CAPTIONS = {
+    1: "Testing bevmac chunk", 14: "Playing cook", 15: "Playing cook", 21: "Playing in the workshop",
+    22: "Playing in the workshop", 26: "Cleaning up after a meal", 27: "Doing laundry", 29: "Dusting furniture",
+    51: "Working on career", 57: "Preparing a meal", 58: "Reading a magazine", 85: "Working on career",
+    91: "Returning the TV remote", 92: "Fixing the shed door", 93: "Working on career", 97: "Writing memoirs",
+    119: "Organizing the closet", 122: "Cleaning the nightstand",
+    126: "Putting away the groceries / Peeking at the groceries", 127: "Looking for laundry",
+    129: "Vacuuming the living room", 136: "Watering the flowers", 137: "Watering the flowers",
+    140: "Celebrating marriage", 141: "Celebrating a new baby", 148: "Repairing the workshop wall",
+    151: "Sweeping the floor", 157: "Taking the garbage out", 161: "Remembering the dead", 162: "Mending a button",
+    163: "Ironing", 164: "Dealing with all the socks", 165: "Putting away clean shirts",
+    192: "Researching project online / Writing a paper for school", 193: "Doing homework",
+    195: "Studying on the patio", 196: "Studying in the kitchen", 197: "Studying", 204: "Studying a recipe",
+    206: "Cleaning the fridge", 207: "Throwing out old food", 208: "Cleaning the oven",
+    211: "Making coffee", 212: "Checking out strange smell", 213: "Heating up some food",
+    214: "Having breakfast", 216: "Eating a burger", 217: "Making a grande latte", 219: "Cleaning up BBQ",
+    222: "Feeding the fish", 232: "Feeding the birds", 237: "Reading the newspaper", 257: "Admiring the tools",
+    259: "Playing a board game", 260: "Shredding documents", 262: "Playing with the dishes",
+    264: "Telling a story", 269: "Sorting mail", 271: "Hiding toys", 272: "Banging dishes!",
+    274: "Measuring height", 282: "Putting out a stove fire", 283: "Fixing the leaky sink",
+    284: "Fixing the leaky sink", 285: "Fixing the leaky sink", 286: "Fixing the shower",
+    287: "Fixing the blocked toilet", 288: "Putting out the laundry fire", 297: "Trying to make a baby",
+    306: "Found a new item", 52: "Picking up a sock", 53: "Throwing away a wrapper", 54: "Pulling a weed",
+    55: "Cleaning cobwebs", 56: "Cleaning a dirt smudge",
+}
+# carrying.png cells no code ever carries: the art is in the game, unused (Custom Map/Game Images repaints 32 and 45).
+CARRYING_UNUSED = (12, 21, 24, 32, 33, 43, 45)
+# What the game draws lower while an animation plays (0x48A100), found with what is carried at the time.
+CARRIED_LOWERED = {48: ((23, 237),), 49: ((23, 58),)}
+COLLECTIONS = ("Old Coins", "Nuts and Twigs", "Picture Pieces", "Bugs")
+RARITIES = ("common", "uncommon", "rare")
+SOCKS = ("blue", "yellow", "red striped", "blue and orange", "orange and blue", "green")
+WRAPPERS = ("pink", "mint", "yellow", "purple")
+UNSHOWN_BUNDLE = 1003          # the Picture Maker's choice for carrying.png cell 3 as a carried thing
+
+
+@dataclass(frozen=True)
+class CarriedThing:
+    value: int                  # villager +0x1358C (UNSHOWN_BUNDLE: the baby bundle, which the game never draws so)
+    name: str
+    kind: str
+    file: str
+    cell: int
+    actions: tuple = ()         # behaviour ids
+    shown: bool = True          # the game ever shows a family member carrying it
+    why: str = ""               # why not, when not
+    from_game: bool = True      # the place is the game's own draw (False: the nearest real rule)
+
+    def label(self) -> str:
+        tail = "" if self.shown else " (never shown in the game)"
+        return f"{self.name} ({self.kind}){tail}"
+
+    def note(self) -> str:
+        words = [f"Carrying: {self.name}, {self.file} cell {self.cell + 1}."]
+        if self.actions:
+            names = list(dict.fromkeys(ACTION_CAPTIONS.get(a, f"action {a}") for a in self.actions))
+            words.append(("The game shows it during: " if self.shown else "Its action in the game's code: ")
+                         + ", ".join(names) + ".")
+        if not self.shown:
+            words.append(f"Never shown in the game: {self.why}")
+        for animation, action in CARRIED_LOWERED.get(self.value, ()):
+            words.append(f"During {ACTION_CAPTIONS[action]} the game draws it {CARRY_LOWER[animation]} pixels lower "
+                         f"(animation {animation + 1}).")
+        if not self.from_game:
+            words.append("Position not from the game: it is drawn by the game's rule for carrying.png "
+                         "(the spot of the first baby on the way).")
+        return " ".join(words)
+
+
+def _carrying_kind(cell: int) -> str:
+    return next(kind for kind, cells in CARRYING_KINDS.items() if cell in cells)
+
+
+def carried_things() -> list[CarriedThing]:
+    """Every picture a family member can be drawn carrying: carrying.png's 78 cells (values 0-77, the bundle as
+    UNSHOWN_BUNDLE), then collectables_small.png's 72 (values 78-149), each with what the game does with it."""
+    out = []
+    for cell, name in enumerate(CARRYING_NAMES):
+        if cell == BUNDLE:
+            out.append(CarriedThing(UNSHOWN_BUNDLE, name, "Baby", "carrying.png", cell, shown=False, from_game=False,
+                                    why="a family member expecting a baby carries this number, and the game "
+                                        "draws the babies on the way instead (the Babies on the way choice)."))
+            continue
+        actions = CARRIED_BY.get(cell, ())
+        out.append(CarriedThing(cell, name, _carrying_kind(cell), "carrying.png", cell, actions,
+                                shown=bool(actions),
+                                why="" if actions else "the picture is in carrying.png, but no action ever "
+                                                       "carries it (unused in the game)."))
+    for cell in range(COLLECTABLE_CELLS):
+        value = CARRYING_CELLS + cell
+        shown, why = True, ""
+        if cell < 48:
+            group, k = divmod(cell, 12)
+            name = f"{COLLECTIONS[group]}, {RARITIES[k // 4]} {k % 4 + 1}"
+            kind, actions = "Collectible", (306,)
+        elif cell < 54:
+            name, kind, actions = f"Sock ({SOCKS[cell - 48]})", "Mess", (52,)
+            if cell == 48:
+                shown, why = False, ("the blue sock vanishes the frame after it appears (see Game Mechanics, "
+                                     "Messes), so nobody can pick it up.")
+        elif cell < 58:
+            name, kind, actions = f"Candy wrapper ({WRAPPERS[cell - 54]})", "Mess", (53,)
+        elif cell < 62:
+            name, kind, actions = f"Weed {cell - 57}", "Mess", (54,)
+        elif cell < 64:
+            name, kind, actions = f"Cobweb {cell - 61}", "Mess", (55,)
+            if cell == 63:
+                actions, shown = (), False
+                why = "a cobweb is always number 0x8C, the first picture (0x414ED4); this second one is unused."
+        elif cell < 67:
+            name, kind, actions = f"Dirt smudge {cell - 63}", "Mess", (56,)
+        else:
+            name, kind, actions, shown = f"Empty cell {cell - 66}", "Empty picture", (), False
+            why = ("this cell of collectables_small.png is blank, and the game refuses any number above 0x90 "
+                   "(0x4135C0): nothing is drawn.")
+        out.append(CarriedThing(value, name, kind, "collectables_small.png", cell, actions, shown, why))
+    return out
+
+
+def carried_thing(value: int) -> CarriedThing | None:
+    return next((t for t in carried_things() if t.value == value), None)
+
+
+ANIMATION_EXAMPLES = (      # two of the actions that play each (0x48C6C0 / 0x48C730 / 0x48C7A0 in their plans)
+    "Dancing, Feeding the fish", "Making the bed, Organizing the closet", "Sitting, Caring for baby",
+    "Dealing with all the socks", "", "Eating, Watching TV", "", "", "", "Going to bed, Watching TV",
+    "Brushing teeth, Doing the dishes", "Doing Tai Chi, Stretching", "Doing Tai Chi, Nature is calling!",
+    "Cleaning the fridge, Making coffee", "Drinking rain", "Washing hands, Chatting online",
+    "Cleaning the oven, Fixing the shower", "Watching TV, Playing with toys", "Watching TV, Listening to a story",
+    "Doing homework, Studying", "Selling a collectible online, Working on hobby",
+    "Playing video games, Studying in the kitchen", "Playing video games, Washing feet",
+    "Reading the newspaper, Taking a nap",
+)
+UNPLAYED_ANIMATIONS = (4, 6, 7, 8)       # no plan step asks for them (0x48C6C0 / 0x48C730 / 0x48C7A0)
+
+
+def _pose_name(pose: int) -> str:
+    if pose < 0:
+        return "no pose of its own (the pose above: not from the game)"
+    if pose < 8:
+        return f"walking step {pose + 1}"
+    return dict(pose_choices()).get(pose, f"pose {pose}").split(" (")[0]
+
+
+def animation_choices() -> list[tuple[int, str]]:
+    """(villager +0x13588, label): none, or one of the game's 24 animations (each sets the pose and, for all but
+    three, the direction)."""
+    out = [(NO_ANIMATION, "None: the pose and direction above")]
+    for k, (pose, _direction) in enumerate(ANIMATIONS):
+        bits = [_pose_name(pose)]
+        if k in CARRY_LOWER:
+            bits.append(f"carried {CARRY_LOWER[k]} px lower")
+        if k == NO_SHADOW_ANIMATION:
+            bits.append("no shadow")
+        tail = " (never played by any action)" if k in UNPLAYED_ANIMATIONS else f" ({ANIMATION_EXAMPLES[k]})"
+        out.append((k, f"Animation {k + 1}: " + ", ".join(bits) + tail))
     return out
 
 
@@ -590,17 +850,26 @@ LOOKS = (("game", "As this game folder has them"), ("stock", "Stock game"),
 
 
 def carried_choices() -> list[tuple[int, str]]:
-    """(villager +0x1358C, label): nothing, a carrying.png cell (0-77, the patcher's Custom Map/Game Images
-    replaces three) or a collectables_small.png cell (78 on, Glowing Collectables replaces them all)."""
+    """(villager +0x1358C, label): nothing, then every picture a family member can be drawn carrying
+    (carried_things: the 78 of carrying.png, which the patcher's Custom Map/Game Images partly repaints, and the
+    72 of collectables_small.png, which Glowing Collectables repaints), the ones the game shows first."""
+    things = carried_things()
     out = [(-1, "Nothing")]
-    out += [(k, f"Carried thing {k + 1} (carrying.png)") for k in range(CARRYING_CELLS) if k != BUNDLE]
-    out += [(CARRYING_CELLS + k, f"Collectable {k + 1} (collectables_small.png)") for k in range(COLLECTABLE_CELLS)]
+    out += [(t.value, t.label()) for t in things if t.shown]
+    out += [(t.value, t.label()) for t in things if not t.shown]
     return out
+
+
+def carried_note(value: int) -> str:
+    """What the window says about a carried choice ("" for nothing)."""
+    thing = carried_thing(value)
+    return "" if thing is None else thing.note()
 
 
 def render(art: Art, spec: dict) -> pi.Image:
     """A picture from a spec: {"view": "house" | "portrait" | "outfit", "female", "age", "head", "body",
-    "babies", "pose", "direction", "head_turn", "shadow", "ghost", "carried", "expression", "picture"}."""
+    "babies", "pose", "direction", "head_turn", "shadow", "ghost", "carried", "animation", "expression",
+    "picture"}."""
     view = spec.get("view", "house")
     female = bool(spec.get("female"))
     if view == "outfit":
@@ -613,5 +882,6 @@ def render(art: Art, spec: dict) -> pi.Image:
         return render_plan(art, portrait_plan(art, person, int(spec.get("expression", 0))))
     house = HouseView(pose=int(spec.get("pose", STANDING_POSE)), direction=int(spec.get("direction", 0)),
                       head_turn=int(spec.get("head_turn", FRONT_HEAD)), shadow=bool(spec.get("shadow", True)),
-                      ghost=bool(spec.get("ghost", False)), carried=int(spec.get("carried", -1)))
+                      ghost=bool(spec.get("ghost", False)), carried=int(spec.get("carried", -1)),
+                      animation=int(spec.get("animation", NO_ANIMATION)))
     return render_plan(art, house_plan(art, person, house))
