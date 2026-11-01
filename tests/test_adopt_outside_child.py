@@ -45,27 +45,24 @@ def test_dialog_ids_are_unique():
     assert len(names) == len(set(names))
 
 
-def test_adopted_name_is_cut_to_fit_before_setname():
-    # SetName drops a name longer than its 24-byte field, so AdoptOutsideChild
-    # must cut the typed name first and pass the cut copy to SetName.
+def test_adopted_name_is_cut_to_fit_by_setname():
+    # The typed name goes to SetName, which fits it to the 24-byte field as UTF-8, cut only between whole
+    # characters (text_names.inc FitNameUtf8; tests/test_vf1fun_names.py runs it against vf1_text). Before, the
+    # name was cut here with the system code page.
     body = _function("AdoptOutsideChild")
-    assert body.index("wcslen(name)") < body.index("SetName(slot, fit)")
-    assert "if (n > 24) n = 24;" in body
-    assert "WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)" in body
-    assert "SetName(slot, name)" not in body
-    # the shared SetName is unchanged: Spawn Child still uses the same field
+    assert "SetName(slot, name)" in body
+    assert "CP_ACP" not in body
     setname = re.search(r"static void SetName\(.*?\n\}\n", FAMILY, re.S).group(0)
-    assert "WideCharToMultiByte(CP_ACP, 0, name, -1, s, 25, 0, 0)" in setname
+    assert "FitNameUtf8(name, s, 24)" in setname and "CP_ACP" not in setname
 
 
 def test_adopted_name_never_splits_a_surrogate_pair():
-    # A non-BMP character is two UTF-16 units. Cutting after the high unit
-    # leaves a lone surrogate, which CP_ACP turns into '?', so the cut backs
-    # off past a high surrogate before the byte check.
-    body = _function("AdoptOutsideChild")
-    assert "name[n - 1] >= 0xD800 && name[n - 1] <= 0xDBFF" in body
-    assert body.index("0xDBFF") < body.index("WideCharToMultiByte(CP_ACP, 0, name, (int)n, probe, 24, 0, 0)")
-    assert "wcsncpy_s(fit, 25, name, n)" in body
+    # A non-BMP character is two UTF-16 units: FitNameUtf8 joins a pair into one code point and drops a lone one,
+    # and cuts between whole characters only.
+    names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
+    fit = names[names.index("static int FitNameUtf8"):]
+    assert "c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF" in fit
+    assert "if (used + bytes > room) break;" in fit
 
 
 def test_evidence_recorded():
