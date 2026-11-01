@@ -64,6 +64,9 @@ PATCHER_SETS = (
      "Put in the game's Images folder in place of the game's own by the patcher's Custom Map/Game Images patch."),
     (ga.PAYLOAD / "GlowingCollectables", "Glowing collectables",
      "Put in the game's Images folder in place of the game's own by the patcher's Glowing Collectables patch."),
+    (ga.PAYLOAD / "UnicodeText", "Unicode font letters",
+     "The patcher-made letters of a font the game loads, which the Render Unicode with In-Game Fonts patch puts in "
+     "the Virtual Families 1 Patcher Files folder for its vf1text.dll (the game's own font picture is not changed)."),
     (ga.TREE_PICTURES, "Family tree backgrounds",
      "A background the patcher's family tree pictures can be drawn on (the patcher's own; the game never shows it)."),
 )

@@ -428,7 +428,8 @@ def test_the_window(tk_root, game, tmp_path):
     try:
         maker.quiet = True
         assert held == [maker.window] and pm.open_window(tk_root) is maker
-        assert [maker.notebook.tab(t, "text") for t in maker.notebook.tabs()] == ["From my save", "Make your own"]
+        assert [maker.notebook.tab(t, "text") for t in maker.notebook.tabs()] == ["From my save", "Make your own",
+                                                                                       "Every picture"]
         assert "Pictures from" in maker.status_var.get()
         assert maker.selected_thing().item.label.startswith("Ann") and maker.shown["save"].bbox()
         out = maker.save_png("save", str(tmp_path / "ann.png"))
