@@ -1,4 +1,4 @@
-"""The Picture Maker (patcher/vf1_picture_maker.py, vf1_people_pictures.py, vf1_picture_image.py).
+﻿"""The Picture Maker (patcher/vf1_picture_maker.py, vf1_people_pictures.py, vf1_picture_image.py).
 
 Everywhere: a synthetic game folder (small sheets whose every cell has its own colour, a synthetic
 Assets\\animpts.dat) and synthetic saves check the part selection, the life stages, the layer order, every
@@ -8,7 +8,9 @@ With VF1_VANILLA_DIR (a copy of the vanilla game; only read): tests/picture_emu.
 drawing code in Unicorn and every draw the renderer plans must equal the game's (file, cell, place, scale,
 alpha); the game's own blitter 0x404C30 draws children and ghosts over three colours and the renderer's
 pixels must give exactly the same screen; and an adult's PNG must equal, pixel for pixel, the cells
-composited by Pillow at the places the emulated game drew them.
+composited by Pillow at the places the emulated game drew them.  The same for everything that can be carried:
+every carried number under every animation, every carried picture's PNG, the game's own animation start
+0x485D50, and the carried numbers read from the exe's carry steps.
 """
 from __future__ import annotations
 
@@ -150,6 +152,76 @@ def test_layer_order(art):
     picture = pp.render_plan(art, [d for d in pp.house_plan(art, ADULT, pp.HouseView(shadow=False))])
     head_colour = (0x9C * 7 % 256, 5 * 4, 7 * 5, 255)
     assert head_colour in {picture.pixel(x, y) for x in range(picture.width) for y in range(picture.height)}
+
+
+# ------------------------------------------------------------------ everything that can be carried
+NEVER_SHOWN = {pp.UNSHOWN_BUNDLE, 12, 21, 24, 32, 33, 43, 45, 78 + 48, 78 + 63, *range(78 + 67, 78 + 72)}
+
+
+def test_every_carried_picture_is_offered():
+    """All 78 cells of carrying.png and all 72 of collectables_small.png, each once, each named, the ones the game
+    never shows marked so (with the reason) and listed after the ones it shows."""
+    things = pp.carried_things()
+    assert len(things) == 150 and len({t.value for t in things}) == 150
+    assert sorted((t.file, t.cell) for t in things) == sorted(
+        [("carrying.png", k) for k in range(78)] + [("collectables_small.png", k) for k in range(72)])
+    assert {t.value for t in things if not t.shown} == NEVER_SHOWN
+    for t in things:
+        assert t.name and t.kind and (t.shown or t.why)
+        assert ("(never shown in the game)" in t.label()) == (not t.shown)
+        assert t.value == pp.UNSHOWN_BUNDLE or t.value == (t.cell if t.file == "carrying.png" else 78 + t.cell)
+        assert ("Position not from the game" in t.note()) == (t.value == pp.UNSHOWN_BUNDLE)
+        assert all(a in pp.ACTION_CAPTIONS for a in t.actions)
+        assert t.shown == bool(t.actions) or t.value == 78 + 48          # the blue sock has an action, vanishes
+    choices = pp.carried_choices()
+    assert choices[0] == (-1, "Nothing") and len(choices) == 151
+    shown = [v for v, label in choices[1:] if "never shown" not in label]
+    assert choices[1:len(shown) + 1] == [(v, l) for v, l in choices[1:] if "never shown" not in l]   # shown first
+    assert len(pp.CARRYING_NAMES) == 78 and len(set(pp.CARRYING_NAMES)) == 78
+    assert sorted(c for cells in pp.CARRYING_KINDS.values() for c in cells) == list(range(78))
+
+
+def test_carried_action_captions_are_the_games():
+    import vf1_game_mechanics as gm
+    captions = {k: c.strip() for k, c, _outs in gm.ACTION_LIST}
+    for action, caption in pp.ACTION_CAPTIONS.items():
+        if action not in (91, 92):                     # the drops on the TV remote and the shed door
+            assert captions[action] == caption, action
+    assert {91, 92} <= {a for acts in pp.CARRIED_BY.values() for a in acts}
+    assert set(pp.CARRIED_BY) | set(pp.CARRYING_UNUSED) | {pp.BUNDLE} == set(range(78))
+    assert not set(pp.CARRIED_BY) & set(pp.CARRYING_UNUSED)
+
+
+def test_animations(art):
+    choices = pp.animation_choices()
+    assert len(choices) == 25 and len(pp.ANIMATION_EXAMPLES) == 24 and choices[0][0] == pp.NO_ANIMATION
+    for k, label in choices[1:]:
+        assert ("px lower" in label) == (k in pp.CARRY_LOWER)
+        assert ("never played" in label) == (k in pp.UNPLAYED_ANIMATIONS)
+    base = pp.HouseView(pose=3, direction=1, carried=5)
+    assert pp.view_pose(base) == (3, 1)
+    assert pp.view_pose(pp.HouseView(pose=3, direction=1, animation=23)) == (55, 2)
+    assert pp.view_pose(pp.HouseView(pose=3, direction=1, animation=0)) == (2, 1)       # keeps the walking direction
+    assert pp.view_pose(pp.HouseView(pose=50, direction=2, animation=4)) == (50, 2)     # keeps both
+    person = pp.Person(True, 600, 1, 1, babies=3)
+
+    def spots(animation):
+        return [(d.what, d.x, d.y) for d in pp.house_plan(art, person, pp.HouseView(carried=5, animation=animation))
+                if d.what != "body" and d.what != "head" and d.what != "shadow"]
+    plain = spots(pp.NO_ANIMATION)
+    for animation, lower in pp.CARRY_LOWER.items():
+        pose = pp.ANIMATIONS[animation][0]
+        body_lower = 20 if pose in pp.LOWERED_POSES else 0
+        assert spots(animation) == [(w, x, y + lower + body_lower) for w, x, y in plain], animation
+    shadows = [d.what for d in pp.house_plan(art, person, pp.HouseView(animation=pp.NO_SHADOW_ANIMATION))]
+    assert "shadow" not in shadows
+    bundle = [d for d in pp.house_plan(art, ADULT, pp.HouseView(carried=pp.UNSHOWN_BUNDLE))
+              if d.what.startswith("carried")]
+    one_baby = [d for d in pp.house_plan(art, pp.Person(True, 600, 7, 9, babies=1), pp.HouseView())
+                if d.what == "baby on the way"]
+    assert [(d.file, d.rect, d.x, d.y) for d in bundle] == [(d.file, d.rect, d.x, d.y) for d in one_baby]
+    for value, _label in pp.carried_choices():
+        assert pp.render(art, {"view": "house", "female": True, "age": 600, "carried": value, "animation": 23})
 
 
 # ------------------------------------------------------------------ sizes and transparency
@@ -378,6 +450,40 @@ def test_the_window(tk_root, game, tmp_path):
     assert {p: p.read_bytes() for p in folder.rglob("*") if p.is_file()} == before     # saves only read
 
 
+def test_carrying_in_both_tabs(tk_root, game, tmp_path):
+    folder = tmp_path / "saves"
+    _save(folder, 1, {0: villager_record(name="Ann", sex=1, age=500, head=3, body=4)})
+    maker = pm.PictureMaker(tk_root, save_folders=[folder], game_folders=[game])
+    try:
+        maker.quiet = True
+        boxes = maker.saved_boxes
+        assert "carried" in boxes and "animation" in boxes
+        plain = maker.shown["save"]
+        boxes["carried"]["box"].current([c[0] for c in boxes["carried"]["choices"]].index(48))
+        boxes["animation"]["box"].current([c[0] for c in boxes["animation"]["choices"]].index(23))
+        maker._show_saved()
+        info = maker.save_preview["info"].cget("text")
+        assert "Newspaper" in info and "Reading the newspaper" in info and "20 pixels lower" in info
+        assert maker.shown["save"] != plain and "carrying Newspaper" in maker.picture_name("save")
+        assert str(boxes["pose"]["box"].cget("state")) == "disabled"            # the animation's own pose
+        out = maker.save_png("save", str(tmp_path / "ann.png"))
+        assert out.is_file()
+        maker.set_custom(view="house", carried=pp.UNSHOWN_BUNDLE, animation=pp.NO_ANIMATION)
+        info = maker.custom_preview["info"].cget("text")
+        assert info.startswith(pm.CHECK) and "never shown" in info.lower() and "Position not from the game" in info
+        assert str(maker.custom_boxes["pose"]["box"].cget("state")) == "readonly"
+        maker.set_custom(carried=78 + 70, animation=0)                           # an empty cell; a walking animation
+        assert "blank" in maker.custom_preview["info"].cget("text")
+        assert str(maker.custom_boxes["direction"]["box"].cget("state")) == "readonly"    # a random walking direction
+        maker.set_custom(carried=-1, animation=4)
+        assert pm.CHECK in maker.custom_preview["info"].cget("text") and maker.shown["custom"].bbox()
+        for value, _label in pp.carried_choices():
+            maker.set_custom(carried=value, animation=23)
+            assert maker.shown["custom"].bbox()
+    finally:
+        maker.close()
+
+
 def test_the_tools_tab_opens_it():
     source = (ROOT / "patcher" / "vf1_patcher_gui.py").read_text(encoding="utf-8")
     assert 'self._link(family, "Picture Maker...", self.picture_maker)' in source
@@ -400,9 +506,9 @@ def vanilla() -> Path:
         faulthandler.enable()
 
 
-def _game_house(emu, female, age, head, body, pose, direction, head_turn, ghost, carried, babies):
+def _game_house(emu, female, age, head, body, pose, direction, head_turn, ghost, carried, babies, animation=0):
     emu.villager(female=female, age=age, head=head, body=body, pose=pose, direction=direction, head_turn=head_turn,
-                 ghost=ghost, carried=carried, babies=babies)
+                 ghost=ghost, carried=carried, babies=babies, animation=animation)
     fx, fy = emu.feet()
     return [(b["file"], b["rect"], b["x"] - fx, b["y"] - fy, b["scale"], b["alpha"]) for b in emu.draw_house(1.0)], (fx, fy)
 
@@ -449,6 +555,127 @@ def test_every_draw_matches_the_game(vanilla):
             got = [(b["file"], b["rect"], b["x"] - 2000, b["y"] - 2000, b["scale"], b["alpha"])
                    for b in emu.draw_portrait(2000, 2000, age % 5)]
             assert got == _mine(pp.portrait_plan(art, pp.Person(bool(age % 2), age, age % 50, age * 3 % 50), age % 5))
+
+
+def test_every_carried_thing_matches_the_game(vanilla):
+    """Every carried number the game can hold (nothing, 0-149; the bundle's own picture is the Babies on the way
+    choice) under every animation (none and the 24, each with the pose and direction it puts in place), at a
+    child's and an adult's size, alive and as a ghost, with and without babies on the way: the game's
+    CVillagerManager 0x48B4D0 run in Unicorn draws exactly what the renderer plans."""
+    import picture_emu
+    art = pp.Art(vanilla)
+    emu = picture_emu.Emu(vanilla)
+    rng = random.Random(23)
+    values = [-1] + [t.value for t in pp.carried_things() if t.value != pp.UNSHOWN_BUNDLE]
+    assert len(values) == 150
+    checked = 0
+    for value in values:
+        for animation in [pp.NO_ANIMATION] + list(range(len(pp.ANIMATIONS))):
+            female, age = rng.random() < 0.5, rng.choice([0, 120, 279, 600, 950])
+            head, body, turn = rng.randrange(50), rng.randrange(50), rng.randrange(12)
+            view = pp.HouseView(rng.choice([46, rng.randrange(8), rng.randrange(32, 56)]), rng.randrange(4), turn,
+                                True, rng.random() < 0.15, value, animation)
+            babies = rng.choice([0, 0, 1, 2, 3])
+            pose, direction = pp.view_pose(view)
+            got, _feet = _game_house(emu, female, age, head, body, pose, direction, turn, view.ghost, value, babies,
+                                     animation)
+            plan = pp.house_plan(art, pp.Person(female, age, head, body, babies), view)
+            assert got == _mine(plan), (value, animation, female, age, view)
+            checked += 1
+    assert checked == 150 * 25
+
+
+def test_animations_put_the_pose_in_place_as_the_game(vanilla):
+    """CVillager 0x485D50 (start an animation, with no direction or head turn of its own: -1, -1) run in Unicorn
+    for all 24: the animation number, pose and direction it leaves are view_pose's."""
+    import picture_emu
+    emu = picture_emu.Emu(vanilla)
+    for animation in range(len(pp.ANIMATIONS)):
+        for pose, direction in ((46, 1), (5, 3), (50, 0), (2, 2)):
+            v = emu.villager(female=True, age=600, head=1, body=1, pose=pose, direction=direction, animation=99)
+            # GetRandom stands in for the walk: rand(4) picks the walking direction (0x451350, table 0x4D6A64)
+            emu._code_hooks[0x403650] = emu._ret_value(direction, 0)
+            try:
+                emu.call(0x485D50, (animation, 0xFFFFFFFF, 0xFFFFFFFF), ecx=v)
+            finally:
+                del emu._code_hooks[0x403650]
+            got = (emu.r32(v + 0x13588), emu.r32(v + 0x13560), emu.r32(v + 0x13580))
+            want = pp.view_pose(pp.HouseView(pose=pose, direction=direction, animation=animation))
+            if animation == 4:                        # no pose of its own: the game leaves -1 (never played)
+                assert got == (4, -1, want[1]) and want[0] == pose
+            else:
+                assert got == (animation, *want), (animation, pose, direction)
+
+
+def test_the_carried_numbers_are_the_games(vanilla):
+    """Read from the exe: every carry step (0x48CE70) and every start of a carry (0x486A10) takes its number from
+    a push of a constant, a rand(n) + c, the grocery picker 0x47C1F0, or what was dropped on (0x413420); together
+    they cover exactly the carrying.png pictures the catalog says the game shows."""
+    import pefile
+    from capstone import CS_ARCH_X86, CS_MODE_32, Cs
+    image = bytes(pefile.PE(str(vanilla / "Virtual Families.exe"), fast_load=True).get_memory_mapped_image())
+    md = Cs(CS_ARCH_X86, CS_MODE_32)
+    text, at = [], 0x401000
+    while at < 0x4B1B59:                               # capstone stops at a byte it cannot read: step over it
+        before = len(text)
+        for ins in md.disasm(image[at - 0x400000:0xB1B59], at):
+            text.append(ins)
+            at = ins.address + ins.size
+        if len(text) == before:
+            at += 1
+    groceries = {int(i.op_str.split(", ")[1], 0) for i in md.disasm(image[0x7C1F0:0x7C37D], 0x47C1F0)
+                 if i.mnemonic == "mov" and i.op_str.startswith("esi, 0x") or i.op_str in ("esi, 8", "esi, 9")}
+    found, unread = set(groceries), []
+    for k, ins in enumerate(text):
+        if ins.mnemonic != "call" or ins.op_str not in ("0x48ce70", "0x486a10"):
+            continue
+        j = k - 1
+        while text[j].mnemonic not in ("push", "call") or (text[j].mnemonic == "call" and text[j].op_str == "0x403650"):
+            j -= 1
+        push = text[j]
+        if push.mnemonic == "call":                     # the push sits before a jump into this call
+            unread.append(ins.address)
+            continue
+        arg = push.op_str
+        if arg.lstrip("-").startswith("0x") or arg.lstrip("-").isdigit():
+            found.add(int(arg, 0))
+            continue
+        before = text[j - 4:j]
+        if [b.mnemonic for b in before] == ["push", "call", "add", "add"] and before[1].op_str == "0x403650":
+            n, c = int(before[0].op_str, 0), int(before[3].op_str.split(", ")[1], 0)
+            found |= set(range(c, c + n))
+        elif any(b.mnemonic == "call" and b.op_str == "0x47c1f0" for b in text[j - 3:j]):
+            pass                                          # the groceries, read above
+        else:
+            unread.append(ins.address)
+    # the push before a jump (0x455C00 -> 0x455EC9: push 0x16 at 0x455BFC); the dropped-on numbers
+    assert struct.unpack_from("<B", image, 0x55BFD)[0] == 0x16
+    found.add(0x16)
+    found |= {0x32, 0x33}                                 # 0x442B1D / 0x442AD1: the TV remote, the shed door
+    assert image[0x42B1D:0x42B22] == b"\xB8\x32\x00\x00\x00" and image[0x42AD1:0x42AD6] == b"\xB8\x33\x00\x00\x00"
+    carrying = {v for v in found if 0 <= v < 78}
+    assert carrying - {pp.BUNDLE} == set(pp.CARRIED_BY), sorted(carrying ^ set(pp.CARRIED_BY))
+    # The rest pass a number on from a register: the drop (0x41359B), the pick-ups of a collectible or mess
+    # (behaviours 0x34..0x38 and 0x132: 0x4E..0x90), the jump into 0x455EC9 (above), and the plan's own step.
+    assert set(unread) == READ_ELSEWHERE, sorted(hex(a) for a in set(unread) ^ READ_ELSEWHERE)
+    # a number above 0x90 is refused (0x4135C5 cmp ebp, 0x90; ja); a cobweb is always 0x8C (0x414ED4)
+    assert image[0x135C5:0x135CB] == b"\x81\xFD\x90\x00\x00\x00" and image[0x135CB] == 0x77
+    assert image[0x14ED4:0x14EDA] == b"\xC7\x07\x8C\x00\x00\x00"
+    # the animation table 0x4FBE90 (id, pose, direction) and the lowering 0x48A105..0x48A138
+    table = [struct.unpack_from("<3i", image, 0xFBE90 + 12 * k) for k in range(24)]
+    assert [t[0] for t in table] == list(range(24)) and [t[1:] for t in table] == list(pp.ANIMATIONS)
+    lowered = {}
+    for ins in md.disasm(image[0x8A10B:0x8A13D], 0x48A10B):
+        if ins.mnemonic == "cmp":
+            pending = int(ins.op_str.split(", ")[1], 0)
+            lowered[pending] = 10
+    lowered[0x17] = 20                                    # the last compare: jne past the +0x14
+    assert lowered == pp.CARRY_LOWER
+    assert image[0x8A131:0x8A136] == b"\x83\x44\x24\x14\x14" and image[0x8A138:0x8A13D] == b"\x83\x44\x24\x14\x0A"
+
+
+READ_ELSEWHERE = {0x41359B, 0x455EC9, 0x45E43C, 0x45E567, 0x45E65C, 0x45E77C, 0x45E859, 0x479957, 0x4799EB,
+                  0x48C528, 0x48E465}
 
 
 def test_the_store_and_tray_outfits_match_the_game(vanilla):
@@ -514,6 +741,42 @@ def test_children_and_ghosts_match_the_games_blitter(vanilla, pillow):
                             for c, v in enumerate((r, g, b)):
                                 screen[at + c] = (v * a + screen[at + c] * (255 - a) + 0x7F) >> 8
             assert bytes(screen) == game, (what, colour)
+
+
+def test_every_carried_png_matches_a_pillow_composite(vanilla, pillow):
+    """Every carried picture, on an adult standing and lying (animation 24, drawn 20 pixels lower) and with babies
+    on the way: the cells the emulated game drew, cut and composited by Pillow at its places (all at scale 1 and
+    alpha 1: SDL's own alpha blit), equal the Picture Maker's picture to the last pixel."""
+    import picture_emu
+    emu = picture_emu.Emu(vanilla)
+    art = pp.Art(vanilla)
+    sheets = {}
+
+    def sheet(name):
+        if name not in sheets:
+            sheets[name] = pillow.open(vanilla / "Images" / name).convert("RGBA")
+        return sheets[name]
+    values = [t.value for t in pp.carried_things() if t.value != pp.UNSHOWN_BUNDLE]
+    for k, value in enumerate(values):
+        animation = (pp.NO_ANIMATION, 23)[k % 2]
+        babies = k % 4
+        view = pp.HouseView(46, k % 4, 5, True, False, value, animation)
+        pose, direction = pp.view_pose(view)
+        got, _feet = _game_house(emu, True, 600, k % 50, (k * 3) % 50, pose, direction, 5, False, value, babies,
+                                 animation)
+        assert all(g[4] == 1.0 and g[5] == 1.0 for g in got)
+        left, top = min(g[2] for g in got), min(g[3] for g in got)
+        right = max(g[2] + g[1][2] - g[1][0] for g in got)
+        bottom = max(g[3] + g[1][3] - g[1][1] for g in got)
+        reference = pillow.new("RGBA", (right - left, bottom - top), (0, 0, 0, 0))
+        for file, rect, x, y, _scale, _alpha in got:
+            layer = pillow.new("RGBA", reference.size, (0, 0, 0, 0))
+            layer.paste(sheet(file).crop(rect), (x - left, y - top))
+            reference = pillow.alpha_composite(reference, layer)
+        mine = pp.render_plan(art, pp.house_plan(art, pp.Person(True, 600, k % 50, (k * 3) % 50, babies), view))
+        box = reference.getbbox()
+        assert mine.cropped(0).to_png() == pi.Image(box[2] - box[0], box[3] - box[1],
+                                                    reference.crop(box).tobytes()).to_png(), value
 
 
 def test_an_adults_png_matches_a_pillow_composite(vanilla, pillow, tmp_path):
