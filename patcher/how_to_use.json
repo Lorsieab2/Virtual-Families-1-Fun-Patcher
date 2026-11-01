@@ -341,8 +341,7 @@
         "Draws your family members exactly as the game draws them, from the game folder's own pictures, and saves them as PNG pictures with a clear background.",
         "From my save: pick the save folder and the family. Click anyone to see them as they look now: age, hair and face, outfit, a baby on the way. The store's and tool tray's outfits are listed too.",
         "Make your own: pick a gender, age, hair and face, outfit, pose, direction and head turn, or the big portrait of the Adoption and Dating screens.",
-        "Carrying (both tabs): any of the 150 pictures a family member can hold: food, dishes, laundry, cleaning things, tools, papers, gifts, the TV remote, collectibles and messes. The ones the game shows come first, each with the actions that carry it; the ones it never shows (unused pictures, the second cobweb, the blue sock, empty cells) follow, marked so, with the reason.",
-        "Animation (both tabs): the game's 24 animations, each with the pose and direction it gives. Five draw what is carried, and the babies on the way, 10 or 20 pixels lower, as the game does (the newspaper and magazines while lying down).",
+        "Carrying: all 150 things a family member can hold. Ones the game never shows come last, marked so. Animation: the game's own poses; some draw what is carried lower.",
         "Pictures: the game folder's own (patched if its settings are on), the stock game's, or the patcher's own carried things and collectables.",
         "Save PNG saves the picture at the game's size, 2x, 4x or your own width and height. Saves and game files are only read."
       ]
