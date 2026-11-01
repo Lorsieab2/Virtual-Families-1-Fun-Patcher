@@ -170,7 +170,7 @@
         "Each of the game's text sizes keeps its height and colour, and is sized so a line is as wide as before, so screens still fit.",
         "It cannot be on with Render Unicode with In-Game Fonts: ticking one unticks the other. Typing and names work the same with either.",
         "With it off, or in the original game, the save still works, but an accented letter shows as two or three odd letters.",
-        "Off by default (Owner's Defaults ticks it). Not yet tested in a running game."
+        "Off by default, and Owner's Defaults leaves it off (it ticks Render Unicode with In-Game Fonts). Not yet tested in a running game."
       ]
     }
   ],
@@ -242,7 +242,7 @@
     "owners_defaults": {
       "title": "Owner's Defaults",
       "guide": [
-        "Ticks the patcher owner's own choice: every patch except Up to 28 Children.",
+        "Ticks the patcher owner's own choice: every patch except Up to 28 Children and Use Unicode Font (Render Unicode with In-Game Fonts is ticked instead).",
         "That includes Cheat Upgrades, Flea Market and Free and Guaranteed Cheats, so every cheat is on and every paid item is free.",
         "Click Enable/Disable Patches afterwards to apply it."
       ]

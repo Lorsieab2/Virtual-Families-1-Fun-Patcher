@@ -71,7 +71,7 @@ MANIFEST_ROWS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
 # stuff you mentioned default off (except in owner's defaults)"; "Keep off by default: All items show in flea
 # market/outfits/hairstyles"). Everything that costs or adds content stays on.
 CHEATS_DEFAULT_OFF = frozenset({"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"})
-# Use Unicode Font (overrides in-game fonts): off by default, on in Owner's Defaults (the owner, 2026-11-01); it cannot
+# Use Unicode Font (overrides in-game fonts): off by default and off in Owner's Defaults (the owner, 2026-11-01); it cannot
 # be on with Render Unicode with In-Game Fonts, which is on by default.
 OVERRIDES_DEFAULT_OFF = frozenset({"UseUnicodeFont"})
 OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS

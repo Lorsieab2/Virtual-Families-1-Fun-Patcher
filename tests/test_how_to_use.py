@@ -101,7 +101,9 @@ def test_the_preset_guides_name_what_they_tick():
         "owners_defaults": "Owner's Defaults", "deselect_all": "Deselect All Patches",
         "patch_selection_settings": "Patch Selection Settings"}
     owner = " ".join(how.guide("owners_defaults").lines)
-    assert "every patch except Up to 28 Children" in owner and "Free and Guaranteed Cheats" in owner
+    assert "every patch except Up to 28 Children and Use Unicode Font" in owner and "Free and Guaranteed Cheats" in owner
+    assert "Render Unicode with In-Game Fonts" in owner
+    assert "Owner's Defaults leaves it off" in " ".join(how.guide_lines()[how.patch_key("UseUnicodeFont")])
     default = " ".join(how.guide("default_patches").lines)
     assert "Cheat Upgrades, Flea Market, Free and Guaranteed Cheats" in default
     assert "Tick These" in " ".join(how.guide("patch_selection_settings").lines)

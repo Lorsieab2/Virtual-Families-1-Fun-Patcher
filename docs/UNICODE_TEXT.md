@@ -135,7 +135,7 @@ can preview with it too.
 
 The two settings exclude each other (manifest `excludes`, both ways): the window unticks one when the other is
 ticked; Select All Patches and Enable All Main Patches keep Render Unicode with In-Game Fonts (on by default);
-Owner's Defaults keeps Use Unicode Font; Patch Selection Settings refuses ticking both at once; the command line
+Owner's Defaults keeps Render Unicode with In-Game Fonts too; Patch Selection Settings refuses ticking both at once; the command line
 refuses `--enable` of both and lets `--enable` of one turn the other off.
 
 Proved: `tests/test_unicode_font.py` runs the game's DrawString and GetWidth with the real vf1font.dll in Unicorn,

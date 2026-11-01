@@ -171,14 +171,14 @@ Six settings change the base game on their own (plus the optional ones below):
   Its own DLL, `vf1text.dll`; all of it is run on the real exe in the emulator, including letters drawn by the
   machine's own GDI. **Not live tested yet** -- see `docs/UNICODE_TEXT.md`.
 
-- **Use Unicode Font (overrides in-game fonts)** (a Main Patch, off by default; Owner's Defaults ticks it): the
+- **Use Unicode Font (overrides in-game fonts)** (a Main Patch, off by default; Owner's Defaults leaves it off): the
   same typing and storage, but every letter, the game's own too, is drawn by Windows in a font chosen with
   **Unicode Font...** on the Tools tab (any installed font or a .ttf/.otf/.ttc file; Segoe UI when none), then
   Segoe UI and the same fallback chain. Each of the four game fonts keeps its height, baseline, weight and
   colour; its size is fitted so a reference line is as wide as the game font draws it (60% to 130% of its own
   size), so layouts still fit. It cannot be on with Render Unicode with In-Game Fonts: manifest `excludes`,
   enforced in the window (ticking one unticks the other; Select All and Enable All Main Patches keep Render;
-  Owner's Defaults keeps Use Unicode Font), in Patch Selection Settings (ticking both is refused) and on the
+  Owner's Defaults keeps Render too), in Patch Selection Settings (ticking both is refused) and on the
   command line (`--enable` of both is refused). Its own DLL, `vf1font.dll`: the same source as `vf1text.dll`
   built with `VF1_FONT_MODE`.
 

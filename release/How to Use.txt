@@ -153,7 +153,7 @@ accented letter shows as two or three odd letters (Zoe with two dots shows as
 "ZoÃ«"). Not yet tested in a running game.
 
 Use Unicode Font (overrides in-game fonts) (off by default; Owner's Defaults
-ticks it): the game's text is drawn in a font you choose instead of its own
+leaves it off): the game's text is drawn in a font you choose instead of its own
 letters, in any language. Pick the font with Unicode Font... on the Tools
 tab (any installed font or a .ttf/.otf file; Segoe UI if you pick none).
 Each text size keeps its height and colour and is sized so a line is as wide
@@ -192,7 +192,8 @@ How to patch
                            Flea Market, Free and Guaranteed Cheats and Up to
                            28 Children.
      Owner's Defaults      the patcher owner's own choice: every patch except
-                           Up to 28 Children.
+                           Up to 28 Children and Use Unicode Font
+                           (Render Unicode with In-Game Fonts is on).
      Deselect All Patches  nothing.
    Patch Selection Settings... opens a list of every patch with a search
    box: tick the ones you want and press Tick These or Untick These.

@@ -189,8 +189,8 @@ Settings and defaults
   Experimental: not yet tested in a running game. Back up your saves before using it.
 - The cheats are off by default: Cheat Upgrades, Flea Market and Free and Guaranteed Cheats.
 - Presets in the patcher window: Select All Patches (every setting except the Experimental ones),
-  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children, with
-  Use Unicode Font instead of Render Unicode with In-Game Fonts) and Deselect All Patches (none). Patch
+  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children and
+  Use Unicode Font; Render Unicode with In-Game Fonts is on) and Deselect All Patches (none). Patch
   Selection Settings ticks or unticks chosen settings by name.
 - Use Unicode Font (overrides in-game fonts) and Render Unicode with In-Game Fonts cannot both be on:
   ticking one unticks the other, and the command line refuses both with --enable.
