@@ -22,7 +22,9 @@ patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the tw
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_relationships.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
-  and logos in tree_pictures/), stub.json, payload/vf1fun.dll
+  and logos in tree_pictures/), the Game Text tool and Render Unicode with In-Game Fonts' shared text rule
+  (vf1_text.py, vf1_game_fonts.py, vf1_glyph_gdi.py, vf1_glyph_maker.py, vf1_game_text.py, and
+  payload/UnicodeText), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
 file, which the patcher checks before it installs them. No game files.
@@ -105,6 +107,11 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_line_colours.py": (ROOT / "patcher" / "vf1_line_colours.py").read_bytes(),
         "vf1_tree_editor_tools.py": (ROOT / "patcher" / "vf1_tree_editor_tools.py").read_bytes(),
         "vf1_gdiplus.py": (ROOT / "patcher" / "vf1_gdiplus.py").read_bytes(),
+        "vf1_text.py": (ROOT / "patcher" / "vf1_text.py").read_bytes(),
+        "vf1_game_fonts.py": (ROOT / "patcher" / "vf1_game_fonts.py").read_bytes(),
+        "vf1_glyph_gdi.py": (ROOT / "patcher" / "vf1_glyph_gdi.py").read_bytes(),
+        "vf1_glyph_maker.py": (ROOT / "patcher" / "vf1_glyph_maker.py").read_bytes(),
+        "vf1_game_text.py": (ROOT / "patcher" / "vf1_game_text.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
     }
@@ -112,6 +119,10 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():
         files[f"payload/{rel}"] = path.read_bytes()
+    # the Game Text tool's styles and glyph boxes for the font sheets the game never draws (the four game fonts'
+    # files are payload above: Render Unicode with In-Game Fonts installs them)
+    for path in sorted((ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")):
+        files.setdefault(f"payload/UnicodeText/{path.name}", path.read_bytes())
     entries.update({f"{vf1_patcher.BUNDLE_FOLDER}/{name}": data for name, data in files.items()})
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{top}.zip"

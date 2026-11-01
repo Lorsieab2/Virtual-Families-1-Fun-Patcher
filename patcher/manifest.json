@@ -56,6 +56,51 @@
       ]
     },
     {
+      "id": "RenderUnicodeInGameFonts",
+      "label": "Render Unicode with In-Game Fonts",
+      "description": "Lets the game take and show any letter or symbol in Unicode: accents (French, Turkish, Polish, Vietnamese...), Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and the rest. Typing in the game's own name boxes accepts every character the keyboard gives (accent keys, dead keys, Alt codes and an input method's text), and backspace deletes a whole character. Every piece of text is drawn with the game's own fonts: the game's own letter when it has one; otherwise a patcher-made letter in that font's style (accented letters are built from the game's own letters and accents); otherwise a letter Windows draws on the spot in the font's size, weight and colour (Segoe UI, then Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others); otherwise a small box. Names are kept in the save as UTF-8 inside the game's own name fields, which are not made any bigger: a name is cut only between whole characters, and a letter beyond A-Z takes 2 to 4 of a field's bytes (a family name holds 19). Old saves read exactly as before. The stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example \"Zoë\" as \"ZoÃ«\"). Installs its own small DLL, vf1text.dll, and the patcher-made letters (the Unicode Text folder) in the Virtual Families 1 Patcher Files folder; the game's own art is not changed, and unticking the setting removes them.",
+      "default": true,
+      "category": "main",
+      "files": [
+        {
+          "source": "vf1text.dll",
+          "target": "Virtual Families 1 Patcher Files/vf1text.dll"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold18.png",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold18.png"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold18.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold18.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold17.png",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold17.png"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold17.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold17.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold24.png",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold24.png"
+        },
+        {
+          "source": "UnicodeText/SegoeUiBold24.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUiBold24.txt"
+        },
+        {
+          "source": "UnicodeText/SegoeUi33.png",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUi33.png"
+        },
+        {
+          "source": "UnicodeText/SegoeUi33.txt",
+          "target": "Virtual Families 1 Patcher Files/Unicode Text/SegoeUi33.txt"
+        }
+      ]
+    },
+    {
       "id": "AllowOlderPregnancies",
       "label": "Allow Older Pregnancies",
       "description": "Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.",

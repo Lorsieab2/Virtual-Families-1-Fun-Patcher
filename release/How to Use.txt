@@ -134,6 +134,19 @@ screen, and nothing in the Upgrades menu's Flea Market page, which already
 lists every tray item at once. R works the same with the Flea Market page and
 Free and Guaranteed Cheats on or off.
 
+Render Unicode with In-Game Fonts (on by default): the game takes and shows
+any letter: accents (French, German, Spanish, Turkish, Polish, Vietnamese...),
+Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and more. Type
+them in the game's own name boxes with your keyboard's accent keys, Alt codes
+or an input method; Backspace deletes a whole letter. Letters the game's fonts
+lack are made in the same style: accented ones from the game's own letters and
+accents, the rest drawn by Windows in the font's size. Names stay in the
+save's own name spaces; a letter beyond A to Z uses 2 to 4 places of the room,
+so a family name holds 19 plain letters but fewer accented ones. Without the
+patch (or in the original game) the save still loads and works, but an
+accented letter shows as two or three odd letters (Zoe with two dots shows as
+"ZoÃ«"). Not yet tested in a running game.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).
@@ -275,6 +288,16 @@ Next to the Patches tab is a Tools tab for your family saves.
                     Save PNG: the game's size, 2x, 4x or your own width
                     and height, with or without a small margin. Saves and
                     game files are only read.
+  Game Text         Type anything and see it exactly as the game draws its
+                    text, in any of the game's fonts and any colour, then
+                    save it as a PNG with a clear background (the game's
+                    size, 2x, 4x or your own). Pick accents and any other
+                    character from the list: search by name ("e acute") or
+                    code (U+00E9). Each says if the font has it, if the
+                    patcher made it in the font's style (patcher-made, shown
+                    in the game too), or if Windows draws it. Fonts marked
+                    unused are in the game folder but never shown by the
+                    game. Only the game folder is read.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).

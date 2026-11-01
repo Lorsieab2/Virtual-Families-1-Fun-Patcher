@@ -134,7 +134,8 @@ def test_settings_load_under_their_category_with_descriptions(app):
     assert not any(v.get() for v in app.setting_vars.values())
     app.select_category_settings("main")
     assert app.selected_settings() == {"FixVanillaGameBugs", "OlderVillagerMortalityCurve", "PrivateRomanticTime",
-                                      "FamilyHistory", "AllowOlderPregnancies", "ClampMoneyAndFood", "SpecialUpgrades"}
+                                      "FamilyHistory", "RenderUnicodeInGameFonts", "AllowOlderPregnancies",
+                                      "ClampMoneyAndFood", "SpecialUpgrades"}
     app.select_default_settings()
     assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
     app.select_all_settings()                    # Select All Patches leaves the Experimental setting off
@@ -148,7 +149,8 @@ def test_settings_load_under_their_category_with_descriptions(app):
 # that costs or adds content stays on; Up to 28 Children stays off (Experimental).
 DEFAULTS = {
     "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-    "UpTo28Children": False, "FamilyHistory": True, "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
+    "UpTo28Children": False, "FamilyHistory": True, "RenderUnicodeInGameFonts": True,
+    "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
     "SpecialUpgrades": True, "CheatUpgrades": False, "FleaMarket": False, "FreeAndGuaranteedCheats": False,
     "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
     "GlowingCollectables": True, "BehaviorLabelVariants": True}

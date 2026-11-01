@@ -120,6 +120,7 @@ PATCH_SETTINGS = {
     "FleaMarket": ("Flea Market", False),
     "FreeAndGuaranteedCheats": ("Free and Guaranteed Cheats", False),
     "StoreRefreshKey": ("R Refreshes the Store", True),
+    "RenderUnicodeInGameFonts": ("Render Unicode with In-Game Fonts", True),
 }
 # The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
 UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
@@ -645,6 +646,23 @@ def _keys() -> list[Fact]:
         Fact(g, "While a dialog's name box has the typing cursor, Enter does nothing: the box gets each key before "
                 "its dialog does (the newest window to open is asked first) and keeps every key except Esc for "
                 "itself. Esc still reaches the dialog.", C, sub=True),
+        Fact(g, "What a name box takes: only plain letters, digits, spaces and ASCII punctuation. A typed character "
+                "that is anything else (an accented letter, an Alt code, an input method's word) never arrives: the "
+                "game drops any typed text longer than one byte, and a box refuses every byte from 128 up. The "
+                "family name box takes 20 characters and keeps 19 (the 20th is cut when you press OK).", C,
+             sub=True),
+        Fact(g, "How the game draws text: four fonts (pictures of white letters it tints to the colour wanted), "
+                "each with the same 190 letters: the space, A to Z, a to z, digits, ASCII punctuation and the "
+                "Latin-1 accented letters and signs from ¢ to ÿ. A byte it has no letter for is drawn as "
+                "“!”. Ten more font pictures (and four copies of the used ones, laid out 512 pixels wide) "
+                "are in its Images folder but never drawn.", C, sub=True),
+        Fact(g, with_patcher("RenderUnicodeInGameFonts", "every name box takes any character the keyboard gives "
+                             "(accent keys, dead keys, Alt codes, an input method's text), Backspace deletes a whole "
+                             "character, and a name is kept as UTF-8 in the same room, never cut inside a "
+                             "character (a family name holds 19 plain letters, fewer accented or other ones). All "
+                             "text is drawn with the game's own fonts, with patcher-made letters in the same style "
+                             "for the ones they lack. The stock game shows such a name as other Latin-1 letters, "
+                             "one per byte, and saves it unchanged."), E, sub=True),
         Fact(g, "Opening logos: any typed key or a click moves on to the next logo (each also moves on by itself "
                 "after 4 seconds of real time). F1 skips the rest of the logos and the loading screen and opens the "
                 "house at once.", C),

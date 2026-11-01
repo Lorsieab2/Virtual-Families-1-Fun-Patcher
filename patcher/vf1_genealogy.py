@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import vf1_save
+import vf1_text
 
 UNITS_PER_YEAR = vf1_save.AGE_UNITS_PER_YEAR
 GAME = 1                                  # the renderer's game number (one head sheet pair, SHEETS[1])
@@ -237,7 +238,7 @@ def read_children_sidecar(data: bytes) -> ChildrenSidecar | None:
         slot, sex, state, head, body, age = struct.unpack_from("<6i", data, at)
         if not 0 <= slot < vf1_save.VILLAGER_SLOTS or state not in KIDS_STATES:
             return None
-        name = data[at + 24:at + 24 + 28].split(b"\0", 1)[0].decode("latin-1")
+        name = vf1_text.decode(data[at + 24:at + 24 + 28])
         kids.append(ExtraChild(slot, sex, KIDS_STATES[state], head, body, age, name))
     return ChildrenSidecar(save_hash, save_size, gens, pslot, psex, kids)
 
@@ -305,7 +306,7 @@ def make_children_sidecar(save_bytes: bytes, generations: int, parent_slot: int,
     for i, c in enumerate(children):
         at = KIDS_HEADER + i * KIDS_ENTRY
         struct.pack_into("<6i", out, at, c.slot, c.sex, states[c.state], c.head, c.body, c.age)
-        name = c.name.encode("latin-1")[:27]
+        name = vf1_text.encode(vf1_text.cut_to_bytes(c.name, 27))
         out[at + 24:at + 24 + len(name)] = name
     struct.pack_into("<Q", out, size - 8, fnv1a64(bytes(out[:-8])))
     return bytes(out)

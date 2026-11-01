@@ -152,6 +152,21 @@ Six settings change the base game on their own (plus the optional ones below):
   DLL, `vf1logs.dll`; every hook is emulated from a live caller. **Not live tested yet** -- see
   `docs/FAMILY_HISTORY.md`.
 
+- **Render Unicode with In-Game Fonts** (a Main Patch, on by default): the game types, keeps and shows any
+  Unicode text with its own fonts. Typing in the game's own name boxes takes every character the keyboard gives
+  (accent keys, dead keys, Alt codes, an input method's text; the stock game drops any SDL text event longer than
+  one byte and any key from 0x80), and backspace deletes a whole character. Names are stored as UTF-8 inside the
+  save's own name fields (no field is made bigger; a name is cut only between whole characters); a string that is
+  not valid UTF-8 is read as before, one byte one character. Every piece of text is drawn letter by letter as the
+  game draws its own: the game's letter (U+0020..U+007F, U+00A2..U+00FF), else a patcher-made letter in the
+  font's style (`payload\UnicodeText`, made by `scripts/build_vf1_glyphs.py`: accented letters built from the
+  game's own letters and accents, the rest drawn by Windows in the font's face, size and coverage; about 3,000
+  per font), else a letter Windows draws on the spot (Segoe UI, Segoe UI Historic, Symbol, Emoji, Yu Gothic,
+  Microsoft YaHei, Malgun Gothic, Nirmala UI, Ebrima ... Noto), else a box. The stock game, or the setting off,
+  loads, shows and saves such a save without harm, showing each byte as a Latin-1 letter ("Zoë" as "ZoÃ«").
+  Its own DLL, `vf1text.dll`; all of it is run on the real exe in the emulator, including letters drawn by the
+  machine's own GDI. **Not live tested yet** -- see `docs/UNICODE_TEXT.md`.
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## The patcher window: Patches and Tools
@@ -240,6 +255,14 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     proposed lines held and which were left out. It opens no save, game file or install and writes nothing.
     Module `patcher/vf1_game_mechanics.py` (`python patcher/vf1_game_mechanics.py` prints the page), tests
     `tests/test_game_mechanics.py`.
+  - **Game Text...:** type anything in any of the game's fonts and see it exactly as the game draws text (every
+    box and advance from the exe's own glyph tables and the game's DrawString / GetWidth, checked in the
+    emulator), in any colour (the game tints by ANDing its white letters), and save it as a transparent PNG at the
+    game's size, 2x, 4x or a custom size. The four fonts the game uses come first; the ten font sheets in Images
+    the game never draws follow, "(unused in the game; metrics not from the game)", with glyph boxes found from
+    the sheet. A character picker searches by name or code point and says where each letter comes from (the game,
+    patcher-made, drawn by Windows, or missing). "As the stock game shows it" draws the same text's UTF-8 bytes as
+    the unpatched game would. Module `patcher/vf1_game_text.py` (fonts in `vf1_game_fonts.py`).
   - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
     save* lists a save's family members (at home, then those who left home) and the outfits in the store and the
     tool tray, and draws each as the game would now: their age, hair and face (head row), outfit (body row) and the
@@ -359,7 +382,8 @@ copies as arguments.
 
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
   `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
-  `native\build_logs.bat` builds `build\vf1logs.dll` (the Family History Log).
+  `native\build_logs.bat` builds `build\vf1logs.dll` (the Family History Log) and
+  `native\build_text.bat` builds `build\vf1text.dll` (Render Unicode with In-Game Fonts).
   They need Visual Studio's 32-bit C++ tools.
 - **Loader stub:** `python tools/build_stub.py` rebuilds `patcher/stub.json`
   after a change. It needs `keystone-engine`.

@@ -92,6 +92,7 @@ from pathlib import Path
 
 import vf1_genealogy as gen
 import vf1_rename_family as rename
+import vf1_text
 import vf1_save as save_format
 import vf1_save_backup as save_backup
 import vf1_tree_memory
@@ -431,11 +432,11 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
     if newest_history is not None:
         count = 1
         for index in copied_numbers:
-            text = plan.writes[index].data.decode("cp1252", errors="replace")
+            text = vf1_text.decode_lines(plan.writes[index].data)
             count = max([count] + [int(n) + 1 for n in _COPIED.findall(text)])
         newest = plan.writes[newest_history[1]]
         prefix = b"" if not newest.data or newest.data.endswith(b"\n") else b"\r\n"
-        newest.data += prefix + history_record(source, old, new_name, when, count).encode("ascii")
+        newest.data += prefix + vf1_text.encode(history_record(source, old, new_name, when, count))
         newest.what = "copied, with a Family Copied record"
 
     menu = rename._with_name(options, menu_at, rename.OPTIONS_NAME_STRIDE, new_name)

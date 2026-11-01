@@ -150,6 +150,17 @@
         "Starting over or a new family clears that slot's log (backups are kept); evicting the family keeps it.",
         "On by default. Not yet tested in a running game; your save file itself is never changed."
       ]
+    },
+    {
+      "ids": ["RenderUnicodeInGameFonts"],
+      "guide": [
+        "Lets the game take and show any letter: accents, Turkish, Polish, Vietnamese, Greek, Cyrillic, Japanese, Chinese, Korean, emoji and more.",
+        "Type them in the game's own name boxes with your keyboard's accent keys, Alt codes or an input method. Backspace deletes a whole letter.",
+        "Letters the game's fonts lack are made in the same style: accents from the game's own letters, the rest drawn by Windows in the font's size.",
+        "Names stay in the save's own name spaces. A letter beyond A to Z uses up more of the room, so a family name holds fewer of them.",
+        "With the patch off, or in the stock game, the save still works, but an accented letter shows as two or three odd letters.",
+        "On by default. Not yet tested in a running game."
+      ]
     }
   ],
   "controls": {
@@ -315,7 +326,7 @@
         "Changes a family's name in its save, so the slot menu and the game show the new name.",
         "Quit the game first, from its own menu. Click Rename Family..., pick the family, type the new name (1 to 19 characters, the most the game keeps), then Rename.",
         "Your saves are backed up first, as \"Backup <date> (before rename)\", so it can be undone with Restore Saves.",
-        "Letters, digits and spaces are safe. Which other symbols the game can draw is not yet confirmed, so an odd symbol may show wrongly.",
+        "Any letter works, accents and other alphabets too; each beyond A to Z takes 2 to 4 of the 19. The game shows them with Render Unicode with In-Game Fonts on.",
         "The Family History log, if the family has one, gets a record saying the family was renamed. Old log files keep their old name."
       ]
     },
@@ -374,6 +385,16 @@
         "Carrying: all 150 things a family member can hold. Ones the game never shows come last, marked so. Animation: the game's own poses; some draw what is carried lower.",
         "Pictures: the game folder's own (patched if its settings are on), the stock game's, or the patcher's own carried things and collectables.",
         "Save PNG saves the picture at the game's size, 2x, 4x or your own width and height. Saves and game files are only read."
+      ]
+    },
+    "game_text": {
+      "title": "Game Text",
+      "guide": [
+        "Type anything and see it drawn exactly as the game draws its text, in any of the game's fonts, in any colour.",
+        "Pick accents and any other character from the list: search by name, like \"e acute\", or by code, like U+00E9.",
+        "Each character says if the font has it, if the patcher made it in the font's style, or if Windows draws it. (patcher-made) letters show in the game too.",
+        "Fonts marked unused are in the game folder but never shown by the game; their letter spacing was worked out from the picture.",
+        "Save PNG saves a clear picture at the game's size, 2x, 4x or your own size. Only the game folder is read."
       ]
     }
   }
