@@ -50,13 +50,15 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG:
         SetDlgItemTextW(dlg, ID_FA_AGE, L"5");
+        // the one name limit (in UTF-16 units: 300 characters are at most 1,200 units here; SetName cuts to 300)
+        SendDlgItemMessageW(dlg, ID_FA_NAME, EM_LIMITTEXT, VF1_NAME_BOX_BYTES, 0);
         HideWithoutFreeCheats(dlg, ID_FA_FORCE);
         RefreshFamily(dlg);
         return TRUE;
     case WM_COMMAND: {
         int id = LOWORD(wp);
-        wchar_t name[32];
-        GetDlgItemTextW(dlg, ID_FA_NAME, name, 32);
+        wchar_t name[VF1_NAME_BOX_BYTES + 1];
+        GetDlgItemTextW(dlg, ID_FA_NAME, name, VF1_NAME_BOX_BYTES + 1);
         switch (id) {
         case ID_FA_SAMESEX: gVillage.sameSex = IsDlgButtonChecked(dlg, id) == BST_CHECKED; break;
         case ID_FA_REROLL: gVillage.reroll = IsDlgButtonChecked(dlg, id) == BST_CHECKED; break;

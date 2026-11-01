@@ -73,6 +73,22 @@ static bool StartsWith(const char *s, const char *prefix) {
     return true;
 }
 
+// The whole name a stored name stands for (One character limit for every name box: the short form in the save, the
+// whole name in the save's Names file), from vf1text.dll or vf1font.dll when one is loaded; else the name itself.
+typedef const char *(__cdecl *FullNameFn)(const char *);
+static const char *WholeName(const char *stored) {
+    static FullNameFn fn;
+    static bool looked;
+    if (!looked) {
+        HMODULE m = GetModuleHandleW(L"vf1text.dll");
+        if (!m) m = GetModuleHandleW(L"vf1font.dll");
+        // vf1fun.dll loads the text companion before theGame::Init; until then, look again next time
+        if (m) { fn = (FullNameFn)GetProcAddress(m, "VF1Text_FullName"); looked = true; }
+    }
+    const char *r = fn ? fn(stored) : stored;
+    return r ? r : stored;
+}
+
 // A text being built in a fixed buffer; anything past the end is dropped, never overrun.
 struct Text {
     char *buf;
@@ -85,6 +101,16 @@ struct Text {
         return *this;
     }
     Text &Name(const char *s, unsigned max) {   // a game text field: at most `max` bytes, tabs and line ends dropped
+        // A name longer than its field is kept in the save as its short form; the whole name (the save's Names
+        // file, vf1text.dll / vf1font.dll) is written instead.
+        if (s) {
+            char field[64];
+            unsigned k = 0;
+            while (k < max && k + 1 < sizeof field && s[k]) { field[k] = s[k]; ++k; }
+            field[k] = 0;
+            const char *whole = WholeName(field);
+            if (whole != field) { s = whole; max = 0xFFFFu; }
+        }
         for (unsigned i = 0; s && i < max && s[i] && n + 1 < cap; ++i)
             if (s[i] != '\t' && s[i] != '\r' && s[i] != '\n') buf[n++] = s[i];
         buf[n] = 0;

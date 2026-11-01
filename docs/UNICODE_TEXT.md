@@ -82,9 +82,9 @@ draws each byte as its Latin-1 letter ("Zoë" as "ZoÃ«"; bytes 0x80..0xA1, whi
 crashes: every byte has a row (`test_the_stock_game_draws_utf8_names_as_latin1_letters_without_harm`).
 
 **Where VF1 differs from the Virtual Villagers patcher.** Same storage rule and drawing order. VF1's fields are
-fixed bytes in the save (family name 19, slot menu 20, a person's name 24, parents' names 25), and in this first
-part the limit is those bytes, so an accented letter takes 2 of them and a Chinese letter 3: the one shared
-character limit with the full text in a sidecar is the next part (below).
+fixed bytes in the save (family name 19, slot menu 20, a person's name 24, parents' names 25), and a name
+that fits is stored as it is; a longer one as its short form, with the whole name in the save's Names file (One
+character limit for every name box, below).
 
 **Drawing.** Each whole character is drawn as the game draws its own letters (the same clip, the same blit, the
 same AND tint, the same advance):
@@ -200,10 +200,134 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
 6. Colour: text drawn in a colour (store prices, dialogs) shows patcher-made letters in the same colour.
 7. Check frame rate in the house with a long Japanese family name on screen (the letters are made once).
 
+## One character limit for every name box (2026-11-01)
+
+### Release note
+
+> **Names up to 300 characters, everywhere.** With Render Unicode with In-Game Fonts or Use Unicode Font on, every
+> name box takes up to 300 characters: the family name, the slot menu's New Player, adoption, a new baby, renaming a
+> family member, and the Upgrades menu's Spawn Child and Adopt Outside Child; Rename Family and Copy Player Slot
+> take the same 300. It is one limit, shared with the other Fun Patchers. Characters are counted as you see them
+> (a letter with its accents, an emoji with its skin tone or a flag is one), and Backspace removes one whole
+> character. A long name scrolls in its box while you type it. The save itself is not changed: a name that fits
+> its field is kept there exactly as before; a longer one is kept there as its short form (its start and "...",
+> or "2...", "3..." when two would start alike) and the whole name is kept beside the save, in
+> `Virtual Families 1 Patcher Data\Names`. The game shows the whole name wherever it shows that name, fitted with
+> an ellipsis (…) only where the game leaves room for a name's usual length; the Family History log, the Family
+> Tree Maker, Rename Family and Copy Player Slot use the whole name. Back Up Saves, Restore Saves and Copy Player
+> Slot carry the Names files with the saves. With both settings off the game still loads and plays such a save and
+> shows the short form.
+
+### The limit and why (VERIFIED in the exe)
+
+`NAME_LETTERS = 300` in `patcher/vf1_text.py` is the only place the number is written; `NAME_BOX_BYTES = 4 x 300
+= 1,200` and the mark `"..."` sit beside it. `scripts/build_vf1_text_tables.py` writes all three into
+`native/vf1text/extenders.inc` (`VF1_NAME_LETTERS`, `VF1_NAME_BOX_BYTES`, `VF1_NAME_MARK`), which vf1text.dll,
+vf1font.dll and vf1fun.dll include; `tests/test_name_limit.py` checks that nothing else spells the number.
+
+The ceiling is the LDW engine's own: `ldwTextControlImpl::SetEditable` 0x40D370 clamps every box's limit to 0x4B0
+= 1,200 bytes (`cmp edx, 0x4B0` / `mov edx, 0x4B0` at 0x40D3B3) and allocates limit + 1 bytes; Fish / Plant
+Tycoon's engine has the same cap. One code point is at most 4 bytes of UTF-8, so 300 characters of single code
+points always fit in 1,200 bytes. A character built of several code points (a letter with several marks, a joined
+emoji family) takes more: the box then stops at 1,200 bytes first (it takes a typed code point only while the text
+stays within 1,200 bytes AND 300 characters). The cap is not patched past.
+
+### The boxes (all ten `SetEditable` calls that make a name box; VERIFIED)
+
+| SetEditable call | Stock limit | The box | Where its text goes (GetText call -> copy) |
+| --- | --- | --- | --- |
+| 0x41BB4F 0x41BBEF 0x41BC91 0x41BD36 0x41BDF0 | 20 | the slot menu's five names | 0x41C1BB / 0x41C207 / 0x41C257 / 0x41C2A7 / 0x41C2F4: GetText(gs+0x1B192+0x15(k-1), 0x14), then strcpy to gs+0x1B12C |
+| 0x41BF15 | 20 | New Player | (the same five reads) |
+| 0x41C67C | 20 | the first family's name | 0x41C72B: GetText(gs+0x1B12C, 0x14), then strcpy to gs+0x1B192 (slot 1) |
+| 0x435AFB | 18 | adoption | 0x43682A: GetText(local, 0x13), then strncpy(villager+0x2A44, local, 0x19) |
+| 0x437955 | 18 | a new baby | 0x43829D: GetText(local, 0x13), then strncpy(villager+0x2A44, local, 0x19) |
+| 0x44A6DE | 18 | renaming a family member | 0x44BCE1 / 0x44BDDE: GetText(local, 0x13), FamilyTree::ChangeName (0x481C20, copies at most 0x19 at 0x481C3A), then strncpy(villager+0x2A44, local, 0x19) |
+
+Not names, left at their stock limits: 0x4172A8 (an 80-byte field of a Job / Likes dialog, 0x416CF0) and
+0x43F1B0 / 0x43F200 (the animation tool's 20- and 31-byte fields). The one other GetText call, 0x41C050 (the slot
+menu reading a slot's label into a 20-byte local), gets the short form too.
+
+**Where the typed text can go (audit).** The enlarged buffer is the box's own (`impl+0x30`, allocated by
+SetEditable / SetText with limit + 1 bytes). Its pointer is read only by the box's own methods: SetEditable
+0x40D370, SetText 0x40D430, its auto-size 0x40CFD0 (measures only), its Draw 0x40D140 (measures and draws; it would
+cut the text, see below), GetTextLength 0x40D710 (its two callers, 0x41C10F and 0x41C6EC, only test for empty),
+GetText 0x40D740, HandleMessage 0x40DA70 and the destructor 0x40D921. Every copy of a name into a fixed buffer goes
+through GetText, which now gives the game only the short form: at most `size - 1` bytes, valid UTF-8, never more
+than the stock game could store. The game's own copies after it (the strcpy / strncpy above, ChangeName's 0x19)
+see only that. The full text goes only to the Names file and to the drawing hooks.
+
+### How it works (`native/vf1text/names.inc`, in vf1text.dll and vf1font.dll)
+
+Four more function-entry hooks, installed with the six of the first part, all or nothing, after checking each
+site's stock bytes; each runs the stock code for everything it does not change:
+
+| Site | What the DLL does there |
+| --- | --- |
+| 0x40D370 SetEditable | called from one of the ten name-box calls (its return address): the limit is 1,200 bytes |
+| 0x40D430 SetText | a name box given a short form opens with the whole name |
+| 0x40D140 the box's Draw | the stock draw deletes bytes from the end of the box's text until it fits (0x40D2B7); a name box draws a copy instead -- the end that fits while it is typed into, its start with "…" otherwise -- so its text is never cut |
+| 0x409D70 the word wrapper | whole names for short forms before the stock wrapping |
+
+and the first part's hooks do more: HandleMessage counts characters in a name box (300) and its bytes (1,200);
+GetText of a name box gives the short form (`ShortFor`, the rule of `vf1_names.short_form`) and records the whole
+name in the Names file of the slot the call site writes (fixed for the slot menu and the first family, the slot
+being played, gs+0x1B188, for a member's name); DrawString and GetWidth draw and measure the whole name wherever a
+short form is drawn, fitted with "…" into the width of as many "W" as the field holds bytes (the widest name the
+stock game can show there). Every short form ends with "...", so only text with "..." in it is looked at.
+
+**The short form** (`vf1_names.short_form`, the same in the DLL): a short form already standing for this name is
+used again; a name that fits and is no other name's short form is stored as it is; else the longest start that
+fits with the mark (trailing spaces dropped) + "...", then + "2...", "3..." until it stands for no other name in
+any slot (a family name's short form shows in the slot menu beside the others). It is unique, so it names one
+family member: it follows them wherever the game copies their name (their children's parents' names, the Family
+Tree's records, their death), through Copy Player Slot, Back Up / Restore Saves and a rename.
+
+**The Names file**: `<saves>\Virtual Families 1 Patcher Data\Names\Virtual Families<N>.ldw.txt`, UTF-8 lines
+`VF1 Names 1`, then `short<TAB>room<TAB>whole name` (room: the field's bytes it was made for). Written through a
+temporary file and MoveFileEx. A line is never removed: a short form no longer in the save is harmless (a new one
+is never made equal to it), and the older autosave copies `<N+20>` / `<N+40>` stay readable. A line that is not
+valid (no mark, too long for its room, a control character, more than 300 characters or 1,200 bytes) is left out;
+a file that cannot be read is read as empty, and the save shows its short forms.
+
+**Who else reads it**: vf1logs.dll writes the whole name in the Family History log (`Text::Name` asks
+vf1text.dll / vf1font.dll's `VF1Text_FullName`); vf1fun.dll's windows show whole names, and Spawn Child / Adopt
+Outside Child take 300 characters (`VF1Text_StoreName`, in the 24 bytes those windows use); the patcher's
+`vf1_save.read_save`, the Family Tree Maker (`vf1_genealogy.load_village`, before the tree file and the log), the
+Family History reader (an older log's short forms), Rename Family and Copy Player Slot (both write the Names file:
+a long new name gets its line, the copy takes the source's file with the new name's line; a failed rename puts it
+back) use `patcher/vf1_names.py`.
+
+### Proved (tests)
+
+`tests/test_name_limit.py`, with the REAL vf1text.dll and vf1font.dll on the REAL exe in Unicorn
+(`tests/names_emu.py`): each of the ten boxes, set up from its own call site, takes 300 characters and refuses the
+301st, and takes 300 four-byte characters (1,200 bytes) and nothing more, with guard bytes after every buffer the
+game allocates; joined emoji stop at the 1,200-byte cap; combining marks do not count; Backspace removes one whole
+character; the three other boxes keep their stock limits; for every GetText site the game's own instructions run
+from the call to the end of the copy after it, with names that fit exactly, one byte past the field, 300
+characters, 300 accented characters and 1,200 bytes, and nothing outside each destination field or local buffer
+changes (guard bytes) while the destination holds `vf1_names.short_form`'s answer and the Names file the whole
+name; short forms of names that start alike are unique and equal the patcher's; the same name keeps its short
+form; a rename box opens with the whole name; DrawString, GetWidth and the word wrapper show the fitted whole name
+in all four fonts; a long name scrolls in its box and the box's text is never cut; the Names file is read again
+after a restart; a damaged one reads as empty. `tests/test_rename_family.py` and `tests/test_copy_slot.py`: long
+names, the Names file, two names that start alike, a failed rename undone.
+
+### Live checks (not yet done)
+
+1. New family with a 300-character name (type until the box stops): the box scrolls; the main screen, the slot
+   menu and the Family Tree screen show the whole name (with "…" where it does not fit); quit and start again:
+   the same.
+2. Adopt, name a new baby and rename a member with a long name and with a 300-character Japanese name; open the
+   Family Tree screen and a child's parents' names; let a long-named member die.
+3. Turn both Unicode settings off and re-patch: the family loads and plays and shows the short forms; turn one on
+   again: the whole names are back.
+4. Rename Family and Copy Player Slot with a long name; Back Up Saves and Restore Saves; the Family History log
+   shows whole names; the Upgrades menu's Spawn Child with a long name.
+5. Use Unicode Font with Comic Sans MS: the same checks.
+
 ## Not in this part (the rest of the stage-3 work)
 
-* One shared character limit, counted in characters, as large as possible, with the full text in a per-save
-  sidecar and the game's name boxes and drawing patched to use it.
 * Colour emoji (GDI draws them in one colour; DirectWrite would be needed).
 * CJK line breaking (the game's word wrapper only breaks at spaces).
 * Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,

@@ -101,8 +101,16 @@ class TextWorld:
     def _seams(self):
         e = self.e
 
+        self.guard_new = False      # names_emu: every later allocation gets 16 guard bytes of 0xCC after it
+        self.news: list[tuple[int, int]] = []
+
         def new(em):
-            return em.alloc(max(4, em.arg(0))), 0
+            n = max(4, em.arg(0))
+            if not self.guard_new:
+                return em.alloc(n), 0
+            p = em.alloc(n + 16, fill=0xCC)
+            self.news.append((p, n))
+            return p, 0
         e.seam(0x497B14, new)
         e.seam(0x40B270, lambda em: (1, 0))                                  # the sheet file is there
 

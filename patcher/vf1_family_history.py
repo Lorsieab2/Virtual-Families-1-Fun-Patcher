@@ -196,14 +196,33 @@ def _take(h: History, e: Entry) -> None:
         h.renames.append((e.get("Old name", ""), e.get("New name", "")))
 
 
+def _whole_names(folder: Path, slot: int):
+    """A log written before its names were whole (One character limit for every name box: the save keeps a longer
+    name's short form, vf1logs writes the whole name since): each short form that is a whole field value (after
+    ": " or ", ", before the line's end, " (" or ",") read as the whole name the slot's Names file keeps."""
+    import re
+    import vf1_names
+    book = vf1_names.Book(folder)
+    entries: dict[str, str] = {}
+    for s in [slot] + [k for k in range(1, 6) if k != slot]:      # the slot's own first
+        for e in book.slots[s]:
+            entries.setdefault(e.short, e.full)
+    if not entries:
+        return lambda text: text
+    alternatives = "|".join(re.escape(s) for s in sorted(entries, key=len, reverse=True))
+    pattern = re.compile(rf"(?m)(?<=: |, )({alternatives})(?=\r?$| \(|,)")
+    return lambda text: pattern.sub(lambda m: entries[m.group(1)], text)
+
+
 def read(folder: Path, slot: int) -> History | None:
     paths = files(folder, slot)
     if not paths:
         return None
     h = History()
+    whole = _whole_names(folder, slot)
     for path in paths:
         try:
-            parse(vf1_text.decode_lines(path.read_bytes()), h)
+            parse(whole(vf1_text.decode_lines(path.read_bytes())), h)
         except OSError:
             continue
         h.files.append(path)

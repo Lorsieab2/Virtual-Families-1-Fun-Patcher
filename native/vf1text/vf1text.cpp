@@ -26,6 +26,11 @@
 //   0x40DA70 ldwTextControlImpl::HandleMessage         -> TextMessage: types any character, deletes whole ones
 //   0x4049BB the SDL_TEXTINPUT case of ldwGame's event loop (the stock game keeps only 1-byte text):
 //            every character of the event is posted to the text box as (5, 0, 0x40000000 | code point).
+//   0x40D370 ldwTextControlImpl::SetEditable          -> SetEditableHook: a name box takes VF1_NAME_LETTERS
+//   0x40D430 ldwTextControlImpl::SetText               -> SetTextHook: a name box opens with the whole name
+//   0x40D140 ldwTextControlImpl::Draw                  -> BoxDrawHook: a long name scrolls, never cut
+//   0x409D70 the justified word wrapper                -> WrapHook: whole names for short forms
+//   (names.inc: one character limit for every name box, the short forms and the Names files)
 //
 // The C runtime is not used (no CRT start-up runs under the tests' emulator): memory comes from the process
 // heap, strings are walked by hand.
@@ -542,6 +547,9 @@ static void BlitLetter(void *window, SDL_Surface *surface, ldwRect rect, int x, 
     }
 }
 
+// Whole names for short forms (names.inc).
+static const char *WithNames(const char *text, void *impl, char **owned);
+
 // 0x409660 ldwGameWindowImpl::DrawString(text, x, y, colour, font), ret 0x14.
 static void __fastcall DrawString(void *window, void *, const char *text, int x, int y, unsigned colour, void *font) {
     if (!font) font = *(void **)((char *)window + 0x5C);
@@ -553,8 +561,10 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
     SDL_Surface *game = Tinted(impl, colour);
     if (!game || !text) return;
     FontExtra *f = ExtraFor(impl);
+    char *owned;
+    text = WithNames(text, impl, &owned);
     Run run;
-    if (!DecodeRun(&run, text, (int)Len(text))) return;
+    if (!DecodeRun(&run, text, (int)Len(text))) { Free(owned); return; }
     int startX = x;
     for (int i = 0; i < run.n;) {
         int j = ClusterEnd(run.cps, run.n, i);
@@ -575,6 +585,7 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
         x += w + spacing;
     }
     FreeRun(&run);
+    Free(owned);
 }
 
 // 0x409450: the same for the first `count` bytes; measureOnly draws nothing; returns the last line's width.
@@ -621,14 +632,11 @@ static int __fastcall DrawStringN(void *window, void *, const char *text, int co
     return x - startX;
 }
 
-// 0x402320 ldwFont::GetWidth(text, scale), ret 8.
-static int __fastcall FontGetWidth(void *font, void *, const char *text, float scale) {
-    void *impl = ImplOf(font);
-    if (!impl || !ImplValid(impl) || !text) return 0;
+// The stock measure of `bytes` bytes of text, no names replaced: ldwFont::GetWidth's arithmetic.
+static int Measure(void *impl, FontExtra *f, const char *text, int bytes, float scale) {
     int spacing = *(int *)((char *)impl + 8);
-    FontExtra *f = ExtraFor(impl);
     Run run;
-    if (!DecodeRun(&run, text, (int)Len(text))) return 0;
+    if (!DecodeRun(&run, text, bytes)) return 0;
     int widest = 0, line = 0;
     for (int i = 0; i < run.n;) {
         int j = ClusterEnd(run.cps, run.n, i);
@@ -648,6 +656,21 @@ static int __fastcall FontGetWidth(void *font, void *, const char *text, float s
     if (line > widest) widest = line;
     if (widest) widest -= spacing;
     return widest;
+}
+static int MeasureRaw(void *impl, FontExtra *f, const char *text, int bytes) {
+    return Measure(impl, f, text, bytes, 1.0f);
+}
+
+// 0x402320 ldwFont::GetWidth(text, scale), ret 8.
+static int __fastcall FontGetWidth(void *font, void *, const char *text, float scale) {
+    void *impl = ImplOf(font);
+    if (!impl || !ImplValid(impl) || !text) return 0;
+    FontExtra *f = ExtraFor(impl);
+    char *owned;
+    text = WithNames(text, impl, &owned);
+    int w = Measure(impl, f, text, (int)Len(text), scale);
+    Free(owned);
+    return w;
 }
 
 // ================================================================ typing
@@ -696,6 +719,24 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 #define TC_B(c, off) ((c)->raw[(off)])
 #define TC_P(c, off) (*(char **)((c)->raw + (off)))
 
+#include "names.inc"
+
+// A name box takes a character while the text stays within VF1_NAME_LETTERS characters (and its bytes within the
+// box's VF1_NAME_BOX_BYTES, checked by the caller).
+static bool NameBoxTakes(TextControl *c, const char *buf, int len, const unsigned char *add, int n) {
+    if (!IsNameBox(c)) return true;
+    if (len + n > VF1_NAME_BOX_BYTES) return false;
+    if (len + n <= VF1_NAME_LETTERS) return true;          // fewer bytes than the limit: fewer characters too
+    char *t = (char *)Alloc((unsigned)(len + n + 1));
+    if (!t) return false;
+    Copy(t, buf, (unsigned)len);
+    Copy(t + len, add, (unsigned)n);
+    bool ok = !IsUtf8((const unsigned char *)t, len + n) ||
+              ClusterCount((const unsigned char *)t, len + n) <= VF1_NAME_LETTERS;
+    Free(t);
+    return ok;
+}
+
 // 0x40DA70 ldwTextControlImpl::HandleMessage(message, a, b), ret 0xC: the stock rules, plus a whole code
 // point posted as (5, 0, 0x40000000 | cp) is added in UTF-8 when it fits, and backspace deletes a whole
 // character of a UTF-8 text.
@@ -723,7 +764,7 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
             return true;
         unsigned char u[4];
         int n = Utf8Put(cp, u);
-        if (len + n > TC_I(c, 0x28)) return true;
+        if (len + n > TC_I(c, 0x28) || !NameBoxTakes(c, buf, len, u, n)) return true;
         Copy(buf + len, u, (unsigned)n);
         buf[len + n] = 0;
         PostChanged(Messages(), 0xC, TC_I(c, 4));
@@ -732,6 +773,8 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
     bool numeric = TC_B(c, 0x2D) != 0;
     bool ok = (!numeric && ch > 0x1F && ch <= 0xFF) || (numeric && ch >= 0x30 && ch <= 0x39) || (len == 0 && ch == 0x2D);
     if (!ok) return true;
+    unsigned char one = (unsigned char)ch;
+    if (!NameBoxTakes(c, buf, len, &one, 1)) return true;
     buf[len] = (char)ch;
     buf[len + 1] = 0;
     PostChanged(Messages(), 0xC, TC_I(c, 4));
@@ -740,10 +783,25 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
 
 // 0x40D740 ldwTextControl::GetText(buffer, size), ret 8: strncpy(buffer, text, size); buffer[size-1] = 0 --
 // and never a piece of a character.
+// A name box gives the game the short form of a longer name (names.inc ShortFor), recording the whole name in the
+// Names file of the slot the call site writes to.
 static void __fastcall GetText(void *control, void *, char *buffer, int size) {
-    char *text = *(char **)(*(char **)((char *)control + 0x10) + 0x30);
+    TextControl *box = *(TextControl **)((char *)control + 0x10);
+    char *text = TC_P(box, 0x30);
     if (size <= 0) return;
     int n = (int)Len(text);
+    if (IsNameBox(box) && !TC_B(box, 0x2F) && size - 1 < VF1_NAME_BOX_BYTES) {
+        unsigned ret = (unsigned)(UINT_PTR)_ReturnAddress();
+        int slot = 0;
+        for (unsigned i = 0; i < sizeof NameSites / sizeof NameSites[0]; ++i)
+            if (NameSites[i].ret == ret) slot = NameSites[i].slot < 0 ? CurrentSlot() : NameSites[i].slot;
+        char out[VF1_NAME_BOX_BYTES + 1];
+        int keep = ShortFor(text, n, size - 1, slot, out);
+        int i = 0;
+        for (; i < keep; ++i) buffer[i] = out[i];
+        for (; i < size; ++i) buffer[i] = 0;
+        return;
+    }
     int keep = FitBytes((const unsigned char *)text, n, size - 1);
     int i = 0;
     for (; i < keep; ++i) buffer[i] = text[i];
@@ -803,6 +861,11 @@ extern "C" __declspec(dllexport) int __cdecl VF1Text_Startup() {
         { 0x40D740, { 0x8B, 0x41, 0x10, 0x8B, 0x48, 0x30, 0x56 }, 7, (void *)&GetText },
         { 0x40DA70, { 0x80, 0x79, 0x25, 0x00, 0x0F, 0x84, 0xD5, 0x00, 0x00 }, 9, (void *)&TextMessage },
         { TextInputSite, { 0x83, 0xF8, 0x01, 0x0F, 0x85, 0xC3, 0x00, 0x00, 0x00 }, 9, (void *)&TextInputDetour },
+        // one character limit for every name box (names.inc)
+        { 0x40D370, { 0x53, 0x8A, 0x5C, 0x24, 0x08 }, 5, (void *)&SetEditableHook },
+        { 0x40D430, { 0x56, 0x8B, 0xF1, 0x8B, 0x46, 0x30 }, 6, (void *)&SetTextHook },
+        { 0x40D140, { 0x83, 0xEC, 0x34, 0x56, 0x8B, 0xF1 }, 6, (void *)&BoxDrawHook },
+        { 0x409D70, { 0x81, 0xEC, 0xDC, 0x04, 0x00, 0x00 }, 6, (void *)&WrapHook },
     };
     const int count = (int)(sizeof hooks / sizeof hooks[0]);
     // all or nothing: every site must hold the stock bytes

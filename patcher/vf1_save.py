@@ -394,9 +394,34 @@ def parse_save(data: bytes) -> VF1Save:
         family_records=parse_family_records(v.at(GS_FAMILY_TREE, FAMILY_RECORDS * FAMILY_RECORD)))
 
 
-def read_save(path) -> VF1Save:
-    """Parse a save file. The file is only read."""
-    return parse_save(Path(path).read_bytes())
+def with_whole_names(save: VF1Save, whole) -> VF1Save:
+    """``save`` with every name (the family's, each member's, parents', records') as ``whole`` gives it: a short
+    form stored in the save becomes the whole name its Names file keeps (vf1_names). The bytes are not changed."""
+    import dataclasses
+
+    def peep(p: PeepRecord) -> PeepRecord:
+        return dataclasses.replace(p, name=whole(p.name))
+    villagers = [dataclasses.replace(v, name=whole(v.name), parent1_name=whole(v.parent1_name),
+                                     parent2_name=whole(v.parent2_name),
+                                     pending_father_name=whole(v.pending_father_name)) for v in save.villagers]
+    records = [dataclasses.replace(r, parent1=peep(r.parent1), parent2=peep(r.parent2),
+                                   children=[peep(c) for c in r.children]) for r in save.family_records]
+    return dataclasses.replace(save, family_name=whole(save.family_name), villagers=villagers,
+                               family_records=records)
+
+
+def read_save(path, whole_names: bool = True) -> VF1Save:
+    """Parse a save file. The file is only read. A "Virtual Families<N>.ldw" (N = a slot, or its older copies N+20,
+    N+40) gets its whole names from the slot's Names file (vf1_names), unless ``whole_names`` is False."""
+    path = Path(path)
+    save = parse_save(path.read_bytes())
+    m = _LDW.match(path.name)
+    owner = slot_of_save_number(int(m.group(1))) if m else None
+    if whole_names and owner and owner[0] >= 1:
+        import vf1_names
+        book = vf1_names.Book(path.parent)
+        save = with_whole_names(save, lambda s, slot=owner[0]: book.full(slot, s))
+    return save
 
 
 def real_seconds_per_age_unit(speed: int = NORMAL_SPEED) -> int:
@@ -450,6 +475,13 @@ def file_owner(relative) -> tuple[int, str] | None:
             if owner and owner[0] >= 1:
                 kind = "unreadable children sidecar" if ".unreadable-" in name.lower() else "children sidecar"
                 return owner[0], f"{kind} ({owner[1]})"
+        return None
+    if parts == [PATCHER_DATA.casefold(), "names"]:      # vf1_names: the whole names of the slot's long names
+        m = re.match(r"^Virtual Families(\d+)\.ldw\.txt$", name, re.IGNORECASE)
+        if m:
+            owner = slot_of_save_number(int(m.group(1)))
+            if owner and owner[0] >= 1:
+                return owner[0], "names file"
         return None
     if parts == [PATCHER_DATA.casefold(), "outfits"]:    # vf1fun outfits.inc (Fix Vanilla Game Bugs)
         m = _CHILDREN.match(name)

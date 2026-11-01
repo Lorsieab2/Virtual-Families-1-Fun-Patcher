@@ -267,8 +267,9 @@ def test_rename_family_asks_then_renames_and_reports(app, save, monkeypatch):
     assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
     dialog._vf1_name_var.set("Smith")
     assert "already" in dialog._vf1_problem_var.get()
-    dialog._vf1_name_var.set("x" * 20)
-    assert "too long" in dialog._vf1_problem_var.get() and dialog._vf1_counter_var.get() == "20 / 19 characters"
+    dialog._vf1_name_var.set("x" * 301)
+    assert "too long" in dialog._vf1_problem_var.get() and dialog._vf1_counter_var.get().startswith(
+        f"301 / {rf.MAX_LENGTH} characters")
     assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
     dialog._vf1_start()
     assert dialog.winfo_exists() and not asked and app.shown[-1][0] == "showerror"     # refused before asking
@@ -354,7 +355,7 @@ def test_copy_player_slot_asks_then_copies_and_reports(app, save, monkeypatch):
     assert dialog._vf1_target_list.curselection() == (2,)            # the first empty slot
     assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
     assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
-    dialog._vf1_name_var.set("x" * 20)
+    dialog._vf1_name_var.set("x" * 301)
     assert "too long" in dialog._vf1_problem_var.get() and str(dialog._vf1_copy_button.cget("state")) == "disabled"
     dialog._vf1_choose(1, 3)
     dialog._vf1_name_var.set("Jones Two")

@@ -64,6 +64,7 @@ class Emu:
         self.uc.hook_add(UC_HOOK_CODE, self._thunk_hook, begin=THUNK_BASE, end=THUNK_BASE + 0x1FFF)
         self.sp_top = STACK_BASE + STACK_SIZE - 0x1000
         self.sdl_module = 0           # what GetModuleHandleW(L"SDL2.dll") answers
+        self.modules = {}             # other modules GetModuleHandleW answers (lower-case name -> handle)
         self.active_window = 0x1234
         self.messagebox_answer = 6    # IDYES
         self.status_text = None       # the last SetDlgItemTextW string
@@ -151,6 +152,8 @@ class Emu:
             return emu.sdl_module, 4
         if emu.wstr(name).lower() == "kernel32.dll":
             return 0x7FFF0000, 4
+        if emu.wstr(name).lower() in ("vf1text.dll", "vf1font.dll"):     # vf1logs asks for the whole names
+            return self.modules.get(emu.wstr(name).lower(), 0), 4
         raise EmuError("GetModuleHandleW of an unexpected module")
 
     def _imp_get_proc_address(self, emu):

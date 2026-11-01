@@ -603,3 +603,32 @@ def test_a_slot_with_no_family_gets_no_log(built):
     w = world(built)
     w.load(4)
     assert not w.fs.files
+
+
+def test_a_short_form_is_logged_as_the_whole_name(built):
+    """One character limit for every name box: with vf1text.dll (or vf1font.dll) loaded, every name the log writes
+    is the whole name its VF1Text_FullName gives for a short form; without it, the name as stored."""
+    whole = {"Annabella Rosa...": "Annabella Rosalind Evangeline Montclair", "Hopkins Hopkins ...": "Hopkins " * 20}
+
+    def companion(w):
+        w.e.modules["vf1text.dll"] = 0x6A000000
+        out = {}
+
+        def full_name(emu):
+            stored = emu.read(emu.arg(0), 64).split(b"\0", 1)[0].decode("utf-8")
+            if stored not in whole:
+                return emu.arg(0), 0
+            if stored not in out:
+                out[stored] = emu.alloc(1300)
+                emu.write(out[stored], whole[stored].encode("utf-8") + b"\0")
+            return out[stored], 0
+        w.e.dyn_procs["VF1Text_FullName"] = full_name
+    w = world(built, before_install=companion)
+    w.set_family_name("Hopkins Hopkins ...")
+    w.start_family(0, "Annabella Rosa...", 1, 26)
+    text = w.history()
+    assert text.startswith("Family: " + "Hopkins " * 20 + " (Save 1)\r\n")
+    assert "  Name: Annabella Rosalind Evangeline Montclair\r\n" in text
+    plain = world(built)
+    plain.start_family(0, "Annabella Rosa...", 1, 26)
+    assert "  Name: Annabella Rosa...\r\n" in plain.history()
