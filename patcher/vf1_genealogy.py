@@ -242,6 +242,53 @@ def read_children_sidecar(data: bytes) -> ChildrenSidecar | None:
     return ChildrenSidecar(save_hash, save_size, gens, pslot, psex, kids)
 
 
+def rekey_children_sidecar(data: bytes, saves) -> bytes | None:
+    """``data`` (a Children file) re-matched to a save a tool rewrote, or None when it is left as it is.
+
+    ``saves`` is (bytes before, bytes after) for each save the tool rewrote. vf1kids takes the children from a
+    Children file only when it names the FNV-1a 64 hash and size of the loaded save (vf1kids.cpp AfterLoad;
+    otherwise it keeps only the extra children still at home), so a file that described one of those saves
+    BEFORE the change is given the new bytes' hash and size and its own checksum again; nothing else in it
+    changes. A file that is damaged, described none of them, or whose save did not change is left alone.
+    """
+    import struct
+    sidecar = read_children_sidecar(data)
+    if sidecar is None:
+        return None
+    for before, after in saves:
+        if sidecar.save_size == len(before) and sidecar.save_hash == fnv1a64(before):
+            if after == before:
+                return None
+            out = bytearray(data)
+            struct.pack_into("<QI", out, 24, fnv1a64(after), len(after))
+            struct.pack_into("<Q", out, len(out) - 8, fnv1a64(bytes(out[:-8])))
+            rekeyed = bytes(out)
+            check = read_children_sidecar(rekeyed)
+            if check is None or check.save_hash != fnv1a64(after) or check.save_size != len(after):
+                return None
+            return rekeyed
+    return None
+
+
+def children_rekeys(folder: Path, slot: int, saves, prefix: str = vf1_save.SAVE_PREFIX) -> list[tuple[Path, bytes, bytes]]:
+    """(path, bytes now, re-matched bytes) for each of ``slot``'s Children files (save numbers N, N+20, N+40:
+    vf1kids also reads the N+20 file for save N) that described one of ``saves`` (see rekey_children_sidecar)
+    before a tool rewrote it. Only this slot's files are looked at; nothing is written here. ``prefix`` is the
+    save files' name before their number (vf1kids names a Children file after its save)."""
+    saves = list(saves)
+    out: list[tuple[Path, bytes, bytes]] = []
+    for number in (slot, slot + 20, slot + 40):
+        path = Path(folder) / CHILDREN_FOLDER / f"{prefix}{number}.ldw.dat"
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        rekeyed = rekey_children_sidecar(data, saves)
+        if rekeyed is not None:
+            out.append((path, data, rekeyed))
+    return out
+
+
 def make_children_sidecar(save_bytes: bytes, generations: int, parent_slot: int, parent_sex: int,
                           children: list[ExtraChild]) -> bytes:
     """A sidecar in vf1kids' format (for tests and synthetic families)."""

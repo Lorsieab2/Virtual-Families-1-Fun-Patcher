@@ -136,8 +136,14 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     backup is never replaced, and a copy that fails is kept as `... INCOMPLETE` and never offered for restore.
     Game speed is set to Paused in the backup's family saves (the copies only; your own saves are unchanged), so
     a restored backup opens paused and never catches up on the time since it was made. Only a family at Normal is
-    paused; a save at another speed, or one that cannot be read, is copied exactly as it is.
+    paused; a save at another speed, or one that cannot be read, is copied exactly as it is. A backup's Children
+    file that matched its family save is re-matched to the paused copy (as Copy Player Slot does), so a restored
+    backup keeps every extra child, including those who left home or died; one that did not match is copied as
+    it is.
   - **Restore Saves:** lists the backups (newest first) and puts one back, the whole folder or one save slot.
+    One save slot means the slot's saves, its `Slot <N>.ini`, Children and Outfits files and its
+    `Virtual Families 1 Patcher\Save <N>` folder (Family History log, Family Tree files), so they all go back
+    together.
     The game must be closed. It shows exactly which files will be replaced, added and removed, **asks you to
     confirm**, and first backs up your current saves as `Backup <date> (before restore)`; if the restore fails
     part-way every file is put back. **Delete Backup...** removes a backup you no longer want (it asks first).
@@ -147,6 +153,8 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     slot-menu name in `Virtual Families0.ldw` (`docs/vf1-save-format.md`), first backing up everything as
     `Backup <date> (before rename)`; every file is checked after writing and put back if anything fails. A family
     with a Family History log gets one `Family Renamed` record in its newest file (old files keep their name).
+    The slot's Children files that matched the renamed saves are re-matched to them (as Copy Player Slot does),
+    so the game keeps every extra child (7 to 28) on the next load; one that did not match is left as it is.
     The module is `patcher/vf1_rename_family.py`, tested in `tests/test_rename_family.py`.
   - **Copy Player Slot...:** copies a family into an empty save slot under a new name, in a closed game's saves.
     Pick the family, an empty slot (one the slot menu shows empty, with no save) and the new name (the Rename
@@ -173,7 +181,9 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     update keeps it (0x489E6B): the paused time is never aged in. Any other speed is refused, as is an unpause that
     would have removed a dead body meanwhile. It backs up first as `Backup <date> (before speed change)`, writes
     only the slot save, reads it back, checks that no other byte changed and puts it back if anything fails. It
-    writes no log and no data file. The stock game sets no speed but 10 and the +999 pause. The patcher's own
+    writes no log. The slot's Children files that matched the save are re-matched to it (as Copy Player Slot
+    does), so the game keeps every extra child on the next load; one that did not match is left as it is. The
+    stock game sets no speed but 10 and the +999 pause. The patcher's own
     Time Controls speeds (Slow 20, Fast 5, 5x 2, 10x 1) are not offered either: vf1fun.dll saves every family at
     Normal (or Paused) and loads any save holding one of them at Normal (theGameState Save / Load wrappers, since
     v0.3.0), so no installed game can produce one in a save. A save the old v0.2.0 left at one is named in words

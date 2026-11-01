@@ -38,8 +38,18 @@ The Family History log (the Family History Log patch)
     holds it, so every file made from now on says "Family: <new name> (Save N)". Old files are never
     rewritten (they keep their history and their header). One record is added to the slot's newest Family
     History file, in the log's own layout: "[YYYY-MM-DD HH:MM:SS] Family Renamed <n>", "  Old name: <old>",
-    "  New name: <new>", numbered after every earlier rename in the slot's files. The Children files and the
-    slot settings are addressed by slot and never by name, so a rename leaves them exactly as they are.
+    "  New name: <new>", numbered after every earlier rename in the slot's files. The slot settings are addressed
+    by slot and never by name, so a rename leaves them exactly as they are.
+
+The Children files (Up to 28 Children)
+    Each names the FNV-1a 64 hash and size of the save it was written with, and vf1kids takes the children from
+    it only when the loaded save still has them (vf1kids.cpp AfterLoad; otherwise it keeps only the extra
+    children still at home). The new name changes the saves' bytes, so each of the slot's Children files
+    (N, N+20, N+40) that described one of the renamed saves BEFORE the rename is re-matched to it, exactly as
+    Copy Player Slot does (vf1_genealogy.rekey_children_sidecar: the new hash and size and the file's own
+    checksum, nothing else), written the same safe way and read back. One that described none of them, or is
+    damaged, is left as it is. The Outfits files are tied to the tray and inventory, not to the save's bytes
+    (outfits.inc DecodeOutfits), so a rename leaves them alone.
 
 Nothing here touches Tk; the GUI runs it on a worker thread, and the tests drive it against a temporary
 copy of a save folder with a fake process list.
@@ -53,6 +63,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+import vf1_genealogy as gen
 import vf1_save as save_format
 import vf1_save_backup as save_backup
 
@@ -256,6 +267,7 @@ class RenameResult:
     backup: save_backup.BackupResult
     changed: list[Path] = field(default_factory=list)
     notes: list[Path] = field(default_factory=list)
+    rematched: list[Path] = field(default_factory=list)     # Children files re-matched to the renamed saves
 
 
 def _refuse_if_running(folder: Path, processes: save_backup.ProcessController) -> None:
@@ -309,6 +321,22 @@ def plan_save_changes(folder: Path, slot: int, new_name: str) -> tuple[str, list
         changes.append(FileChange(path, older, _with_name(older, older_offset, FAMILY_NAME_FIELD, new_name)))
     changes.append(FileChange(options, menu, _with_name(menu, menu_offset, OPTIONS_NAME_STRIDE, new_name)))
     return old, changes
+
+
+def plan_children_changes(folder: Path, slot: int, changes: list[FileChange]) -> list[FileChange]:
+    """The slot's Children files that described a save before ``changes``, re-matched to it after."""
+    options = options_path(folder)
+    saves = [(change.original, change.updated) for change in changes if change.path != options]
+    return [FileChange(path, old, new) for path, old, new in gen.children_rekeys(folder, slot, saves)]
+
+
+def children_match(path: Path, save: bytes) -> bool:
+    """True when the Children file at ``path`` validates and names ``save``'s hash and size (what vf1kids checks)."""
+    try:
+        sidecar = gen.read_children_sidecar(path.read_bytes())
+    except OSError:
+        return False
+    return sidecar is not None and sidecar.save_size == len(save) and sidecar.save_hash == gen.fnv1a64(save)
 
 
 def history_folder(folder: Path, slot: int) -> Path:
@@ -397,6 +425,8 @@ def rename_family(
     when = now or datetime.now()
     _refuse_if_running(folder, controller)
     old, changes = plan_save_changes(folder, slot, new_name)
+    children = plan_children_changes(folder, slot, changes)
+    changes = changes[:-1] + children + changes[-1:]        # the options file stays last
     notes = plan_log_notes(folder, slot, old, new_name, when)
     try:
         backup = save_backup.copy_save_folder(folder, when, suffix=BACKUP_LABEL)
@@ -428,6 +458,11 @@ def rename_family(
         options = options_path(folder)
         for change in changes:
             data = change.path.read_bytes()
+            if change in children:
+                if data != change.updated or not any(
+                        children_match(change.path, other.updated) for other in changes if other not in children):
+                    raise RenameError(f"{change.path.name} does not match the renamed save.")
+                continue
             holds = (menu_name(data, slot) if change.path == options else save_name(data)) == new_name
             if not holds:
                 raise RenameError(f"{change.path.name} does not hold the new name.")
@@ -442,4 +477,5 @@ def rename_family(
             f"The rename failed ({exc}); every file was put back as it was. A backup is in {backup.backup_folder}."
         ) from exc
     return RenameResult(folder, slot, old, new_name, backup,
-                        [change.path for change in changes], [note.path for note in notes])
+                        [change.path for change in changes if change not in children], [note.path for note in notes],
+                        [change.path for change in children])
