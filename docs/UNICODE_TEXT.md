@@ -157,6 +157,52 @@ surrogates are never stored. Before, they used the system code page, so a name l
 Latin-1 letters, as for any such name). `tests/test_vf1fun_names.py` runs the DLL's own code for both rules in
 Unicorn and compares with `vf1_text`.
 
+**Showing every script (VERIFIED on Windows 11, offscreen).** The windows use Segoe UI 9. With it, Windows' font
+links and script fallback draw almost every script in EDIT, LISTBOX and STATIC controls, but not Cuneiform
+(U+12000-U+1254F): a Cuneiform name showed as empty boxes in the Name box (the stored text was right). Segoe UI
+Historic (in Windows since 10) has the same Latin letters plus Cuneiform, Egyptian, Gothic and the other historic
+scripts, and the same fallback fills in the rest. So every control that shows a name (the Family page's Name box
+and family line, the Villager Cheats, Services and Clothing and Hairstyles name lists) uses Segoe UI Historic at
+the dialog font's size (`UseNameFont`, `native/vf1fun/vf1fun.cpp`); the rest of each window keeps Segoe UI, so
+the layout is unchanged. A list box draws with that fallback only with `LBS_USETABSTOPS` (without it Turkish,
+Polish, Greek and Cyrillic letters showed as boxes), so the Services list has it too. The controls stay plain
+EDIT / LISTBOX / STATIC controls: a RichEdit control was tried and draws Cuneiform too, but drew Gothic as boxes
+with some fonts and would change how the Name box takes text; the plain EDIT keeps its limit, its typing and
+Windows' own Ctrl+C / Ctrl+V / Ctrl+X. Nothing in vf1fun.dll hooks the keyboard, filters characters or runs its
+own message loop (each window is `DialogBoxIndirectParamW`'s), so copy and paste work in every vf1fun box; a
+pasted name is stored by the same one rule as a typed one (`SetName` -> `StoreTypedName`).
+
+Not fixed: the confirmation boxes that repeat a name ("Buy ... for <name>?", "Change <name>'s hairstyle?") are
+Windows message boxes, drawn in the system's message font; a Cuneiform name shows as boxes there. Linear B and the
+other scripts no installed Windows font has show as boxes everywhere.
+
+`tests/test_vf1fun_dialogs.py` makes every vf1fun window for real from the DLL's own templates: every control is
+in the template and made by Windows (Close, IDOK, included), inside the window in dialog units, at 96, 120 and 144
+DPI and as made; each name control draws Cuneiform, Egyptian, Gothic, Latin, Turkish, Polish, Vietnamese, Greek,
+Cyrillic, Armenian, Georgian, Hebrew, Arabic, Japanese, Korean, Chinese Extension B, emoji, Thai, Devanagari,
+Ethiopic and Cherokee letters, one at a time, unlike a code point no font has (and with the dialog font alone it
+draws Cuneiform as that box); the Name box is a plain, unsubclassed EDIT control with the same limit that keeps a
+pasted supplementary-plane name exactly.
+
+**The Family page had no Evict Family and no Close (fixed).** Each window's template said how many controls it has
+in a number written by hand; the Family page said 29 for its 31, so Windows made only the first 29 and left out
+Evict Family and Close (`GetDlgItem(IDOK)` failed; the window's size was right). The template now counts its own
+controls. Every window closes with Close (`IDOK`), Esc (`IDCANCEL`) and the title bar's X (`WM_CLOSE`); the
+Upgrades Menu has no control with ID 2, its Close is `IDOK`.
+
+### Live checks for vf1fun's windows (not yet done)
+
+1. Upgrades menu -> Family: the page shows Adopt New Person, Evict Family... and Close; Close, Esc and the X close
+   it; Evict Family asks before it does anything (Cancel it).
+2. Open every page of the Upgrades menu at 100%, 125% and 150% display scaling: every button shows whole, inside
+   its window; Esc closes each page and the Upgrades Menu.
+3. With a family member named in Cuneiform (e.g. U+1208D) and one in Japanese, Turkish and with an emoji: the
+   Family page's family line, Villager Cheats, Services and Clothing and Hairstyles lists show the letters, not boxes.
+4. Family page: type or paste a Cuneiform name in the Name box: it shows the letters; Spawn Child: the child gets
+   that name in the game (with a Unicode setting on).
+5. In the Name box: Ctrl+C, Ctrl+X and Ctrl+V (and the right-click menu) copy, cut and paste; a pasted name longer
+   than the box stops at the box's limit.
+
 ## The Game Text tool (Tools tab -> Game Text...)
 
 `patcher/vf1_game_text.py`: a multi-line text box; the font (the four game fonts with what they are used for,
