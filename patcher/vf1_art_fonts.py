@@ -346,6 +346,8 @@ def arts(files: ga.GameFiles) -> list[ga.Art]:
     out: list[ga.Art] = []
     for font in FONTS.values():
         category = f"{CATEGORY}/{font.label}"
+        if not font.used:                        # loaded at start-up, never drawn (tests/test_font_slots.py)
+            category += " (loaded but never drawn in the game)"
         if files.has(font.file):
             out.append(ga.Art(_key(font.cls) + "/whole", category, "Whole picture", (ga.whole(font.file),),
                               font.used, font.why, LOADER_CHECK))
