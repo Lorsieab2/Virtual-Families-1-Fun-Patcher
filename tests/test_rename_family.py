@@ -93,14 +93,17 @@ def add_history(folder: Path, slot: int, *numbers: int, text="Smith history\r\n"
 # ------------------------------------------------------------------ the name rule
 
 
-@pytest.mark.parametrize("name", ["A", "Smith Family", "Zed-9 & Co.", "x" * 19, " Spaced "])
+@pytest.mark.parametrize("name", ["A", "Smith Family", "Zed-9 & Co.", "x" * 19, " Spaced ",
+                                  # Render Unicode with In-Game Fonts: UTF-8, 19 bytes (patcher/vf1_text.py)
+                                  "Caf\u00e9", "\u4e2d\u6587", "\u00e9" * 9 + "x", "Zo\u00eb \U0001f44d\U0001f3fd"])
 def test_names_the_game_can_store_are_accepted(name):
     assert rf.name_problem(name) is None
 
 
 @pytest.mark.parametrize("name,words", [
-    ("", "Type a name"), ("x" * 20, "too long"), ("   ", "only spaces"), ("Caf\u00e9", "characters"),
-    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d\u6587", "characters"),
+    ("", "Type a name"), ("x" * 20, "too long"), ("   ", "only spaces"), ("\u00e9" * 10, "too long"),
+    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 7, "too long"),
+    ("Bad\x85", "characters"),
 ])
 def test_names_it_cannot_store_are_refused(name, words):
     assert words in rf.name_problem(name)

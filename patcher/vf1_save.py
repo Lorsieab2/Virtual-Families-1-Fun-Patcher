@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+import vf1_text
+
 MAGIC = b"ldwg"
 PAYLOAD_SIZE = 0x1B180            # bytes saved from theGameState+8 (0x4238BC push 0x1B180)
 HEADER_SIZE = 24                  # 'ldwg' header written from 0x4E9228 (0x4039C6 push 0x18)
@@ -78,7 +80,9 @@ class SaveFormatError(ValueError):
 
 
 def _cstr(raw: bytes) -> str:
-    return raw.split(b"\0", 1)[0].decode("latin-1")
+    """A NUL-terminated game string, read by the patcher's one rule (vf1_text: UTF-8, else one byte one
+    character)."""
+    return vf1_text.decode(raw)
 
 
 @dataclass

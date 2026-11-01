@@ -113,9 +113,17 @@ key from 0x20 to 0xFF unless the control is numeric-only (0x40DB0F..0x40DB1A; th
 with `GetText(buffer = gs+0x1B12C, 0x14)` (call 0x41C72B): 0x40D740 does `strncpy(buffer, text, 0x14)` (0x4993C0) and
 then `buffer[0x13] = 0` (0x40D75B). So **20 characters can be typed but at most 19 are stored; the 20th is cut
 off**, and the name is then copied byte by byte to gs+0x1B192 (0x41C736..0x41C74A), which fits the 21-byte menu
-field. Rename Family therefore accepts 1 to 19 characters (exactly what the game itself can store) and, of the
-0x20..0xFF the entry accepts, only printable ASCII 0x20..0x7E (a subset). UNCONFIRMED (not traced, cosmetic only,
-and the guide says so): whether non-ASCII keys ever reach the entry, and which symbols the game's font can draw.
+field. Rename Family therefore accepts 1 to 19 bytes (exactly what the game itself can store).
+
+**Text encoding (VERIFIED in the vanilla exe, 2026-11-01, Render Unicode with In-Game Fonts; docs/UNICODE_TEXT.md).**
+Every name field is a NUL-terminated byte string. The stock game only ever writes printable ASCII into one: its
+SDL_TEXTINPUT case drops any event text longer than one byte (0x4049BB `cmp eax, 1; jne`), and the text box reads
+the posted character as a signed char, so 0x40DB0F refuses every byte from 0x80. Its four fonts draw bytes
+0x20..0x7F and 0xA2..0xFF (Latin-1) and any other byte as their row 0, "!". With Render Unicode with In-Game Fonts
+(vf1text.dll) a name is stored as UTF-8 in the same field, cut only between whole characters; a string that is not
+valid UTF-8 is read one byte per character (Windows-1252, its five unassigned bytes as Latin-1). The patcher's
+readers use the same rule (patcher/vf1_text.py), and Rename Family accepts any printable character, counting the
+19 bytes. The stock game loads, draws, keeps and saves a UTF-8 name unchanged (each byte as its Latin-1 letter).
 
 ### 1.3 Where the Back Up / Restore tool's rule (feat/tools-tab, `patcher/vf1_save_backup.py`) is wrong
 

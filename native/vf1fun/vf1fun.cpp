@@ -1012,6 +1012,23 @@ static void LoadLogsCompanion() {
     LogsEvent = (LogsEventFn)GetProcAddress(logs, "VF1Logs_Event");
 }
 
+// ---------------------------------------------------------------- Render Unicode with In-Game Fonts
+// The feature is its own DLL, vf1text.dll, installed beside this one only while the RenderUnicodeInGameFonts
+// setting is on (patcher/manifest.json). This DLL only loads it; typing, storing and drawing text are that DLL's.
+static void LoadTextCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1text.dll");
+    HMODULE text = LoadLibraryW(path);
+    if (!text) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(text, "VF1Text_Startup");
+    if (startup) startup();   // not installed (a site already changed): the game draws text as before
+}
+
 // "This family already has six children." -- or the 28 when Up to 28 Children is installed.
 static const wchar_t *FamilyFullText() {
     return KidsLimit ? L"This family has no room for another child (28 at most)."
@@ -1134,6 +1151,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadKidsCompanion();
     if (SettingOn(L"FamilyHistory", false))   // after vf1kids.dll: it chains that DLL's hooks
         LoadLogsCompanion();
+    if (SettingOn(L"RenderUnicodeInGameFonts", false))
+        LoadTextCompanion();
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {

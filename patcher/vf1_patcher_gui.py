@@ -1577,6 +1577,8 @@ class VF1PatcherGUI:
         self._help_button(family, "game_mechanics").pack(side="left", padx=(3, 0))
         self._link(family, "Picture Maker...", self.picture_maker).pack(side="left", padx=(18, 0))
         self._help_button(family, "picture_maker").pack(side="left", padx=(3, 0))
+        self._link(family, "Game Text...", self.game_text).pack(side="left", padx=(18, 0))
+        self._help_button(family, "game_text").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -2062,8 +2064,8 @@ class VF1PatcherGUI:
 
         def refresh_check(*_args) -> None:
             name = name_var.get()
-            counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
-            counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
+            counter_var.set(rename_family.room_text(name))
+            counter.configure(foreground="#a01010" if rename_family.room_used(name) > rename_family.MAX_LENGTH else "")
             info = chosen_slot()
             problem = None
             if folder() is None:
@@ -2265,8 +2267,8 @@ class VF1PatcherGUI:
 
         def refresh_check(*_args) -> None:
             name = name_var.get()
-            counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
-            counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
+            counter_var.set(rename_family.room_text(name))
+            counter.configure(foreground="#a01010" if rename_family.room_used(name) > rename_family.MAX_LENGTH else "")
             source, target = chosen(source_list, "families"), chosen(target_list, "targets")
             problem = None
             if folder() is None:
@@ -2405,6 +2407,19 @@ class VF1PatcherGUI:
         window = picture_maker.open_window(
             self.root, save_folders=folders, game_folders=[Path(g) for g in games if g], hold=self._hold,
             show_help=lambda: self._show_how_to_use("picture_maker"))
+        window.window.transient(self.root)
+        return window
+
+    # ------------------------------------------------------------------ Game Text
+
+    def game_text(self):
+        """Any text in the game's own fonts, drawn as the game draws it, saved as a PNG (patcher/vf1_game_text.py).
+        It only reads the game folder: the patcher's modded output and vanilla folders are offered."""
+        import vf1_game_text as game_text_window
+        games = [clean_path_text(var.get()) for var in (self.output_dir_var, self.game_dir_var)]
+        window = game_text_window.open_window(
+            self.root, game_folders=[Path(g) for g in games if g], hold=self._hold,
+            show_help=lambda: self._show_how_to_use("game_text"))
         window.window.transient(self.root)
         return window
 

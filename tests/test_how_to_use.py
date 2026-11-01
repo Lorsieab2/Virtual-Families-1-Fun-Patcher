@@ -26,6 +26,7 @@ CONTROLS = {
     "defaults", "enable_all", "disable_all", "enable_main", "enable_optional", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
     "rename_family", "copy_player_slot", "game_speed", "game_mechanics", "family_tree", "picture_maker",
+    "game_text",
 }
 
 # Words a player never sees in the patcher or the game.
