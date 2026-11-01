@@ -19,20 +19,24 @@ SPEC = {
         'Lets one generation have up to 28 children instead of 6. Only the first 6 children appear in the Family Tree, exactly as before; every child, including the 7th to the 28th, can be chosen to inherit the house in Next Generation. Twins and triplets never take a family past 28: with 27 children a twin or triplet pregnancy has one baby, with 26 a triplet pregnancy has two, and at 28 no more babies come (the normal twin and triplet chances are unchanged while there is room). Children 7 to 28 are remembered in a small file beside each save (the Virtual Families 1 Patcher Data\\Children folder in the save folder); the save file itself is not changed. Virtual Families 1 natively keeps up to 6 children per generation in its Family Tree, and a household holds at most 30 villagers (2 parents and 28 children). This patch keeps children 7 to 28 in a separate file beside the save, so they never overwrite Family Tree entries; storing more than 6 children in the Family Tree itself would overwrite its entries and glitch the game. Experimental: not yet tested in a running game. Back up your saves before using it. Installs its own small DLL, vf1kids.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.'),
     'FamilyHistory': ('Family History Log',
         'Writes a Family History log of every family event, as it happens, in the Virtual Villagers Fun Patcher\'s record layout and the game\'s own words: conceptions, births (twins and triplets, with both parents), deaths with their cause and age, marriages and remarriages (the current spouse, the earlier one and why they left), Divorce Spouse, everyone who joins (Adopt Outside Child, The Little Visitor, Spawn Child, Adopt New Person) or leaves home (college, Boarding School, The Talent Scout), Next Generation and its heir, a new family, Start Over, Evict Family, Roll the Dice, and every Random Event as an Email Event or a Popup Event by the subject line or title the player sees. The Family Tree Maker reads it for what the save forgets. Each save slot has its own log beside the save (Virtual Families 1 Patcher\\Save N\\Logs\\Family History). A family that already exists gets what its Family Tree holds, marked "backfilled, no date", once. A new family or Start Over clears that slot\'s folder (a Backups folder in it is kept). The save file itself is not changed. Not yet tested in a running game. Installs its own small DLL, vf1logs.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.'),
+    'RenderUnicodeInGameFonts': ('Render Unicode with In-Game Fonts',
+        'Lets the game take and show any letter or symbol in Unicode: accents (French, Turkish, Polish, Vietnamese...), Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and the rest. Typing in the game\'s own name boxes accepts every character the keyboard gives (accent keys, dead keys, Alt codes and an input method\'s text), and backspace deletes a whole character. Every piece of text is drawn with the game\'s own fonts: the game\'s own letter when it has one; otherwise a patcher-made letter in that font\'s style (accented letters are built from the game\'s own letters and accents); otherwise a letter Windows draws on the spot in the font\'s size, weight and colour (Segoe UI, then Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others); otherwise a small box. Names are kept in the save as UTF-8 inside the game\'s own name fields, which are not made any bigger: a name is cut only between whole characters, and a letter beyond A-Z takes 2 to 4 of a field\'s bytes (a family name holds 19). Old saves read exactly as before. The stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example "Zoë" as "ZoÃ«"). Installs its own small DLL, vf1text.dll, and the patcher-made letters (the Unicode Text folder) in the Virtual Families 1 Patcher Files folder; the game\'s own art is not changed, and unticking the setting removes them.'),
     'AllowOlderPregnancies': ('Allow Older Pregnancies',
         'Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.'),
     'ClampMoneyAndFood': ('Clamp Max Money and Food',
         "Keeps coins at no more than 4,000,000,000 and food at no more than 2,147,483,647, the Virtual Families 2 patcher's maximums (the original game has no limit, and food wraps to a negative number past 2,147,483,647, which glitches the game)."),
     'SpecialUpgrades': ('Add visible mobile version purchases',
-        'Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.'),
+        "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean. Also a Services page with Virtual Families 2's store services and upgrades at its prices: Time Warp ($2,000: the family lives 3 years at once, the money it brings capped at $750), Adoption Services ($4,000: spawn outside child in house, 3 years old, male or female at random), and for the family member picked: Boarding School ($1,500, children), Systematic Desensitization ($2,500: every dislike removed), Psychotherapy ($1,750: happiness raised in Virtual Families 2's bands), Higher Learning Classes ($1,000: one new like), Advanced Career Training ($1,100 times the career level + 1, adults; a promotion; not sold to a Master) and Career Change ($1,200, adults: a new career at Beginner). A family that cannot afford one is refused and nothing changes."),
     'CheatUpgrades': ('Cheat Upgrades',
-        "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager."),
+        "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats (health, cures, happiness, energy, fed, Add Running Like, Set Age to 18, appearance), store price multipliers, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawn child in house, spawn outside child in house, Adopt New Person after a game over, Evict Family). **Force Successful Pregnancy, the Clothing and Hairstyles page and Anti-Spam Software Ownership also need Free and Guaranteed Cheats.**"),
     'FleaMarket': ('Flea Market',
-        'Every tray item the store sells, to buy or get for free.'),
+        'A page that lists every tray item the store sells, to buy at its normal price at any time. **Get for free also needs Free and Guaranteed Cheats.**'),
+    'FreeAndGuaranteedCheats': ('Free and Guaranteed Cheats',
+        "Cheats that give something for nothing or never fail: Force Successful Pregnancy (Family page), the Clothing and Hairstyles page (gives any outfit or hairstyle free), Anti-Spam Software Ownership (Store Cheats), the Flea Market's Get for free, and every paid item free: the Services page (Time Warp, Adoption Services, Boarding School, Systematic Desensitization, Psychotherapy, Higher Learning Classes, Advanced Career Training, Career Change) and Roll the Dice. While it is off their buttons are hidden and the paid items cost their prices. **Each one also needs its own page: Cheat Upgrades for Force Successful Pregnancy, Clothing and Hairstyles and Anti-Spam; Flea Market for Get for free; Add visible mobile version purchases for the Services page; Roll the Dice for Roll the Dice.**"),
     'StoreRefreshKey': ('R Refreshes the Store',
         "Pressing R (small r or capital R) in the store redraws its Flea Market, the six random items (the game's code calls them the specials), and the random Male Outfit and Female Outfit pictures, every time it is pressed. The original game has the same hidden key, a small r only, and only once more than 1 hour of real time has passed since the last draw. The game's own draw is used, so the items and clothes follow the game's own odds, and the wait for the next automatic draw starts over, as after the original key. Nothing else changes: the half-price grocery, the store's other items and prices, and every outfit already bought (it keeps its picture) stay as they are. R does nothing on any other screen, and nothing in the Upgrades menu's Flea Market page, which already lists every tray item at once."),
     'RollTheDice': ('Roll the Dice',
-        '$500: a Popup Event happens right away.'),
+        "$2,000, Virtual Families 2's price: a Popup Event happens right away. Free with Free and Guaranteed Cheats."),
     'CustomMapImages': ('Custom Map/Game Images',
         'Replaces the standard house and some game images with customized ones. Credit to the original creators on LDWForums.'),
     'VF2Songs': ('VF1 + VF2 Songs',
@@ -61,7 +65,12 @@ def ns(**kw):
 # Experimental settings are exempt by rule, not by name: they default OFF (the owner's decision, 2026-10-22:
 # Up to 28 Children is Experimental). Every setting outside that category must still default on.
 MANIFEST_ROWS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
-OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS if row.get("category") == "experimental")
+# Off by default: the Experimental settings, and the cheats (the owner, 2026-11-01: "Turn all the cheats and free
+# stuff you mentioned default off (except in owner's defaults)"; "Keep off by default: All items show in flea
+# market/outfits/hairstyles"). Everything that costs or adds content stays on.
+CHEATS_DEFAULT_OFF = frozenset({"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"})
+OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS
+                                       if row.get("category") == "experimental") | CHEATS_DEFAULT_OFF
 
 
 def test_shipped_manifest_offers_every_setting_all_on():
@@ -72,10 +81,11 @@ def test_shipped_manifest_offers_every_setting_all_on():
         expected = setting_id not in OWNER_APPROVED_DEFAULT_OFF
         assert (s.label, s.description, s.default) == (label, description, expected), setting_id
     assert {k for k, s in settings.items() if not s.default} == set(OWNER_APPROVED_DEFAULT_OFF)
-    assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children"}
+    assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children", "CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"}
     # Family History Log: a Main Patch, on by default (the owner, 2026-10-26: "don't put it under experimental")
     assert settings["FamilyHistory"].category == "main" and settings["FamilyHistory"].default is True
-    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF)
+    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF - CHEATS_DEFAULT_OFF)
+    assert all(settings[k].category == "optional" for k in CHEATS_DEFAULT_OFF)
 
 
 def test_enable_all_leaves_experimental_settings_off():
@@ -248,8 +258,8 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "1", "FleaMarket": "1", "StoreRefreshKey": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "CheatUpgrades": "0", "FleaMarket": "0", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
         assert rel.replace("/", "\\") in text
@@ -270,14 +280,14 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     with open(out / vp.SETTINGS_REL, "ab") as f:  # what the DLL writes in play
         f.write(b"[Cheats]\r\nInterestRate=9\r\n")
     before = ini(out)
-    summary = apply(workdir, output_dir=out, disable=["FleaMarket", "CheatUpgrades"])
+    summary = apply(workdir, output_dir=out, enable=["FleaMarket", "CheatUpgrades"])  # both off by default
     assert summary["mode"] == "existing_modded_output"
     assert [row["file_path"] for row in summary["written_files"]] == [vp.SETTINGS_REL]
     assert vp.DLL_REL in summary["unchanged_files"]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "0", "FleaMarket": "0", "StoreRefreshKey": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "CheatUpgrades": "1", "FleaMarket": "1", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before
@@ -303,7 +313,7 @@ def test_rebuild_keeps_remembered_cheats_and_restore_undoes_a_first_build(workdi
 
 def test_setting_files_follow_their_setting(workdir, vanilla_unchanged):
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    manifest["settings"].append({"id": "Extra", "label": "Extra", "default": True, "requires": ["FleaMarket"],
+    manifest["settings"].append({"id": "Extra", "label": "Extra", "default": True, "requires": ["SpecialUpgrades"],
                                  "files": [{"source": "art/x.png", "target": "Virtual Families 1 Patcher Files/art/x.png"}]})
     write_manifest(workdir / "patcher" / "manifest.json", settings=manifest["settings"])
     (workdir / "patcher" / "payload" / "art").mkdir()
@@ -312,11 +322,11 @@ def test_setting_files_follow_their_setting(workdir, vanilla_unchanged):
     apply(workdir, game_dir=vanilla_unchanged, output_dir=out)
     target = out / "Virtual Families 1 Patcher Files" / "art" / "x.png"
     assert target.read_bytes() == b"png"
-    off = apply(workdir, output_dir=out, disable=["FleaMarket"])  # Extra's prerequisite
+    off = apply(workdir, output_dir=out, disable=["SpecialUpgrades"])  # Extra's prerequisite
     assert not target.exists()
     assert off["removed_files"] == ["Virtual Families 1 Patcher Files/art/x.png"]
     assert vp.read_ini_section(ini(out), "Patches")["Extra"] == "0"
-    assert "requires Flea Market" in off["settings"]["selected_but_inactive"]["Extra"]
+    assert "requires Add visible mobile version purchases" in off["settings"]["selected_but_inactive"]["Extra"]
     vp.restore_backup(ns(backup_dir=off["backup_dir"]))
     assert target.read_bytes() == b"png"
 

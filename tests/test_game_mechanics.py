@@ -250,14 +250,16 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 72
+    assert len(lines) == 77
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text
         assert fact.label in (gm.VERIFIED_E, gm.VERIFIED_C), fact.text
     # the old UNCONFIRMED "patcher upgrades" lines are gone: every upgrade is now a verified line
     assert "The patcher's" not in PAGE
-    for name in ("Brokerage Account", "Food Club", "Health Plan", "Lucky Rock", "Maid", "Gardener", "Roll the Dice"):
+    for name in ("Brokerage Account", "Food Club", "Health Plan", "Lucky Rock", "Maid", "Gardener", "Roll the Dice",
+                 "Time Warp", "Adoption Services", "Boarding School", "Systematic Desensitization", "Psychotherapy",
+                 "Higher Learning Classes", "Advanced Career Training", "Career Change"):
         assert any(name in f.text for f in lines), name
         assert not any(name in f.text and f.label == gm.UNCONFIRMED for f in FACTS), name
 
@@ -275,7 +277,7 @@ def test_autosave_line_and_the_adopt_save():
 
 def test_time_controls_and_time_warp():
     assert find(r"^Game speed: the game only ever runs at Normal\.$", gm.TIME)[0].label == gm.VERIFIED_C
-    speeds = pin(gm.TIME, "(Cheat Upgrades, on by default)", "Slow (half speed), Fast (double speed), 5x and 10x")
+    speeds = pin(gm.TIME, "(Cheat Upgrades, off by default)", "Slow (half speed), Fast (double speed), 5x and 10x")
     assert speeds.sub and speeds.label == gm.VERIFIED_C
     assert pin(gm.TIME, "never reach a save", "loads any other saved speed as Normal").label == gm.VERIFIED_C
     warp = pin(gm.TIME, "Time Warp", "61 age units (3 years and 1 unit)", "past the time-away limits",
@@ -310,7 +312,7 @@ def test_bank_and_store_upgrades():
     brokerage = pin(gm.MONEY, "Brokerage Account", "11% a game day ($110 on $1,000)", "drops the rate to 1%",
                     "adds 2 points, up to 11%")
     assert brokerage.label == gm.VERIFIED_E and "$10,000" in brokerage.text
-    cheat = pin(gm.MONEY, "(Cheat Upgrades, on by default)", "from 1% to 11% for every family",
+    cheat = pin(gm.MONEY, "(Cheat Upgrades, off by default)", "from 1% to 11% for every family",
                 "5% pays $50 on $1,000, also with the Brokerage Account")
     assert cheat.label == gm.VERIFIED_E
     health = pin(gm.MONEY, "Health Plan", "cost a quarter, rounded down", "Penicillin $45 for $11",
@@ -353,15 +355,15 @@ def test_up_to_28_children():
 
 def test_marriage_and_next_generation():
     find(r"Each candidate is the opposite sex", gm.MARRIAGE)
-    same = pin(gm.MARRIAGE, "(Cheat Upgrades, on by default)", "Enable Same-Sex Marriage", "same sex as the head")
+    same = pin(gm.MARRIAGE, "(Cheat Upgrades, off by default)", "Enable Same-Sex Marriage", "same sex as the head")
     nextgen = pin(gm.MARRIAGE, "(Allow Older Pregnancies, on by default)", "with no death",
                   "oldest family member at home is 60 or older")
     assert same.label == nextgen.label == gm.VERIFIED_E
 
 
 def test_roll_the_dice():
-    dice = pin(gm.EVENTS, "(Roll the Dice, on by default)", "costs $500", "Popup Event at once",
-               "the $500 is given back")
+    dice = pin(gm.EVENTS, "(Roll the Dice, on by default)", "costs $2,000", "Popup Event at once",
+               "the $2,000 is given back")
     assert dice.label == gm.VERIFIED_C and not dice.sub
 
 
@@ -540,11 +542,11 @@ def test_the_patchers_store_changes():
         assert f"${gm.ITEMS[n][1] // 2}" in club.text
     plan = pin(gm.STORE_MEDS, "Health Plan", "cost a quarter, rounded down")
     assert "Penicillin $11" in plan.text and "Baby Boost $125" in plan.text and "Doctor Consultation $43" in plan.text
-    flea = pin(gm.STORE, "(Flea Market, on by default)", "items 12 to 17 and 20 to 63", "Get for free")
+    flea = pin(gm.STORE, "(Flea Market, off by default)", "items 12 to 17 and 20 to 63", "Get for free")
     assert flea.label == gm.VERIFIED_C
-    chair = pin(gm.STORE_OTHER, "(Flea Market, on by default)", "Wood Furniture Repair Kit ($50)")
+    chair = pin(gm.STORE_OTHER, "(Flea Market, off by default)", "Wood Furniture Repair Kit ($50)")
     assert chair.sub
-    prices = pin(gm.STORE, "(Cheat Upgrades, on by default)", "by 2, 5 or 100", "at most $2,147,483,647")
+    prices = pin(gm.STORE, "(Cheat Upgrades, off by default)", "by 2, 5 or 100", "at most $2,147,483,647")
     assert prices.label == gm.VERIFIED_C
     cheats = pin(gm.PATCHER_MENU, "Cheat Upgrades page: No Money sets $0")
     assert cheats.label == gm.VERIFIED_E and "2,147,483,000 + 10,000 becomes 2,147,483,647" in cheats.text
@@ -777,3 +779,40 @@ def test_the_registered_action_count_is_read_from_the_exe(vanilla_dir):
         i += 5
     assert calls == {0x452470: 306, 0x452490: 10}
     assert sum(calls.values()) == len(ids) == gm.REGISTERED_ACTIONS
+
+
+def test_vf2s_paid_services_with_their_prices():
+    """The owner, 2026-11-01: "Include in VF1 all things that VF2 has already" -- every service at VF2's price,
+    emulated in tests/test_paid_services.py."""
+    services = pin(gm.STORE, "(Add visible mobile version purchases, on by default)", "Time Warp $2,000",
+                   "Adoption Services $4,000", "Boarding School $1,500", "Systematic Desensitization $2,500",
+                   "Psychotherapy $1,750", "Higher Learning Classes $1,000",
+                   "Advanced Career Training $1,100 times the career level + 1", "Career Change $1,200",
+                   "free with Free and Guaranteed Cheats")
+    assert services.label == gm.VERIFIED_E
+    assert pin(gm.CAREERS, "Advanced Career Training", "$7,700 for an Exceptional", "not sold to a Master",
+               "Career Change", "$1,200").label == gm.VERIFIED_E
+    assert pin(gm.LEAVING, "Boarding School", "$1,500").label == gm.VERIFIED_E
+    assert pin(gm.TIME, "Time Warp ($2,000").label == gm.VERIFIED_E
+    adoption = pin(gm.PATCHER_MENU, "Adoption Services ($4,000", "spawn outside child in house", "3 years old")
+    assert adoption.label == gm.VERIFIED_E
+    psycho = pin(gm.PATCHER_MENU, "below 25 becomes 30 to 49", "every dislike", "one new like")
+    assert psycho.label == gm.VERIFIED_E
+    assert "Instant job promotion" not in PAGE and "Systematic Desens." not in PAGE
+
+
+def test_the_buttons_that_add_a_child_say_how():
+    own = pin(gm.PATCHER_MENU, "Spawn child in house (male) / (female)", "the couple's own child",
+              "No game event, e-mail or popup")
+    outside = pin(gm.PATCHER_MENU, "Spawn outside child in house (male) / (female)", "adopted child",
+                  "Little Visitor")
+    assert own.sub and outside.sub
+    assert "Adopt Outside Boy" not in PAGE and "Spawn Male / Female Child" not in PAGE
+
+
+def test_the_free_cheats_need_their_setting():
+    assert gm.setting("FreeAndGuaranteedCheats") == "Free and Guaranteed Cheats, off by default"
+    assert gm.setting("CheatUpgrades") == "Cheat Upgrades, off by default"
+    assert gm.setting("FleaMarket") == "Flea Market, off by default"
+    pin(gm.STORE, "Get for free button gives the item at no cost only with Free and Guaranteed Cheats")
+    pin(gm.CLOTHING, "(Free and Guaranteed Cheats, off by default)", "Clothing and Hairstyles")

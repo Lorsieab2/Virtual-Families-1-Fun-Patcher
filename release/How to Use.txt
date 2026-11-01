@@ -11,7 +11,9 @@ https://github.com/Lorsieab2/Virtual-Families-1-Patcher/
 
 What it adds
 ------------
-A new "Upgrades" button in the game's store (next to Done). It opens a menu:
+A new "Upgrades" button in the game's store (next to Done). It opens a menu.
+Cheat Upgrades, Flea Market and Free and Guaranteed Cheats are off by default:
+tick them in the patcher (or click Owner's Defaults) to get those pages.
 
   Cheat Upgrades   Money: No Money, +100, +10,000, Max (4,000,000,000) or set an
                    exact amount; food: No Food, +100, +10,000, Max (2,147,483,647)
@@ -19,18 +21,14 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    between sessions).
   Villager Cheats  (Every button asks you to confirm.) For one villager or everyone: max health, cure illnesses
                    (every symptom and any infection), max happiness, max
-                   energy, fill up (Fed); Instant job
-                   promotion and Career Change (adults); Boarding School (a
-                   child leaves the house like going to college);
-                   Systematic Desensitization (removes a dislike); Higher
-                   Learning (a new like); Psychotherapy (overcomes
-                   depression); Add Running Like; Set Age to 18 (one
+                   energy, fill up (Fed); Add Running Like; Set Age to 18 (one
                    villager). Change Appearance: any of the game's 50 heads
                    (face and hairstyle) and 50 bodies (clothes), or a random
                    look.
   Flea Market      Every tray item the store sells (drinks, candy, medicine,
-                   magazines, movies, weather bottles, kits, pets...): buy it
-                   or get it for free.
+                   magazines, movies, weather bottles, kits, pets...), to buy
+                   at its normal price. Get for free also needs Free and
+                   Guaranteed Cheats.
   House and Yard   Fill the house with trash or the yard with weeds, clean
                    them, trigger or fix all house malfunctions (leaks, clogs,
                    fires, power failure).
@@ -43,26 +41,57 @@ A new "Upgrades" button in the game's store (next to Done). It opens a menu:
                    village, on their own page (the game's Trophies screen is
                    fixed). Not included: pets, behaviors, holidays and
                    furniture.
-  Special Upgrades Brokerage Account, Food Club, Health Plan, Lucky Rock, a Maid,
-                   a Gardener and the Anti-spam Software. Buying asks you to
-                   confirm and shows "Purchased"; buying one again removes it
-                   (no refund).
-  Roll the Dice    $500: a Popup Event happens right away.
+  Special Upgrades Brokerage Account, Food Club, Health Plan, Lucky Rock, a Maid
+                   and a Gardener. Buying asks you to confirm and shows
+                   "Purchased"; buying one again removes it (no refund).
+  Services         Virtual Families 2's services at its prices (part of
+                   Special Upgrades, on by default). Pick a family member,
+                   then an item; its price is shown for that family member.
+                   If you cannot afford it, nothing is bought and nothing
+                   changes.
+                     Time Warp ($2,000): the family lives 3 years at once;
+                       the money it brings is capped at $750.
+                     Adoption Services ($4,000): spawn outside child in
+                       house, 3 years old, male or female at random.
+                     Boarding School ($1,500, children): the child leaves
+                       home, as if going to college.
+                     Systematic Desensitization ($2,500): every dislike goes.
+                     Psychotherapy ($1,750): happiness under 25 becomes
+                       30-49; 25-49 becomes 55-74; from 50 it rises by 5-24.
+                     Higher Learning Classes ($1,000): one new like, if a
+                       like place is free.
+                     Advanced Career Training ($1,100 x (career level + 1),
+                       adults): a promotion; not sold to a Master.
+                     Career Change ($1,200, adults): a new career at
+                       Beginner.
+  Roll the Dice    $2,000: a Popup Event happens right away.
   Family           Enable Same-Sex Marriage; Allow Reroll of Marriage
                    Candidates (Reject shows another one); Force Marriage
-                   Email; Divorce Spouse (WARNING: permanently removes the
-                   spouse from the Family Tree and the house). Next
-                   pregnancy: force success, boys or girls, singleton,
-                   twins or triplets (stays set until a pregnancy
-                   succeeds). Spawn Male Child / Spawn Female Child
-                   (age 2-13, optional name). Adopt Outside Boy / Adopt
-                   Outside Girl: an outside child joins the family, as in the
-                   game's Little Visitor event. Adopt New Person (only after "Your family has
-                   been lost"): keeps your money and the Family Tree. Evict
-                   Family: resets the Family Tree and starts a new family;
-                   you keep the money, the house and everything you own.
-                   Same-sex couples cannot have babies of their own; use
-                   Spawn Child.
+                   Email; Divorce Spouse (spouse leaves; WARNING:
+                   permanently removes the spouse from the Family Tree and
+                   the house). Next pregnancy: boys or girls, singleton,
+                   twins or triplets (stays set until a pregnancy succeeds),
+                   and force success (needs Free and Guaranteed Cheats too).
+                   Spawn child in house (male / female): the couple's own
+                   child, age 2-13, optional name, with their looks; it
+                   appears in the house at once, with no event or popup.
+                   Spawn outside child in house (male / female): a child
+                   from outside, age 2-13, optional name, adopted into the
+                   Family Tree with no parents, as the game's Little Visitor
+                   event's Adopt choice does, but with no popup. Adopt New
+                   Person (only after "Your family has been lost"; opens
+                   the game's Adoption screen): keeps your money and the
+                   Family Tree. Evict Family (everyone leaves the house):
+                   resets the Family Tree and starts a new family; you keep
+                   the money, the house and everything you own. Same-sex
+                   couples cannot have babies of their own; use Spawn child
+                   in house.
+  Free and         Off by default. The cheats that give something for nothing
+  Guaranteed       or never fail: Force Successful Pregnancy, the Clothing and
+  Cheats           Hairstyles page (any outfit or hairstyle, free), Anti-Spam
+                   Software Ownership, the Flea Market's Get for free, and
+                   every Services item and Roll the Dice for free. Each also
+                   needs its own page's patch.
 
 Money and food cheats do not count toward the money achievements.
 
@@ -102,7 +131,21 @@ only once more than 1 hour of real time has passed since the last draw. The
 half-price grocery, the other items and prices, and every outfit you already
 bought (it keeps its picture) stay as they are. R does nothing on any other
 screen, and nothing in the Upgrades menu's Flea Market page, which already
-lists every tray item at once.
+lists every tray item at once. R works the same with the Flea Market page and
+Free and Guaranteed Cheats on or off.
+
+Render Unicode with In-Game Fonts (on by default): the game takes and shows
+any letter: accents (French, German, Spanish, Turkish, Polish, Vietnamese...),
+Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and more. Type
+them in the game's own name boxes with your keyboard's accent keys, Alt codes
+or an input method; Backspace deletes a whole letter. Letters the game's fonts
+lack are made in the same style: accented ones from the game's own letters and
+accents, the rest drawn by Windows in the font's size. Names stay in the
+save's own name spaces; a letter beyond A to Z uses 2 to 4 places of the room,
+so a family name holds 19 plain letters but fewer accented ones. Without the
+patch (or in the original game) the save still loads and works, but an
+accented letter shows as two or three odd letters (Zoe with two dots shows as
+"ZoÃ«"). Not yet tested in a running game.
 
 How to patch
 ------------
@@ -129,7 +172,17 @@ How to patch
    required DLL files.
 
 7. Review the patch checkboxes. Every patch says what it does under its
-   name; a patch that needs another one says so in bold.
+   name; a patch that needs another one says so in bold. The preset
+   buttons tick a whole set at once:
+     Select All Patches    every patch except the Experimental ones.
+     Default Patches       the defaults: every patch except Cheat Upgrades,
+                           Flea Market, Free and Guaranteed Cheats and Up to
+                           28 Children.
+     Owner's Defaults      the patcher owner's own choice: every patch except
+                           Up to 28 Children.
+     Deselect All Patches  nothing.
+   Patch Selection Settings... opens a list of every patch with a search
+   box: tick the ones you want and press Tick These or Untick These.
 
 8. Optional but recommended: click Dry Run (Validate Only).
    Dry Run validates that the patcher's working. It does not actually
@@ -249,6 +302,16 @@ Next to the Patches tab is a Tools tab for your family saves.
                     picture can keep a picture's whole size). Save all
                     puts each picture in a folder for its category. Saves
                     and game files are only read.
+  Game Text         Type anything and see it exactly as the game draws its
+                    text, in any of the game's fonts and any colour, then
+                    save it as a PNG with a clear background (the game's
+                    size, 2x, 4x or your own). Pick accents and any other
+                    character from the list: search by name ("e acute") or
+                    code (U+00E9). Each says if the font has it, if the
+                    patcher made it in the font's style (patcher-made, shown
+                    in the game too), or if Windows draws it. Fonts marked
+                    unused are in the game folder but never shown by the
+                    game. Only the game folder is read.
 
 Every button and every patch has a small "?" beside it with a short guide.
 Back up your saves before trying the Experimental patch (Up to 28 Children).

@@ -59,8 +59,12 @@ SETTING_CATEGORIES = [
     ("optional", "Optional Patches", "#000000"),
     (patcher.EXPERIMENTAL_CATEGORY, "Experimental", "#b30000"),
 ]
-# Shown under the Experimental heading. Experimental settings default off and Enable All leaves them off.
+# Shown under the Experimental heading. Experimental settings default off and Select All Patches leaves them off.
 EXPERIMENTAL_WARNING = patcher.EXPERIMENTAL_WARNING
+
+# The settings the Owner's Defaults button leaves OFF, by exact id. The owner (2026-11-01): "I usually enable
+# everything except the 28-child patch" -- every other setting is ticked, the cheats included.
+OWNERS_DEFAULT_OFF_SETTING_IDS = frozenset({"UpTo28Children"})
 SETTING_CATEGORY_LOOKUP = {key: (label, color) for key, label, color in SETTING_CATEGORIES}
 
 
@@ -792,21 +796,29 @@ class VF1PatcherGUI:
 
         controls = ttk.Frame(frame)
         controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        controls.columnconfigure(4, weight=1)
+        controls.columnconfigure(5, weight=1)
         self._with_help(controls, lambda p: self._button(p, "Load Manifest Settings", self.load_manifest_settings),
                         "load_manifest").grid(row=0, column=0, padx=(0, 6))
-        self._with_help(controls, lambda p: self._button(p, "Defaults", self.select_default_settings),
-                        "defaults").grid(row=0, column=1, padx=(0, 6))
-        self._with_help(controls, lambda p: self._button(p, "Enable All", self.select_all_settings),
-                        "enable_all").grid(row=0, column=2, padx=(0, 6))
-        self._with_help(controls, lambda p: self._button(p, "Disable All", self.clear_all_settings),
-                        "disable_all").grid(row=0, column=3, padx=(0, 6))
+        # The Virtual Villagers Fun Patcher's four preset buttons, with its names and "?" guides.
+        self._with_help(controls, lambda p: self._button(p, "Select All Patches", self.select_all_settings),
+                        "select_all").grid(row=0, column=1, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Default Patches", self.select_default_settings),
+                        "default_patches").grid(row=0, column=2, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Owner's Defaults", self.select_owners_defaults),
+                        "owners_defaults").grid(row=0, column=3, padx=(0, 6))
+        self._with_help(controls, lambda p: self._button(p, "Deselect All Patches", self.clear_all_settings),
+                        "deselect_all").grid(row=0, column=4, padx=(0, 6))
         self._with_help(controls, lambda p: self._button(p, "Enable All Main Patches",
                                                          lambda: self.select_category_settings("main")),
                         "enable_main").grid(row=1, column=0, padx=(0, 6), pady=(6, 0))
         self._with_help(controls, lambda p: self._button(p, "Enable all Optional Content",
                                                          lambda: self.select_category_settings("optional")),
                         "enable_optional").grid(row=1, column=1, padx=(0, 6), pady=(6, 0))
+        # The owner (Virtual Villagers): "a button to easily tick and untick certain patches ... like in a separate
+        # settings menu."
+        self._with_help(controls, lambda p: self._button(p, "Patch Selection Settings...",
+                                                         self.open_patch_selection_settings),
+                        "patch_selection_settings").grid(row=1, column=2, padx=(0, 6), pady=(6, 0))
 
         outer = ttk.Frame(frame)
         outer.grid(row=1, column=0, sticky="nsew")
@@ -1096,20 +1108,108 @@ class VF1PatcherGUI:
         ttk.Label(self.settings_inner, text=text, style="Muted.TLabel", padding=(0, 8)).grid(row=0, column=0, sticky="w")
 
     def select_default_settings(self) -> None:
+        """Default Patches: exactly the manifest's defaults, what a fresh install starts with."""
         with self._bulk_setting_change():
             for setting_id, var in self.setting_vars.items():
                 var.set(self.settings[setting_id].default)
 
     def select_all_settings(self) -> None:
-        # Enable All leaves Experimental settings off: the player ticks each one deliberately.
+        """Select All Patches: every patch except the Experimental ones (the old Enable All)."""
+        # Select All leaves Experimental settings off: the player ticks each one deliberately.
         with self._bulk_setting_change():
             for setting_id, var in self.setting_vars.items():
                 var.set(not self.settings[setting_id].experimental)
 
+    def select_owners_defaults(self) -> None:
+        """Owner's Defaults: the owner's own choice, every patch except OWNERS_DEFAULT_OFF_SETTING_IDS."""
+        with self._bulk_setting_change():
+            for setting_id, var in self.setting_vars.items():
+                var.set(setting_id not in OWNERS_DEFAULT_OFF_SETTING_IDS)
+
     def clear_all_settings(self) -> None:
+        """Deselect All Patches: nothing ticked."""
         with self._bulk_setting_change():
             for var in self.setting_vars.values():
                 var.set(False)
+
+    def set_named_settings(self, setting_ids, tick: bool) -> list[str]:
+        """Tick (or untick) these settings the way the player's own clicks do: a tick also ticks what it needs, an
+        untick also unticks what needs it. Returns the ids whose box this changed directly."""
+        changed = []
+        for setting_id in setting_ids:
+            var = self.setting_vars.get(setting_id)
+            if var is not None and var.get() != tick:
+                var.set(tick)
+                changed.append(setting_id)
+        return changed
+
+    def open_patch_selection_settings(self) -> tk.Toplevel | None:
+        """The Patch Selection Settings window, as in the Virtual Villagers Fun Patcher: a search box, one checkbox
+        per patch, and Tick These / Untick These for the patches chosen."""
+        existing = getattr(self, "_patch_selection_dialog", None)
+        if existing is not None and existing.winfo_exists():
+            existing.deiconify()
+            existing.lift()
+            existing.focus_set()
+            return existing
+        if not self.setting_vars and not self._ensure_manifest_settings_loaded():
+            return None
+        dialog, frame = self._scrolling_dialog("Patch Selection Settings")
+        self._patch_selection_dialog = dialog
+        ttk.Label(frame, text="Tick or untick several patches at once", font=("Segoe UI", 10, "bold")).pack(
+            anchor="w")
+        ttk.Label(
+            frame,
+            text=("Choose patches below, then press Tick These or Untick These. A patch that needs another one "
+                  "turns it on too, just as when you tick it yourself, and unticking a patch also unticks the "
+                  "patches that need it."),
+            wraplength=560, justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+        search = ttk.Frame(frame)
+        search.pack(fill="x", pady=(0, 8))
+        ttk.Label(search, text="Search:").pack(side="left")
+        search_var = tk.StringVar()
+        ttk.Entry(search, textvariable=search_var, width=40).pack(side="left", padx=(6, 0))
+        rows = ttk.Frame(frame)
+        rows.pack(fill="x")
+        choices: list[tuple[str, str, tk.BooleanVar, ttk.Checkbutton]] = []
+        for setting in self.settings.values():
+            var = tk.BooleanVar(value=False)
+            box = ttk.Checkbutton(rows, text=setting.label, variable=var)
+            box.pack(anchor="w", padx=(6, 0))
+            choices.append((setting.id, setting.label, var, box))
+        self._patch_selection_choices = choices
+
+        def filter_rows(*_args) -> None:
+            term = search_var.get().strip().lower()
+            for _sid, label, _var, box in choices:
+                box.pack_forget()
+            for _sid, label, _var, box in choices:
+                if not term or term in label.lower():
+                    box.pack(anchor="w", padx=(6, 0))
+        search_var.trace_add("write", filter_rows)
+        self._patch_selection_search = search_var
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(14, 0))
+
+        def apply(tick: bool) -> None:
+            chosen = [sid for sid, _label, var, _box in choices if var.get()]
+            if not chosen:
+                messagebox.showinfo("Patch Selection Settings", "Tick at least one patch in the list first.",
+                                    parent=dialog)
+                return
+            self.set_named_settings(chosen, tick)
+            labels = [self.settings[sid].label for sid in chosen]
+            count = sum(1 for sid in chosen if self.setting_vars[sid].get() == tick)
+            self.status_var.set(f"{'Ticked' if tick else 'Unticked'} {count} patch"
+                                f"{'' if count == 1 else 'es'}: {', '.join(labels)}.")
+        self._patch_selection_apply = apply
+        ttk.Button(buttons, text="Tick These", command=lambda: apply(True)).pack(side="left")
+        ttk.Button(buttons, text="Untick These", command=lambda: apply(False)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="right")
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        return dialog
 
     def select_category_settings(self, category: str) -> None:
         with self._bulk_setting_change():
@@ -1577,6 +1677,8 @@ class VF1PatcherGUI:
         self._help_button(family, "game_mechanics").pack(side="left", padx=(3, 0))
         self._link(family, "Picture Maker...", self.picture_maker).pack(side="left", padx=(18, 0))
         self._help_button(family, "picture_maker").pack(side="left", padx=(3, 0))
+        self._link(family, "Game Text...", self.game_text).pack(side="left", padx=(18, 0))
+        self._help_button(family, "game_text").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -2062,8 +2164,8 @@ class VF1PatcherGUI:
 
         def refresh_check(*_args) -> None:
             name = name_var.get()
-            counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
-            counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
+            counter_var.set(rename_family.room_text(name))
+            counter.configure(foreground="#a01010" if rename_family.room_used(name) > rename_family.MAX_LENGTH else "")
             info = chosen_slot()
             problem = None
             if folder() is None:
@@ -2265,8 +2367,8 @@ class VF1PatcherGUI:
 
         def refresh_check(*_args) -> None:
             name = name_var.get()
-            counter_var.set(f"{len(name)} / {rename_family.MAX_LENGTH} characters")
-            counter.configure(foreground="#a01010" if len(name) > rename_family.MAX_LENGTH else "")
+            counter_var.set(rename_family.room_text(name))
+            counter.configure(foreground="#a01010" if rename_family.room_used(name) > rename_family.MAX_LENGTH else "")
             source, target = chosen(source_list, "families"), chosen(target_list, "targets")
             problem = None
             if folder() is None:
@@ -2405,6 +2507,19 @@ class VF1PatcherGUI:
         window = picture_maker.open_window(
             self.root, save_folders=folders, game_folders=[Path(g) for g in games if g], hold=self._hold,
             show_help=lambda: self._show_how_to_use("picture_maker"))
+        window.window.transient(self.root)
+        return window
+
+    # ------------------------------------------------------------------ Game Text
+
+    def game_text(self):
+        """Any text in the game's own fonts, drawn as the game draws it, saved as a PNG (patcher/vf1_game_text.py).
+        It only reads the game folder: the patcher's modded output and vanilla folders are offered."""
+        import vf1_game_text as game_text_window
+        games = [clean_path_text(var.get()) for var in (self.output_dir_var, self.game_dir_var)]
+        window = game_text_window.open_window(
+            self.root, game_folders=[Path(g) for g in games if g], hold=self._hold,
+            show_help=lambda: self._show_how_to_use("game_text"))
         window.window.transient(self.root)
         return window
 

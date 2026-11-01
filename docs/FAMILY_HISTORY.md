@@ -3,7 +3,7 @@
 One log, the **Family History**, of every family event Virtual Families 1 has, for the Family Tree Maker (the save
 forgets a spouse who leaves or dies before any child, every earlier spouse, twins and triplets, causes of death and
 how anyone joined or left). The patch **Family History Log** (setting `FamilyHistory`, a Main Patch, on by default
-since 26 October 2026, ticked by Enable All) installs its own DLL, `vf1logs.dll`, which writes each event as it happens, from the
+since 26 October 2026, ticked by Select All Patches) installs its own DLL, `vf1logs.dll`, which writes each event as it happens, from the
 game's own memory and with the game's own words (the executable's string table, read at run time with `GetString`:
 "Male", "Female", "Nursing", the six causes of death 0x507..0x50C, "{name} is going to college!", "New Generation",
 every e-mail subject and pop-up title). The layout is the Virtual Villagers Fun Patcher's records (its Births,

@@ -38,7 +38,10 @@ static void RefreshStoreCheats(HWND dlg) {
 
 static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
-    case WM_INITDIALOG: RefreshStoreCheats(dlg); return TRUE;
+    case WM_INITDIALOG:
+        HideWithoutFreeCheats(dlg, ID_SC_ANTISPAM);
+        RefreshStoreCheats(dlg);
+        return TRUE;
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         // VF2: buying the price mode you already have takes it away again.
@@ -47,7 +50,8 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_SC_X100: gVillage.priceMultiplier = gVillage.priceMultiplier == 100 ? 1 : 100; break;
         case ID_SC_RESET_PRICES: gVillage.priceMultiplier = 1; break;
         // VF2's "Anti-Spam Software Ownership" cheat (item 0x158): free; buying it again switches it back.
-        case ID_SC_ANTISPAM: SetAntiSpam(!AntiSpamOwned()); break;
+        // Free: it needs Free and Guaranteed Cheats.
+        case ID_SC_ANTISPAM: if (!FreeCheatsRefused(dlg)) SetAntiSpam(!AntiSpamOwned()); break;
         case ID_SC_ACH_ALL:
             if (Confirm(dlg, L"Complete every achievement? Reset Achievements is the only way back.")) {
                 CompleteAllAchievements();
@@ -311,15 +315,7 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_TC_X2: gWantedSpeed = 5; ApplyGameSpeed(); break;
         case ID_TC_X5: gWantedSpeed = 2; ApplyGameSpeed(); break;
         case ID_TC_X10: gWantedSpeed = 1; ApplyGameSpeed(); break;
-        case ID_TC_WARP:
-            // VF2's Time Warp (free here): 3 years and 1 age tick pass for the whole family at once, with
-            // every normal rule (features.inc TimeWarp).
-            if (MessageBoxW(dlg, L"Jump 3 years ahead? Everyone at home ages at once, with every normal rule: "
-                                 L"birthdays, leaving home, and old age. Continue?", L"Time Warp", MB_YESNO | MB_ICONQUESTION) == IDYES) {
-                TimeWarp();
-                Message(dlg, L"Time warp completed! It's 3 years later!");
-            }
-            break;
+        // Time Warp is VF2's paid Special Upgrade now, on the Services page (SpecialUpgrades), not a cheat.
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); return TRUE;
         }
         RefreshTime(dlg);
@@ -331,7 +327,7 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowTime(HWND owner) {
     static Template t;
-    t.Begin(L"Time Controls", 250, 150, 10);
+    t.Begin(L"Time Controls", 250, 124, 9);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_TC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 112, 16, ID_TC_PAUSE, L"Pause");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 24, 112, 16, ID_TC_RESUME, L"Resume");
@@ -340,7 +336,6 @@ static void ShowTime(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 167, 48, 73, 16, ID_TC_X2, L"Fast");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 70, 112, 16, ID_TC_X5, L"5x");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 70, 112, 16, ID_TC_X10, L"10x");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 98, 230, 16, ID_TC_WARP, L"Time Warp: +3 years");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 126, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 100, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, TimeProc, 0);
 }

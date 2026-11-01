@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import vf1_genealogy as gen
+import vf1_text
 
 _HEADING = re.compile(r"^\[(?P<when>[^\]]*)\] (?P<kind>.+) (?P<n>\d+)$")
 _FIELD = re.compile(r"^(?P<indent> +)(?P<label>[^:]+): ?(?P<value>.*)$")
@@ -202,7 +203,7 @@ def read(folder: Path, slot: int) -> History | None:
     h = History()
     for path in paths:
         try:
-            parse(path.read_bytes().decode("cp1252", errors="replace"), h)
+            parse(vf1_text.decode_lines(path.read_bytes()), h)
         except OSError:
             continue
         h.files.append(path)

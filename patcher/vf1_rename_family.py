@@ -20,10 +20,13 @@ The limit
     Traced in the vanilla exe (docs/vf1-save-format.md, "The family-name entry rule"): the entry box lets
     you type 20 characters (0x41C67A, 0x40DB03) and the OK handler stores them with GetText(buffer, 0x14)
     (0x41C72B), which strncpy's 20 bytes and forces buffer[19] = 0 (0x40D740): at most 19 characters are
-    ever stored, so 19 is the limit, exactly what the game itself can make. The box accepts keys 0x20..0xFF
-    (0x40DB0F); only printable ASCII 0x20..0x7E is accepted here. Spaces are kept as typed. A name that
-    breaks the rule is refused, never truncated. UNCONFIRMED (not traced): whether non-ASCII keys ever
-    reach the box, and which symbols the game's font can draw (cosmetic only).
+    ever stored, so 19 bytes is the limit, exactly what the game itself can make. The stock game never
+    stores anything but printable ASCII: SDL_TEXTINPUT text longer than one byte is dropped (0x4049BB) and the
+    box refuses keys from 0x80 (0x40DB0F, the key is a signed char). With Render Unicode with In-Game Fonts
+    any character is stored, as UTF-8 (patcher/vf1_text.py), so here too: printable ASCII is one byte, any
+    other character 2 to 4, and the 19 bytes are counted, never a character cut in two. Control characters
+    are refused. Spaces are kept as typed. A name that breaks the rule is refused, never truncated. The
+    stock game (or the patch off) shows such a name as other Latin letters, and stores it back unchanged.
 
 Safety
     * The game must be closed: a running game rewrites its saves by itself every 10 minutes and when it
@@ -57,6 +60,7 @@ copy of a save folder with a fake process list.
 from __future__ import annotations
 
 import os
+import unicodedata
 import uuid
 import re
 from dataclasses import dataclass, field
@@ -66,6 +70,7 @@ from pathlib import Path
 import vf1_genealogy as gen
 import vf1_save as save_format
 import vf1_save_backup as save_backup
+import vf1_text
 
 SLOTS = (1, 2, 3, 4, 5)
 BACKUP_LABEL = save_backup.BEFORE_RENAME
@@ -79,6 +84,28 @@ LOGS_ROOT = "Virtual Families 1 Patcher"
 HISTORY_FOLDER = "Family History"
 _HISTORY_FILE = re.compile(r"^Family History (\d+)\.txt$", re.IGNORECASE)
 PRINTABLE = frozenset(chr(code) for code in range(0x20, 0x7F))
+
+
+def printable(ch: str) -> bool:
+    """A character a name may hold: anything but control characters, unpaired surrogates and NUL."""
+    if ch in PRINTABLE:
+        return True
+    cat = unicodedata.category(ch)
+    return cat not in ("Cc", "Cs", "Zl", "Zp") and ord(ch) != 0xFEFF
+
+
+def room_used(name: str) -> int:
+    """How much of the name field ``name`` fills: its UTF-8 length (one per letter A to Z, 2 to 4 for others)."""
+    return len(vf1_text.encode(name))
+
+
+def room_text(name: str) -> str:
+    """The name box's counter: "7 / 19 characters", saying when a letter takes more than one."""
+    used = room_used(name)
+    text = f"{used} / {MAX_LENGTH} characters"
+    if used != len(name):
+        text += " (letters beyond A to Z count as 2 to 4)"
+    return text
 
 
 class RenameError(Exception):
@@ -106,12 +133,14 @@ def name_problem(name: str) -> str | None:
     """Why ``name`` cannot be a family name, or None if it can."""
     if not name:
         return "Type a name."
-    bad = sorted({ch for ch in name if ch not in PRINTABLE})
+    bad = sorted({ch for ch in name if not printable(ch)})
     if bad:
         shown = " ".join(repr(ch) for ch in bad)
         return f"Virtual Families cannot use these characters in a name: {shown}."
-    if len(name) > MAX_LENGTH:
-        return f"{len(name)} characters is too long: a family name can have at most {MAX_LENGTH}."
+    used = room_used(name)
+    if used > MAX_LENGTH:
+        return (f"{used} characters is too long: a family name can have at most {MAX_LENGTH} "
+                f"(an accented or other letter beyond A to Z counts as 2 to 4).")
     if not name.strip(" "):
         return "A name cannot be only spaces."
     return None
@@ -123,15 +152,19 @@ def name_problem(name: str) -> str | None:
 
 
 def _c_string(data: bytes, offset: int, width: int) -> str | None:
-    """The NUL-terminated printable-ASCII string in the field, or None."""
+    """The NUL-terminated string in the field (read by the patcher's one rule, vf1_text), or None when it has
+    no NUL or holds control characters."""
     raw = data[offset:offset + width]
     end = raw.find(b"\0")
     if end < 0:
         return None
     text = raw[:end]
-    if any(byte < 0x20 or byte > 0x7E for byte in text):
+    if any(byte < 0x20 or byte == 0x7F for byte in text):
         return None
-    return text.decode("ascii")
+    name = vf1_text.decode(text)
+    if not all(printable(ch) for ch in name):
+        return None
+    return name
 
 
 def _header(data: bytes, payload: int) -> int | None:
@@ -219,7 +252,7 @@ def read_slots(folder: Path) -> list[SlotInfo]:
 
 def _with_name(data: bytes, offset: int, width: int, name: str) -> bytes:
     """``data`` with the field at ``offset`` holding ``name``, NUL-padded."""
-    encoded = name.encode("ascii")
+    encoded = vf1_text.encode(name)
     if len(encoded) + 1 > width:
         raise RenameError(f"{name!r} does not fit a {width}-byte name field.")
     return data[:offset] + encoded + b"\0" * (width - len(encoded)) + data[offset + width:]
@@ -375,13 +408,13 @@ def plan_log_notes(folder: Path, slot: int, old: str, new: str, when: datetime) 
     try:
         for entry in history_folder(folder, slot).iterdir():
             if _HISTORY_FILE.match(entry.name) and entry.is_file():
-                text = entry.read_bytes().decode("cp1252", errors="replace")
+                text = vf1_text.decode_lines(entry.read_bytes())
                 number = max([number] + [int(n) + 1 for n in _RENAMED.findall(text)])
         data = path.read_bytes()
     except OSError as exc:
         raise RenameError(f"Could not read the log {path.name}: {exc}") from exc
     prefix = b"" if not data or data.endswith(b"\n") else b"\r\n"
-    return [LogNote(path, len(data), prefix + history_record(old, new, when, number).encode("ascii"))]
+    return [LogNote(path, len(data), prefix + vf1_text.encode(history_record(old, new, when, number)))]
 
 
 def _restore(changes: list[FileChange], notes: list[LogNote]) -> list[str]:

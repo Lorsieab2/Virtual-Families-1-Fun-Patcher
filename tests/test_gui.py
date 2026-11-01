@@ -105,8 +105,9 @@ def labels_on_screen(widget):
 
 def test_window_has_the_vf2_sections_and_buttons(app):
     text = labels_on_screen(app.root)
-    for expected in ["Patch Input", "Patch Settings", "Run Log", "Load Manifest Settings", "Defaults", "Enable All",
-                     "Disable All", "Enable All Main Patches", "Enable all Optional Content",
+    for expected in ["Patch Input", "Patch Settings", "Run Log", "Load Manifest Settings", "Select All Patches",
+                     "Default Patches", "Owner's Defaults", "Deselect All Patches", "Patch Selection Settings...",
+                     "Enable All Main Patches", "Enable all Optional Content",
                      "Dry Run (Validate Only)", "Enable/Disable Patches", "Restore Backup", "Check for updates",
                      gui.PROJECT_CREATOR_MESSAGE, gui.SAVE_COMPATIBILITY_NOTE, gui.AI_DISCLOSURE]:
         assert any(expected == t or expected in str(t) for t in text), expected
@@ -122,29 +123,125 @@ def test_window_has_the_vf2_sections_and_buttons(app):
 def test_settings_load_under_their_category_with_descriptions(app):
     app.manifest_var.set(str(MANIFEST))
     assert app.load_manifest_settings()
-    assert {k: v.get() for k, v in app.setting_vars.items()} == {
-        "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-        "UpTo28Children": False, "FamilyHistory": True, "AllowOlderPregnancies": True, "ClampMoneyAndFood": True, "SpecialUpgrades": True,
-        "CheatUpgrades": True, "FleaMarket": True, "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True,
-        "VF2Songs": True, "GlowingCollectables": True, "BehaviorLabelVariants": True}
+    assert {k: v.get() for k, v in app.setting_vars.items()} == DEFAULTS
     text = labels_on_screen(app.settings_inner)
     assert text.index("Main Patches") < text.index("Fix Vanilla Game Bugs") < text.index("Optional Patches") \
         < text.index("Cheat Upgrades")
-    assert "RollTheDice - default on - $500: a Popup Event happens right away." in text
+    assert ("RollTheDice - default on - $2,000, Virtual Families 2's price: a Popup Event happens right away. Free "
+            "with Free and Guaranteed Cheats.") in text
     assert app.version_var.get() == "Version: dev"
     app.clear_all_settings()
     assert not any(v.get() for v in app.setting_vars.values())
     app.select_category_settings("main")
     assert app.selected_settings() == {"FixVanillaGameBugs", "OlderVillagerMortalityCurve", "PrivateRomanticTime",
-                                      "FamilyHistory", "AllowOlderPregnancies", "ClampMoneyAndFood", "SpecialUpgrades"}
+                                      "FamilyHistory", "RenderUnicodeInGameFonts", "AllowOlderPregnancies",
+                                      "ClampMoneyAndFood", "SpecialUpgrades"}
     app.select_default_settings()
-    assert len(app.selected_settings()) == 15 and "UpTo28Children" not in app.selected_settings()
-    assert "FamilyHistory" in app.selected_settings()
-    app.select_all_settings()                    # Enable All leaves the Experimental setting off
-    assert len(app.selected_settings()) == 15 and "UpTo28Children" not in app.selected_settings()
-    assert "FamilyHistory" in app.selected_settings()
+    assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
+    app.select_all_settings()                    # Select All Patches leaves the Experimental setting off
+    assert app.selected_settings() == set(DEFAULTS) - {"UpTo28Children"}
     app.setting_vars["UpTo28Children"].set(True)  # ticked deliberately
     assert "UpTo28Children" in app.selected_settings()
+
+
+# The shipped defaults (patcher/manifest.json). The owner, 2026-11-01: the cheats and the free stuff are off by
+# default (Cheat Upgrades, Free and Guaranteed Cheats, and the Flea Market page that shows every item); everything
+# that costs or adds content stays on; Up to 28 Children stays off (Experimental).
+DEFAULTS = {
+    "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
+    "UpTo28Children": False, "FamilyHistory": True, "RenderUnicodeInGameFonts": True,
+    "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
+    "SpecialUpgrades": True, "CheatUpgrades": False, "FleaMarket": False, "FreeAndGuaranteedCheats": False,
+    "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
+    "GlowingCollectables": True, "BehaviorLabelVariants": True}
+
+
+def test_each_preset_ticks_exactly_its_set(app):
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    everything = set(DEFAULTS)
+    app.clear_all_settings()                                             # Deselect All Patches
+    assert app.selected_settings() == set()
+    app.select_owners_defaults()                                         # Owner's Defaults
+    assert app.selected_settings() == everything - {"UpTo28Children"}
+    assert {"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"} <= app.selected_settings()
+    assert gui.OWNERS_DEFAULT_OFF_SETTING_IDS == frozenset({"UpTo28Children"})
+    app.select_all_settings()                                            # Select All Patches: no Experimental
+    assert app.selected_settings() == everything - {"UpTo28Children"}
+    app.setting_vars["UpTo28Children"].set(True)
+    app.select_default_settings()                                        # Default Patches: the manifest's
+    assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
+    assert not {"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket", "UpTo28Children"} & app.selected_settings()
+    app.select_owners_defaults()
+    app.clear_all_settings()
+    assert app.selected_settings() == set()
+
+
+def test_the_cheat_settings_say_what_needs_what(app):
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    texts = {getattr(w, "_vf1_description_text", "").split(" - ")[0]: getattr(w, "_vf1_description_text", "")
+             for w in app.description_widgets}
+    free = texts["FreeAndGuaranteedCheats"]
+    assert free.startswith("FreeAndGuaranteedCheats - default off - ")
+    for unlocks in ("Force Successful Pregnancy", "Clothing and Hairstyles", "Anti-Spam Software Ownership",
+                    "Get for free", "Services page", "Roll the Dice"):
+        assert unlocks in free, unlocks
+    assert "**Each one also needs its own page" in free
+    assert "**Get for free also needs Free and Guaranteed Cheats.**" in texts["FleaMarket"]
+    assert texts["CheatUpgrades"].startswith("CheatUpgrades - default off - ")
+    assert "Free and Guaranteed Cheats.**" in texts["CheatUpgrades"]
+
+
+def test_patch_selection_settings_searches_and_ticks(app, monkeypatch):
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    dialog = app.open_patch_selection_settings()
+    assert dialog.title() == "Patch Selection Settings"
+    assert app.open_patch_selection_settings() is dialog                  # one window, brought to the front
+    choices = {sid: (label, var, box) for sid, label, var, box in app._patch_selection_choices}
+    assert set(choices) == set(DEFAULTS) and all(not var.get() for _l, var, _b in choices.values())
+    shown = lambda: {sid for sid, (_l, _v, box) in choices.items() if box.winfo_manager()}  # noqa: E731
+    assert shown() == set(DEFAULTS)
+    app._patch_selection_search.set("cheat")                             # the search box: by name, any case
+    assert shown() == {"CheatUpgrades", "FreeAndGuaranteedCheats"}
+    app._patch_selection_search.set("FLEA")
+    assert shown() == {"FleaMarket"}
+    app._patch_selection_search.set("")
+    assert shown() == set(DEFAULTS)
+    app.select_default_settings()
+    choices["FleaMarket"][1].set(True)
+    choices["FreeAndGuaranteedCheats"][1].set(True)
+    app._patch_selection_apply(True)                                      # Tick These
+    assert {"FleaMarket", "FreeAndGuaranteedCheats"} <= app.selected_settings()
+    assert "CheatUpgrades" not in app.selected_settings()
+    app._patch_selection_apply(False)                                     # Untick These
+    assert not {"FleaMarket", "FreeAndGuaranteedCheats"} & app.selected_settings()
+    assert app.selected_settings() == {k for k, on in DEFAULTS.items() if on}
+    for _l, var, _b in choices.values():
+        var.set(False)
+    told = []
+    monkeypatch.setattr(gui.messagebox, "showinfo", lambda *a, **k: told.append(a))
+    app._patch_selection_apply(True)                                      # nothing chosen
+    assert told and told[0][1] == "Tick at least one patch in the list first."
+    dialog.destroy()
+
+
+def test_patch_selection_settings_ticks_dependencies_together(app, tmp_path):
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    manifest["settings"].append({"id": "Extra", "label": "Extra", "default": False, "requires": ["CheatUpgrades"]})
+    app.manifest_var.set(str(write_manifest(tmp_path / "m.json", settings=manifest["settings"])))
+    assert app.load_manifest_settings()
+    dialog = app.open_patch_selection_settings()
+    choices = {sid: var for sid, _label, var, _box in app._patch_selection_choices}
+    choices["Extra"].set(True)
+    app._patch_selection_apply(True)
+    assert {"Extra", "CheatUpgrades"} <= app.selected_settings()          # co-ticked, as a click does
+    choices["Extra"].set(False)
+    choices["CheatUpgrades"].set(True)
+    app._patch_selection_apply(False)
+    assert not {"Extra", "CheatUpgrades"} & app.selected_settings()       # what needs it goes too
+    dialog.destroy()
 
 
 def test_the_experimental_section_has_its_heading_and_warning(app):

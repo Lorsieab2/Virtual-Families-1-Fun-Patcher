@@ -491,7 +491,7 @@ class SettingFile:
 
 
 # Settings in this category are experimental: they default off, and no "all" option turns them on (the
-# command line's --enable-all, the GUI's Enable All); the player ticks or --enable's each one by name.
+# command line's --enable-all, the GUI's Select All Patches); the player ticks or --enable's each one by name.
 EXPERIMENTAL_CATEGORY = "experimental"
 EXPERIMENTAL_WARNING = "Experimental: not yet tested in a running game. Back up your saves before using it."
 
@@ -1586,8 +1586,12 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
         "Settings and defaults",
         "---------------------",
         "- Main Patches (green), Optional Patches (black) and Experimental (red), as in the patcher window.",
-        "- Experimental settings are off by default and Enable All (or --enable-all) leaves them off:",
+        "- Experimental settings are off by default and Select All Patches (or --enable-all) leaves them off:",
         "  Experimental: not yet tested in a running game. Back up your saves before using it.",
+        "- The cheats are off by default: Cheat Upgrades, Flea Market and Free and Guaranteed Cheats.",
+        "- Presets in the patcher window: Select All Patches (every setting except the Experimental ones),",
+        "  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children)",
+        "  and Deselect All Patches (none). Patch Selection Settings ticks or unticks chosen settings by name.",
     ]
     for setting in settings.values():
         state = "on" if setting.default else "off"
