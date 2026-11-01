@@ -72,22 +72,29 @@
     {
       "id": "SpecialUpgrades",
       "label": "Add visible mobile version purchases",
-      "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean.",
+      "description": "Special Upgrades in the Upgrades menu: Brokerage Account, Food Club, Health Plan and Lucky Rock, as in the Virtual Families 2 patcher, plus a Maid and a Gardener who keep the house and yard clean. Also a Services page with Virtual Families 2's store services and upgrades at its prices: Time Warp ($2,000: the family lives 3 years at once, the money it brings capped at $750), Adoption Services ($4,000: spawn outside child in house, 3 years old, male or female at random), and for the family member picked: Boarding School ($1,500, children), Systematic Desensitization ($2,500: every dislike removed), Psychotherapy ($1,750: happiness raised in Virtual Families 2's bands), Higher Learning Classes ($1,000: one new like), Advanced Career Training ($1,100 times the career level + 1, adults; a promotion; not sold to a Master) and Career Change ($1,200, adults: a new career at Beginner). A family that cannot afford one is refused and nothing changes.",
       "default": true,
       "category": "main"
     },
     {
       "id": "CheatUpgrades",
       "label": "Cheat Upgrades",
-      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats, store price multipliers, Anti-Spam Software ownership, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x; time warp), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawned children, Adopt New Person after a game over, Evict Family), and a Clothing and Hairstyles page that shows every hairstyle and outfit and gives the one you click to a villager.",
-      "default": true,
+      "description": "Adds the Upgrades button's cheat pages: money, food, interest rate, villager cheats (health, cures, happiness, energy, fed, Add Running Like, Set Age to 18, appearance), store price multipliers, achievements and collections, house and yard mess, time controls (pause; Slow, Normal and Fast as in Virtual Villagers, plus 5x and 10x), and the Family page (same-sex marriage, candidate reroll, divorce, pregnancy one-shots, spawn child in house, spawn outside child in house, Adopt New Person after a game over, Evict Family). **Force Successful Pregnancy, the Clothing and Hairstyles page and Anti-Spam Software Ownership also need Free and Guaranteed Cheats.**",
+      "default": false,
       "category": "optional"
     },
     {
       "id": "FleaMarket",
       "label": "Flea Market",
-      "description": "Every tray item the store sells, to buy or get for free.",
-      "default": true,
+      "description": "A page that lists every tray item the store sells, to buy at its normal price at any time. **Get for free also needs Free and Guaranteed Cheats.**",
+      "default": false,
+      "category": "optional"
+    },
+    {
+      "id": "FreeAndGuaranteedCheats",
+      "label": "Free and Guaranteed Cheats",
+      "description": "Cheats that give something for nothing or never fail: Force Successful Pregnancy (Family page), the Clothing and Hairstyles page (gives any outfit or hairstyle free), Anti-Spam Software Ownership (Store Cheats), the Flea Market's Get for free, and every paid item free: the Services page (Time Warp, Adoption Services, Boarding School, Systematic Desensitization, Psychotherapy, Higher Learning Classes, Advanced Career Training, Career Change) and Roll the Dice. While it is off their buttons are hidden and the paid items cost their prices. **Each one also needs its own page: Cheat Upgrades for Force Successful Pregnancy, Clothing and Hairstyles and Anti-Spam; Flea Market for Get for free; Add visible mobile version purchases for the Services page; Roll the Dice for Roll the Dice.**",
+      "default": false,
       "category": "optional"
     },
     {
@@ -100,7 +107,7 @@
     {
       "id": "RollTheDice",
       "label": "Roll the Dice",
-      "description": "$500: a Popup Event happens right away.",
+      "description": "$2,000, Virtual Families 2's price: a Popup Event happens right away. Free with Free and Guaranteed Cheats.",
       "default": true,
       "category": "optional"
     },

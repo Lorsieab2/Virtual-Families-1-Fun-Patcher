@@ -32,7 +32,8 @@ def test_adopt_outside_child_follows_the_games_visitor_event():
 
 def test_family_page_has_the_two_adopt_buttons():
     assert "ID_FA_ADOPT_BOY" in PAGE and "ID_FA_ADOPT_GIRL" in PAGE
-    assert "L\"Adopt Outside Boy\"" in PAGE and "L\"Adopt Outside Girl\"" in PAGE
+    # the owner, 2026-11-01: each button says how the child arrives (straight into the house, no event)
+    assert "L\"Spawn outside child in house (male)\"" in PAGE and "L\"Spawn outside child in house (female)\"" in PAGE
     assert "AdoptOutsideChild(id == ID_FA_ADOPT_GIRL ? 1 : 0" in PAGE
     # the existing spawn buttons stay
     assert "SpawnChild(id == ID_FA_CHILD_GIRL ? 1 : 0" in PAGE

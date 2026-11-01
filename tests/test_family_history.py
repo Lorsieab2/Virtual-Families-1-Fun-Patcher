@@ -81,7 +81,7 @@ def test_vf1fun_loads_the_companion_after_vf1kids_and_tells_it_its_family_change
     kids = cpp.index('if (SettingOn(L"UpTo28Children", false))\n        LoadKidsCompanion();')
     logs = cpp.index('if (SettingOn(L"FamilyHistory", false))')
     assert kids < logs and 'L"vf1logs.dll"' in cpp and '"VF1Logs_Startup"' in cpp and '"VF1Logs_Event"' in cpp
-    assert "LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);" in cpp
+    assert "LogFamilyEvent(LOGS_ROLL_DICE, -1, cost);" in cpp
     family = (ROOT / "native" / "vf1fun" / "family.inc").read_text(encoding="utf-8")
     for call in ("LogFamilyEvent(LOGS_DIVORCE, spouse);", "LogFamilyEvent(LOGS_SPAWN_CHILD, slot, a, b);",
                  "LogFamilyEvent(LOGS_ADOPT_CHILD, slot);", "if (mode == ADOPT_EVICT) LogFamilyEvent(LOGS_EVICT, -1);"):
