@@ -316,14 +316,18 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     screen's Progress, Happiness, Health, Fed and Energy, and the loading bar) empty and at each level where
     their look changes, the achievement progress bar, the bank's 7-day chart; buttons in their three states
     (there is no greyed-out state: 0x401938), check boxes, choices, the volume slider and scroll bars, the
-    dialog backdrops tiled from their 9 tiles at the game's sizes, mouse pointers, icons and logos; the four
+    dialog backdrops tiled from their 9 tiles at the game's sizes, mouse pointers, icons and logos, the family
+    tree's frames (the parent frame's left 8 pixels cut by the tree's clip, and the grey 0x408EC0 lays over the
+    frame of a family member who is gone); the four
     fonts the game loads, every glyph and sample text in each colour the game uses (0x409660, tint 0x402940);
     the yard and house from the 16 map tiles, every room at every Home Improvement level, furniture and objects
     in every state and every TV and computer frame, weather, the rainbow and night (the 0x403B40 fill with the
-    lsmap.dat lamps); every effect, animal and food animation frame; the store items, collectibles, screens and
-    backgrounds; and the patcher's own pictures, marked "(patcher)". A picture or cell no reached code draws is
+    lsmap.dat lamps); every effect, animal and food animation frame, the ripples round a family member in the
+    water, the birds on the ground and flying, the pets in every pose and heading; the store items,
+    collectibles, screens and backgrounds; and the patcher's own pictures, marked "(patcher)". A picture or cell no reached code draws is
     marked "(unused)" with the reason (for example the status-bar slices, LoadColor, the dragonflies, butterfly
-    and hummingbird, the store_* and collecting_* sheets, the 11 font files no code loads, help1-4.jpg and
+    and hummingbird, the shark (its draw is never put in the draw list, and its strip is blank), the pets' 20th
+    pose, the store_* and collecting_* sheets, the 11 font files no code loads, help1-4.jpg and
     credits.jpg). Anything not proved by emulation says "Not checked against the game". JPEGs are decoded by
     `patcher/vf1_jpeg.py`, byte for byte as the game's own libjpeg-9.dll decodes them for SDL2_image. Save PNG,
     or Save all (everything shown, or one group) into a folder per category, at game size, 2x, 4x or a custom

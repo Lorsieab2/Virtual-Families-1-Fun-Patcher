@@ -4,7 +4,8 @@ draws each picture (and each cell), what a cell shows, and the pictures the game
 vf1_game_art for the catalogue they join).
 
 Where the rules come from (the vanilla Virtual Families.exe 1.01.00; tests/test_art_misc.py runs the effect
-machinery, the store's item picture and the ball in Unicorn, see tests/house_emu.py and tests/ui_emu.py):
+machinery, the store's item picture and the ball in Unicorn, see tests/house_emu.py and tests/ui_emu.py;
+tests/test_art_emulated_extras.py runs the ripples, the birds, the shark and the pets):
 
 * The effects: the table 0x4EB370 (16 bytes an effect: picture id, frames, random first frame, height) is
   loaded into picture grids by 0x4217B0.  AddEffect 0x421810 (effect, x, y, delay, loop, motion or cell,
@@ -44,6 +45,37 @@ EFFECT_CHECK = CHECKED.format(code="AddEffect 0x421810, the effect clock 0x421B5
 STEPS_PER_FRAME = 7                 # 0x421B56: the clock moves the effects every 7th call
 FADE_STEP = 0.10000000149011612     # 0x4B4520 (a double holding the float 0.1)
 RIPPLE_ALPHA = 0.4000000059604645   # 0x4D6EDC
+RIPPLE_AT = 32                      # 0x48B81F / 0x48B833: the ripples' corner, 32 pixels up and left of the feet
+RIPPLE_CHECK = CHECKED.format(code="the family member draw 0x48B4D0, standing in water of ground kind 5, "
+                                   "for each value of the seconds clock")
+
+# The birds (0x42FDD0, one bird record of 0x4C bytes): +0 / +4 its place, +0x30 its frame, +0x34 its size,
+# +0x38 its facing (0 right, 3 left: 0x4306E9..0x4306FB), +0x3C what it does (1 on the ground, 2 waiting, both
+# drawn alike; 3 flying), +0x48 its hop's height.  On the ground the cell is frame + 2 when facing left (frames
+# 0..1 standing / pecking; frames 4..7, plus 2 facing left, flapping: 0x43067D..0x430699); flying it is
+# frame + 4, plus 4 facing left (frames 0..3, 0x43079C).  The shadow 0xA9 and then the bird 0xA8 are drawn by
+# 0x44ED70 at the bird's size (rand(40) + 80 percent, 0x42FB9D / 0x42FC1D): on the ground the shadow 3 pixels
+# below the bird, both lifted by the hop; flying the shadow 37 pixels below it.
+BIRD_GROUND = (-23, -19, 3)         # 0x42FE1E / 0x42FE21 and 0x42FE7F: bird corner, shadow 3 lower
+BIRD_FLYING = (-23, -19, 37)        # 0x42FE40: the shadow 0x25 lower
+BIRD_CELLS_GROUND = {0: "standing", 1: "pecking"}
+BIRD_WHY = ("The birds that land in the yard, drawn by the birds' draw 0x42FDD0 (shadow 0x42FE5B / 0x42FE94, "
+            "bird 0x42FEC0) each at its own size, 80% to 119% (0x42FB9D); shown here at 100%.")
+BIRD_CHECK = CHECKED.format(code="the birds' draw 0x42FDD0, for every place, frame and facing listed")
+
+# The pets (0x434550): row = the pet (cat, dog, turtle), column = the pose +0x1BC0, plus 4 x the heading +0x1BE8
+# (0 up-right, 1 down-right, 2 down-left, 3 up-left: 0x4311A0) when the pose is 0..3 (0x4345A3..0x4345C6).  The
+# poses come from the pets' animations (0x433550: "Walk NE" 0..3, "Walk SE" 4..7, "Walk SW" 8..11, "Walk NW"
+# 12..15, "Sit SE" 16, "Lie SW" 17, a second "Walk NW" 20..23) and the pose picker 0x4333C0 (16, 17, 18 or a
+# walking column); no code ever sets pose 19.
+_WALK = ("walking up and to the right", "walking down and to the right", "walking down and to the left",
+         "walking up and to the left")
+PET_POSES = ([f"{_WALK[c // 4]}, step {c % 4 + 1} of 4" for c in range(16)]
+             + ["sitting", "lying down", "sitting, second picture", "lying down, second picture"]
+             + [f"pawing, picture {k + 1} of 4" for k in range(4)])
+PET_NEVER = 19
+PET_CHECK = ("The pet draw 0x434550, with the pets' table built by the game's own 0x432E90, run in Unicorn for every "
+             "pet, pose and heading draws this cell.")
 OUTFIT_SCALE = 0.699999988079071    # 0x496B5A: 70 (percent) -> 0x409A40
 
 # The effect table 0x4EB370: effect: (picture id, frames, random first frame).
@@ -187,6 +219,42 @@ def effect_frames(files: ga.GameFiles, effect: int, x: int = 0, y: int = 0) -> l
     return out
 
 
+def bird_cell(flying: bool, facing_left: bool, frame: int) -> int:
+    """The cell of bird.png 0x42FDD0 draws (0x42FDE2..0x42FE15, 0x42FE60..0x42FEA0)."""
+    if flying:
+        return frame + 4 + (4 if facing_left else 0)
+    return frame + (2 if facing_left else 0)
+
+
+def bird_layers(files: ga.GameFiles, flying: bool, cell_index: int, height: int = 0) -> tuple:
+    """The shadow and the bird as 0x42FDD0 draws them at 100%, relative to the bird's place (+0 / +4)."""
+    x, y, shadow = BIRD_FLYING if flying else BIRD_GROUND
+    y -= 0 if flying else height
+    sw, sh = files.size("bird_shadow.png")
+    name, rect = cell(files, 0xA8, cell_index)
+    return (pi.Draw("shadow", "bird_shadow.png", (0, 0, sw, sh), x, y + shadow),
+            pi.Draw("bird", name, rect, x, y))
+
+
+def bird_arts(files: ga.GameFiles) -> list[tuple[str, str, tuple]]:
+    """Every picture of a bird the game shows: on the ground standing, pecking or flapping, and flying."""
+    out = []
+    for left in (False, True):
+        side = "left" if left else "right"
+        for frame in (0, 1):
+            c = bird_cell(False, left, frame)
+            out.append((f"ground/{c}", f"Bird {BIRD_CELLS_GROUND[frame]}, facing {side}",
+                        bird_layers(files, False, c)))
+        for frame in range(4):
+            c = bird_cell(False, left, frame + 4 + (2 if left else 0))        # 0x43067D..0x430699
+            out.append((f"ground/{c}", f"Bird flapping on the ground, facing {side}, picture {frame + 1} of 4",
+                        bird_layers(files, False, c)))
+        for frame in range(4):
+            c = bird_cell(True, left, frame)
+            out.append((f"flying/{c}", f"Bird flying {side}, picture {frame + 1} of 4", bird_layers(files, True, c)))
+    return out
+
+
 def f32(value: float) -> float:
     return struct.unpack("<f", struct.pack("<f", value))[0]
 
@@ -275,13 +343,22 @@ def arts(files: ga.GameFiles) -> list[ga.Art]:
                 f"1 - frame x 0.1 ({draw.alpha:.1f} here), invisible from frame 11 on (0x445D79 -> 0x421AC4).",
                 EFFECT_CHECK)
 
-    # the ripples round a family member standing in water (0x48B842: alpha 0.4, a cell by the game clock & 3)
+    # the ripples round a family member standing in water (0x48B842: alpha 0.4, a cell by the game clock & 3),
+    # placed with their top-left 32 pixels up and left of the feet (0x48B81F, 0x48B833)
     if files.has("ripple.png"):
         for k in range(4):
             name, rect = cell(files, 0xA5, k)
             add(f"misc/ripple/{k}", "Effects and animations/Water and steam", f"Ripples round a family member in "
-                f"the water, picture {k + 1} of 4", [pi.Draw("ripple", name, rect, 0, 0, 1.0, RIPPLE_ALPHA)], True,
-                USAGE[0xA5][1], "")
+                f"the water, picture {k + 1} of 4",
+                [pi.Draw("ripple", name, rect, -RIPPLE_AT, -RIPPLE_AT, 1.0, RIPPLE_ALPHA)], True,
+                USAGE[0xA5][1] + f" Picture {k + 1} shows while the game's seconds clock (0x4036D0) is {k} more than "
+                "a multiple of 4; the family member's body is not drawn while in the water, only the head.",
+                RIPPLE_CHECK)
+
+    # the birds (0x42FDD0): the shadow, then the bird, at its own size (100% here)
+    if files.has("bird.png") and files.has("bird_shadow.png"):
+        for key, label, layers in bird_arts(files):
+            add(f"misc/bird/{key}", "Animals and insects/Birds", label, layers, True, BIRD_WHY, BIRD_CHECK)
 
     # the ball in the yard (0x41F4E0): its shadow, then item 3's first picture, 30 pixels up and on the ground
     if files.has("ball_shadow.png") and files.has("InventoryItems.png"):
@@ -370,8 +447,10 @@ USAGE = {
     0x78: (True, "Footprints. " + _effect_why(0x13)),
     0x7A: (True, "Smoke. " + _effect_why(0x15)),
     0x7F: (False, "A bubble strip. " + _never(0x1A)),
-    0xA5: (True, "Ripples round a family member standing in water (map ground 5), drawn at alpha 0.4 with a cell "
-                 "chosen by the game clock (0x48B83B..0x48B842 -> 0x409970); loaded at 0x4898EF."),
+    0xA5: (True, "Ripples round a family member standing in water (map ground 5, 0x48B65E..0x48B67E), drawn at "
+                 "alpha 0.4 with the cell the game's seconds clock picks (its count & 3), centred on the feet "
+                 "(0x48B815..0x48B842 -> 0x409970), but not while sitting or lying (+0x13576) or in pose 0x36; "
+                 "loaded at 0x4898EF."),
     0xD2: (True, "The ball's shadow in the yard, drawn by the ball's draw 0x41F4E0 (0x41F530 -> 0x44EC30)."),
     # animals
     0x0D: (True, "Birds flying out of the birdhouse. " + _effect_why(0x29)),
@@ -379,18 +458,22 @@ USAGE = {
     0x7C: (False, "Reef fish. " + _never(0x17)),
     0x7D: (False, "Reef fish. " + _never(0x18)),
     0x7E: (True, "Bees. " + _effect_why(0x19)),
-    0xA8: (True, "The flying birds, drawn by the birds' draw 0x42FDD0 (0x42FEC0 -> 0x44ED70); loaded at 0x4307E2."),
-    0xA9: (True, "The flying birds' shadows, drawn by 0x42FDD0 (0x42FE5B, 0x42FE94); loaded at 0x4307F4."),
-    0xAA: (True, "The shark, drawn by 0x430850 (0x430944 -> 0x44EC90) with the cell of its heading (eight "
-                 "sectors, 0x430858..0x430924); loaded at 0x43083F."),
+    0xA8: (True, "The birds in the yard, on the ground and flying, drawn by the birds' draw 0x42FDD0 (0x42FEC0 -> "
+                 "0x44ED70); loaded at 0x4307E2."),
+    0xA9: (True, "The birds' shadows, drawn by 0x42FDD0 (0x42FE5B, 0x42FE94) under each bird; loaded at 0x4307F4."),
+    0xAA: (False, "The shark is never drawn: its draw 0x430850 is only the draw list's case 7 (0x44EB77), and no "
+                  "code ever puts a case 7 in the draw list (the only adder 0x44EBF0 is called with 1, 2, 3, 5, 8 "
+                  "and 9). Its picture is loaded (0x43083F) but every pixel of sharkstripfinal.png is fully "
+                  "transparent."),
     0xAB: (False, "No code asks for picture 0xAB (no getter call names it and no table holds it), so the "
                   "dragonflies are never drawn."),
     0xAC: (False, "No code asks for picture 0xAC (no getter call names it and no table holds it), so the green "
                   "butterfly is never drawn."),
     0xAD: (False, "No code asks for picture 0xAD (no getter call names it and no table holds it), so the "
                   "hummingbird is never drawn."),
-    0x03: (True, "The pets: the pets' table holds picture 3 for every frame (0x432E90) and the pet draw 0x434550 "
-                 "draws it (0x43460E -> 0x44ED70); the store and tray draw a pet as column 16 of its row (0x496A97)."),
+    0x03: (True, "The pets: the pets' table holds picture 3 for every pose (0x432E90) and the pet draw 0x434550 "
+                 "draws row pet, column pose (0x43460E -> 0x44ED70), placed by the table's point for that pet and "
+                 "pose; the store and tray draw a pet as column 16 of its row (0x496A97)."),
     # food and yard work (the house list draws them: vf1_art_house)
     0x0E: (True, "Chopping greens. " + _effect_why(0x01)),
     0x0F: (True, f"Food being prepared on the counter, {_HOUSE} at 0x4207AB and 0x4207DC."),
@@ -478,9 +561,20 @@ def _cell_labels() -> dict:
     for item in (61, 62, 63):
         out[(0xB8, 2 * item - 2)] = item_name(item)
         out[(0xB8, 2 * item - 1)] = f"{item_name(item)} (second picture)"
+        pet = item_name(item)[4:]
         for col in range(24):
-            out[(0x03, 24 * (item - 61) + col)] = f"{item_name(item)[4:]}, picture {col + 1}"
+            out[(0x03, 24 * (item - 61) + col)] = f"{pet}, {PET_POSES[col]}"
         out[(0x03, 24 * (item - 61) + 16)] += " (also the store and item tray picture)"
+        if item != 61:
+            for col in range(20, 24):
+                out[(0x03, 24 * (item - 61) + col)] = f"{pet}: blank (only the cat has pictures here)"
+    for c, words in enumerate(("standing, facing right", "pecking, facing right", "standing, facing left",
+                               "pecking, facing left")):
+        out[(0xA8, c)] = f"Bird {words}"
+    for k in range(4):
+        out[(0xA8, 4 + k)] = f"Bird flapping, facing right, picture {k + 1} of 4"
+        out[(0xA8, 8 + k)] = f"Bird flapping, facing left, picture {k + 1} of 4"
+    out[(0xA9, 0)] = "Bird's shadow"
     for item in range(66, 81):
         out[(0xB9, item - 66)] = item_name(item)
     for value, thing in _CARRIED.items():
@@ -492,6 +586,16 @@ def _cell_labels() -> dict:
 
 
 CELL_LABELS = _cell_labels()
+
+# How a cell's draw was checked, added to its "cut where GetCellRect cuts it" (vf1_art_sheets).
+CELL_CHECKED = {
+    **{(0x03, c): PET_CHECK for c in range(72) if c % 24 != PET_NEVER},
+    **{(0xA8, c): BIRD_CHECK for c in range(12)},
+    (0xA9, 0): BIRD_CHECK,
+    **{(0xA5, c): RIPPLE_CHECK for c in range(4)},
+    **{(0xAA, c): ("The shark's draw 0x430850, run in Unicorn for 16 headings, picks each of the 8 cells (the game "
+                   "never runs it).") for c in range(8)},
+}
 
 _OUTFIT = ("The outfits are drawn from the people's action sheets with their outfit row (0x496A55..0x496A92), and "
            "that row is always set (0x496C8C..0x496CA8), so this picture is never used.")
@@ -505,6 +609,10 @@ CELL_UNUSED = {
     **{(0xB8, c): _NO_ITEM for c in range(130, 140)},
     **{(0x68, c): ("No action carries it (see the people pictures' carried things) and no other code draws this "
                    "cell of carrying.png.") for c in CARRYING_NEVER},
+    **{(0x03, 24 * pet + PET_NEVER): ("No code ever gives a pet pose 19: the pets' animations (0x433550) use "
+                                      "poses 0..17 and 20..23 and the pose picker 0x4333C0 gives 16, 17, 18 or "
+                                      "a walking pose, so the pet draw 0x434550 never draws this cell.")
+       for pet in range(3)},
     (0x77, 63): "A cobweb is always number 0x8C, the first cobweb picture (0x414ED4); this second one is never drawn.",
     **{(0x77, c): ("This cell of collectables_small.png is blank, and the game refuses any number above 0x90 "
                    "(0x4135C0): nothing is drawn.") for c in range(67, 72)},
