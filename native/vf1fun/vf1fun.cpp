@@ -851,6 +851,40 @@ static void InstallOldestRecordGuard() {
     static const unsigned char stock[] = { 0xA1, 0x80, 0xC5, 0x50, 0x00 };  // mov eax, [0x50C580]
     InstallJump(0x489EE4, stock, 5, (void *)&OldestRecordDetour);
 }
+// FIX: THE BANK CRASHES THE GAME WHEN THE FAMILY HAS ALMOST NO MONEY AND NOBODY EARNS PAY.
+// The bank window's "Next 7 Days" chart (CBankingDlg 0x415300, its vtable slot 0x4B4508) scales its
+// seven bars by the last day's projected balance (+0x6C, which the constructor 0x415630 computes at
+// 0x4158A5..0x415B08): divisor = ftol(v6 / 5.0 + v6) (0x41531F..0x415332), kept at [esp+0x30]
+// (0x415338) and used only by each bar's idiv (0x415392: height = int(value) * 140 / divisor). When
+// the family has $0.423 or less and no member earns pay, the last day's projection stays under
+// $0.834, the divisor is 0 and the idiv raises a divide error the game does not handle: it closes
+// the moment the Bank button is clicked. Proved in Unicorn on the vanilla exe
+// (tests/test_bank_chart_fix.py): $0, $0.39 and $0.423086 with no pay fault at 0x415392. Now a
+// divisor of 0 is kept as 0x7FFFFFFF, so int(value) * 140 divides to 0 and every bar is drawn empty
+// (no height); any other divisor is kept as the game computed it, so every other chart is drawn
+// exactly as before. The detour replaces `mov [esp+0x30], eax; mov eax, [edi+0x70]` (0x415338,
+// 7 bytes) and leaves every register, the flags and esp as those two instructions leave them at
+// 0x41533F (edx, loaded at 0x415332, is not touched).
+__declspec(naked) static void BankChartDivisorDetour() {
+    __asm {
+        pushfd                          // the flags, as the stock movs leave them
+        test eax, eax
+        jnz keep
+        mov eax, 0x7FFFFFFF             // no divisor: every bar divides to 0
+    keep:
+        mov dword ptr [esp + 0x34], eax // [esp+0x30] under the pushed flags
+        popfd
+        mov eax, dword ptr [edi + 0x70] // the second stock instruction
+        push 0x41533F
+        ret
+    }
+}
+static void InstallBankChartFix() {
+    static const unsigned char stock[] = {
+        0x89, 0x44, 0x24, 0x30,                    // mov dword ptr [esp + 0x30], eax
+        0x8B, 0x47, 0x70 };                        // mov eax, dword ptr [edi + 0x70]
+    InstallJump(0x415338, stock, sizeof stock, (void *)&BankChartDivisorDetour);
+}
 // FIX: A FAMILY WITH A DOG IS NEVER OFFERED THE PET TURTLE.
 // The store's offer list (the specials draw, theStoreScene 0x449480) skips a
 // pet the family already has. Its switch on the item (0x449511) sends Pet Cat
@@ -1172,6 +1206,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         HookAdoptionSave();
         InstallPowerFailureFix();
         InstallOldestRecordGuard();
+        InstallBankChartFix();
         InstallPetTurtleOfferFix();
         InstallOutfitPictureFix();
     }
