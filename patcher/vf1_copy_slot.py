@@ -24,8 +24,13 @@ What changes in the copy, and why each copied file still matches the copied save
       and the target's in-use flag (gs+0x1B1FB + (T - 1)) set to 1. The flag is what the slot menu goes by,
       traced in the stock exe: the menu draws a slot's name only when its flag is set (0x41BB1A .. 0x41BDBD)
       and otherwise shows it as empty, a new family sets it (0x41C1A7 ..), and deleting a family clears it and
-      deletes "<N>.ldw" (0x41BF21 .., 0x423950 -> 0x4038F0). Without it the copy would look empty and a new
-      family started there would replace it. No other byte of the options file changes.
+      deletes "<N>.ldw" (0x41BF21 .., 0x423950 -> 0x4038F0). These two are the only per-slot fields of the
+      options file (docs/vf1-save-format.md section 1.2 lists every field), and they are written as the game itself
+      would: at every start theGameState::Load 0x4247C0 loads each "<N>.ldw" and gives a save that loads its
+      family name and a set flag. No other byte of the options file changes.
+    * Nothing of a slot lives outside the save folder: the exe keeps nothing per slot in the registry (its
+      registry calls are ATL's COM registrar) or anywhere else, and the patcher keeps nothing per slot outside the
+      files above (settings.ini, beside the DLLs, is shared).
     * The Children files are tied to their save's bytes: each names the FNV-1a 64 hash and size of the save it
       was written with, and vf1kids takes the children from it only when the loaded save still has them
       (vf1kids.cpp AfterLoad). The new name changes the save's bytes, so a Children file that described one

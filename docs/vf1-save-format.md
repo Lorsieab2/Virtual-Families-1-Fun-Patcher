@@ -64,6 +64,37 @@ it (0x41BF29 ..) and deletes only `Virtual Families<N>.ldw` (0x41BF75 -> 0x42395
 `<N+20>`, `<N+40>` and every patcher file of a deleted family stay behind. Copy Player Slot treats a slot as empty
 only when its byte is 0 and `Virtual Families<N>.ldw` is missing, and sets the byte for the slot it fills.
 
+**Every field of the options block (VERIFIED in the vanilla exe, every reference to gs+0x1B188..0x1B20F; audited
+for Copy Player Slot, 2026-10-31).** Only the slot-menu names and the in-use flags are per slot; everything else is
+the game's own:
+
+| gs+ | File offset | Field | Evidence |
+|---|---|---|---|
+| 0x1B188 | +0x00 | i32 current slot (0 none) | InitGameInfo 0x4239B4; set by the slot menu 0x41C19A.., LoadCurrentGame 0x42465D..; saved by Shutdown 0x422C28 |
+| 0x1B18C | +0x04 | i32 the slot before the last switch | 0x41C032, 0x41C0BF, 0x41C134 (theChangePlayerDlg) |
+| 0x1B190 | +0x08 | u8, set to 1 by InitGameInfo (gates the time at +0x84) | 0x4239F3, 0x423A52 |
+| 0x1B191 | +0x09 | u8 full screen (ldw.ini FullScreen / ForceFullScreen; the Options box) | 0x4239E8, 0x41DA1A, 0x41E11F, 0x423782 |
+| 0x1B192 + 0x15 x (N-1) | +0x0A | the slot menu's names, slots 1..5 | below |
+| 0x1B1FB + (N-1) | +0x73 | the in-use flags, slots 1..5 | above |
+| 0x1B200 | +0x78 | i32 0x3F8 | InitGameInfo 0x423A3C |
+| 0x1B204 | +0x7C | u8 "no slot could be loaded" | LoadCurrentGame 0x424600, 0x4247A5 |
+| 0x1B208, 0x1B20C | +0x80, +0x84 | `_time64` at InitGameInfo | 0x423A58, 0x423A64 |
+
+**The game rebuilds the slot menu from the saves at every start (VERIFIED).** `theGameState::Load()` 0x4247C0
+loads the options file (slot 0), then loads `Virtual Families<N>.ldw` for N = 1..5 in turn: a save that loads gives
+its family name (gs+0x1B12C) to the slot's menu entry and sets its in-use flag; one that does not gives the entry
+the string 0x641 and clears the flag (0x424887..0x4249EF); then LoadCurrentGame 0x4245F0 loads the current slot,
+or the first slot in use. So the names and flags in the options file only have to agree with the saves until the
+next start, which is what Copy Player Slot and Rename Family write.
+
+**Nothing of a slot lives outside the save folder (VERIFIED).** The exe imports the registry functions only for
+its statically linked ATL registrar (the `NoRemove` / `ForceRemove` / `Delete` / `Val` script parser at
+0x4264B0..0x427C92, used by LoadRegTypeLib for COM registration; no LDW key is named anywhere in the exe). It
+imports no network library (no WinINet, WinHTTP or sockets, and no URL in the exe), so it has no "LDW
+WebClient" and no `wc.dat`. The only other files it opens are `ldw.ini` (install folder, read only),
+`ldwLog.txt` (save folder, shared) and its own data files (`anims.dat`, `cmap.dat`, `lsmap.dat`, `wpts.dat`,
+`sm.xml` ... in the install folder). Achievements (the Trophies) are in the slot's save (gs+0x298, CAchievement).
+
 **Slot-menu names (VERIFIED against five real folders, copies only).** In `Virtual Families0.ldw` the name of slot N
 is the NUL-terminated string at file offset `header size + 0xA + 0x15 x (N - 1)` (gs+0x1B192 + 0x15 x (N - 1) minus
 the payload start 0x1B188), 0x15 bytes each; in every checked folder it equals the family name inside slot N's

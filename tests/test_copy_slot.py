@@ -209,6 +209,25 @@ def test_the_options_file_changes_only_the_targets_name_and_flag(save):
         assert cs.slot_used(after, slot) == cs.slot_used(before, slot)
 
 
+def test_the_options_file_agrees_with_the_games_own_rebuild_at_start(save):
+    """theGameState::Load 0x4247C0 loads each "<N>.ldw" at every start: a save that loads gives the slot its family
+    name and a set in-use flag, one that does not clears the flag. The copied options file must already say what the
+    game will rebuild, so the copy looks the same before and after the next start."""
+    cs.copy_slot(save, 1, 4, "Smith Two", processes=Processes(), now=NOW)
+    options = (save / "Virtual Families0.ldw").read_bytes()
+    for slot in cs.SLOTS:
+        path = rf.save_path(save, slot)
+        loads = path.is_file() and rf.save_name(path.read_bytes()) is not None
+        assert cs.slot_used(options, slot) is loads, slot
+        if loads:
+            assert rf.menu_name(options, slot) == rf.save_name(path.read_bytes()), slot
+    # The only per-slot fields of the 0x88-byte options block are the five names and the five flags.
+    size = rf._header(options, vs.OPTIONS_SIZE)
+    per_slot = {rf._menu_name_offset(options, s) + k for s in cs.SLOTS for k in range(rf.OPTIONS_NAME_STRIDE)}
+    per_slot |= {cs._used_offset(options, s) for s in cs.SLOTS}
+    assert per_slot == set(range(size + 0x0A, size + 0x0A + 5 * 0x15)) | set(range(size + 0x73, size + 0x78))
+
+
 def test_the_backup_is_made_first(save, monkeypatch):
     seen = []
     real = sb.copy_save_folder
