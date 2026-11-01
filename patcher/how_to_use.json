@@ -338,12 +338,13 @@
     "picture_maker": {
       "title": "Picture Maker",
       "guide": [
-        "Draws your family members exactly as the game draws them, from the game folder's own pictures, and saves them as PNG pictures with a clear background.",
-        "From my save: pick the save folder and the family. Click anyone to see them as they look now: age, hair and face, outfit, a baby on the way. The store's and tool tray's outfits are listed too.",
-        "Make your own: pick a gender, age, hair and face, outfit, pose, direction and head turn, or the big portrait of the Adoption and Dating screens.",
-        "Carrying: all 150 things a family member can hold. Ones the game never shows come last, marked so. Animation: the game's own poses; some draw what is carried lower.",
-        "Pictures: the game folder's own (patched if its settings are on), the stock game's, or the patcher's own carried things and collectables.",
-        "Save PNG saves the picture at the game's size, 2x, 4x or your own width and height. Saves and game files are only read."
+        "Draws your family, and every picture the game has, exactly as the game draws them, from the game folder's own pictures.",
+        "From my save: pick the save folder and family; click anyone to see them as they look now. Store and tray outfits too.",
+        "Make your own: gender, age, hair and face, outfit, pose, direction, head turn, or the big portrait.",
+        "Carrying: all 150 things a family member can hold; ones the game never shows come last, marked so.",
+        "Pictures: the game folder's own (patched if its settings are on), the stock game's, or the patcher's own.",
+        "Every picture: every sprite, frame, button state, dialog, meter at its levels, font, room and screen, by category. Find searches; (unused) says why the game never shows it.",
+        "Save PNG or Save all (a folder per category) at game size, 2x, 4x or your own size. Saves and game files are only read."
       ]
     }
   }

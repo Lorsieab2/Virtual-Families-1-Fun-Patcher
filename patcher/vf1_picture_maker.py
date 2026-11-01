@@ -22,6 +22,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import vf1_game_art as ga
 import vf1_people_pictures as pp
 import vf1_picture_image as pi
 
@@ -29,6 +30,65 @@ TITLE = "Picture Maker"
 PREVIEW = 320                         # the preview's side, in pixels
 CHECK = "Not checked against the game"
 SAVE_LOCATIONS = ("The family", "Left home", "Store and tool tray")
+# Every picture: which pictures the list shows.
+SHOW_CHOICES = ("Every picture", "Only pictures the game shows", "Only unused pictures",
+                "Only pictures not checked against the game", "Only the patcher's own pictures")
+CATEGORY_RANK = {c: k for k, c in enumerate(ga.CATEGORY_ORDER)}
+
+
+def quick_shrink(image: pi.Image, side: int) -> pi.Image:
+    """Every k-th pixel of every k-th row, k the smallest whole step that fits `side` (the preview only; the
+    saved PNGs are never shrunk this way)."""
+    k = -(-max(image.width, image.height) // side)
+    w, h = -(-image.width // k), -(-image.height // k)
+    out = pi.Image(w, h)
+    stride = image.width * 4
+    for y in range(h):
+        row = image.data[y * k * stride:(y * k + 1) * stride]
+        line = bytearray(w * 4)
+        for c in range(4):
+            line[c::4] = row[c::4 * k][:w]
+        out.data[y * w * 4:(y + 1) * w * 4] = line
+    return out
+
+
+def art_folder(target: Path, art) -> Path:
+    """Where Save all puts a picture: a folder for each part of its category."""
+    folder = Path(target)
+    for part in art.category.split("/"):
+        folder = folder / pi.safe_file_name(part)
+    return folder
+
+
+def save_arts(files, arts, target: Path, options: dict, progress=None) -> tuple[int, list[str], int]:
+    """Every picture in `arts` drawn and saved as a PNG under `target` (a folder per category); returns (saved,
+    the ones not saved with why, how many were blank).  `progress(done, total)` returning False stops it."""
+    saved, failed, blank = 0, [], 0
+    total = len(arts)
+    last_sheet = None
+    for k, art in enumerate(arts):
+        if progress is not None and not progress(k, total):
+            break
+        if not art.layers:
+            failed.append(f"{art.category}/{art.title}: the game folder has no such picture")
+            continue
+        sheets = {getattr(layer, "file", None) for layer in art.layers}
+        if last_sheet is not None and not (sheets & last_sheet):
+            files.forget()                         # the big sheets are let go once their cells are saved
+        last_sheet = sheets
+        try:
+            image = ga.draw(files, art)
+            if image.bbox() is None:
+                blank += 1
+            folder = art_folder(target, art)
+            folder.mkdir(parents=True, exist_ok=True)
+            pi.save_png(image, pi.unique_path(folder, pi.safe_file_name(art.title)), **options)
+            saved += 1
+        except (OSError, pi.PictureError) as exc:
+            failed.append(f"{art.category}/{art.title}: {exc}")
+    if progress is not None:
+        progress(total, total)
+    return saved, failed, blank
 
 
 def export_options(size: str, width: str = "", height: str = "", margin: bool = True) -> dict:
@@ -241,6 +301,8 @@ class PictureMaker:
         self.notebook.pack(fill="both", expand=True, pady=(8, 0))
         self._build_save_tab()
         self._build_custom_tab()
+        self._build_all_tab()
+        self.notebook.bind("<<NotebookTabChanged>>", lambda _e: self._all_tab_shown())
         bottom = ttk.Frame(outer)
         bottom.pack(fill="x", pady=(8, 0))
         ttk.Button(bottom, text="Close", command=self.close).pack(side="right")
@@ -381,6 +443,9 @@ class PictureMaker:
         if hasattr(self, "save_tree"):
             self._show_saved()
             self._show_custom()
+        if hasattr(self, "all_tree"):
+            self.catalogue = None
+            self._all_tab_shown()
 
     def _fill_folders(self) -> None:
         values = [str(f) for f in self.save_folders]
@@ -505,7 +570,9 @@ class PictureMaker:
         if image is None:
             return
         shown = image.cropped(pi.MARGIN)
-        factor = max(1, min(4, PREVIEW // max(shown.width, shown.height, 1)))
+        if max(shown.width, shown.height) > 2 * PREVIEW:
+            shown = quick_shrink(shown, PREVIEW)       # a big picture (the yard, a screen) shown quickly
+        factor =max(1, min(4, PREVIEW // max(shown.width, shown.height, 1)))
         board = shown.on_checks()
         photo = board.photo(tk, self.window, max_side=PREVIEW)
         if factor > 1 and max(shown.width, shown.height) * factor <= PREVIEW:
@@ -570,11 +637,260 @@ class PictureMaker:
         note = " ".join(w for w in (note, carried_text(spec)) if w)
         self._render_into("custom", self.custom_preview, lambda: pp.render(self.art(spec["look"]), spec), note)
 
+    # ---------------------------------------------------------------- Every picture
+    def _build_all_tab(self) -> None:
+        tab = ttk.Frame(self.notebook, padding=6)
+        self.notebook.add(tab, text="Every picture")
+        self.all_tab = tab
+        self.catalogue: ga.Catalogue | None = None
+        self.catalogue_files: ga.GameFiles | None = None
+        self.all_nodes: dict[str, ga.Art] = {}
+        self.all_groups: dict[str, str] = {}           # tree node -> category path
+        self.all_pending: dict[str, list] = {}         # a group node's pictures not yet put in the tree
+        self.search_var = tk.StringVar(master=self.window)
+        self.show_var = tk.StringVar(master=self.window, value=SHOW_CHOICES[0])
+        self.whole_var = tk.BooleanVar(master=self.window, value=False)
+        self.all_count_var = tk.StringVar(master=self.window)
+        self.cancel_saving = False
+        top = ttk.Frame(tab)
+        top.pack(fill="x")
+        ttk.Label(top, text="Find:").pack(side="left")
+        search = ttk.Entry(top, textvariable=self.search_var, width=34)
+        search.pack(side="left", padx=(4, 8))
+        search.bind("<Return>", lambda _e: self._fill_all())
+        ttk.Button(top, text="Find", command=self._fill_all).pack(side="left")
+        ttk.Label(top, text="Show:").pack(side="left", padx=(12, 4))
+        show = ttk.Combobox(top, textvariable=self.show_var, values=SHOW_CHOICES, state="readonly", width=34)
+        show.pack(side="left")
+        show.bind("<<ComboboxSelected>>", lambda _e: self._fill_all())
+        ttk.Label(top, textvariable=self.all_count_var, foreground="#555555").pack(side="left", padx=(12, 0))
+        body = ttk.Frame(tab)
+        body.pack(fill="both", expand=True, pady=(6, 0))
+        left = ttk.Frame(body)
+        left.pack(side="left", fill="both", expand=True)
+        self.all_tree = ttk.Treeview(left, show="tree", selectmode="browse", height=18, style="Picture.Treeview")
+        self.all_tree.column("#0", width=470)
+        scroll = ttk.Scrollbar(left, orient="vertical", command=self.all_tree.yview)
+        self.all_tree.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        self.all_tree.pack(side="left", fill="both", expand=True)
+        self.all_tree.bind("<<TreeviewOpen>>", lambda _e: self._open_group(self.all_tree.focus()))
+        self.all_tree.bind("<<TreeviewSelect>>", lambda _e: self._show_all())
+        right = ttk.Frame(body)
+        right.pack(side="left", fill="y")
+        self.all_preview = self._preview_pane(right)
+        self.all_preview["pane"].pack(fill="x")
+        buttons = ttk.Frame(right, padding=(10, 6))
+        buttons.pack(fill="x")
+        ttk.Checkbutton(buttons, text="Keep the picture's whole size (do not cut to the drawn pixels)",
+                        variable=self.whole_var).pack(anchor="w")
+        ttk.Button(buttons, text="Save PNG...", command=lambda: self.save_png("all")).pack(anchor="w", pady=(6, 0))
+        ttk.Button(buttons, text="Save all in this group...", command=lambda: self.save_every(group=True)).pack(
+            anchor="w", pady=(6, 0))
+        ttk.Button(buttons, text="Save all shown...", command=lambda: self.save_every(group=False)).pack(
+            anchor="w", pady=(6, 0))
+        self.all_progress = ttk.Label(buttons, text="", wraplength=PREVIEW, justify="left")
+        self.all_progress.pack(anchor="w", pady=(6, 0))
+        self.cancel_button = ttk.Button(buttons, text="Stop saving", command=self._stop_saving, state="disabled")
+        self.cancel_button.pack(anchor="w", pady=(4, 0))
+
+    def _all_tab_shown(self) -> None:
+        if self.notebook.index(self.notebook.select()) != self.notebook.index(self.all_tab):
+            return
+        if self.catalogue is None:
+            self.window.configure(cursor="watch")
+            self.window.update_idletasks()
+            try:
+                self.catalogue_files = ga.GameFiles(self.game_folder())
+                self.catalogue = ga.catalogue(self.catalogue_files)
+            finally:
+                self.window.configure(cursor="")
+            self._fill_all()
+
+    def ensure_catalogue(self) -> ga.Catalogue:
+        """The catalogue of the chosen game folder (the tests, and the tab when it is first shown)."""
+        if self.catalogue is None:
+            self.catalogue_files = ga.GameFiles(self.game_folder())
+            self.catalogue = ga.catalogue(self.catalogue_files)
+            self._fill_all()
+        return self.catalogue
+
+    def shown_arts(self) -> list:
+        if self.catalogue is None:
+            return []
+        arts = self.catalogue.find(self.search_var.get())
+        show = self.show_var.get()
+        if show == SHOW_CHOICES[1]:
+            arts = [a for a in arts if a.used and not a.patcher]
+        elif show == SHOW_CHOICES[2]:
+            arts = [a for a in arts if not a.used]
+        elif show == SHOW_CHOICES[3]:
+            arts = [a for a in arts if not a.checked]
+        elif show == SHOW_CHOICES[4]:
+            arts = [a for a in arts if a.patcher]
+        return arts
+
+    def _fill_all(self) -> None:
+        tree = self.all_tree
+        tree.delete(*tree.get_children())
+        self.all_nodes, self.all_groups, self.all_pending = {}, {}, {}
+        cat = self.catalogue
+        info = self.all_preview["info"]
+        if cat is None:
+            return
+        if cat.problems and not cat.arts:
+            info.configure(text=" ".join(cat.problems), foreground="#a01010")
+            self.all_count_var.set("")
+            return
+        arts = self.shown_arts()
+        total = len(cat.arts)
+        self.all_count_var.set(f"{len(arts)} of {total} pictures")
+        groups: dict[str, list] = {}
+        for art in arts:
+            groups.setdefault(art.category, []).append(art)
+        nodes: dict[str, str] = {}
+
+        def node_for(path: str) -> str:
+            if path in nodes:
+                return nodes[path]
+            parent_path, _, name = path.rpartition("/")
+            parent = node_for(parent_path) if parent_path else ""
+            node = tree.insert(parent, "end", text=name, open=False)
+            nodes[path] = node
+            self.all_groups[node] = path
+            return node
+
+        for path in sorted(groups, key=lambda p: (CATEGORY_RANK.get(p.split("/")[0], 99), p.split("/")[1:])):
+            node = node_for(path)
+            self.all_pending[node] = groups[path]
+            tree.insert(node, "end", text="...")          # opened on demand: the tree stays quick
+        text = "Pick a picture to see it as the game draws it."
+        if cat.problems:
+            text += " Not listed: " + " ".join(cat.problems)
+        info.configure(text=text, foreground="")
+        self.canvas_clear(self.all_preview)
+
+    def canvas_clear(self, preview: dict) -> None:
+        preview["canvas"].delete("all")
+
+    def _open_group(self, node: str) -> None:
+        arts = self.all_pending.pop(node, None)
+        if arts is None:
+            return
+        tree = self.all_tree
+        for child in tree.get_children(node):
+            if tree.item(child, "text") == "..." and child not in self.all_groups:
+                tree.delete(child)
+        for art in arts:
+            item = tree.insert(node, "end", text=art.title)
+            self.all_nodes[item] = art
+
+    def open_all_groups(self) -> None:
+        """Every group opened (the tests)."""
+        for node in list(self.all_pending):
+            self._open_group(node)
+
+    def selected_art(self):
+        selection = self.all_tree.selection()
+        return self.all_nodes.get(selection[0]) if selection else None
+
+    def select_art(self, key: str) -> None:
+        """Show the picture with this key (the tests)."""
+        self.open_all_groups()
+        for node, art in self.all_nodes.items():
+            if art.key == key:
+                self.all_tree.selection_set(node)
+                self._show_all()
+                return
+        raise KeyError(key)
+
+    def _show_all(self) -> None:
+        art = self.selected_art()
+        if art is None:
+            return
+        text = f"{art.title}. {art.note()}"
+        if not art.layers:
+            self.shown.pop("all", None)
+            self._show(self.all_preview, None, f"{text} The game folder has no such picture to draw.")
+            return
+        files = self.catalogue_files
+
+        def make():
+            image = ga.draw(files, art)
+            if image.bbox() is None:
+                raise pi.PictureError("every pixel of this picture is see-through (it is blank in the game's file)")
+            return image
+        self._render_into("all", self.all_preview, make, text)
+
+    def _stop_saving(self) -> None:
+        self.cancel_saving = True
+
+    def save_every(self, group: bool, folder: str | None = None) -> Path | None:
+        """Save every picture shown (or, with `group`, every picture in the picked group) as PNGs in folders
+        named after their categories."""
+        if self.catalogue is None:
+            self._tell("info", "Choose a game folder first.")
+            return None
+        arts = self.shown_arts()
+        title = "Every picture"
+        if group:
+            selection = self.all_tree.selection()
+            if not selection:
+                self._tell("info", "Pick a group (or a picture in it) first.")
+                return None
+            node = selection[0]
+            path = self.all_groups.get(node) or self.all_nodes[node].category
+            arts = [a for a in arts if a.category == path or a.category.startswith(path + "/")]
+            title = path.replace("/", " - ")
+        if not arts:
+            self._tell("info", "There is nothing to save.")
+            return None
+        try:
+            options = self.export_choice()
+        except pi.PictureError as exc:
+            self._tell("warning", str(exc))
+            return None
+        options["crop"] = not self.whole_var.get()
+        if folder is None:
+            folder = filedialog.askdirectory(parent=self.window, title="Save the pictures in...")
+        if not folder:
+            return None
+        stem = pi.safe_file_name(f"Virtual Families pictures - {title}")
+        target = Path(folder) / stem
+        n = 2
+        while target.exists():
+            target = Path(folder) / f"{stem} ({n})"
+            n += 1
+        saved, failed, blank = save_arts(self.catalogue_files, arts, target, options, self._saving_progress)
+        text = f"{saved} picture(s) saved in {target}, in a folder for each category."
+        if blank:
+            text += f"\n{blank} blank picture(s) (every pixel see-through) were saved as they are."
+        if self.cancel_saving:
+            text += "\nStopped before the end."
+        if failed:
+            text += "\nNot saved:\n" + "\n".join(failed[:10])
+        self.cancel_saving = False
+        self.cancel_button.configure(state="disabled")
+        self.all_progress.configure(text="")
+        self._tell("info", text)
+        return target
+
+    def _saving_progress(self, done: int, total: int) -> bool:
+        """Shown while saving; False stops the saving."""
+        if done % 20 == 0 or done == total:
+            self.cancel_button.configure(state="normal")
+            self.all_progress.configure(text=f"Saving {done} of {total}...")
+            self.window.update()
+        return not self.cancel_saving
+
     # ---------------------------------------------------------------- saving
     def export_choice(self) -> dict:
         return export_options(self.size_var.get(), self.width_var.get(), self.height_var.get(), self.margin_var.get())
 
     def picture_name(self, which: str) -> str:
+        if which == "all":
+            art = self.selected_art()
+            return pi.safe_file_name(art.title if art else "picture")
         if which == "save":
             thing = self.selected_thing()
             label = thing.item.label if thing else "picture"
@@ -602,6 +918,8 @@ class PictureMaker:
         except pi.PictureError as exc:
             self._tell("warning", str(exc))
             return None
+        if which == "all":
+            options["crop"] = not self.whole_var.get()
         if path is None:
             path = filedialog.asksaveasfilename(parent=self.window, title="Save PNG", defaultextension=".png",
                                                 initialfile=self.picture_name(which) + ".png",
