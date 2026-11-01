@@ -186,7 +186,7 @@ static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         for (int i = 0; i < VillagerSlots; ++i) {
             if (!VillagerPresent(i) || Villager(i)[0x13578]) continue;
             wchar_t name[48];
-            swprintf(name, 48, L"%.40hs", VillagerName(i));
+            swprintf(name, 48, L"%.40ls", NameW(VillagerName(i), 0x19));
             int row = (int)SendMessageW(who, LB_ADDSTRING, 0, (LPARAM)name);
             SendMessageW(who, LB_SETITEMDATA, row, i);
         }
@@ -208,7 +208,7 @@ static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             if (!why && CurrentMoney() < price) why = L"You don't have enough money for that.";
             if (why) { Message(dlg, why); return TRUE; }
             wchar_t text[200];
-            if (who >= 0) swprintf(text, 200, L"Buy %s for %.40hs for $%d?", kServices[item].name, VillagerName(who), price);
+            if (who >= 0) swprintf(text, 200, L"Buy %s for %.40ls for $%d?", kServices[item].name, NameW(VillagerName(who), 0x19), price);
             else swprintf(text, 200, L"Buy %s for $%d?", kServices[item].name, price);
             if (!Confirm(dlg, text)) return TRUE;
             why = BuyService(item, who);

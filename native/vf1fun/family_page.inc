@@ -14,8 +14,8 @@ static void RefreshFamily(HWND dlg) {
     else if (!CurrentFamily())
         swprintf(s, 200, L"There is no family yet.");
     else
-        swprintf(s, 200, L"Family: %hs%hs%hs        Children: %d of %d%s", a >= 0 ? VillagerName(a) : "(gone)",
-                 b >= 0 ? " and " : "", b >= 0 ? VillagerName(b) : "",
+        swprintf(s, 200, L"Family: %ls%ls%ls        Children: %d of %d%s", a >= 0 ? NameW(VillagerName(a), 0x19) : L"(gone)",
+                 b >= 0 ? L" and " : L"", b >= 0 ? NameW(VillagerName(b), 0x19) : L"",
                  KidsChildren ? KidsChildren() : 6 - EmptyOffspringSlots(FamilyTree), KidsLimit ? KidsLimit() : 6,
                  Pregnant(a) || Pregnant(b) ? L"        Expecting" : L"");
     SetDlgItemTextW(dlg, ID_FA_STATUS, s);

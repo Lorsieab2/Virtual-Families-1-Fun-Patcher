@@ -146,6 +146,17 @@ Live check: tick Use Unicode Font, patch, pick Comic Sans MS with Unicode Font..
 text is in Comic Sans, buttons and dialogs still fit, a typed accent and a Japanese name show; pick a font file and
 start again.
 
+## Names in vf1fun.dll's own windows
+
+The Upgrades menu's windows (the Family page, Spawn Child, Adopt Outside Child, Villager Cheats, Clothing and
+Hairstyles, Services) read every name by the same one rule (`native/vf1fun/text_names.inc`: UTF-8, else one byte
+per character, Windows-1252) and store a typed name as UTF-8 in the 24 bytes the game gives it, cut only between
+whole characters (the same cluster table, `native/vf1text/extenders.inc`); control characters and unpaired
+surrogates are never stored. Before, they used the system code page, so a name like "日本" could become
+"??". This holds whichever of the two Unicode settings is on, or neither (the stock game then shows the UTF-8 as
+Latin-1 letters, as for any such name). `tests/test_vf1fun_names.py` runs the DLL's own code for both rules in
+Unicorn and compares with `vf1_text`.
+
 ## The Game Text tool (Tools tab -> Game Text...)
 
 `patcher/vf1_game_text.py`: a multi-line text box; the font (the four game fonts with what they are used for,
@@ -197,5 +208,4 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
 * CJK line breaking (the game's word wrapper only breaks at spaces).
 * Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,
   unshaped.
-* vf1fun.dll's own Windows dialogs (Spawn Child's name, the Family page) still use the system code page for names.
 * Translations, the Translations window and Share on GitHub.
