@@ -110,6 +110,9 @@ static void SyncTreeLook(int slot) {
 // gVillage.armed: the next successful pregnancy (VF1 creates the babies at
 // conception, CVillager::Impregnate 0x4864D0). Cleared when Impregnate succeeds.
 enum { ARM_FORCE = 1, ARM_MALE = 2, ARM_FEMALE = 4, ARM_SINGLE = 8, ARM_TWINS = 16, ARM_TRIPLETS = 32 };
+// Force Successful Pregnancy counts only while Free and Guaranteed Cheats is on: a shot armed in an earlier
+// session (NextPregnancy in settings.ini) does nothing without it.
+static bool ForceArmed() { return gFreeCheats && (gVillage.armed & ARM_FORCE) != 0; }
 
 // 0x48EB8C: the try-for-a-baby step's ChanceOfPregnancy roll on the mother.
 static bool gOlderPregnancies;
@@ -126,7 +129,7 @@ static int OlderPregnancyCapTenths(int years) {
     return 1;
 }
 static bool __fastcall ChanceWrapper(void *state, void *, int a, int b, int c) {
-    if (gVillage.armed & ARM_FORCE) return true;
+    if (ForceArmed()) return true;
     int mother = a / 20, father = b / 20, older = mother > father ? mother : father;
     if (gOlderPregnancies && older >= 50) {
         int motherFertility = *(int *)((unsigned char *)state + 0x4C);
@@ -398,7 +401,7 @@ static bool RetargetCall(unsigned site, unsigned target, void *replacement) {
 // seconds (call at 0x4412CA, `cmp [ecx+0x1B150], eax; jae too_soon`, string 0x3E3 "too soon"). While
 // the shot is armed that call reports the largest possible time, so the cooldown always counts as over.
 static unsigned __fastcall PairingSeconds(void *gameState, void *) {
-    if (gVillage.armed & ARM_FORCE) return 0xFFFFFFFFu;
+    if (ForceArmed()) return 0xFFFFFFFFu;
     return ((unsigned (__thiscall *)(void *))0x4036D0)(gameState);
 }
 // A couple that cannot conceive ("private adult romantic time", VF2): same-sex, or an opposite-sex couple

@@ -213,6 +213,28 @@ static bool Confirm(HWND owner, const wchar_t *text) {
     return MessageBoxW(owner, text, L"Virtual Families 1 Fun Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
 }
 
+// ---- Free and Guaranteed Cheats (setting FreeAndGuaranteedCheats, off by default; the owner, 2026-11-01)
+// The cheats that give something for nothing or never fail are behind their own setting: Force Successful
+// Pregnancy (Family page), Instant job promotion (Villager Cheats), the Clothing and Hairstyles page, Anti-Spam
+// Software Ownership (Store Cheats) and the Flea Market's Get for free. Each also needs its own page's setting
+// (Cheat Upgrades, or Flea Market for Get for free). While it is off their buttons are hidden, and a click that
+// still arrives is refused; an armed Force Successful Pregnancy from an earlier session does nothing.
+// Read once at startup (ReadFreeCheatsSetting); a missing key is off.
+static bool gFreeCheats;
+static const wchar_t FreeCheatsNeeded[] =
+    L"This needs the Free and Guaranteed Cheats patch. Tick it in the patcher, then click Enable/Disable Patches.";
+static bool FreeCheatsRefused(HWND dlg) {
+    if (gFreeCheats) return false;
+    Message(dlg, FreeCheatsNeeded);
+    return true;
+}
+static void HideWithoutFreeCheats(HWND dlg, int id) {
+    if (gFreeCheats) return;
+    HWND control = GetDlgItem(dlg, id);
+    EnableWindow(control, FALSE);
+    ShowWindow(control, SW_HIDE);
+}
+
 // ---- Cheats
 enum { ID_MONEY_NOW = 100, ID_ADD1K, ID_ADD10K, ID_ADD100K, ID_SET_EDIT, ID_SET, ID_RATE_EDIT, ID_RATE,
        ID_FOOD_NOW, ID_FOOD100, ID_FOOD1000, ID_FOOD_EDIT, ID_FOOD_SET, ID_MONEY0, ID_ADD100, ID_ADDMAX,
@@ -461,12 +483,6 @@ static const wchar_t *VillagerCheatAction(int id) {
     case ID_VC_ENERGY: return L"Max energy";
     case ID_VC_FED: return L"Fill up (Fed)";
     case ID_VC_ALL: return L"Max health, cure illnesses, max happiness, energy and fed";
-    case ID_VC_PROMOTE: return L"Instant job promotion";
-    case ID_VC_CAREER: return L"Career Change (a new career at level 1)";
-    case ID_VC_BOARD: return L"Boarding School (the child leaves the house)";
-    case ID_VC_DESENS: return L"Systematic Desensitization (removes a dislike)";
-    case ID_VC_LEARN: return L"Higher Learning Classes (a new like)";
-    case ID_VC_PSYCHO: return L"Psychotherapy (overcomes depression)";
     case ID_VC_RUNNING: return L"Add Running Like";
     case ID_VC_AGE18: return L"Set Age to 18";
     case ID_VC_LOOKS: return L"Change Appearance";
@@ -525,21 +541,7 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
             }
             FillVillagerList(dlg);
             if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
-        } else if (id == ID_VC_PROMOTE || id == ID_VC_CAREER) {
-            HWND list = GetDlgItem(dlg, ID_VC_LIST);
-            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
-            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
-            int done = 0;
-            for (int i = 0; i < VillagerSlots; ++i) {
-                if (!VillagerPresent(i) || (who >= 0 && who != i) || !HasCareer(i))
-                    continue;
-                if (id == ID_VC_PROMOTE) PromoteVillager(i); else ChangeCareer(i);
-                ++done;
-            }
-            if (!done) Message(dlg, L"Only adults with a career can do that.");
-            FillVillagerList(dlg);
-            if (sel > 0) SendMessageW(list, LB_SETCURSEL, sel, 0);
-        } else if (id >= ID_VC_BOARD && id <= ID_VC_AGE18) {
+        } else if (id == ID_VC_RUNNING || id == ID_VC_AGE18) {
             HWND list = GetDlgItem(dlg, ID_VC_LIST);
             int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
             int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
@@ -581,7 +583,9 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
 
 static void ShowVillagerCheats(HWND owner) {
     static Template t;
-    t.Begin(L"Villager Cheats", 340, 322, 24);
+    // Instant job promotion, Career Change, Boarding School, Systematic Desensitization, Higher Learning and
+    // Psychotherapy are VF2's paid services now, on the Services page (SpecialUpgrades), not cheats.
+    t.Begin(L"Villager Cheats", 340, 274, 18);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 320, 110, ID_VC_LIST, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, L"Max health");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, L"Cure illnesses");
@@ -589,23 +593,17 @@ static void ShowVillagerCheats(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 152, 90, 18, ID_VC_ENERGY, L"Max energy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 152, 90, 18, ID_VC_FED, L"Fill up (Fed)");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, L"All of these");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 150, 18, ID_VC_PROMOTE, L"Instant job promotion");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 170, 176, 150, 18, ID_VC_CAREER, L"Career Change (new career)");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 104, 18, ID_VC_BOARD, L"Boarding School");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 200, 104, 18, ID_VC_DESENS, L"Systematic Desens.");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 226, 200, 104, 18, ID_VC_LEARN, L"Higher Learning");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 224, 104, 18, ID_VC_PSYCHO, L"Psychotherapy");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 224, 104, 18, ID_VC_RUNNING, L"Add Running Like");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 226, 224, 104, 18, ID_VC_AGE18, L"Set Age to 18");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 248, 328, 40, -1, L"Change Appearance (hairstyle and face, clothes)");
-    t.Item(STATIC, SS_LEFT, 14, 266, 30, 12, -1, L"Head:");
-    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 44, 264, 26, 14, ID_VC_HEAD, L"");
-    t.Item(STATIC, SS_LEFT, 78, 266, 30, 12, -1, L"Body:");
-    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 108, 264, 26, 14, ID_VC_BODY, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 263, 84, 16, ID_VC_LOOKS, L"Change (0-49)");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 263, 94, 16, ID_VC_RANDOM_LOOKS, L"Random look");
-    t.Item(STATIC, SS_LEFT, 10, 300, 220, 12, -1, L"Pick Everyone to change everybody at once.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 296, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 104, 18, ID_VC_RUNNING, L"Add Running Like");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 176, 104, 18, ID_VC_AGE18, L"Set Age to 18");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 200, 328, 40, -1, L"Change Appearance (hairstyle and face, clothes)");
+    t.Item(STATIC, SS_LEFT, 14, 218, 30, 12, -1, L"Head:");
+    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 44, 216, 26, 14, ID_VC_HEAD, L"");
+    t.Item(STATIC, SS_LEFT, 78, 218, 30, 12, -1, L"Body:");
+    t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 108, 216, 26, 14, ID_VC_BODY, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 215, 84, 16, ID_VC_LOOKS, L"Change (0-49)");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 215, 94, 16, ID_VC_RANDOM_LOOKS, L"Random look");
+    t.Item(STATIC, SS_LEFT, 10, 252, 220, 12, -1, L"Pick Everyone to change everybody at once.");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 248, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), owner, VillagerCheatsProc, 0);
 }
 
@@ -627,6 +625,7 @@ static void RefreshFleaMoney(HWND dlg) {
 }
 
 static void BuyItem(HWND dlg, bool free) {
+    if (free && FreeCheatsRefused(dlg)) return;  // Get for free needs Free and Guaranteed Cheats; Buy never does
     HWND list = GetDlgItem(dlg, ID_FM_LIST);
     int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
     if (sel < 0) { Message(dlg, L"Pick an item first."); return; }
@@ -670,6 +669,7 @@ static INT_PTR CALLBACK FleaProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
             SendMessageW(list, LB_SETITEMDATA, row, id);
         }
+        HideWithoutFreeCheats(dlg, ID_FM_FREE);
         RefreshFleaMoney(dlg);
         return TRUE;
     }
@@ -701,7 +701,7 @@ static void ShowFleaMarket(HWND owner) {
 
 // ---- Upgrades menu
 enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE, ID_UP_HOUSE,
-       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH, ID_UP_APPEARANCE };
+       ID_UP_PURCHASES, ID_UP_TIME, ID_UP_COUNTERS, ID_UP_FAMILY, ID_UP_ACH, ID_UP_APPEARANCE, ID_UP_SERVICES };
 static void ShowAppearance(HWND owner);
 static void ShowAchievements(HWND owner);
 static int AchievementsUnlocked();
@@ -711,10 +711,12 @@ static int gFamilyAction;
 static void ShowStoreCheats(HWND owner);
 static void ShowHouse(HWND owner);
 static void ShowPurchases(HWND owner);
+static void ShowServices(HWND owner);
 static void ShowTime(HWND owner);
 static int GenerationNumber();
 static int OldestEverAge();
-static const int RollTheDicePrice = 500;
+static const int RollTheDicePrice = 2000;  // VF2's "Roll the Dice (Random Event)", $2,000 (SPECIAL_ITEMS)
+static int RollTheDiceCost() { return gFreeCheats ? 0 : RollTheDicePrice; }  // free with Free and Guaranteed Cheats
 static bool RollPending;
 
 static bool SettingOn(const wchar_t *key, bool fallback);
@@ -732,8 +734,11 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         EnableWindow(GetDlgItem(dlg, ID_UP_HOUSE), SettingOn(L"CheatUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_TIME), SettingOn(L"CheatUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_PURCHASES), SettingOn(L"SpecialUpgrades", true));
+        EnableWindow(GetDlgItem(dlg, ID_UP_SERVICES), SettingOn(L"SpecialUpgrades", true));
+        if (gFreeCheats) SetDlgItemTextW(dlg, ID_UP_DICE, L"Roll the Dice (free): a Popup Event now");
         EnableWindow(GetDlgItem(dlg, ID_UP_FAMILY), SettingOn(L"CheatUpgrades", true));
-        EnableWindow(GetDlgItem(dlg, ID_UP_APPEARANCE), SettingOn(L"CheatUpgrades", true));
+        // Clothing and Hairstyles gives any outfit or hairstyle for free: it also needs Free and Guaranteed Cheats.
+        EnableWindow(GetDlgItem(dlg, ID_UP_APPEARANCE), SettingOn(L"CheatUpgrades", true) && gFreeCheats);
         {
             wchar_t s[96];
             swprintf(s, 96, L"Generation: %d     Oldest Villager: %d     Achievements: %d/%d", GenerationNumber(),
@@ -749,21 +754,28 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         case ID_UP_STORE: ShowStoreCheats(dlg); break;
         case ID_UP_HOUSE: ShowHouse(dlg); break;
         case ID_UP_PURCHASES: ShowPurchases(dlg); break;
+        case ID_UP_SERVICES: ShowServices(dlg); break;
         case ID_UP_TIME: ShowTime(dlg); break;
         case ID_UP_ACH: ShowAchievements(dlg); break;
-        case ID_UP_APPEARANCE: ShowAppearance(dlg); break;
+        case ID_UP_APPEARANCE: if (!FreeCheatsRefused(dlg)) ShowAppearance(dlg); break;
         case ID_UP_FAMILY:
             ShowFamily(dlg);
             if (gFamilyAction) EndDialog(dlg, 0);  // Evict / Adopt New Person leave the store
             break;
         case ID_UP_DICE:
-            if (CurrentMoney() < RollTheDicePrice) {
-                Message(dlg, L"Roll the Dice costs $500, and you don't have enough money.");
-                break;
+            {
+                wchar_t s[120];
+                if (CurrentMoney() < RollTheDiceCost()) {
+                    swprintf(s, 120, L"Roll the Dice costs $%d, and you don't have enough money.", RollTheDiceCost());
+                    Message(dlg, s);
+                    break;
+                }
+                swprintf(s, 120, L"Roll the Dice for $%d? A Popup Event happens right away.", RollTheDiceCost());
+                if (!Confirm(dlg, s))
+                    break;
+                swprintf(s, 120, L"Purchased: Roll the Dice ($%d).", RollTheDiceCost());
+                Message(dlg, s);
             }
-            if (!Confirm(dlg, L"Roll the Dice for $500? A Popup Event happens right away."))
-                break;
-            Message(dlg, L"Purchased: Roll the Dice ($500).");
             // The event shows the game's own dialog, so this one closes first.
             RollPending = true;
             EndDialog(dlg, 0);
@@ -780,20 +792,21 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static void ShowUpgrades() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 220, 304, 13);
+    t.Begin(L"Upgrades Menu", 220, 326, 14);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 68, 200, 18, ID_UP_STORE, L"Store, Achievement and Collection Cheats...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 90, 200, 18, ID_UP_HOUSE, L"House and Yard: trash, weeds, cleaning...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, L"Time Controls: pause, speed, time warp...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, L"Time Controls: pause, speed...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, adoption...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_DICE, L"Roll the Dice ($500): a Popup Event now");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 280, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_SERVICES, L"Services: Time Warp, Adoption, Career Training...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, children...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_FLEA, L"Flea Market...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_DICE, L"Roll the Dice ($2,000): a Popup Event now");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 266, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 302, 75, 16, IDOK, L"Close");
     DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
 }
 
@@ -960,6 +973,11 @@ static bool SettingOn(const wchar_t *key, bool fallback) {
     return GetPrivateProfileIntW(L"Patches", key, fallback ? 1 : 0, SettingsPath) != 0;
 }
 
+static bool ReadFreeCheatsSetting() {
+    gFreeCheats = SettingOn(L"FreeAndGuaranteedCheats", false);
+    return gFreeCheats;
+}
+
 // ---------------------------------------------------------------- Up to 28 Children
 // The feature is its own DLL, vf1kids.dll, installed beside this one only while the
 // UpTo28Children setting is on (patcher/manifest.json). This DLL only loads it and asks it
@@ -1029,6 +1047,7 @@ static const wchar_t *FamilyFullText() {
 #include "labels.inc"
 #include "computer.inc"
 #include "appearance_page.inc"
+#include "services.inc"
 #include "patcher_achievements.inc"
 
 // ---------------------------------------------------------------- hooks
@@ -1042,12 +1061,15 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
         }
         if (RollPending) {
             RollPending = false;
-            MoneyAdjust(Money, (float)-RollTheDicePrice, false);
+            int cost = RollTheDiceCost();
+            MoneyAdjust(Money, (float)-cost, false);
             if (!FireEvent(IslandEventsGet(), scene)) {
-                MoneyAdjust(Money, (float)RollTheDicePrice, false);
-                Message(GameWindow(), L"No Popup Event can happen right now, so the dice weren't rolled. Your $500 was refunded.");
+                MoneyAdjust(Money, (float)cost, false);
+                wchar_t s[140];
+                swprintf(s, 140, L"No Popup Event can happen right now, so the dice weren't rolled. Your $%d was refunded.", cost);
+                Message(GameWindow(), s);
             } else {
-                LogFamilyEvent(LOGS_ROLL_DICE, -1, RollTheDicePrice);   // after the event it fired
+                LogFamilyEvent(LOGS_ROLL_DICE, -1, cost);   // after the event it fired
             }
         }
         if (gFamilyAction) {
@@ -1100,6 +1122,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
     float rate = ReadSetting(L"InterestRate", -1.f);
     if (rate >= 1 && rate <= 11)
         ApplyInterestRate(rate);
+    ReadFreeCheatsSetting();
     InstallFeatureHooks();
     if (SettingOn(L"VF2Songs", true))
         InstallVF2Songs();
