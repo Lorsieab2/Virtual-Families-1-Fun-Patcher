@@ -30,7 +30,9 @@
 //   0x40D430 ldwTextControlImpl::SetText               -> SetTextHook: a name box opens with the whole name
 //   0x40D140 ldwTextControlImpl::Draw                  -> BoxDrawHook: a long name scrolls, never cut
 //   0x409D70 the justified word wrapper                -> WrapHook: whole names for short forms
-//   (names.inc: one character limit for every name box, the short forms and the Names files)
+//   (names.inc: one character limit for every name box, the short forms and the Names files, and names fitted
+//   with "…" to the room of each fixed spot the game draws them in: DrawString / GetWidth find the game's call
+//   site by return address, NameSpots)
 //
 // The C runtime is not used (no CRT start-up runs under the tests' emulator): memory comes from the process
 // heap, strings are walked by hand.
@@ -547,8 +549,12 @@ static void BlitLetter(void *window, SDL_Surface *surface, ldwRect rect, int x, 
     }
 }
 
-// Whole names for short forms (names.inc).
+// Whole names for short forms, and names fitted to their spot on the screen (names.inc).
+#include <intrin.h>
+#pragma intrinsic(_AddressOfReturnAddress)
 static const char *WithNames(const char *text, void *impl, char **owned);
+static unsigned GameSite(void *returnSlot);
+static const char *NamesAt(const char *text, void *impl, unsigned site, char **owned);
 
 // 0x409660 ldwGameWindowImpl::DrawString(text, x, y, colour, font), ret 0x14.
 static void __fastcall DrawString(void *window, void *, const char *text, int x, int y, unsigned colour, void *font) {
@@ -562,7 +568,7 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
     if (!game || !text) return;
     FontExtra *f = ExtraFor(impl);
     char *owned;
-    text = WithNames(text, impl, &owned);
+    text = NamesAt(text, impl, GameSite(_AddressOfReturnAddress()), &owned);
     Run run;
     if (!DecodeRun(&run, text, (int)Len(text))) { Free(owned); return; }
     int startX = x;
@@ -667,7 +673,7 @@ static int __fastcall FontGetWidth(void *font, void *, const char *text, float s
     if (!impl || !ImplValid(impl) || !text) return 0;
     FontExtra *f = ExtraFor(impl);
     char *owned;
-    text = WithNames(text, impl, &owned);
+    text = NamesAt(text, impl, GameSite(_AddressOfReturnAddress()), &owned);
     int w = Measure(impl, f, text, (int)Len(text), scale);
     Free(owned);
     return w;

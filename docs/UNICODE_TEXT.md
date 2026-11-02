@@ -199,6 +199,9 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
    ("ZoÃ«"); quit and re-enable: the name is back, unchanged.
 6. Colour: text drawn in a colour (store prices, dialogs) shows patcher-made letters in the same colour.
 7. Check frame rate in the house with a long Japanese family name on screen (the letters are made once).
+8. Names wider than their spot (Names fitted to their spot, below): a child named 𒂍𒂍𒂍𒂍𒂍, 山田花子太郎次郎 or 24 "W"
+   stays inside its Family Tree frame with "…"; the bottom bar's name stops before "Age"; ordinary names look as in
+   the stock game; the Details screen's values show whole.
 
 ## One character limit for every name box (2026-11-01)
 
@@ -324,6 +327,88 @@ names, the Names file, two names that start alike, a failed rename undone.
    again: the whole names are back.
 4. Rename Family and Copy Player Slot with a long name; Back Up Saves and Restore Saves; the Family History log
    shows whole names; the Upgrades menu's Spawn Child with a long name.
+5. Use Unicode Font with Comic Sans MS: the same checks.
+
+## Names fitted to their spot (2026-11-01)
+
+### The bug and its cause
+
+With Render Unicode with In-Game Fonts on, a Cuneiform name such as five U+1208D (20 bytes of UTF-8) fits a family
+member's 24-byte name field, so it is stored whole, not as a short form; but its letters are drawn by Windows and
+are much wider than Latin letters (105 pixels in SegoeUiBold18, against 89 for "Christopher"), so on the Family Tree
+screen it ran out of the child's frame on both sides. The fit-to-width of the previous part only looked at short
+forms (text with "..." in it) and fitted them into the width of as many "W" as the field has bytes (24 W: 384
+pixels), far wider than the real spot. Nothing fitted a name that is short in bytes but wide in pixels.
+
+A second fault was found on the way: the previous part took a text box whose limit is 1,200 bytes for a name box,
+but the text control's constructor 0x40D7E0 starts EVERY control with that limit (0x4B0 at 0x40D851), labels too.
+So every label wider than the size it was made for was drawn cut with "…" to that size: the bottom bar's name to
+the width of "Joey Joerson", and a label made for "." (most of the Details, dating and adoption screens' values) to
+nothing. A name box is now also editable (+0x24, which only SetEditable sets; the label constructors 0x40DBC0 /
+0x40DC90 pass 0), and labels draw as the stock game draws them, except at the spots below.
+
+### The fix (`native/vf1text/names.inc`: `DrawSpots`, `LabelSpots`, `FitToRoom`; both DLLs)
+
+Every fixed spot where the game draws a family member's name has its real room in the DLL, found in the vanilla exe
+and its layout run in the emulator. A name (whole names for short forms first, as before) wider than its spot's room
+is drawn as its longest start of whole characters (grapheme clusters), trailing spaces dropped, then "…" (U+2026; in
+a name read one byte per character, the Windows-1252 byte 0x85, which is the same letter), measured with the
+letters the DLL draws (the game's, patcher-made or Windows', or Use Unicode Font's). A name that fits is drawn
+exactly as before. The spot is told by return address: DrawString 0x409660 and GetWidth 0x402320 use the game's
+call site (their own return address, or, when they are called from inside the right-aligned 0x409CD0 or centred
+0x409D20 draw, that draw's: 6 dwords up from GetWidth's return 0x409CF6 / 0x409D46, 9 dwords up from DrawString's
+return 0x409D10 / 0x409D67, after its pushes of ebx, esi and edi), so the centred draw measures and draws the same
+fitted name. A label's spot is the SetText call that put the name in it (ldwTextControl::SetText 0x40D700 jumps to
+0x40D430, whose return address is the game's call site); the label then draws a fitted copy and keeps its own text.
+
+| Spot | Drawn by (call site) | Room | How the room was found |
+| --- | --- | --- | --- |
+| Family Tree screen, first parent | DrawString 0x439C74, left-aligned, record +4 | 127 | the family row 0x439BA0 draws the name at the portrait's right + 4 (x = 147, 0x439C65) inside the parent frame familytree_parentframe.png (248 x 91) drawn at x - 8 = 26 (0x439C2E): its right edge is 274 |
+| Family Tree screen, second parent | DrawString 0x439DB3, record +0xDC | 127 | the same (0x439DA5, 0x439D7F) |
+| Family Tree screen, each child | centred draw 0x439F49 (0x409D20), record +0x1B8 + 0xD8 k | 93 | centred 46 pixels right of its frame's left (frame 0x439F01, centre 0x439F3B), familytree_childframe.png 94 x 74: x = centre - width / 2, so 93 pixels lie inside the frame |
+| House screen, bottom bar: the selected person's name | label +0xC4, SetText 0x445710 | 141 | a left-aligned label at (61, 538) made for "Joey Joerson" (0x4446D3); not editable, so the stock draw never cuts it (the cut at 0x40D2B7 is for editable boxes only); the "Age" column's caption starts at x = 202 (0x444772) |
+| House screen, bottom bar: the status line ("{name} sees {name2}.", 0x44E9B0) | label +0xE0, SetText 0x445866 | its box, 416 | a label centred in the box made for 26 "W" (0x444BDF: 187 .. 603), never cut by the stock draw |
+| Every name box: the slot menu's five and New Player, the first family, adoption, a new baby, the Details screen's rename box (0x44A69E, made for 21 spaces) | the box's draw 0x40D140 | the box | as before (previous part): the end that fits while it is typed into, else its start with "…" |
+
+Looked at and left as they are:
+* The main menu's current player (label +0x138, SetText 0x447535): centred on x = 418 with no box or neighbour to
+  run into; the family name has 19 bytes, and no 19-byte name is wider than 19 "W" (the widest letter per byte),
+  which fits the screen.
+* Names inside sentences drawn by the word wrapper 0x409D70 (event pop-ups and e-mails, 0x419E43, 0x41ACxx,
+  0x41AE92): the wrapper breaks lines at spaces, its lines (0x1B0 = 432 pixels for the event dialog) are wider than
+  any 24-byte name (at most 24 "W", 384 pixels in SegoeUiBold18; a short form's whole name is fitted into the same).
+* The other screens' status lines (labels made for three spaces, centred on x = 400 at y = 572: 0x4359E7, 0x437844,
+  0x44A636; SetText 0x436378, 0x43731E, 0x43814E): they have the whole screen width.
+* Every other text draw in the exe (all 69 calls of 0x409CC0 / 0x409CD0 / 0x409D20 / 0x409D70 and the 12 of
+  0x402320 were read): button captions, achievements, dialogs, the store, the debug tools; none draws a name.
+  Every read of a name field (villager +0x2A44, the family name gs+0x1B12C, the slot names gs+0x1B192 + 0x15 k,
+  the Family Tree's records) was followed to its use: the tree, the labels and boxes above, sprintf into sentences
+  ("{name}" through 0x44FDD0, 0x44E9B0, "Approx. daily income from %s: $" 0x415932), the save and the log.
+
+### Proved (tests)
+
+`tests/test_name_fit.py`, the REAL vf1text.dll and vf1font.dll on the REAL exe in Unicorn, their GDI calls made by
+this machine's real GDI: the Family Tree screen's layout is the game's own (its constructor and draw 0x43A1B0 run
+in `tests/ui_emu.py`, giving each name's place and each frame's), and each name is drawn through the game's own
+call instruction at 0x439C74, 0x439DB3 and 0x439F49; the bottom bar's labels are made by the game's own constructor
+calls, given their text by the game's own SetText calls and drawn by 0x40D140. Five Cuneiform signs, eight Japanese
+letters and 24 "W" are drawn inside each frame (fitted with "…" wherever they are wider than the room: every child's
+frame; 24 W everywhere), ordinary names (Emma, Jack, Sophia, Christopher) exactly as the stock draw places them, a
+short form on the tree as its whole name fitted to the frame, a single-byte name with the byte 0x85, letters with
+marks, emoji with skin tones, flags and joined emoji never cut, trailing spaces dropped; a label given a name by any
+other SetText call draws it whole, as the stock game does, and the bottom bar's activity label, made for "Fishing"
+(0x444914), shows a longer text whole. On the previous code 22 of its 47 checks fail.
+
+### Live checks (not yet done)
+
+1. A family member named with five U+1208D (or 𒂍𒂍𒂍𒂍𒂍), a child named 山田花子太郎次郎 and one named with 24 "W": the
+   Family Tree screen shows each child's name inside its frame, ending in "…"; the parents' names stay inside the
+   parent frame; select each in the house: the bottom bar's name stops before "Age".
+2. The status line with two long names ("WWW… sees WWW….") stays inside its box.
+3. An ordinary family (names like Emma, Christopher): the Family Tree screen and the bottom bar look exactly as in
+   the stock game.
+4. The Details screen, the dating screen and the adoption screen: every value (career, likes, money) shows whole, as
+   in the stock game (the label fault above).
 5. Use Unicode Font with Comic Sans MS: the same checks.
 
 ## Not in this part (the rest of the stage-3 work)
