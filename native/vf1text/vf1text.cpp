@@ -798,6 +798,11 @@ static void __fastcall GetText(void *control, void *, char *buffer, int size) {
     int n = (int)Len(text);
     if (IsNameBox(box) && !TC_B(box, 0x2F) && size - 1 < VF1_NAME_BOX_BYTES) {
         unsigned ret = (unsigned)(UINT_PTR)_ReturnAddress();
+        for (unsigned i = 0; i < sizeof KeepWhenUnchanged / sizeof KeepWhenUnchanged[0]; ++i)
+            if (KeepWhenUnchanged[i] == ret && StillAsOpened(box)) {
+                for (int k = 0; k < size; ++k) buffer[k] = 0;   // "": the game keeps the stored name
+                return;
+            }
         int slot = 0;
         for (unsigned i = 0; i < sizeof NameSites / sizeof NameSites[0]; ++i)
             if (NameSites[i].ret == ret) slot = NameSites[i].slot < 0 ? CurrentSlot() : NameSites[i].slot;
@@ -816,10 +821,38 @@ static void __fastcall GetText(void *control, void *, char *buffer, int size) {
 
 // The SDL_TEXTINPUT case: the event's text (UTF-8) at [esp+0x30]; eax = its length. 1 byte goes on as the
 // stock game does (0x4049C4); anything longer is posted a character at a time here.
+//
+// The game's SDL2.dll (2.0.3) makes typed text in WM_KEYDOWN (0x100EC509): ToUnicode gives ONE UTF-16 unit, and its
+// UTF-32 -> UTF-8 conversion (0x100EC5B1..0x100EC6D4) writes that unit alone as 3 bytes, so a character above
+// U+FFFF (an emoji, Cuneiform) arrives as two SDL_TEXTINPUT events: "ED A0..AF xx" (the high surrogate), then
+// "ED B0..BF xx" (the low one). Neither is UTF-8, so both were dropped. (That SDL ignores WM_CHAR, 0x100EC7AF; an
+// input method's whole words come from WM_IME_COMPOSITION as real UTF-8.) A high half waits for the next event; a
+// low half right after it makes the whole code point; any other text in between drops the waiting half.
+extern "C" __declspec(dllexport) volatile unsigned VF1Text_PendingHigh = 0;   // a high half waiting, or 0
+
+static int SurrogateAt(const unsigned char *s, int n, unsigned *unit) {
+    if (n < 3 || s[0] != 0xED || s[1] < 0xA0 || s[1] > 0xBF || (s[2] & 0xC0) != 0x80) return 0;
+    *unit = 0xD000u | ((unsigned)(s[1] & 0x3F) << 6) | (s[2] & 0x3Fu);
+    return 3;
+}
+
 static void __cdecl PostTypedText(const char *text) {
     int n = (int)Len(text);
     for (int i = 0; i < n;) {
         unsigned cp;
+        unsigned unit;
+        int s = SurrogateAt((const unsigned char *)text + i, n - i, &unit);
+        if (s) {
+            i += s;
+            if (unit < 0xDC00) { VF1Text_PendingHigh = unit; continue; }
+            unsigned high = VF1Text_PendingHigh;
+            VF1Text_PendingHigh = 0;
+            if (!high) continue;                              // a low half alone is never typed
+            cp = 0x10000 + ((high - 0xD800) << 10) + (unit - 0xDC00);
+            Post(Messages(), 5, 0, UnicodeKey | (int)cp);
+            continue;
+        }
+        VF1Text_PendingHigh = 0;
         int k = Utf8At((const unsigned char *)text + i, n - i, &cp);
         if (!k) { ++i; continue; }
         i += k;
@@ -833,6 +866,7 @@ __declspec(naked) static void TextInputDetour() {
     __asm {
         cmp eax, 1
         jne several
+        mov dword ptr [VF1Text_PendingHigh], 0
         push TextInputOne
         ret
     several:

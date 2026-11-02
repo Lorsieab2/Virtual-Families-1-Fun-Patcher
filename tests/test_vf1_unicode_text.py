@@ -156,6 +156,59 @@ def test_typed_text_reaches_the_box_a_character_at_a_time(world):
     assert [p[2] & 0x1FFFFF for p in posts] == [0x1202D, 0x1F44D, 0x1F3FD]
 
 
+def utf16_units(text):
+    data = text.encode("utf-16-le")
+    return [data[i] | data[i + 1] << 8 for i in range(0, len(data), 2)]
+
+
+def windows_types(world, keys, box, text):
+    """`text` typed the way Windows delivers it (SendInput KEYEVENTF_UNICODE, an input method's VK_PACKET keys, the
+    emoji panel): one WM_KEYDOWN per UTF-16 unit through the game's REAL SDL2.dll window procedure, every
+    SDL_TEXTINPUT it makes through the game's REAL event-loop case (0x4049BB, with the DLL's detour), and every
+    message that posts through the box's HandleMessage. Returns the SDL texts."""
+    texts = keys.type_units(utf16_units(text))
+    for t in texts:
+        posts = world.typed(t)
+        if world.last_stop == 0x4049C4:                    # one byte: the stock code posts (5, 0, byte)
+            posts = [(5, 0, t[0])]
+        for message, a, ch in posts:
+            assert (message, a) == (5, 0)
+            world.key(box, ch)
+    return texts
+
+
+@pytest.mark.parametrize("label,text", [
+    ("an emoji", "\U0001F4A9"), ("Cuneiform", "\U0001208D\U0001208D"), ("an emoji with a skin tone", "\U0001F44D\U0001F3FD"),
+    ("a name mixing every size", "Zoë 日\U0001208Dx\U0001F4A9"),
+])
+def test_four_byte_characters_typed_through_sdl_reach_the_box(world, vanilla_dir, label, text):
+    """The live test: emoji and Cuneiform typed into the game's own name box were dropped. SDL 2.0.3 writes each
+    UTF-16 half by itself as 3 bytes (two SDL_TEXTINPUT events, neither UTF-8); the DLL pairs them."""
+    import sdl_emu
+    keys = sdl_emu.WindowsKeys(vanilla_dir)
+    box = world.text_box(40)
+    texts = windows_types(world, keys, box, text)
+    halves = [t for t in texts if t[:1] == b"\xed"]
+    assert len(halves) == 2 * sum(1 for ch in text if ord(ch) > 0xFFFF), "SDL sends each half alone"
+    assert world.box_text(box) == text.encode(), label
+    assert not world.overrun(box)
+
+
+def test_a_lone_surrogate_half_is_never_typed(world, vanilla_dir):
+    import sdl_emu
+    keys = sdl_emu.WindowsKeys(vanilla_dir)
+    box = world.text_box(40)
+    for t in keys.type_units([0xD83D, ord("a"), 0xDCA9, 0xDC8D, 0xD808]):   # high, a, low, low, high
+        posts = world.typed(t)
+        if world.last_stop == 0x4049C4:
+            posts = [(5, 0, t[0])]
+        for _m, _a, ch in posts:
+            world.key(box, ch)
+    assert world.box_text(box) == b"a"
+    texts = windows_types(world, keys, box, "\U0001208D")      # the waiting high half is dropped by a new pair
+    assert world.box_text(box) == "a\U0001208D".encode() and len(texts) == 2
+
+
 def type_into(world, box, text):
     for ch in text:
         world.key(box, ord(ch) if ord(ch) < 0x80 else UNICODE_KEY | ord(ch))

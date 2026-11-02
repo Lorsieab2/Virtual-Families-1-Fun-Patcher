@@ -122,6 +122,7 @@ PATCH_SETTINGS = {
     "StoreRefreshKey": ("R Refreshes the Store", True),
     "RenderUnicodeInGameFonts": ("Render Unicode with In-Game Fonts", True),
     "UseUnicodeFont": ("Use Unicode Font (overrides in-game fonts)", False),
+    "CopyPasteInTextBoxes": ("Copy and Paste in Text Boxes", True),
 }
 # The Upgrades menu's own page titles, as the patcher shows them (named on the page as they appear).
 UPGRADES_PAGES = ("Cheat Upgrades", "Villager Cheats", "Store, Achievement and Collection Cheats", "House and Yard",
@@ -692,10 +693,21 @@ def _keys() -> list[Fact]:
                 "nothing ever uses them again, so their keys are never read. None can be reached in the shipped "
                 "game.", C),
         Fact(g, "The Fun Patcher's keys: one patcher key in the game itself, R in the store (R Refreshes the Store, "
-                "above); it adds no other key, click spot or typed code. Its own windows (the Upgrades menu pages) "
-                "close with Enter or Esc, as ordinary Windows dialogs.", C),
+                "above), and the copy and paste keys in the game's own text boxes (Copy and Paste in Text Boxes, "
+                "below); it adds no other key, click spot or typed code. Its own windows (the Upgrades menu pages) "
+                "close with Enter or Esc, as ordinary Windows dialogs, and their name boxes copy and paste as any "
+                "Windows box does.", C),
         Fact(g, with_patcher("StoreRefreshKey", "patcher key R, in the store only: see the store's hidden key above."),
              E, sub=True),
+        Fact(g, with_patcher("CopyPasteInTextBoxes", "patcher keys, only while one of the game's own text boxes has "
+                             "the typing cursor: Ctrl+V or Shift+Insert pastes the clipboard's text at the end of the "
+                             "box (a line break or tab becomes a space; other control characters are dropped; it is "
+                             "cut, between whole characters, at the box's limit: a name box's 300 characters with a "
+                             "Unicode setting on, else the box's own length and only the letters the game's fonts "
+                             "have); Ctrl+C or Ctrl+Insert copies the box's whole text, a long name whole; Ctrl+X "
+                             "copies it and empties the box. Anywhere else these keys reach the game exactly as in "
+                             "the stock game, and they never type a v, c or x (the stock game types nothing while Ctrl "
+                             "is held either)."), E, sub=True),
         Fact(g, "Random tips, click spot: clicking a small spot just below the house view at the left of the bottom "
                 "bar (51 by 23 pixels: across from 171 to 221 and down from 562 to 584 on the 800 by 600 game "
                 "screen) shows a random tip in the message bar, with a wooden click. Every click picks again from "
