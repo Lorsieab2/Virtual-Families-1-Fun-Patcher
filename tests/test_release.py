@@ -102,6 +102,8 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         "vf1_tree_editor_tools.py", "vf1_gdiplus.py",
         "vf1_text.py", "vf1_names.py", "vf1_game_fonts.py", "vf1_glyph_gdi.py", "vf1_glyph_maker.py", "vf1_game_text.py",
         "vf1_unicode_font.py",
+        "translation_format.py", "vf1_translation_strings.py", "vf1_translations.py",
+        "vf1_translations_window.py", "vf1_translation_limits.json",
         "payload/vf1fun.dll"] + [f"payload/UnicodeText/{p.name}" for p in (ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")
                                  if p.stem not in ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]]))

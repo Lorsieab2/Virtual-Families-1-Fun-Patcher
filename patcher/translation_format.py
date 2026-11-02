@@ -67,13 +67,13 @@ PLURAL_CATEGORIES = ("zero", "one", "two", "few", "many", "other")
 NATIVE_CHOICE_RE = re.compile(r"^([^{}/|\\]*)/(?:(2)/)?([^{}/|\\]*)$")
 # What Virtual Families 1 fills in a line (GetStringFromNameGenderTemplate): two people and a number.
 DECLARED = {"name": "person", "name2": "person", "award": "number"}
-# Anything that looks like an email address: name@domain.tld, with the full-width at sign, or
+# Anything that looks like an email address: an address (name, at sign, domain, dot, tld), with the full-width at sign, or
 # the usual spelled-out disguises ("name [at] domain [dot] com").
 _EMAIL_AT = r"(?:@|\uFF20|\s*[\(\[\{<]\s*at\s*[\)\]\}>]\s*)"
 _EMAIL_DOT = r"(?:\.|\s*[\(\[\{<]\s*dot\s*[\)\]\}>]\s*)"
 _LOCAL = r"[A-Za-z0-9!#$%&'*+/=?^_`|~.-]+"
 EMAIL_RE = re.compile(
-    # name@domain.tld (also with the full-width at sign or "[at]" / "[dot]")
+    # name, at sign, domain, dot, tld (also with the full-width at sign or "[at]" / "[dot]")
     _LOCAL + _EMAIL_AT + r"[A-Za-z0-9-]+(?:" + _EMAIL_DOT + r"[A-Za-z0-9-]+)*" + _EMAIL_DOT + r"[A-Za-z]{2,}"
     # "name at domain dot tld" (a plain "at" alone, as in "Try it at LDW.com", is not one)
     + r"|" + _LOCAL + r"\s+at\s+[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\s+dot\s+[A-Za-z]{2,}",
