@@ -152,7 +152,7 @@ DEFAULTS = {
     "UpTo28Children": False, "FamilyHistory": True, "RenderUnicodeInGameFonts": True, "UseUnicodeFont": False,
     "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
     "SpecialUpgrades": True, "CheatUpgrades": False, "FleaMarket": False, "FreeAndGuaranteedCheats": False,
-    "StoreRefreshKey": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
+    "StoreRefreshKey": True, "CopyPasteInTextBoxes": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
     "GlowingCollectables": True, "BehaviorLabelVariants": True}
 
 

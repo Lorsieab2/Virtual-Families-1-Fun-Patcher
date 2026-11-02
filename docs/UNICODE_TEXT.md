@@ -248,6 +248,91 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
 8. Names wider than their spot (Names fitted to their spot, below): a child named 𒂍𒂍𒂍𒂍𒂍, 山田花子太郎次郎 or 24 "W"
    stays inside its Family Tree frame with "…"; the bottom bar's name stops before "Age"; ordinary names look as in
    the stock game; the Details screen's values show whole.
+9. Characters above U+FFFF typed into the game's own name boxes (section "Fixes from the first live test"): with
+   the Windows emoji panel (Win+.) and with a tool that sends KEYEVENTF_UNICODE (💩, 𒂍, 👍🏽): each appears whole and
+   Backspace removes it whole; é and 日 still type as before.
+10. Details screen: open and close it (and switch between members) for a member whose stored name is 19..24 bytes
+    (Spawn Child with 23 letters; Spawn outside child with 𒂍𒂍𒂍𒂍𒂍) and for one with a long name in the Names file:
+    the Family Tree still shows every sign, and the save's name field is unchanged (Copy Player Slot / the save
+    reader show the same bytes). Then rename the member: the new name is stored.
+11. Copy and Paste in Text Boxes (below): in each of the game's name boxes, Ctrl+V and Shift+Insert paste (a long
+    name stops at 300 characters; a copied line break becomes a space), Ctrl+C / Ctrl+Insert copy the whole name into
+    Notepad, Ctrl+X empties the box; with both Unicode settings off, a pasted "Zoë 日本" gives "Zoë "; the keys do
+    nothing in the house, the store or the Family Tree with no box being typed into (Insert keeps its stock use).
+
+## Fixes from the first live test (2026-11-01)
+
+The first live test used a build with typing and drawing but before the one character limit (#54, #55, #57).
+
+**Characters above U+FFFF were dropped when typed (VERIFIED, emulated with the game's own SDL2.dll).** The game's
+SDL2.dll is 2.0.3. Its window procedure (0x100EBF40) makes typed text in WM_KEYDOWN (0x100EC509): `ToUnicode` gives
+one UTF-16 unit, and SDL writes that unit by itself as UTF-8 by hand (0x100EC5B1..0x100EC6D4) before
+`SDL_SendKeyboardText` (0x100B0380). WM_CHAR is ignored (0x100EC7AF only sets the return value); WM_UNICHAR is not
+handled; an input method's composed text comes from WM_IME_COMPOSITION as whole UTF-8. So a character above U+FFFF
+sent as a VK_PACKET pair (SendInput KEYEVENTF_UNICODE, the emoji panel) arrives as two SDL_TEXTINPUT events, each a
+lone surrogate written as three bytes ("ED A0..AF xx", then "ED B0..BF xx"). Neither is UTF-8, so vf1text.dll's
+SDL_TEXTINPUT detour skipped both. é and 日 are one unit each, so they typed. Fix (`PostTypedText`, both DLLs): a
+high half waits for the next event; a low half right after it makes the whole code point, posted as any other; a
+lone half, or one followed by anything else (the one-byte path clears it too), is never typed.
+`tests/sdl_emu.py` runs the REAL SDL2.dll in Unicorn (its own SDL_InitSubSystem, SDL_StartTextInput, window
+procedure and SDL_PeepEvents; only ToUnicode's answer and the kernel32 calls are stood in for), and
+`tests/test_vf1_unicode_text.py` feeds what it makes through the game's own event-loop case into the box.
+
+**Opening the Details screen cut a stored name (VERIFIED, emulated).** The rename box opens with the member's field
+(SetText from 0x44BC78, villager + 0x2A44, which holds up to 24 bytes: Spawn Child and Adopt Outside Child store 24),
+but the game reads it back into a 20-byte local with GetText(local, 0x13) at 0x44BCE1 / 0x44BDDE and copies that over
+the field and the Family Tree's copy (ChangeName 0x481C20) whether or not the name was changed. A 20-byte name of
+five Cuneiform signs became 16 bytes (four signs); with the one limit it would have become a short form and a
+Names-file line. Fix (`names.inc`): the DLL notes what a name box opened with (SetText / SetEditable); at those two
+GetText sites a box still holding exactly that text gives "" -- the game then skips both copies (0x44BCE6 / 0x44BDE3:
+`cmp byte [esp+8], 0; je`), so the field, the Family Tree and the Names file stay byte for byte as they were. A
+changed name is stored as before. The other boxes' GetText rooms already equal their fields (the slot menu and the
+first family: 19 of 20; adoption and a new baby: new names). `tests/test_name_limit.py` runs the game's own open
+(0x44BC56..0x44BC7D) and both closes with a 23-letter name, 24 "W", five Cuneiform signs, eight Japanese letters and
+sidecar long names, draws the box in between, and checks the whole member record, ChangeName and the Names files;
+and every other name box with a full-size name, a full-size Cuneiform name and a sidecar name.
+
+**Names wider than their spot**: see "Names fitted to their spot" below (#63). **vf1fun's windows** (the Family
+page's missing buttons, Cuneiform boxes): see "Names in vf1fun.dll's own windows" above (#62).
+
+## Copy and Paste in Text Boxes (`CopyPasteInTextBoxes`, on by default)
+
+`native/vf1fun/clipboard.inc`, in vf1fun.dll, so it works with either Unicode setting or neither. While one of the
+game's own text boxes has the typing cursor: Ctrl+V or Shift+Insert pastes the clipboard's CF_UNICODETEXT at the end
+of the box (a game box's caret is always at the end); Ctrl+C or Ctrl+Insert copies the box's whole text (a name box
+holds the whole name, never its short form); Ctrl+X copies it and empties the box. No Alt (AltGr letters are left
+alone).
+
+**How (VERIFIED in the exe).** ldwGame's event loop reads SDL_KEYDOWN's key code and modifiers at 0x404826 and
+switches on the code; V, C and X do nothing there, Insert posts (6, 0x3F4). SDL makes no SDL_TEXTINPUT while Ctrl is
+held (ToUnicode gives a control character, which SDL_SendKeyboardText drops), so the stock game never types a v, c
+or x for these keys (`tests/test_clipboard.py` runs it in the real SDL2.dll). Every message goes through the message
+manager (0x402140 -> 0x401DA0), which asks its listeners in order; a text box (ldwTextControlImpl, vtable 0x4B2950)
+takes typing while +0x25 (being edited) is set and its owner (+0x1C) is shown (+8). The patch jumps from 0x404826
+(10 stock bytes checked first): for these keys it looks for that box among the listeners; with one, the key is used
+and goes no further; with none, it goes on exactly as before.
+
+**Paste rules.** CR, LF and Tab become one space each; other control characters and unpaired surrogates are dropped;
+a numbers-only box keeps digits (and a first '-', as the stock box allows). With vf1text.dll or vf1font.dll installed
+the text is UTF-8 cut between whole characters at the box's limit (a name box 300 characters and 1,200 bytes,
+any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
+With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
+U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. Nothing is ever
+written past the box's buffer (limit + 1 bytes); the game is told the text changed (0xC, 0x401EA0) as after a typed
+letter. (A Latin-1 name pasted with both settings off is read by the one rule as Windows-1252, except in the rare
+case its bytes also happen to form valid UTF-8, such as "Ã©", which then reads as "é".)
+
+**vf1fun's own windows** are standard edit boxes: Ctrl+C, Ctrl+V, Ctrl+X and the right-click menu are their own,
+and nothing in vf1fun blocks them (#62).
+
+**Proved** (`tests/test_clipboard.py`, the game's event loop from 0x404826, the real message manager walk and the
+box's own HandleMessage, with the harness DLL built from vf1fun.cpp, in Unicorn; only the clipboard is stood in for):
+pastes into a name box at 300 characters and one past, 1,200 bytes and one past, joined emoji cut whole, CR/LF/Tab,
+control characters and lone surrogates; into a box with text, at the byte limit and one past; other boxes' limits;
+a numbers-only box; with both settings off (Latin-1, composed accents, dropped characters, the 20-byte limit and one
+past); Shift+Insert; copy, Ctrl+Insert and cut; guard bytes after every buffer; no message reaches the game while a
+box takes the key; with no box being typed into (or one on a hidden page) every key goes on exactly as in the stock
+game; Ctrl+Alt+V, AltGr+V, Ctrl+Shift+V and Ctrl+B are left alone.
 
 ## One character limit for every name box (2026-11-01)
 

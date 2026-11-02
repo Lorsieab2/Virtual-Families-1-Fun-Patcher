@@ -91,6 +91,15 @@
       ]
     },
     {
+      "ids": ["CopyPasteInTextBoxes"],
+      "guide": [
+        "Click a name box in the game so it has the typing cursor, then press Ctrl+V (or Shift+Insert) to paste, Ctrl+C (or Ctrl+Insert) to copy the whole name, or Ctrl+X to cut it.",
+        "A pasted name stops at the box's limit (300 characters with a Unicode setting on). Line breaks and tabs become spaces.",
+        "With both Unicode settings off, only letters the game's own fonts have (plain and Latin-1 accented letters) are pasted.",
+        "On by default. The keys do nothing when no game text box has the cursor."
+      ]
+    },
+    {
       "ids": ["RollTheDice"],
       "guide": [
         "Adds a Roll the Dice page to the Upgrades button.",

@@ -1162,6 +1162,7 @@ static const wchar_t *FamilyFullText() {
 #include "features.inc"
 #include "outfits.inc"
 #include "store_keys.inc"
+#include "clipboard.inc"
 #include "pages.inc"
 #include "family.inc"
 #include "family_page.inc"
@@ -1285,6 +1286,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadTextCompanion(L"vf1text.dll");
     else if (SettingOn(L"UseUnicodeFont", false))
         LoadTextCompanion(L"vf1font.dll");
+    if (SettingOn(L"CopyPasteInTextBoxes", true))   // after the text DLLs: a paste follows their rules when installed
+        InstallClipboard();
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
