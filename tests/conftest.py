@@ -83,6 +83,7 @@ RELEASE_ONLY = (
     "tests/test_up_to_28_children.py::test_every_mutation_is_caught[no restore of the swapped child]",
     "tests/test_up_to_28_children.py::test_every_mutation_is_caught[free-slot cap dropped]",
     "tests/test_game_art.py::test_every_picture_draws",
+    "tests/test_line_break.py::test_the_games_own_sentences_are_laid_out_exactly_as_before",
 )
 RELEASE_SKIP_REASON = "release-only (slow): run with --release or VF1_RELEASE=1"
 

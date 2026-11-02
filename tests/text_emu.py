@@ -16,6 +16,7 @@ Nothing here starts the game.
 """
 from __future__ import annotations
 
+import ctypes
 import struct
 import unicodedata
 from pathlib import Path
@@ -251,6 +252,12 @@ class TextWorld:
             name = em.wstr(em.arg(0)).lower()
             return (0x6600 if name == "normaliz.dll" and self.normalize else 0), 4
 
+        def load_library_ex(em):
+            name = em.wstr(em.arg(0)).lower()
+            if name == "icu.dll" and self.icu and em.arg(2) == 0x800:      # from System32 only
+                return 0x6700, 12
+            return 0, 12
+
         def normalize_string(em):
             form, src, n, dst, size = (em.arg(i) for i in range(5))
             text = em.read(src, n * 2).decode("utf-16-le", "surrogatepass")
@@ -268,6 +275,7 @@ class TextWorld:
             return fn
 
         e.dyn_procs["NormalizeString"] = normalize_string
+        self._bind_icu()
         e.imports.update({
             "GetModuleFileNameW": get_module_file_name, "WideCharToMultiByte": wide_to_multi,
             "CreateFileW": create_file, "GetFileSize": get_file_size, "ReadFile": read_file,
@@ -275,7 +283,8 @@ class TextWorld:
             "HeapAlloc": lambda em: (em.alloc(max(4, em.arg(2))), 12),
             "HeapFree": lambda em: (1, 12), "VirtualProtect": virtual_protect,
             "FlushInstructionCache": lambda em: (1, 12), "GetCurrentProcess": lambda em: (0xFFFFFFFF, 0),
-            "LoadLibraryW": load_library, "GetPrivateProfileStringW": profile_string,
+            "LoadLibraryW": load_library, "LoadLibraryExW": load_library_ex,
+            "GetPrivateProfileStringW": profile_string,
         })
         for name in ("CreateCompatibleDC", "CreateFontW", "SelectObject", "GetTextFaceW", "GetFontData",
                      "GetTextExtentPoint32W", "GetTextMetricsW", "CreateDIBSection", "SetBkMode", "SetTextColor",
@@ -283,6 +292,50 @@ class TextWorld:
             e.imports[name] = gdi(name)
         if self.real_gdi:
             RealGdi(self).bind()
+
+    def _bind_icu(self):
+        """Windows' ICU (icu.dll) as the DLL finds it through GetProcAddress: each call made by this machine's real
+        ICU, the text read from the emulated memory (wrap.inc's line breaking). Off (self.icu = False) the DLL finds
+        no icu.dll and uses its built-in table."""
+        import vf1_line_break as lb
+        self.icu = lb.icu() is not None
+        self.icu_calls: list[str] = []
+        live: dict[int, tuple] = {}             # fake iterator -> (real iterator, kept text buffer)
+
+        def ubrk_open(em):
+            kind, locale, text, n, status = (em.arg(i) for i in range(5))
+            lib = lb.icu()
+            data = em.read(text, 2 * n)
+            buf = ctypes.create_string_buffer(data + b"\0\0", len(data) + 2)
+            st = ctypes.c_int(0)
+            loc = em.read(locale, 64).split(b"\0", 1)[0] if locale else None
+            real = lib.ubrk_open(kind, loc, buf, n, ctypes.byref(st))
+            em.w32(status, st.value & 0xFFFFFFFF)
+            self.icu_calls.append("ubrk_open")
+            if not real:
+                return 0, 0
+            fake = 0x6800 + 0x10 * len(live)
+            live[fake] = (real, buf)
+            return fake, 0
+
+        def step(name):
+            def fn(em):
+                v = getattr(lb.icu(), name)(live[em.arg(0)][0])
+                return v & 0xFFFFFFFF, 0
+            return fn
+
+        def ubrk_close(em):
+            real = live.pop(em.arg(0), (None,))[0]
+            if real:
+                lb.icu().ubrk_close(real)
+            return 0, 0
+
+        def prop(em):
+            return lb.icu().u_getIntPropertyValue(em.arg(0), em.arg(1)) & 0xFFFFFFFF, 0
+
+        self.e.dyn_procs.update({"ubrk_open": ubrk_open, "ubrk_first": step("ubrk_first"),
+                                 "ubrk_next": step("ubrk_next"), "ubrk_close": ubrk_close,
+                                 "u_getIntPropertyValue": prop})
 
     # ------------------------------------------------------------------ the game's objects
     def make_font(self, name: str, table: int) -> int:
@@ -315,6 +368,17 @@ class TextWorld:
         width = self.e.call(0x409450, (self.cstr(text), count, 0, 0, 1 if measure else 0, 0xFFFFFFFF,
                                        self.fonts[font]), ecx=self.window)
         return width, self.blits
+
+    def wrap(self, text: bytes, width: int, font: str = "SegoeUiBold18", x: int = 0, y: int = 0,
+             colour: int = 0xFFFFFFFF, measure: bool = False, limit: int = 0) -> tuple[int, list[tuple]]:
+        """The justified word wrapper 0x409D70 (text, x, y, width, colour, font, measure only) on a game window whose
+        first field is the screen (vf1text.dll's WrapHook when installed): (its return value, the blits)."""
+        self.blits = []
+        outer = self.e.alloc(8)
+        self.e.w32(outer, self.window)
+        r = self.e.call(0x409D70, (self.cstr(text), x, y, width, colour, self.fonts[font], 1 if measure else 0),
+                        ecx=outer, limit=limit)
+        return r, self.blits
 
     def width(self, text: bytes, font: str = "SegoeUiBold18", scale: float = 1.0) -> int:
         bits = struct.unpack("<I", struct.pack("<f", scale))[0]
