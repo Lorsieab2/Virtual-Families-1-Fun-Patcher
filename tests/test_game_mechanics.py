@@ -1,4 +1,4 @@
-﻿"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
+"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
 
 The page is VF1's own facts only (docs/game-mechanics/spec.md and the re-checks of 2026-10-25), each line with its
 evidence label beside it, in family words, every time on its clock (real time or game time, with the real time at

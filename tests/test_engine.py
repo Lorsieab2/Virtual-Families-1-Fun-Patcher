@@ -10,7 +10,7 @@ from conftest import MANIFEST, ROOT, write_manifest
 
 SPEC = {
     'FixVanillaGameBugs': ('Fix Vanilla Game Bugs',
-        'Keeps a brand-new family if the game is closed without quitting (in the original game the last save was from before the adoption until its next autosave, every 10 minutes). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine). An age set by a cheat no longer becomes the Oldest Villager record: the record only rises when a villager ages into it. A family with a dog is now offered the Pet Turtle in the store (the original game checked for a dog instead of a turtle, so with a dog the turtle never came, and with a turtle it still did). Each outfit bought keeps its own picture in the tray and puts on that outfit (in the original game every Male Outfit, or every Female Outfit, in the tray showed and put on the last one bought); the pictures are kept beside each save, so old saves load as before.'),
+        'Keeps a brand-new family if the game is closed without quitting (in the original game the last save was from before the adoption until its next autosave, every 10 minutes). In the Power Failure event, choosing to keep the food now says the food was not ok when people really get sick (the original game always said it was fine). An age set by a cheat no longer becomes the Oldest Villager record: the record only rises when a villager ages into it. A family with a dog is now offered the Pet Turtle in the store (the original game checked for a dog instead of a turtle, so with a dog the turtle never came, and with a turtle it still did). Each outfit bought keeps its own picture in the tray and puts on that outfit (in the original game every Male Outfit, or every Female Outfit, in the tray showed and put on the last one bought); the pictures are kept beside each save, so old saves load as before. The Bank no longer closes the game for a family with $0.42 or less whose members earn no pay (the original game\'s Next 7 Days chart divided by zero): its bars are drawn empty, and every other chart is drawn as before.'),
     'OlderVillagerMortalityCurve': ('Older Villager Mortality Curve',
         "Replaces only the annual old-age death roll with a calibrated curve that accelerates past effective age 110. Active food groups still subtract 0-4 effective years. No hard maximum age."),
     'PrivateRomanticTime': ('Private Adult Romantic Time',
@@ -73,7 +73,7 @@ MANIFEST_ROWS = json.loads(MANIFEST.read_text(encoding="utf-8"))["settings"]
 # stuff you mentioned default off (except in owner's defaults)"; "Keep off by default: All items show in flea
 # market/outfits/hairstyles"). Everything that costs or adds content stays on.
 CHEATS_DEFAULT_OFF = frozenset({"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"})
-# Use Unicode Font (overrides in-game fonts): off by default, on in Owner's Defaults (the owner, 2026-11-01); it cannot
+# Use Unicode Font (overrides in-game fonts): off by default and off in Owner's Defaults (the owner, 2026-11-01); it cannot
 # be on with Render Unicode with In-Game Fonts, which is on by default.
 OVERRIDES_DEFAULT_OFF = frozenset({"UseUnicodeFont"})
 OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS

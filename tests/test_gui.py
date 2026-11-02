@@ -163,9 +163,11 @@ def test_each_preset_ticks_exactly_its_set(app):
     app.clear_all_settings()                                             # Deselect All Patches
     assert app.selected_settings() == set()
     app.select_owners_defaults()                                         # Owner's Defaults
-    assert app.selected_settings() == everything - {"UpTo28Children", "RenderUnicodeInGameFonts"}
-    assert {"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket"} <= app.selected_settings()
-    assert gui.OWNERS_DEFAULT_OFF_SETTING_IDS == frozenset({"UpTo28Children"})
+    assert app.selected_settings() == everything - {"UpTo28Children", "UseUnicodeFont"}
+    assert {"CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket", "RenderUnicodeInGameFonts"} <= \
+        app.selected_settings()
+    assert gui.OWNERS_DEFAULT_OFF_SETTING_IDS == frozenset({"UpTo28Children", "UseUnicodeFont"})
+    assert gui.OWNERS_DEFAULT_PREFERRED_IDS == frozenset({"RenderUnicodeInGameFonts"})
     app.select_all_settings()                                            # Select All Patches: no Experimental
     assert app.selected_settings() == everything - {"UpTo28Children", "UseUnicodeFont"}
     app.setting_vars["UpTo28Children"].set(True)
