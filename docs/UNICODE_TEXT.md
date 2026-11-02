@@ -317,7 +317,7 @@ a numbers-only box keeps digits (and a first '-', as the stock box allows). With
 the text is UTF-8 cut between whole characters at the box's limit (a name box 300 characters and 1,200 bytes,
 any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
 With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
-U+00A2..U+00FF, after composing accents with NormalizeString), up to the box's own byte limit. Nothing is ever
+U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. Nothing is ever
 written past the box's buffer (limit + 1 bytes); the game is told the text changed (0xC, 0x401EA0) as after a typed
 letter. (A Latin-1 name pasted with both settings off is read by the one rule as Windows-1252, except in the rare
 case its bytes also happen to form valid UTF-8, such as "Ã©", which then reads as "é".)

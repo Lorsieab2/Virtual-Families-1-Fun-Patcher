@@ -157,16 +157,16 @@ class Game:
                 em.write(dst, out[:cap * 2])
             return len(out) // 2, 24
 
-        def normalize(em):
-            form, src, n, dst, cap = (em.arg(i) for i in range(5))
+        def fold(em):                                     # FoldStringW(MAP_PRECOMPOSED, ...): Windows composes
+            flags, src, n, dst, cap = (em.arg(i) for i in range(5))
+            assert flags == 0x20
             text = em.read(src, n * 2).decode("utf-16-le", "surrogatepass")
             out = unicodedata.normalize("NFC", text).encode("utf-16-le", "surrogatepass")
             em.write(dst, out[:cap * 2])
             return len(out) // 2, 20
         e.imports.update({"VirtualProtect": virtual_protect, "GetCurrentProcess": lambda em: (0xFFFFFFFF, 0),
                           "FlushInstructionCache": lambda em: (1, 12), "MultiByteToWideChar": wide,
-                          "LoadLibraryW": lambda em: (0x6600, 4)})
-        e.dyn_procs["NormalizeString"] = normalize
+                          "FoldStringW": fold})
         # the message manager: 0x402140 returns it; *it is the list's holder; *holder is the first listener node
         self.holder = e.alloc(0x10)
         self.manager = e.alloc(0x10)

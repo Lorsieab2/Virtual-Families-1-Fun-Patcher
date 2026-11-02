@@ -59,11 +59,12 @@ def dll(request, built):
     return built / request.param
 
 
-def make_world(dll, vanilla_dir, fs=None):
+def make_world(dll, vanilla_dir, fs=None, gdi=False):
     import names_emu
-    # vf1font.dll draws every letter with Windows: its GDI calls are made by the real GDI (text_emu.RealGdi)
+    # vf1font.dll draws every letter with Windows: its GDI calls are made by the real GDI (text_emu.RealGdi); so does
+    # vf1text.dll for a letter no shipped sheet has (Cuneiform, Japanese), when a test draws one (gdi=True)
     w = names_emu.NamesWorld(vanilla_dir / "Virtual Families.exe", dll, vanilla_dir, install=True,
-                             real_gdi=dll.name == "vf1font.dll")
+                             real_gdi=gdi or dll.name == "vf1font.dll")
     assert w.installed == 1
     if fs:
         w.fs.update(fs)
@@ -444,8 +445,8 @@ def details_box(w):
 
 @pytest.mark.parametrize("start,stop", [(0x44BCD2, 0x44BD13), (0x44BDCF, 0x44BE10)])
 @pytest.mark.parametrize("label,name", STORED_MEMBER_NAMES)
-def test_opening_and_closing_details_keeps_a_stored_name(world, start, stop, label, name):
-    w = world
+def test_opening_and_closing_details_keeps_a_stored_name(dll, vanilla_dir, start, stop, label, name):
+    w = make_world(dll, vanilla_dir, gdi=True)
     raw = name.encode()
     assert len(raw) <= 24
     villager = w.e.alloc(0x2C00, fill=0xCC)
@@ -470,8 +471,8 @@ def test_opening_and_closing_details_keeps_a_stored_name(world, start, stop, lab
 
 @pytest.mark.parametrize("label,name", [("a sidecar long name", FULL),
                                         ("a sidecar Japanese name", "日本語の名前" * 20)])
-def test_opening_and_closing_details_keeps_a_sidecar_name(world, label, name):
-    w = world
+def test_opening_and_closing_details_keeps_a_sidecar_name(dll, vanilla_dir, label, name):
+    w = make_world(dll, vanilla_dir, gdi=True)
     short = vf1_names.short_form(name, 24, {})
     w.fs[w.names_file(2)] = vf1_names.render([vf1_names.Entry(short, 24, name)])
     files = dict(w.fs)
@@ -549,7 +550,7 @@ def read_back(w, what, ctl, slot):
 @pytest.mark.parametrize("what,site,limit,room,slot", OTHER_BOX_WINDOWS)
 @pytest.mark.parametrize("kind", ["full size", "Cuneiform at full size", "sidecar"])
 def test_every_other_name_box_keeps_its_name(dll, vanilla_dir, what, site, limit, room, slot, kind):
-    w = make_world(dll, vanilla_dir)
+    w = make_world(dll, vanilla_dir, gdi=True)
     if kind == "full size":
         stored = "Q" * room
     elif kind == "Cuneiform at full size":

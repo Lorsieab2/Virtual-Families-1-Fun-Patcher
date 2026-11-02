@@ -127,21 +127,13 @@ extern "C" __declspec(dllexport) ClipReadFn VF1Fun_ClipRead = &ReadClipboardText
 extern "C" __declspec(dllexport) ClipWriteFn VF1Fun_ClipWrite = &WriteClipboardText;
 extern "C" __declspec(dllexport) volatile unsigned VF1Fun_ClipboardInstalled = 0;
 
-// A text in NFC (accents composed), when Windows has NormalizeString; else as it is.
+// A text with its accents composed (FoldStringW MAP_PRECOMPOSED: "e" + U+0308 -> "ë"); else as it is.
 static wchar_t ClipNfc[ClipMax * 3 + 1];
 static const wchar_t *Composed(const wchar_t *s) {
-    typedef int (WINAPI *NormalizeFn)(int, const wchar_t *, int, wchar_t *, int);
-    static NormalizeFn normalize;
-    static bool looked;
-    if (!looked) {
-        looked = true;
-        HMODULE m = LoadLibraryW(L"normaliz.dll");
-        if (m) normalize = (NormalizeFn)GetProcAddress(m, "NormalizeString");
-    }
     int n = (int)wcslen(s);
     if (n > ClipMax) n = ClipMax;
     wchar_t *out = ClipNfc;
-    int got = normalize && n ? normalize(1 /* NormalizationC */, s, n, out, ClipMax * 3) : 0;
+    int got = n ? FoldStringW(MAP_PRECOMPOSED, s, n, out, ClipMax * 3) : 0;
     if (got <= 0) { memcpy(out, s, (size_t)n * sizeof(wchar_t)); got = n; }
     out[got] = 0;
     return out;
