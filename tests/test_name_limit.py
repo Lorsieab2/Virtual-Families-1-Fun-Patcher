@@ -398,6 +398,181 @@ def test_a_rename_box_opens_with_the_whole_name(world):
     assert w.guards_intact()
 
 
+# --------------------------------------------------------------------------- opening and closing never changes a name
+# The live test (2026-11-01, a build before the one limit): merely opening the Details screen of a member whose stored
+# name (20 bytes, five Cuneiform signs from Spawn Child) was longer than the rename box's GetText room (18 bytes) cut
+# it to 16 bytes in the save. The member field holds 24 bytes; the game reads the box back into a 20-byte local.
+CUNEIFORM5 = "\U0001208D" * 5                                   # 20 bytes
+STORED_MEMBER_NAMES = [
+    ("a 23-letter name from Spawn Child", "Bartholomew Christopher"),
+    ("24 plain letters (the field's full size)", "W" * 24),
+    ("five Cuneiform signs (20 bytes)", CUNEIFORM5),
+    ("eight Japanese letters (24 bytes)", "山田花子太郎次郎"),
+    ("18 bytes", "Zoë Château-Mont"[:16]),
+]
+
+
+def open_details(w, villager, ctl):
+    """The Details screen's own open (0x44BC56..0x44BC7D): the member (0x423660 -> +0x1B308, 0x489900) and
+    SetText(villager + 0x2A44) from 0x44BC78."""
+    import kids_emu as K
+    dlg = w.e.alloc(0x200)
+    w.e.w32(dlg + 0x128, ctl)
+    w.e.seam(0x423660, lambda em: (w.gs, 0))
+    w.e.seam(0x489900, lambda em: (villager, 4))
+    w.run_window(0x44BC56, 0x44BC7D, {K.UC_X86_REG_ESI: dlg}, esp=w.frame())
+    return dlg
+
+
+def close_details(w, start, stop, dlg, villager):
+    import kids_emu as K
+    regs = {K.UC_X86_REG_ESI: dlg, K.UC_X86_REG_EAX: villager}
+    if start == 0x44BDCF:
+        regs[K.UC_X86_REG_ECX] = 0
+    base = w.frame()
+    w.run_window(start, stop, regs, esp=base)
+    return base
+
+
+def details_box(w):
+    ctl, impl = w.control()
+    w.set_editable_from(0x44A6DE, ctl, 0x12)
+    w.e.write(impl + 0x2C, b"\x01")
+    w.e.w32(impl + 0x10, 160)                      # a box narrower than these names
+    return ctl, impl
+
+
+@pytest.mark.parametrize("start,stop", [(0x44BCD2, 0x44BD13), (0x44BDCF, 0x44BE10)])
+@pytest.mark.parametrize("label,name", STORED_MEMBER_NAMES)
+def test_opening_and_closing_details_keeps_a_stored_name(world, start, stop, label, name):
+    w = world
+    raw = name.encode()
+    assert len(raw) <= 24
+    villager = w.e.alloc(0x2C00, fill=0xCC)
+    w.e.write(villager + 0x2A44, raw + b"\0" * (0x19 - len(raw)))
+    before = w.e.read(villager, 0x2C00)
+    files = dict(w.fs)
+    ctl, impl = details_box(w)
+    dlg = open_details(w, villager, ctl)
+    assert w.box_bytes(impl) == raw, "the box opens with the whole stored name"
+    for typing in (0, 1, 0):                        # drawn as shown and while it has the caret
+        w.e.write(impl + 0x25, bytes([typing]))
+        w.draw_box(impl)
+    assert w.box_bytes(impl) == raw, "drawing never cuts the box's text"
+    base = close_details(w, start, stop, dlg, villager)
+    assert w.e.read(base + 8, 0x13) == b"\0" * 0x13, "GetText gives the game nothing to copy"
+    assert w.e.read(base + 8 + 0x13, 0x40) == b"\xCC" * 0x40
+    assert w.change_names == [], "FamilyTree::ChangeName is not called"
+    assert w.e.read(villager, 0x2C00) == before, "the member's record is unchanged, byte for byte"
+    assert w.fs == files, "no Names file is written"
+    assert w.guards_intact()
+
+
+@pytest.mark.parametrize("label,name", [("a sidecar long name", FULL),
+                                        ("a sidecar Japanese name", "日本語の名前" * 20)])
+def test_opening_and_closing_details_keeps_a_sidecar_name(world, label, name):
+    w = world
+    short = vf1_names.short_form(name, 24, {})
+    w.fs[w.names_file(2)] = vf1_names.render([vf1_names.Entry(short, 24, name)])
+    files = dict(w.fs)
+    villager = w.e.alloc(0x2C00, fill=0xCC)
+    raw = short.encode()
+    w.e.write(villager + 0x2A44, raw + b"\0" * (0x19 - len(raw)))
+    before = w.e.read(villager, 0x2C00)
+    ctl, impl = details_box(w)
+    dlg = open_details(w, villager, ctl)
+    assert w.box_bytes(impl).decode() == name, "the box opens with the whole name"
+    w.draw_box(impl)
+    close_details(w, 0x44BCD2, 0x44BD13, dlg, villager)
+    assert w.change_names == []
+    assert w.e.read(villager, 0x2C00) == before
+    assert w.fs == files
+    assert w.guards_intact()
+
+
+def test_a_changed_details_name_is_still_stored(world):
+    """Only an unchanged name is kept as it was: a typed change is stored as before (its short form here)."""
+    w = world
+    villager = w.e.alloc(0x2C00, fill=0xCC)
+    raw = b"Bartholomew Christopher"
+    w.e.write(villager + 0x2A44, raw + b"\0" * (0x19 - len(raw)))
+    ctl, impl = details_box(w)
+    dlg = open_details(w, villager, ctl)
+    w.e.write(impl + 0x25, b"\x01")
+    w.press(impl, 8)
+    w.type_text(impl, "s")
+    edited = "Bartholomew Christophes"
+    assert w.box_bytes(impl).decode() == edited
+    close_details(w, 0x44BCD2, 0x44BD13, dlg, villager)
+    stored = vf1_names.short_form(edited, 18, {}).encode()
+    assert w.change_names == [stored]
+    assert w.e.read(villager + 0x2A44, 0x19) == stored + b"\0" * (0x19 - len(stored))
+    check_names_file(w, 2, stored.decode(), edited, 18)
+
+
+# The other name boxes: each GetText room equals what its field keeps, so a stored name at the field's full size, or
+# a short form standing for a sidecar name, comes back unchanged.
+OTHER_BOX_WINDOWS = [
+    ("the first family's name", 0x41C67C, 0x14, 19, 1),
+    ("slot menu, slot 3", 0x41BC91, 0x14, 19, 3),
+    ("adoption", 0x435AFB, 0x12, 18, 2),
+    ("a new baby", 0x437955, 0x12, 18, 2),
+]
+
+
+def read_back(w, what, ctl, slot):
+    """Run the game's own GetText call and the copy after it for this box; the bytes it stores."""
+    import kids_emu as K
+    if what == "the first family's name":
+        dlg = w.e.alloc(0x100)
+        w.e.w32(dlg + 0x4C, ctl)
+        w.run_window(0x41C71F, 0x41C74C, {K.UC_X86_REG_EBP: dlg, K.UC_X86_REG_ESI: w.gs}, esp=w.frame())
+        return w.e.read(w.gs + 0x1B192, 0x15).split(b"\0", 1)[0]
+    if what.startswith("slot menu"):
+        dlg = w.e.alloc(0x100)
+        w.e.w32(dlg + 0x4C, w.gs)
+        w.run_window(0x41C24A, 0x41C27E, {K.UC_X86_REG_ESI: dlg, K.UC_X86_REG_EDI: ctl, K.UC_X86_REG_EBX: 0},
+                     esp=w.frame())
+        return w.e.read(w.gs + 0x1B192 + 0x15 * (slot - 1), 0x15).split(b"\0", 1)[0]
+    villager = w.e.alloc(0x2C00, fill=0xCC)
+    dlg = w.e.alloc(0x100)
+    if what == "adoption":
+        w.e.w32(dlg + 0x54, ctl)
+        w.run_window(0x43681A, 0x43684D, {K.UC_X86_REG_ECX: w.gs, K.UC_X86_REG_EBP: dlg, K.UC_X86_REG_ESI: villager,
+                                           K.UC_X86_REG_EDI: 7}, esp=w.frame())
+    else:
+        w.e.w32(dlg + 0x14, ctl)
+        w.run_window(0x438291, 0x4382BF, {K.UC_X86_REG_EBX: dlg, K.UC_X86_REG_EBP: villager}, esp=w.frame())
+    return w.e.read(villager + 0x2A44, 0x19).split(b"\0", 1)[0]
+
+
+@pytest.mark.parametrize("what,site,limit,room,slot", OTHER_BOX_WINDOWS)
+@pytest.mark.parametrize("kind", ["full size", "Cuneiform at full size", "sidecar"])
+def test_every_other_name_box_keeps_its_name(dll, vanilla_dir, what, site, limit, room, slot, kind):
+    w = make_world(dll, vanilla_dir)
+    if kind == "full size":
+        stored = "Q" * room
+    elif kind == "Cuneiform at full size":
+        stored = "\U0001208D" * (room // 4) + "x" * (room % 4)
+    else:
+        full = "Wilhelmina Theodora Alexandrina of the Long Name"
+        stored = vf1_names.short_form(full, room, {})
+        w.fs[w.names_file(slot)] = vf1_names.render([vf1_names.Entry(stored, room, full)])
+    assert len(stored.encode()) == room or kind == "sidecar"
+    files = dict(w.fs)
+    ctl, impl = w.control()
+    w.set_editable_from(site, ctl, limit)
+    w.e.write(impl + 0x2C, b"\x01")
+    w.e.w32(impl + 0x10, 120)
+    w.set_text(ctl, stored.encode())
+    for typing in (0, 1):
+        w.e.write(impl + 0x25, bytes([typing]))
+        w.draw_box(impl)
+    assert read_back(w, what, ctl, slot) == stored.encode()
+    assert w.fs == files
+    assert w.guards_intact()
+
+
 # --------------------------------------------------------------------------- drawing
 def fitted(w, name, room, font="SegoeUiBold18"):
     """The whole name fitted into the width of `room` W's, with an ellipsis (names.inc FittedName)."""

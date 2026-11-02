@@ -268,7 +268,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "0", "FleaMarket": "0", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "CheatUpgrades": "0", "FleaMarket": "0", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "CopyPasteInTextBoxes": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
         assert rel.replace("/", "\\") in text
@@ -296,7 +296,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
         "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
-        "CheatUpgrades": "1", "FleaMarket": "1", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
+        "CheatUpgrades": "1", "FleaMarket": "1", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "CopyPasteInTextBoxes": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))
     assert ini(out) == before

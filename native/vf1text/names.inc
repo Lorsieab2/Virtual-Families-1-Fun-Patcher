@@ -575,6 +575,43 @@ __declspec(naked) static void WrapStock() { __asm { sub esp, 0x4DC
                                                      push 0x409D76
                                                      ret } }
 
+// ---- a member's name the player did not change is never written back
+// The rename box (0x44A6DE) opens with the member's stored name (SetText 0x44BC78, from villager+0x2A44, a field of 25
+// bytes that holds up to 24), but the game reads it back into a 20-byte local with GetText(local, 0x13)
+// (0x44BCE1 / 0x44BDDE) and copies that over the field (ChangeName 0x481C20, strncpy 0x19). A stored name of 19..24
+// bytes (Spawn Child / Adopt Outside Child store 24, e.g. 23 letters or five 4-byte Cuneiform signs) was cut by
+// merely opening and closing the Details screen (live test: 20 bytes became 16; with #61 it became a short form). The
+// game skips both copies when the local is empty (0x44BCE6 / 0x44BDE3: cmp byte [esp+8], 0; je), so a box whose
+// text is still exactly what it opened with gives "" there: the field, the Family Tree's copy and the Names file
+// stay exactly as they are.
+struct OpenedText { TextControl *box; char *text; int n; };
+static OpenedText Opened[8];
+static int OpenedNext;
+
+static void NoteOpened(TextControl *c) {
+    char *buf = TC_P(c, 0x30);
+    if (!buf) return;
+    int n = (int)Len(buf);
+    int at = -1;
+    for (int i = 0; i < 8; ++i) if (Opened[i].box == c) at = i;
+    if (at < 0) { at = OpenedNext; OpenedNext = (OpenedNext + 1) & 7; }
+    Free(Opened[at].text);
+    Opened[at].box = c;
+    Opened[at].text = Dup(buf, n);
+    Opened[at].n = Opened[at].text ? n : -1;
+}
+
+static bool StillAsOpened(TextControl *c) {
+    char *buf = TC_P(c, 0x30);
+    if (!buf) return false;
+    int n = (int)Len(buf);
+    for (int i = 0; i < 8; ++i)
+        if (Opened[i].box == c) return Opened[i].n == n && n > 0 && Same(Opened[i].text, buf, (unsigned)n);
+    return false;
+}
+
+static const unsigned KeepWhenUnchanged[] = { 0x44BCE6, 0x44BDE3 };   // GetText returns that test for ""
+
 // 0x40D370 ldwTextControlImpl::SetEditable(editable, limit), ret 8: a name box's limit is VF1_NAME_BOX_BYTES.
 static void __fastcall SetEditableHook(TextControl *c, void *, bool editable, int limit) {
     unsigned ret = (unsigned)(UINT_PTR)_ReturnAddress();
@@ -583,6 +620,7 @@ static void __fastcall SetEditableHook(TextControl *c, void *, bool editable, in
             if (NameBoxCalls[i] == ret) { limit = VF1_NAME_BOX_BYTES; break; }
     ((SetEditableFn)(void *)&SetEditableStock)(c, editable, limit);
     OpenWithWholeName(c);
+    if (IsNameBox(c)) NoteOpened(c);
 }
 
 // 0x40D430 ldwTextControlImpl::SetText(text), ret 4.
@@ -591,7 +629,10 @@ static void __fastcall SetEditableHook(TextControl *c, void *, bool editable, in
 static void __fastcall SetTextHook(TextControl *c, void *, const char *text) {
     NoteLabel(c, (unsigned)(UINT_PTR)_ReturnAddress());
     ((SetTextFn)(void *)&SetTextStock)(c, text);
-    if (TC_B(c, 0x24)) OpenWithWholeName(c);
+    if (TC_B(c, 0x24)) {
+        OpenWithWholeName(c);
+        if (IsNameBox(c)) NoteOpened(c);
+    }
 }
 
 // The stock box draw's own test (0x40D20C..0x40D2B5): does `text` fit, or would the stock draw cut it?
