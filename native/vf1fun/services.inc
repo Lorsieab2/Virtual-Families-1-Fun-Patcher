@@ -180,6 +180,7 @@ static void FillServices(HWND dlg) {
 static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG: {
+        UseNameFont(dlg, ID_SV_WHO);
         int stop = 130;
         SendMessageW(GetDlgItem(dlg, ID_SV_LIST), LB_SETTABSTOPS, 1, (LPARAM)&stop);
         HWND who = GetDlgItem(dlg, ID_SV_WHO);
@@ -227,16 +228,18 @@ static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowServices(HWND owner) {
+static Template &ServicesTemplate() {
     static Template t;
-    t.Begin(L"Services", 300, 226, 8);
+    t.Begin(L"Services", 300, 226);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_SV_MONEY, L"");
     t.Item(STATIC, SS_LEFT, 10, 24, 90, 12, -1, L"Family member:");
-    t.Item(LISTBOX, LBS_NOTIFY | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 38, 90, 120, ID_SV_WHO, L"");
+    // LBS_USETABSTOPS: a list box draws its rows with Windows' script fallback only then (UseNameFont); names have no tabs
+    t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 38, 90, 120, ID_SV_WHO, L"");
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 106, 24, 184, 106, ID_SV_LIST, L"");
     t.Item(STATIC, SS_LEFT, 106, 134, 184, 60, ID_SV_DESC, L"");
     t.Item(STATIC, SS_LEFT, 10, 166, 90, 24, -1, L"The price is for the family member picked.");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 202, 75, 16, ID_SV_BUY, L"Buy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 215, 202, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, ServicesProc, 0);
+    return t;
 }
+static void ShowServices(HWND owner) { DialogBoxIndirectParamW(Module, ServicesTemplate().Get(), owner, ServicesProc, 0); }

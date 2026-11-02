@@ -120,11 +120,14 @@ static INT_PTR CALLBACK AchievementsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) 
     return FALSE;
 }
 
-static void ShowAchievements(HWND owner) {
+static Template &AchievementsTemplate() {
     static Template t;
-    t.Begin(L"Patcher Achievements", 420, 150, 3);
+    t.Begin(L"Patcher Achievements", 420, 150);
     t.Item(LISTBOX, LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER, 10, 10, 400, 100, ID_PA_LIST, L"");
     t.Item(STATIC, SS_LEFT, 10, 124, 150, 12, ID_PA_LIST + 1, L"");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 335, 128, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, AchievementsProc, 0);
+    return t;
+}
+static void ShowAchievements(HWND owner) {
+    DialogBoxIndirectParamW(Module, AchievementsTemplate().Get(), owner, AchievementsProc, 0);
 }

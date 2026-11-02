@@ -129,17 +129,24 @@ static float CurrentMoney() { return *(float *)Money; }
 
 // ---------------------------------------------------------------- dialogs
 // Dialog templates are built in memory so the DLL needs no resource script.
+// The template counts its own controls: DLGTEMPLATE.cdit is the number of Item() calls, never a number written by
+// hand. (A hand-written count once said 29 for the Family page's 31 controls, so Windows created only the first 29
+// and the page had no Evict Family and no Close button.) A control that would not fit the buffer is left out and
+// counted in `dropped`, which tests/test_vf1fun_dialogs.py requires to be 0 for every dialog.
 class Template {
     WORD buf[4096];
     int n;
+    int dropped;
     void Str(const wchar_t *s) { do buf[n++] = *s; while (*s++); }
+    static int Words(const wchar_t *s) { int k = 1; while (*s++) ++k; return k; }
 public:
-    DLGTEMPLATE *Begin(const wchar_t *title, int w, int h, int count) {
+    DLGTEMPLATE *Begin(const wchar_t *title, int w, int h) {
         n = 0;
+        dropped = 0;
         DLGTEMPLATE *t = (DLGTEMPLATE *)buf;
         t->style = DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU;
         t->dwExtendedStyle = 0;
-        t->cdit = (WORD)count;
+        t->cdit = 0;
         t->x = 0; t->y = 0; t->cx = (short)w; t->cy = (short)h;
         n = sizeof(DLGTEMPLATE) / 2;
         buf[n++] = 0; buf[n++] = 0;  // no menu, default class
@@ -149,6 +156,10 @@ public:
         return t;
     }
     void Item(WORD cls, DWORD style, int x, int y, int w, int h, int id, const wchar_t *text) {
+        // the most this control takes: alignment, the item, its class, its text and its creation-data word
+        int need = 1 + (int)(sizeof(DLGITEMTEMPLATE) / 2) + 2 + Words(text) + 1;
+        if (n + need > (int)(sizeof buf / sizeof buf[0])) { ++dropped; return; }
+        ++((DLGTEMPLATE *)buf)->cdit;
         // DLGITEMTEMPLATE must be DWORD aligned (n counts WORDs).
         if (n % 2) buf[n++] = 0;
         DLGITEMTEMPLATE *it = (DLGITEMTEMPLATE *)(buf + n);
@@ -162,9 +173,56 @@ public:
         buf[n++] = 0;  // no creation data
     }
     DLGTEMPLATE *Get() { return (DLGTEMPLATE *)buf; }
+    int Size() const { return n; }          // in WORDs
+    int Dropped() const { return dropped; }
 };
 
 enum { BUTTON = 0x80, EDIT = 0x81, STATIC = 0x82, LISTBOX = 0x83 };
+
+// Names can be in any script. With the dialogs' Segoe UI, its font links and Windows' own fallback, EDIT, LISTBOX
+// and STATIC controls show Cuneiform (U+12000-U+1254F) as empty boxes. Segoe UI Historic (in Windows since 10) has
+// Latin letters plus the historic scripts, and the same fallback still fills in every other script (CJK, emoji,
+// Thai, Ethiopic...). So every control that shows a name -- the Name box, the name lists and the family line --
+// uses Segoe UI Historic at the dialog font's own size; tests/test_vf1fun_dialogs.py draws each script both ways.
+// The controls stay plain EDIT / LISTBOX / STATIC controls, so typing, Ctrl+C / Ctrl+V / Ctrl+X, EM_LIMITTEXT and
+// the stored text are unchanged. Without that font the controls keep the dialog font.
+static int CALLBACK FoundFont(const LOGFONTW *, const TEXTMETRICW *, DWORD, LPARAM found) {
+    *(bool *)found = true;
+    return 0;
+}
+static HFONT NameFont(HWND dlg) {
+    static const wchar_t kFace[] = L"Segoe UI Historic";
+    static struct { LONG height; HFONT font; } made[8];  // one per dialog font size (it changes only with the DPI)
+    static int count, installed = -1;
+    if (installed < 0) {
+        LOGFONTW want = {};
+        want.lfCharSet = DEFAULT_CHARSET;
+        wcscpy_s(want.lfFaceName, kFace);
+        bool found = false;
+        HDC dc = GetDC(0);
+        EnumFontFamiliesExW(dc, &want, FoundFont, (LPARAM)&found, 0);
+        ReleaseDC(0, dc);
+        installed = found;
+    }
+    HFONT base = (HFONT)SendMessageW(dlg, WM_GETFONT, 0, 0);
+    LOGFONTW lf;
+    if (!installed || !base || GetObjectW(base, sizeof lf, &lf) != sizeof lf)
+        return 0;
+    for (int i = 0; i < count; ++i)
+        if (made[i].height == lf.lfHeight) return made[i].font;
+    if (count == 8) return 0;
+    wcscpy_s(lf.lfFaceName, kFace);
+    lf.lfCharSet = DEFAULT_CHARSET;
+    HFONT font = CreateFontIndirectW(&lf);
+    if (font) { made[count].height = lf.lfHeight; made[count++].font = font; }
+    return font;
+}
+// Called in WM_INITDIALOG before the control is filled (a list box sizes its rows by its font). A list box must have
+// LBS_USETABSTOPS: without it, it draws its rows without that fallback, and Segoe UI Historic has no Turkish, Polish,
+// Greek or Cyrillic letters of its own (the test finds them as missing boxes).
+static void UseNameFont(HWND dlg, int id) {
+    if (HFONT font = NameFont(dlg)) SendDlgItemMessageW(dlg, id, WM_SETFONT, (WPARAM)font, FALSE);
+}
 
 static HWND GameWindow() { return GetActiveWindow(); }
 
@@ -355,9 +413,9 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowCheats(HWND owner) {
+static Template &CheatsTemplate() {
     static Template t;
-    t.Begin(L"Cheat Upgrades", 260, 200, 20);
+    t.Begin(L"Cheat Upgrades", 260, 200);
     t.Item(STATIC, SS_LEFT, 10, 8, 240, 12, ID_MONEY_NOW, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 26, 56, 16, ID_MONEY0, L"No Money");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 70, 26, 56, 16, ID_ADD100, L"+ 100");
@@ -378,8 +436,9 @@ static void ShowCheats(HWND owner) {
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | ES_NUMBER | WS_BORDER | WS_TABSTOP, 92, 144, 75, 14, ID_FOOD_EDIT, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 143, 75, 16, ID_FOOD_SET, L"Set");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 174, 176, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, CheatsProc, 0);
+    return t;
 }
+static void ShowCheats(HWND owner) { DialogBoxIndirectParamW(Module, CheatsTemplate().Get(), owner, CheatsProc, 0); }
 
 // ---- Villager cheats
 // Villager i (0-29) is at VillagerManager + 0x14640 + i * 0x145FC
@@ -507,6 +566,7 @@ static bool ConfirmVillagerCheat(HWND dlg, int id) {
 static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG: {
+        UseNameFont(dlg, ID_VC_LIST);
         int stop = 90;
         SendMessageW(GetDlgItem(dlg, ID_VC_LIST), LB_SETTABSTOPS, 1, (LPARAM)&stop);
         FillVillagerList(dlg);
@@ -583,11 +643,11 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
     return FALSE;
 }
 
-static void ShowVillagerCheats(HWND owner) {
+static Template &VillagerCheatsTemplate() {
     static Template t;
     // Instant job promotion, Career Change, Boarding School, Systematic Desensitization, Higher Learning and
     // Psychotherapy are VF2's paid services now, on the Services page (SpecialUpgrades), not cheats.
-    t.Begin(L"Villager Cheats", 340, 274, 18);
+    t.Begin(L"Villager Cheats", 340, 274);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 320, 110, ID_VC_LIST, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, L"Max health");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, L"Cure illnesses");
@@ -606,7 +666,10 @@ static void ShowVillagerCheats(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 215, 94, 16, ID_VC_RANDOM_LOOKS, L"Random look");
     t.Item(STATIC, SS_LEFT, 10, 252, 220, 12, -1, L"Pick Everyone to change everybody at once.");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 248, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, VillagerCheatsProc, 0);
+    return t;
+}
+static void ShowVillagerCheats(HWND owner) {
+    DialogBoxIndirectParamW(Module, VillagerCheatsTemplate().Get(), owner, VillagerCheatsProc, 0);
 }
 
 // ---- Flea Market
@@ -690,16 +753,17 @@ static INT_PTR CALLBACK FleaProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowFleaMarket(HWND owner) {
+static Template &FleaMarketTemplate() {
     static Template t;
-    t.Begin(L"Flea Market", 280, 250, 5);
+    t.Begin(L"Flea Market", 280, 250);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_FM_MONEY, L"");
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 24, 260, 190, ID_FM_LIST, L"");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 224, 80, 16, ID_FM_BUY, L"Buy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 96, 224, 80, 16, ID_FM_FREE, L"Get for free");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 190, 224, 80, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, FleaProc, 0);
+    return t;
 }
+static void ShowFleaMarket(HWND owner) { DialogBoxIndirectParamW(Module, FleaMarketTemplate().Get(), owner, FleaProc, 0); }
 
 // ---- Upgrades menu
 enum { ID_UP_CHEATS = 300, ID_UP_FLEA, ID_UP_DICE, ID_UP_VILLAGERS, ID_UP_STORE, ID_UP_HOUSE,
@@ -792,9 +856,9 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowUpgrades() {
+static Template &UpgradesTemplate() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 220, 326, 14);
+    t.Begin(L"Upgrades Menu", 220, 326);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
@@ -809,8 +873,9 @@ static void ShowUpgrades() {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 266, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 302, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), GameWindow(), UpgradesProc, 0);
+    return t;
 }
+static void ShowUpgrades() { DialogBoxIndirectParamW(Module, UpgradesTemplate().Get(), GameWindow(), UpgradesProc, 0); }
 
 // ---------------------------------------------------------------- vanilla bug fixes
 // FIX: A CHEATED AGE BECOMES THE "OLDEST VILLAGER" RECORD.

@@ -17,6 +17,12 @@
 // drawn instead, fitted with an ellipsis into the room the stock game leaves for that field: the width of as many
 // "W" as the field holds bytes. A box shows the end of a long name while it is typed into (0x40D140 would cut the
 // text to the box's width otherwise) and starts with the whole name when it opens with a short form.
+//
+// Names that fit their field but not their spot on the screen (a 5-sign Cuneiform name is 20 bytes of a 24-byte
+// field, but wider than a child's frame on the Family Tree screen): every fixed spot where the game draws a name has
+// its real room below (NameSpots, by the return address of the draw or of the SetText that puts the name there), and
+// a name wider than it is drawn as its start, cut between whole characters, with "…" (FitToRoom). A name that fits is
+// drawn exactly as before. docs/UNICODE_TEXT.md, "Names fitted to their spot", has each spot and how its room was found.
 
 #include <intrin.h>
 #pragma intrinsic(_ReturnAddress)
@@ -385,8 +391,151 @@ static const char *WithNames(const char *text, void *impl, char **owned) {
     return out;
 }
 
+// ---- names fitted to their spot on the screen
+// A spot: the return address of the game's call that draws a name there (DrawString 0x409CC0 -> 0x409660, or the
+// centred draw 0x409D20) or that puts the name in a label (ldwTextControl::SetText 0x40D700 -> 0x40D430), and the
+// widest the name may be drawn there, in pixels. RoomIsBox: the label's own width (its rectangle, 0x40D140's test).
+// Found in the vanilla exe (1.01.00) and its layouts emulated (tests/test_name_fit.py runs each one):
+static const int RoomIsBox = -1;
+struct NameSpot { unsigned ret; int room; };
+static const NameSpot DrawSpots[] = {
+    // The Family Tree screen's family row 0x439BA0 (layout: the screen's constructor 0x438AB5..0x438BFE, rows drawn
+    // inside the clip 34, 142 .. 736, 600). Each parent's name is drawn left-aligned at the portrait's right + 4
+    // (0x439C65 / 0x439DA5: x = row + [screen+0x70] + 4 = 147) inside the parent frame familytree_parentframe.png
+    // (248 x 91, drawn at row + [screen+0x68] - 8 = 26, 0x439C2E / 0x439D7F): its right edge is at 274, so 127.
+    { 0x439C79, 127 },                                   // the first parent (record +4), 0x439C74
+    { 0x439DB8, 127 },                                   // the second parent (record +0xDC), 0x439DB3
+    // Each child's name is centred (0x409D20: x = centre - width / 2) 46 pixels right of its frame's left edge
+    // (frame at 0x439F01, centre at 0x439F3B), familytree_childframe.png 94 x 74: a name of 93 pixels or less lies
+    // inside the frame (46 to its left, 47 to its right), so 93.
+    { 0x439F4E, 93 },                                    // each child (record +0x1B8 + 0xD8 k), 0x439F49
+};
+static const NameSpot LabelSpots[] = {
+    // The house screen's bottom bar (made by 0x444600..0x444C40): the selected person's name, a left-aligned label at
+    // (61, 538) made for "Joey Joerson" (0x4446D3); the label is not editable, so the stock draw never cuts it (the
+    // cut at 0x40D2B7 is only for editable boxes) and a wider name runs on under the "Age" column, whose caption
+    // starts at x = 202 (0x444772). So 202 - 61 = 141.
+    { 0x445715, 141 },                                   // SetText(sprintf("%s", name)) at 0x445710
+    // The same bar's status line ("{name} sees {name2}.", 0x44E9B0's messages): a label centred in a box made for
+    // 26 "W" (0x444BDF: 187 .. 603), never cut by the stock draw; its box is its room.
+    { 0x44586B, RoomIsBox },                             // SetText(the message) at 0x445866
+};
+
+// The label rooms in force: a label whose text was last set from a LabelSpot.
+struct LabelRoom { void *impl; int room; };
+static LabelRoom LabelRooms[16];
+
+static void NoteLabel(void *impl, unsigned ret) {
+    int room = 0;
+    bool spot = false;
+    for (unsigned i = 0; i < sizeof LabelSpots / sizeof LabelSpots[0]; ++i)
+        if (LabelSpots[i].ret == ret) { room = LabelSpots[i].room; spot = true; }
+    int free = -1;
+    for (int i = 0; i < 16; ++i) {
+        if (LabelRooms[i].impl == impl) { LabelRooms[i].impl = 0; if (free < 0) free = i; }
+        else if (!LabelRooms[i].impl && free < 0) free = i;
+    }
+    if (spot && free >= 0) { LabelRooms[free].impl = impl; LabelRooms[free].room = room; }
+}
+
+static bool LabelSpotRoom(void *impl, int *room) {
+    for (int i = 0; i < 16; ++i)
+        if (LabelRooms[i].impl == impl) { *room = LabelRooms[i].room; return true; }
+    return false;
+}
+
+// The game's call site a DrawString (0x409660) or GetWidth (0x402320) hook was reached from: its own return address,
+// or, from inside the right-aligned (0x409CD0) and centred (0x409D20) draws, theirs. Both push ebx, esi and edi
+// before measuring (GetWidth's return 0x409CF6 / 0x409D46: the caller's return 6 dwords up) and drawing
+// (DrawString's return 0x409D10 / 0x409D67: 9 dwords up). `slot` is the hook's own return address slot.
+static unsigned GameSite(void *slot) {
+    unsigned *s = (unsigned *)slot;
+    switch (s[0]) {
+    case 0x409CF6: case 0x409D46: return s[6];
+    case 0x409D10: case 0x409D67: return s[9];
+    default: return s[0];
+    }
+}
+
+static int DrawSpotRoom(unsigned site) {
+    for (unsigned i = 0; i < sizeof DrawSpots / sizeof DrawSpots[0]; ++i)
+        if (DrawSpots[i].ret == site) return DrawSpots[i].room;
+    return -1;
+}
+
+// One whole character's advance as Measure counts it (scale 1): its box width plus the font's spacing.
+static int Advance(void *impl, FontExtra *f, const unsigned *cps, int i, int j) {
+    Letter l = LetterFor(f, impl, cps, i, j);
+    ldwRect r;
+    LetterBox(impl, l, &r);
+    return *(int *)((char *)impl + 8) + r.right - r.left;
+}
+
+// `text` fitted into `room` pixels of this font: the text itself when it is no wider (one line); else its longest
+// start of whole characters (grapheme clusters), trailing spaces dropped, then "…" (U+2026; in a text read one byte
+// per character, the Windows-1252 byte 0x85, the same letter), on the heap (*owned). Nothing at all when not even "…"
+// fits.
+static const char *FitToRoom(const char *text, void *impl, int room, char **owned) {
+    *owned = 0;
+    if (!text || !impl || room < 0) return text;
+    FontExtra *f = ExtraFor(impl);
+    int n = (int)Len(text);
+    for (int i = 0; i < n; ++i) if (text[i] == '\n') return text;     // names are one line
+    if (MeasureRaw(impl, f, text, n) <= room) return text;
+    bool utf8 = IsUtf8((const unsigned char *)text, n);
+    Run run;
+    if (!DecodeRun(&run, text, n, utf8 ? 1 : 0)) return text;
+    unsigned ell[2] = { 0x2026, 0 };
+    int spacing = *(int *)((char *)impl + 8);
+    int ellipsis = Advance(impl, f, ell, 0, 1);
+    char *out = (char *)Alloc((unsigned)n + 4);
+    if (!out) { FreeRun(&run); return text; }
+    // width: the advances of the start taken so far (trailing spaces too: they are dropped from what is kept, but a
+    // letter after them needs their room); keep: its bytes up to its last letter that is not a space
+    int width = 0, bytes = 0, keep = 0;
+    bool any = ellipsis - spacing <= room;
+    for (int i = 0; i < run.n && any;) {
+        int j = ClusterEnd(run.cps, run.n, i);
+        int add = 0;
+        for (int k = i; k < j; ++k) add += run.widths[k];
+        int w = width + Advance(impl, f, run.cps, i, j);
+        bool space = j == i + 1 && run.cps[i] == ' ';
+        if (!space && w + ellipsis - spacing > room) break;
+        width = w;
+        bytes += add;
+        if (!space) keep = bytes;
+        i = j;
+    }
+    FreeRun(&run);
+    if (!any) { out[0] = 0; *owned = out; return out; }
+    Copy(out, text, (unsigned)keep);
+    if (utf8) { Copy(out + keep, Ellipsis, 4); }
+    else { ((unsigned char *)out)[keep] = 0x85; out[keep + 1] = 0; }
+    *owned = out;
+    return out;
+}
+
+// What a draw or measure from `site` shows: whole names for short forms (WithNames), then fitted to the spot.
+static const char *NamesAt(const char *text, void *impl, unsigned site, char **owned) {
+    char *whole;
+    const char *shown = WithNames(text, impl, &whole);
+    int room = DrawSpotRoom(site);
+    if (room < 0) { *owned = whole; return shown; }
+    char *fit;
+    const char *out = FitToRoom(shown, impl, room, &fit);
+    if (fit) { Free(whole); *owned = fit; return out; }
+    *owned = whole;
+    return shown;
+}
+
 // ---- the name boxes
-static bool IsNameBox(TextControl *c) { return TC_I(c, 0x28) == VF1_NAME_BOX_BYTES && !TC_B(c, 0x2D); }
+// A name box: editable (+0x24, set by SetEditable), its limit the name boxes' VF1_NAME_BOX_BYTES, not numbers-only.
+// Editable matters: the text control's constructor 0x40D7E0 starts every control, labels too, with the limit 0x4B0
+// (0x40D851), so the limit alone would take every label for a name box (and draw it cut to the size it was made for:
+// the bottom bar's name to "Joey Joerson", a label made for "." to nothing).
+static bool IsNameBox(TextControl *c) {
+    return TC_B(c, 0x24) && TC_I(c, 0x28) == VF1_NAME_BOX_BYTES && !TC_B(c, 0x2D);
+}
 
 // A box that opens with a short form opens with the whole name (its buffer holds VF1_NAME_BOX_BYTES + 1 bytes).
 static void OpenWithWholeName(TextControl *c) {
@@ -437,7 +586,10 @@ static void __fastcall SetEditableHook(TextControl *c, void *, bool editable, in
 }
 
 // 0x40D430 ldwTextControlImpl::SetText(text), ret 4.
+// Called through ldwTextControl::SetText 0x40D700 (mov ecx, [ecx+0x10]; jmp), so the return address is the game's
+// call site: a label given a name at a LabelSpot draws it fitted to that spot's room.
 static void __fastcall SetTextHook(TextControl *c, void *, const char *text) {
+    NoteLabel(c, (unsigned)(UINT_PTR)_ReturnAddress());
     ((SetTextFn)(void *)&SetTextStock)(c, text);
     if (TC_B(c, 0x24)) OpenWithWholeName(c);
 }
@@ -458,8 +610,42 @@ static bool BoxFits(TextControl *c, void *font, const char *text) {
 // 0x40D140 ldwTextControlImpl::Draw. For a name box: the text as drawn (whole names), and when it is wider than the
 // box, the end of it while it is typed into, else its start with an ellipsis; drawn from a copy, so the stock draw
 // never cuts the box's own text (it deletes bytes from the end until the text fits, 0x40D2B7).
+// The room a box leaves its text by the stock draw's own test (BoxFits): its width, less the inset when the text is
+// not centred.
+static int BoxRoom(TextControl *c) {
+    int room = TC_I(c, 0x10) - TC_I(c, 8);
+    if (TC_I(c, 0x40) != 1) room -= TC_I(c, 0x44);
+    return room;
+}
+
+// A label at a LabelSpot (never editable: the stock draw does not cut it): its text as drawn (whole names), fitted to
+// the spot's room, drawn from a copy.
+static bool DrawLabelSpot(TextControl *c) {
+    int room;
+    char *buf = TC_P(c, 0x30);
+    if (TC_B(c, 0x24) || TC_B(c, 0x2F) || !buf || !buf[0] || !TC_B(c, 0x2C) || !LabelSpotRoom(c, &room)) return false;
+    void *font = *(void **)(c->raw + 0x3C);
+    if (!font) {
+        void *window = *(void **)0x500668;
+        font = window ? *(void **)((char *)*(void **)window + 0x5C) : 0;
+    }
+    if (!font) return false;
+    if (room == RoomIsBox) room = BoxRoom(c);
+    char *whole, *fit;
+    const char *shown = WithNames(buf, ImplOf(font), &whole);
+    const char *out = FitToRoom(shown, ImplOf(font), room, &fit);
+    if (!fit) { Free(whole); return false; }       // it fits: the stock draw, as before
+    TC_P(c, 0x30) = (char *)out;
+    ((BoxDrawFn)(void *)&BoxDrawStock)(c);
+    TC_P(c, 0x30) = buf;
+    Free(fit);
+    Free(whole);
+    return true;
+}
+
 static void __fastcall BoxDrawHook(TextControl *c, void *) {
     char *buf = TC_P(c, 0x30);
+    if (!IsNameBox(c) && DrawLabelSpot(c)) return;
     if (!IsNameBox(c) || TC_B(c, 0x2F) || !buf || !buf[0] || !TC_B(c, 0x2C)) {
         ((BoxDrawFn)(void *)&BoxDrawStock)(c);
         return;

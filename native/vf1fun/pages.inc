@@ -81,9 +81,9 @@ static INT_PTR CALLBACK StoreCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowStoreCheats(HWND owner) {
+static Template &StoreCheatsTemplate() {
     static Template t;
-    t.Begin(L"Store, Achievement and Collection Cheats", 250, 194, 13);
+    t.Begin(L"Store, Achievement and Collection Cheats", 250, 194);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_SC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 55, 16, ID_SC_X2, L"2x Prices");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 69, 24, 55, 16, ID_SC_X5, L"5x Prices");
@@ -97,7 +97,10 @@ static void ShowStoreCheats(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 104, 112, 16, ID_SC_COL_RESET, L"Reset all collections");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 130, 230, 16, ID_SC_ANTISPAM, L"Anti-Spam Software Ownership (install / uninstall)");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 170, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, StoreCheatsProc, 0);
+    return t;
+}
+static void ShowStoreCheats(HWND owner) {
+    DialogBoxIndirectParamW(Module, StoreCheatsTemplate().Get(), owner, StoreCheatsProc, 0);
 }
 
 // ---- House and yard
@@ -155,9 +158,9 @@ static INT_PTR CALLBACK HouseProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowHouse(HWND owner) {
+static Template &HouseTemplate() {
     static Template t;
-    t.Begin(L"House and Yard", 250, 172, 8);
+    t.Begin(L"House and Yard", 250, 172);
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 10, 230, 16, ID_HY_TRASH, L"Fill available house slots with trash (5 smudges, 5 socks, 5 wrappers)");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 30, 230, 16, ID_HY_CLEAN, L"Clean House");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 54, 230, 16, ID_HY_WEEDS, L"Fill available yard slots with weeds (15)");
@@ -166,8 +169,9 @@ static void ShowHouse(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 118, 230, 16, ID_HY_FIX, L"Fix all house malfunctions");
     t.Item(STATIC, SS_LEFT, 10, 140, 150, 24, -1, L"There are 30 mess slots in all, shared by the house and yard.");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 148, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, HouseProc, 0);
+    return t;
 }
+static void ShowHouse(HWND owner) { DialogBoxIndirectParamW(Module, HouseTemplate().Get(), owner, HouseProc, 0); }
 
 // ---- Special Upgrades (VF2's mobile purchases, plus the Maid and Gardener)
 // Anti-spam Software (item 47, $125): the game's own record of owning it is the byte at
@@ -278,15 +282,16 @@ static INT_PTR CALLBACK PurchasesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowPurchases(HWND owner) {
+static Template &PurchasesTemplate() {
     static Template t;
-    t.Begin(L"Special Upgrades", 250, 180, 4);
+    t.Begin(L"Special Upgrades", 250, 180);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 230, 90, ID_SU_LIST, L"");
     t.Item(STATIC, SS_LEFT, 10, 104, 230, 48, ID_SU_DESC, L"");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 156, 75, 16, ID_SU_BUY, L"Buy");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 165, 156, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, PurchasesProc, 0);
+    return t;
 }
+static void ShowPurchases(HWND owner) { DialogBoxIndirectParamW(Module, PurchasesTemplate().Get(), owner, PurchasesProc, 0); }
 
 // ---- Time controls
 enum { ID_TC_STATUS = 560, ID_TC_PAUSE, ID_TC_RESUME, ID_TC_NORMAL, ID_TC_X2, ID_TC_X5, ID_TC_X10,
@@ -325,9 +330,9 @@ static INT_PTR CALLBACK TimeProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowTime(HWND owner) {
+static Template &TimeTemplate() {
     static Template t;
-    t.Begin(L"Time Controls", 250, 124, 9);
+    t.Begin(L"Time Controls", 250, 124);
     t.Item(STATIC, SS_LEFT, 10, 8, 230, 12, ID_TC_STATUS, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 112, 16, ID_TC_PAUSE, L"Pause");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 24, 112, 16, ID_TC_RESUME, L"Resume");
@@ -337,5 +342,6 @@ static void ShowTime(HWND owner) {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 70, 112, 16, ID_TC_X5, L"5x");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 128, 70, 112, 16, ID_TC_X10, L"10x");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 165, 100, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, TimeProc, 0);
+    return t;
 }
+static void ShowTime(HWND owner) { DialogBoxIndirectParamW(Module, TimeTemplate().Get(), owner, TimeProc, 0); }
