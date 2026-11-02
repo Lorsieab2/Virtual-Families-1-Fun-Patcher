@@ -1,4 +1,4 @@
-﻿"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
+"""Game Mechanics (patcher/vf1_game_mechanics.py and its Tools-tab window).
 
 The page is VF1's own facts only (docs/game-mechanics/spec.md and the re-checks of 2026-10-25), each line with its
 evidence label beside it, in family words, every time on its clock (real time or game time, with the real time at
@@ -250,7 +250,7 @@ def test_every_named_setting_is_the_manifests_label_and_default():
 def test_every_patcher_line_names_its_setting_and_is_verified():
     named = [f"({gm.setting(k)}" for k in gm.PATCH_SETTINGS] + [f"; {gm.setting('SpecialUpgrades')})"]
     lines = patched()
-    assert len(lines) == 78
+    assert len(lines) == 79
     for fact in lines:
         assert fact.text.startswith(gm.PATCHER_PREFIX), fact.text
         assert any(n in fact.text for n in named), fact.text

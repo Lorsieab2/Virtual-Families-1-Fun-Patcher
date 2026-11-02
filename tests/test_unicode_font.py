@@ -85,8 +85,11 @@ def test_ticking_one_unticks_the_other(app):
     assert not app.setting_vars["RenderUnicodeInGameFonts"].get()
     app.setting_vars["RenderUnicodeInGameFonts"].set(True)
     assert not app.setting_vars["UseUnicodeFont"].get()
+    app.select_owners_defaults()       # the owner (2026-11-01): Render Unicode with In-Game Fonts, not Use Unicode Font
+    assert app.setting_vars["RenderUnicodeInGameFonts"].get() and not app.setting_vars["UseUnicodeFont"].get()
+    app.setting_vars["UseUnicodeFont"].set(True)
     app.select_owners_defaults()
-    assert app.setting_vars["UseUnicodeFont"].get() and not app.setting_vars["RenderUnicodeInGameFonts"].get()
+    assert app.setting_vars["RenderUnicodeInGameFonts"].get() and not app.setting_vars["UseUnicodeFont"].get()
     app.select_all_settings()
     assert app.setting_vars["RenderUnicodeInGameFonts"].get() and not app.setting_vars["UseUnicodeFont"].get()
     app.clear_all_settings()

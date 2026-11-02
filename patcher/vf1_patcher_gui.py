@@ -64,10 +64,10 @@ EXPERIMENTAL_WARNING = patcher.EXPERIMENTAL_WARNING
 
 # The settings the Owner's Defaults button leaves OFF, by exact id. The owner (2026-11-01): "I usually enable
 # everything except the 28-child patch" -- every other setting is ticked, the cheats included.
-OWNERS_DEFAULT_OFF_SETTING_IDS = frozenset({"UpTo28Children"})
-# Of two settings that cannot be on together, the one Owner's Defaults ticks (the owner, 2026-11-01: Use Unicode Font
-# rather than Render Unicode with In-Game Fonts).
-OWNERS_DEFAULT_PREFERRED_IDS = frozenset({"UseUnicodeFont"})
+OWNERS_DEFAULT_OFF_SETTING_IDS = frozenset({"UpTo28Children", "UseUnicodeFont"})
+# Of two settings that cannot be on together, the one Owner's Defaults ticks (the owner, 2026-11-01, changing #55:
+# Render Unicode with In-Game Fonts on, Use Unicode Font off).
+OWNERS_DEFAULT_PREFERRED_IDS = frozenset({"RenderUnicodeInGameFonts"})
 SETTING_CATEGORY_LOOKUP = {key: (label, color) for key, label, color in SETTING_CATEGORIES}
 
 
