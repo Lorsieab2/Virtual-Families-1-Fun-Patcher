@@ -1153,6 +1153,25 @@ static void LoadTextCompanion(const wchar_t *name) {
     TextStoreName = (TextStoreNameFn)GetProcAddress(text, "VF1Text_StoreName");
 }
 
+// ---------------------------------------------------------------- Translations
+// Its own DLL, vf1tr.dll, installed beside this one only while the Translations setting is on (patcher/
+// manifest.json). Loaded last, after vf1text.dll / vf1font.dll, so it can tell whether the game draws UTF-8. It
+// changes no hook of this DLL or of the others: it sets the string table's own override pointers (see
+// native/vf1tr/vf1tr.c). This DLL only loads it.
+static void LoadTranslationsCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1tr.dll");
+    HMODULE tr = LoadLibraryW(path);
+    if (!tr) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(tr, "VF1Tr_Startup");
+    if (startup) startup();   // not installed: the game stays in English
+}
+
 // "This family already has six children." -- or the 28 when Up to 28 Children is installed.
 static const wchar_t *FamilyFullText() {
     return KidsLimit ? L"This family has no room for another child (28 at most)."
@@ -1285,6 +1304,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadTextCompanion(L"vf1text.dll");
     else if (SettingOn(L"UseUnicodeFont", false))
         LoadTextCompanion(L"vf1font.dll");
+    if (SettingOn(L"Translations", false))   // last: after the text companions
+        LoadTranslationsCompanion();
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
