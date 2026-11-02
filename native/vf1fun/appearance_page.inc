@@ -163,6 +163,7 @@ static LRESULT CALLBACK CanvasProc(HWND wnd, UINT msg, WPARAM wp, LPARAM lp) {
 static INT_PTR CALLBACK Proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_INITDIALOG:
+        UseNameFont(dlg, ID_AP_LIST);
         Start();
         gCanvasProc = (WNDPROC)SetWindowLongPtrW(GetDlgItem(dlg, ID_AP_CANVAS), GWLP_WNDPROC, (LONG_PTR)CanvasProc);
         gOutfits = false; gScroll = 0;
@@ -223,10 +224,10 @@ static INT_PTR CALLBACK Proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 }
 }  // namespace appearance
 
-static void ShowAppearance(HWND owner) {
+static Template &AppearanceTemplate() {
     static Template t;
     using namespace appearance;
-    t.Begin(L"Clothing and Hairstyles", 330, 300, 9);
+    t.Begin(L"Clothing and Hairstyles", 330, 300);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 8, 8, 314, 62, ID_AP_LIST, L"");
     t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 76, 70, 12, ID_AP_HAIR, L"Hairstyles");
     t.Item(BUTTON, BS_AUTORADIOBUTTON, 82, 76, 60, 12, ID_AP_OUTFIT, L"Outfits");
@@ -236,5 +237,8 @@ static void ShowAppearance(HWND owner) {
     t.Item(0x84, SBS_VERT, 308, 92, 12, 176, ID_AP_SCROLL, L"");
     t.Item(STATIC, SS_LEFT, 8, 274, 230, 20, ID_AP_HINT, L"Pick a villager, then click a hairstyle or outfit to give them.");
     t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 247, 278, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, appearance::Proc, 0);
+    return t;
+}
+static void ShowAppearance(HWND owner) {
+    DialogBoxIndirectParamW(Module, AppearanceTemplate().Get(), owner, appearance::Proc, 0);
 }

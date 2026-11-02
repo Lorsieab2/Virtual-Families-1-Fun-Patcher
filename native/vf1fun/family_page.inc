@@ -49,6 +49,8 @@ static void Report(HWND dlg, const wchar_t *problem, const wchar_t *done) {
 static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG:
+        UseNameFont(dlg, ID_FA_STATUS);
+        UseNameFont(dlg, ID_FA_NAME);
         SetDlgItemTextW(dlg, ID_FA_AGE, L"5");
         // the one name limit (in UTF-16 units: 300 characters are at most 1,200 units here; SetName cuts to 300)
         SendDlgItemMessageW(dlg, ID_FA_NAME, EM_LIMITTEXT, VF1_NAME_BOX_BYTES, 0);
@@ -110,10 +112,10 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     return FALSE;
 }
 
-static void ShowFamily(HWND owner) {
+static Template &FamilyTemplate() {
     static Template t;
     const DWORD check = BS_AUTOCHECKBOX | WS_TABSTOP, radio = BS_AUTORADIOBUTTON, push = BS_PUSHBUTTON | WS_TABSTOP;
-    t.Begin(L"Family: Marriage, Babies and Children", 300, 366, 29);
+    t.Begin(L"Family: Marriage, Babies and Children", 300, 366);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_FA_STATUS, L"");
     t.Item(BUTTON, BS_GROUPBOX, 6, 24, 288, 62, -1, L"Marriage");
     t.Item(BUTTON, check, 14, 36, 260, 12, ID_FA_SAMESEX, L"Enable Same-Sex Marriage");
@@ -149,6 +151,6 @@ static void ShowFamily(HWND owner) {
     t.Item(BUTTON, BS_GROUPBOX, 6, 282, 288, 56, -1, L"Start again");
     t.Item(BUTTON, push, 14, 296, 272, 16, ID_FA_NEWPERSON, L"Adopt New Person (the game's Adoption screen; after a game over)");
     t.Item(BUTTON, push, 14, 316, 272, 16, ID_FA_EVICT, L"Evict Family (everyone leaves the house)...");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 344, 75, 16, IDOK, L"Close");
-    DialogBoxIndirectParamW(Module, t.Get(), owner, FamilyProc, 0);
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 344, 75, 16, IDOK, L"Close");    return t;
 }
+static void ShowFamily(HWND owner) { DialogBoxIndirectParamW(Module, FamilyTemplate().Get(), owner, FamilyProc, 0); }
