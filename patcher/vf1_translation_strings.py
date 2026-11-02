@@ -24,9 +24,10 @@ from pathlib import Path
 
 import translation_format as tfmt
 
-ROOT = Path(__file__).resolve().parents[1]
-LIMITS_JSON = ROOT / "data" / "vf1_translation_limits.json"
-KEYS_JSON = ROOT / "data" / "vf1_string_keys.json"
+HERE = Path(__file__).resolve().parent
+# data/ in the repository; beside this module in the release (tools/package_release.py)
+LIMITS_JSON = next((p for p in (HERE / "vf1_translation_limits.json", HERE.parent / "data" / "vf1_translation_limits.json")
+                    if p.is_file()), HERE.parent / "data" / "vf1_translation_limits.json")
 GAME = "vf1"
 EXE_NAMES = ("Virtual Families.exe", "Virtual Families - Modded.exe")
 VANILLA_SHA256 = "5db828c3f53c68696c18719aec0eb114be3fd4458ae2cbf185d8d4ef7eca4487"

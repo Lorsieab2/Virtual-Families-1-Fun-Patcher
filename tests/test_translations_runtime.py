@@ -159,7 +159,7 @@ def test_no_usable_choice_changes_nothing(exe, dll, table, files):
     chosen = {
         "none": {},
         "english": {INI: b"\xef\xbb\xbflanguage=\r\n"},
-        "other game": {INI: ini(), te.CHOSEN: data.replace(b"Virtual Families", b"Fish Tycoon", 1)},
+        "other game": {INI: ini(), te.CHOSEN: data.replace(b"@game\tVirtual Families", b"@game\tFish Tycoon")},
         "not utf8": {INI: ini(), te.CHOSEN: b"Key\tEnglish\tTranslation\r\n\xff\xfe\xfd"},
     }[files]
     w = te.TranslationWorld(exe, dll, chosen)
@@ -241,14 +241,19 @@ def test_a_guarded_copy_never_holds_more_than_the_english(exe, dll, table, entri
             e.write(dst, b"\0")
             w.run_call(call, [dst, out, 4000])
             assert e.read_cstr_bytes(dst) == b"\xc4" * english_len, site
-    # a translated FORMAT (sprintf(dst, GetString(id), n) at 0x47A513) is cut to what the English format makes
+    # a translated FORMAT (sprintf(dst, GetString(id), n) at 0x47A513, the id from a caller's table) makes at
+    # most what the English format makes
+    dst = e.alloc(256, fill=0xCC)
+    assert w.run_call(0x47A513, [dst, out, 3]) == english_len
+    assert e.read_cstr_bytes(dst) == b"\xc4" * english_len and e.read(dst + english_len + 1, 4) == b"\xCC" * 4
     fmt_sid = first(table, lambda t: t == "%d of %d")
     k, en = key(fmt_sid, table)
-    w2, _tf = world(exe, dll, [(k, en, "%d sur un total de %d")])
+    w2, _tf = world(exe, dll, [(k, en, "%d / %d")])
     dst = w2.e.alloc(256, fill=0xCC)
     w2.run_call(0x47A513, [dst, w2.translation_of(fmt_sid), 3, 12])
-    assert w2.e.read_cstr_bytes(dst) == b"3 sur u"                         # "3 of 12" is 7 letters
-    assert w2.e.read(dst + 8, 4) == b"\xCC" * 4
+    assert w2.e.read_cstr_bytes(dst) == b"3 / 12"
+    w3, _tf = world(exe, dll, [(k, en, "%d sur %d")])                       # 9 letters: past its room (8)
+    assert w3.translation_of(fmt_sid) == 0
 
 
 def test_the_limits_are_the_vanilla_codes(exe):

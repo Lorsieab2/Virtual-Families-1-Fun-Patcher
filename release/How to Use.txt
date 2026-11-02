@@ -160,6 +160,29 @@ Each text size keeps its height and colour and is sized so a line is as wide
 as before. It cannot be on with Render Unicode with In-Game Fonts: ticking
 one unticks the other. Typing and names work the same with either.
 
+Translations (on by default): play the game in another language. On the
+Tools tab, press Translations... and choose the language in "Language in the
+game" (each language is listed by its own name). It applies from the next
+time the game starts; there is no need to patch again. English (original)
+leaves the game as it is. A line the translation lacks or has wrong stays in
+English. Without the Unicode settings only Latin letters show (French,
+German, Spanish...); with Render Unicode with In-Game Fonts or Use Unicode
+Font any language shows. The Family History log keeps its English words.
+
+To make a translation, choose a language under "Make a translation" and press
+Make a translation...: the editor shows the English on the left and your
+translation on the right, with a preview in the game's own font, and saves by
+itself. Keep the placeholders such as {name} and %d (they are coloured). In a
+line about a person, {he/she} is that person's sex: write it in your language,
+for example {il/elle}. Add translation file... (or drag a .txt file onto the
+window) adds a translation you were sent; Export translation... saves a copy.
+Lines whose English changed after a patcher update are marked.
+
+Share on GitHub... sends your translation to the patcher's public GitHub page
+(you need a free GitHub account). It asks first; No does nothing. You type the
+credit name yourself. Email addresses are never saved and are rejected from
+translation files. docs/translations.md explains the file format.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).

@@ -602,11 +602,13 @@ static int __cdecl guard_sprintf(char *dst, const char *format, DWORD a0, DWORD 
         for (q = 0; q < 8; ++q) {
             const row *x = row_of_out((const void *)(UINT_PTR)a[q]);
             e[q] = x != NULL ? (DWORD)(UINT_PTR)x->english_game : a[q];
-            if (x != NULL) changed = 1;
+            if (x != NULL) a[q] = (DWORD)(UINT_PTR)cut((const char *)(UINT_PTR)a[q]);   /* each text at most its English */
         }
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         changed = 0;
+        a[0] = a0; a[1] = a1; a[2] = a2; a[3] = a3; a[4] = a4; a[5] = a5; a[6] = a6; a[7] = a7;
     }
+    /* an untranslated format with each text no longer than its English: the English game's length at most */
     if (!changed) return next(dst, format, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
     lt = next(sprintf_t, format, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
     le = next(sprintf_e, fe, e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7]);

@@ -116,7 +116,15 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "vf1_unicode_font.py": (ROOT / "patcher" / "vf1_unicode_font.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
+        # Translations (docs/translations.md): the window, the format, the game's lines and their room
+        "translation_format.py": (ROOT / "patcher" / "translation_format.py").read_bytes(),
+        "vf1_translation_strings.py": (ROOT / "patcher" / "vf1_translation_strings.py").read_bytes(),
+        "vf1_translations.py": (ROOT / "patcher" / "vf1_translations.py").read_bytes(),
+        "vf1_translations_window.py": (ROOT / "patcher" / "vf1_translations_window.py").read_bytes(),
+        "vf1_translation_limits.json": (ROOT / "data" / "vf1_translation_limits.json").read_bytes(),
     }
+    for path in sorted((ROOT / "patcher" / "translations" / "vf1").glob("*.txt")):   # accepted on GitHub
+        files[f"translations/vf1/{path.name}"] = path.read_bytes()
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():
