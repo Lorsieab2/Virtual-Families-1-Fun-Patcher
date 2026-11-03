@@ -213,6 +213,20 @@ checks it as data only with the patcher's own validator, and opens a pull reques
 credited only to the typed credit name; if something is wrong it comments the problems instead. Accepted
 translations ship in the next release, and anyone can download them at once with **Download from GitHub...**.
 
+### Safety rules for names, replacing and checks
+
+- **A check speaks for one commit.** The workflows cancel a stale run when a newer push or accept arrives (a
+  concurrency group per pull request or issue). The accept action commits exactly the bytes VirusTotal scanned
+  (SHA-256 compared before the commit) and reads the issue again just before pushing; if it changed, nothing is
+  pushed. Any workflow that merges must use `gh pr merge --match-head-commit <checked sha>` (a test enforces it).
+  No pull request code is ever checked out or run.
+- **Names never collide with shipped files.** A translation you add never takes the name of one that came with the
+  patcher or from GitHub (a new name gets "(2)"), **Edit...** on a shipped one makes your own copy
+  ("... (own copy).txt"), and your remembered choice is stored as its source plus name (`vf1/fr.tsv`), so
+  two files called `fr` cannot be confused. Old settings that hold only a name keep working.
+- **Nothing is deleted for good.** A new file replaces an installed one only when the language, `@code` AND
+  `@translator` all match (the same person's update); otherwise both are kept under different names. A replaced
+  file goes to the Windows Recycle Bin (`SHFileOperationW` with `FOF_ALLOWUNDO`); if that fails nothing is replaced.
 ## For developers
 
 - `patcher/translation_format.py`: the format (reading, writing, placeholders, person and number choices, CLDR plural
