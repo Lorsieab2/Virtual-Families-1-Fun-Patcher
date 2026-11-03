@@ -52,7 +52,7 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         UseNameFont(dlg, ID_FA_STATUS);
         UseNameFont(dlg, ID_FA_NAME);
         SetDlgItemTextW(dlg, ID_FA_AGE, L"5");
-        // the one name limit (in UTF-16 units: 300 characters are at most 1,200 units here; SetName cuts to 300)
+        // the one name limit (1,200 UTF-16 units here, at most 1,200 bytes of UTF-8 in any case; SetName cuts to 1,200 bytes)
         SendDlgItemMessageW(dlg, ID_FA_NAME, EM_LIMITTEXT, VF1_NAME_BOX_BYTES, 0);
         HideWithoutFreeCheats(dlg, ID_FA_FORCE);
         RefreshFamily(dlg);

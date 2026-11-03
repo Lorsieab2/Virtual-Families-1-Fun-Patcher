@@ -288,7 +288,7 @@ def test_a_save_without_a_menu_entry_is_a_source(save):
 
 
 @pytest.mark.parametrize("source,target,name,words", [
-    (1, 1, "A", "another slot"), (3, 4, "A", "has no family"), (1, 4, "x" * 301, "too long"), (1, 6, "A", "1 to 5"),
+    (1, 1, "A", "another slot"), (3, 4, "A", "has no family"), (1, 4, "x" * 1201, "too long"), (1, 6, "A", "1 to 5"),
 ])
 def test_other_refusals(save, source, target, name, words):
     before = tree_of(save)

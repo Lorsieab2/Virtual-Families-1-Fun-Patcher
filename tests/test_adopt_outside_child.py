@@ -66,7 +66,7 @@ def test_adopted_name_never_splits_a_surrogate_pair():
     names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
     fit = names[names.index("static int FitNameUtf8"):]
     assert "c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF" in fit
-    assert "if (used + bytes > room || letters == VF1_NAME_LETTERS) break;" in fit
+    assert "if (used + bytes > room) break;" in fit and "VF1_NAME_LETTERS" not in fit
 
 
 def test_evidence_recorded():

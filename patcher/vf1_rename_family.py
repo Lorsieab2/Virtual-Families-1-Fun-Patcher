@@ -27,8 +27,8 @@ The limit
     other character 2 to 4, and the 19 bytes are counted, never a character cut in two. Control characters
     are refused. Spaces are kept as typed. A name that breaks the rule is refused, never truncated. The
     stock game (or the patch off) shows such a name as other Latin letters, and stores it back unchanged.
-    One character limit for every name box (docs/UNICODE_TEXT.md): the tool takes up to vf1_text.NAME_LETTERS
-    (300) characters, as the game's own boxes do with either Unicode setting on. A name longer than the 19 bytes
+    One limit for every name box (docs/UNICODE_TEXT.md): the tool takes up to vf1_text.NAME_BOX_BYTES
+    (1,200 bytes, no separate character cap), as the game's own boxes do with either Unicode setting on. A name longer than the 19 bytes
     is stored in the save and the slot menu as its short form (vf1_names.short_form), and the whole name goes in
     the slot's Names file, written first and put back if the rename fails.
 
@@ -79,9 +79,9 @@ import vf1_text
 
 SLOTS = (1, 2, 3, 4, 5)
 BACKUP_LABEL = save_backup.BEFORE_RENAME
-# The most characters the tool accepts: the one name limit (vf1_text.NAME_LETTERS). The save's field keeps 19 bytes;
+# The most bytes the tool accepts: the one name limit (vf1_text.NAME_BOX_BYTES). The save's field keeps 19 bytes;
 # a longer name is stored there as its short form, the whole name in the slot's Names file (vf1_names).
-MAX_LENGTH = vf1_text.NAME_LETTERS
+MAX_LENGTH = vf1_text.NAME_BOX_BYTES
 FIELD_BYTES = vf1_names.FAMILY_ROOM
 FAMILY_NAME_FIELD = 0x1C                 # bytes reserved at theGameState+0x1B12C
 OPTIONS_FIRST_NAME = 0x1B192             # theGameState offset of slot 1's menu name
@@ -102,13 +102,13 @@ def printable(ch: str) -> bool:
 
 
 def room_used(name: str) -> int:
-    """How many characters ``name`` has, as a player counts them (the one name limit counts these)."""
-    return vf1_text.char_count(name)
+    """How many bytes ``name`` takes as stored (the one name limit counts these)."""
+    return len(vf1_text.encode(name))
 
 
 def room_text(name: str) -> str:
-    """The name box's counter: "7 / 300 characters", saying when the save keeps a short form."""
-    text = f"{room_used(name)} / {MAX_LENGTH} characters"
+    """The name box's counter: "7 / 1200 bytes (7 characters)", saying when the save keeps a short form."""
+    text = f"{room_used(name)} / {MAX_LENGTH} bytes ({vf1_text.char_count(name)} characters)"
     if len(vf1_text.encode(name)) > FIELD_BYTES:
         text += " (the save keeps a short form; the whole name is in its Names file)"
     return text
@@ -143,10 +143,7 @@ def name_problem(name: str) -> str | None:
     if bad:
         shown = " ".join(repr(ch) for ch in bad)
         return f"Virtual Families cannot use these characters in a name: {shown}."
-    used = room_used(name)
-    if used > MAX_LENGTH:
-        return f"{used} characters is too long: a family name can have at most {MAX_LENGTH}."
-    if len(vf1_text.encode(name)) > vf1_names.NAME_BOX_BYTES:
+    if room_used(name) > MAX_LENGTH:
         return vf1_names.name_problem(name)
     if not name.strip(" "):
         return "A name cannot be only spaces."

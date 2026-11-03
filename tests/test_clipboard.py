@@ -51,7 +51,7 @@ extern "C" __declspec(dllexport) void __cdecl T_Unicode(int on) {
 def test_the_setting_is_on_by_default_and_documented():
     row = next(s for s in MANIFEST["settings"] if s["id"] == "CopyPasteInTextBoxes")
     assert row["default"] is True
-    for words in ("Ctrl+V", "Shift+Insert", "Ctrl+C", "Ctrl+Insert", "Ctrl+X", "300 characters", "Windows-1252"):
+    for words in ("Ctrl+V", "Shift+Insert", "Ctrl+C", "Ctrl+Insert", "Ctrl+X", "1,200 bytes", "Windows-1252"):
         assert words in row["description"], words
 
 
@@ -295,16 +295,14 @@ class Game:
         self.key(ord("v"), CTRL)
 
 
-def cut_utf8(text: str, room: int, letters: int = 300) -> bytes:
+def cut_utf8(text: str, room: int) -> bytes:
     import vf1_text
     out = b""
-    n = 0
     for cluster in vf1_text.clusters(text):
         b = cluster.encode("utf-8")
-        if len(out) + len(b) > room or n == letters:
+        if len(out) + len(b) > room:
             break
         out += b
-        n += 1
     return out
 
 
@@ -336,12 +334,14 @@ def test_the_active_function_is_asked_by_name_and_stored_by_the_loader():
     assert "static bool UnicodeTextOn() { return TextActive != 0 && TextActive() != 0; }" in INC
 
 
-# ---- paste with a Unicode setting on: a name box (300 characters, 1,200 bytes)
+# ---- paste with a Unicode setting on: a name box (1,200 bytes, no character cap)
 @pytest.mark.parametrize("label,clip,expect", [
     ("300 characters", "a" * 300, b"a" * 300),
-    ("301 characters: one past", "a" * 301, b"a" * 300),
+    ("301 characters: no character cap", "a" * 301, b"a" * 301),
+    ("1,200 characters: the byte cap", "a" * 1200, b"a" * 1200),
+    ("1,201 characters: one past", "a" * 1201, b"a" * 1200),
     ("300 four-byte characters: 1,200 bytes", "\U0001F4A9" * 300, ("\U0001F4A9" * 300).encode()),
-    ("301 four-byte characters", "\U0001208D" * 301, ("\U0001208D" * 300).encode()),
+    ("301 four-byte characters: one past the bytes", "\U0001208D" * 301, ("\U0001208D" * 300).encode()),
     ("joined emoji stop at whole ones", "\U0001F469\u200D\U0001F469\u200D\U0001F467" * 70,
      ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 66).encode()),
     ("CR, LF and Tab become spaces", "Ann\r\nMarie\tLee", b"Ann  Marie Lee"),
@@ -360,12 +360,12 @@ def test_paste_into_a_name_box(uni, label, clip, expect):
 
 def test_paste_adds_after_the_typed_text_and_stops_at_the_limit(uni):
     g = uni
-    box = g.box(1200, b"x" * 290)
+    box = g.box(1200, b"x" * 1190)
     g.paste(box, "abcdefghijklmnop")
-    assert g.text(box) == b"x" * 290 + b"abcdefghij"
+    assert g.text(box) == b"x" * 1190 + b"abcdefghij"
     g.changed.clear()
     g.paste(box, "more")
-    assert g.text(box) == b"x" * 290 + b"abcdefghij", "a full box takes nothing"
+    assert g.text(box) == b"x" * 1190 + b"abcdefghij", "a full box takes nothing"
     assert g.changed == []
     assert g.guard_ok(box)
 

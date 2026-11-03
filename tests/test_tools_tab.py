@@ -263,13 +263,14 @@ def test_rename_family_asks_then_renames_and_reports(app, save, monkeypatch):
     assert dialog._vf1_folder_box.get() == "Virtual Families - Modded"
     assert dialog._vf1_slot_list.get(0, "end")[:2] == ("Save 1: Smith", "Save 2: Jones")
     assert dialog._vf1_slot_list.curselection() == (0,) and dialog._vf1_name_var.get() == ""
-    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
+    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} bytes (0 characters)"
+    assert rf.MAX_LENGTH == 1200
     assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
     dialog._vf1_name_var.set("Smith")
     assert "already" in dialog._vf1_problem_var.get()
-    dialog._vf1_name_var.set("x" * 301)
+    dialog._vf1_name_var.set("x" * 1201)
     assert "too long" in dialog._vf1_problem_var.get() and dialog._vf1_counter_var.get().startswith(
-        f"301 / {rf.MAX_LENGTH} characters")
+        f"1201 / {rf.MAX_LENGTH} bytes")
     assert str(dialog._vf1_rename_button.cget("state")) == "disabled"
     dialog._vf1_start()
     assert dialog.winfo_exists() and not asked and app.shown[-1][0] == "showerror"     # refused before asking
@@ -353,9 +354,9 @@ def test_copy_player_slot_asks_then_copies_and_reports(app, save, monkeypatch):
     assert dialog._vf1_target_list.get(0, "end") == ("Save 1: Smith", "Save 2: Jones", "Save 3: (empty)",
                                                      "Save 4: (empty)", "Save 5: (empty)")
     assert dialog._vf1_target_list.curselection() == (2,)            # the first empty slot
-    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} characters"
+    assert dialog._vf1_counter_var.get() == f"0 / {rf.MAX_LENGTH} bytes (0 characters)"
     assert str(dialog._vf1_copy_button.cget("state")) == "disabled"
-    dialog._vf1_name_var.set("x" * 301)
+    dialog._vf1_name_var.set("x" * 1201)
     assert "too long" in dialog._vf1_problem_var.get() and str(dialog._vf1_copy_button.cget("state")) == "disabled"
     dialog._vf1_choose(1, 3)
     dialog._vf1_name_var.set("Jones Two")

@@ -83,12 +83,13 @@ def test_a_stored_name_reads_by_the_one_rule(emu, data):
 
 
 def test_a_typed_name_is_cut_to_the_one_name_limit(emu):
-    """One character limit for every name box: SetName's whole name (StoreTypedName) keeps at most NAME_LETTERS
-    characters and NAME_BOX_BYTES bytes, cut between whole characters."""
+    """One limit for every name box: SetName's whole name (StoreTypedName) keeps at most NAME_BOX_BYTES bytes (no
+    separate character cap), cut between whole characters."""
     room = vf1_text.NAME_BOX_BYTES
-    assert fit(emu, "a" * 400, room) == b"a" * vf1_text.NAME_LETTERS
-    assert fit(emu, "\u00e9" * 400, room) == ("\u00e9" * vf1_text.NAME_LETTERS).encode()
-    assert fit(emu, "\U0001F600" * 400, room) == ("\U0001F600" * vf1_text.NAME_LETTERS).encode()
+    assert fit(emu, "a" * 1300, room) == b"a" * room
+    assert fit(emu, "a" * 1201, room) == b"a" * room and fit(emu, "a" * 1200, room) == b"a" * room
+    assert fit(emu, "\u00e9" * 700, room) == ("\u00e9" * (room // 2)).encode()
+    assert fit(emu, "\U0001F600" * 400, room) == ("\U0001F600" * (room // 4)).encode()
     joined = "\U0001F469\u200D\U0001F469\u200D\U0001F467"
     assert fit(emu, joined * 100, room) == (joined * 66).encode()
 

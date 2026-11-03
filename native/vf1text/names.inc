@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------- one character limit for every name box
 // (included by vf1text.cpp; patcher/vf1_names.py is the same rule in the patcher, tests/test_name_limit.py proves both)
 //
-// Every name box of the game takes VF1_NAME_LETTERS characters (300, patcher/vf1_text.py NAME_LETTERS), with its
-// buffer at VF1_NAME_BOX_BYTES (1,200 bytes, the engine's own cap in SetEditable 0x40D3B3: never patched past).
+// Every name box of the game takes up to VF1_NAME_BOX_BYTES bytes (1,200, patcher/vf1_text.py NAME_BOX_BYTES, the
+// engine's own cap in SetEditable 0x40D3B3: never patched past), with no separate character cap; a text is cut only at
+// whole characters.
 // The boxes (SetEditable 0x40D6F0 -> 0x40D370 called from):
 //   0x41BB4F 0x41BBEF 0x41BC91 0x41BD36 0x41BDF0 0x41BF15  the slot menu's five name boxes (and New Player's),
 //   0x41C67C  the first family's name,   0x435AFB  adoption,   0x437955  a new baby,   0x44A6DE  renaming a member.
@@ -92,16 +93,7 @@ static bool NamesPath(int slot, char *out, unsigned cap, char *data, char *names
     return true;
 }
 
-static int ClusterCount(const unsigned char *s, int n) {
-    Run run;
-    if (!DecodeRun(&run, (const char *)s, n, 1)) return 0x7FFFFFFF;
-    int count = 0;
-    for (int i = 0; i < run.n; ++count) i = ClusterEnd(run.cps, run.n, i);
-    FreeRun(&run);
-    return count;
-}
-
-// patcher/vf1_names.name_problem: 1..300 characters, at most 1,200 bytes, valid UTF-8, no control characters.
+// patcher/vf1_names.name_problem: at least one character, at most 1,200 bytes, valid UTF-8, no control characters.
 static bool GoodName(const unsigned char *s, int n) {
     if (n <= 0 || n > VF1_NAME_BOX_BYTES || !IsUtf8(s, n)) return false;
     for (int i = 0; i < n;) {
@@ -110,7 +102,7 @@ static bool GoodName(const unsigned char *s, int n) {
         if (cp < 0x20 || (cp >= 0x7F && cp < 0xA0)) return false;
         i += k;
     }
-    return ClusterCount(s, n) <= VF1_NAME_LETTERS;
+    return true;
 }
 
 static char *Dup(const char *s, int n) {

@@ -28,7 +28,7 @@
 //   0x40DA70 ldwTextControlImpl::HandleMessage         -> TextMessage: types any character, deletes whole ones
 //   0x4049BB the SDL_TEXTINPUT case of ldwGame's event loop (the stock game keeps only 1-byte text):
 //            every character of the event is posted to the text box as (5, 0, 0x40000000 | code point).
-//   0x40D370 ldwTextControlImpl::SetEditable          -> SetEditableHook: a name box takes VF1_NAME_LETTERS
+//   0x40D370 ldwTextControlImpl::SetEditable          -> SetEditableHook: a name box takes VF1_NAME_BOX_BYTES
 //   0x40D430 ldwTextControlImpl::SetText               -> SetTextHook: a name box opens with the whole name
 //   0x40D140 ldwTextControlImpl::Draw                  -> BoxDrawHook: a long name scrolls, never cut
 //   0x409D70 the justified word wrapper                -> WrapHook: whole names for short forms
@@ -743,20 +743,11 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 #include "names.inc"
 #include "wrap.inc"
 
-// A name box takes a character while the text stays within VF1_NAME_LETTERS characters (and its bytes within the
-// box's VF1_NAME_BOX_BYTES, checked by the caller).
-static bool NameBoxTakes(TextControl *c, const char *buf, int len, const unsigned char *add, int n) {
+// A name box takes a character while the text stays within its VF1_NAME_BOX_BYTES bytes (there is no separate
+// character cap).
+static bool NameBoxTakes(TextControl *c, const char *, int len, const unsigned char *, int n) {
     if (!IsNameBox(c)) return true;
-    if (len + n > VF1_NAME_BOX_BYTES) return false;
-    if (len + n <= VF1_NAME_LETTERS) return true;          // fewer bytes than the limit: fewer characters too
-    char *t = (char *)Alloc((unsigned)(len + n + 1));
-    if (!t) return false;
-    Copy(t, buf, (unsigned)len);
-    Copy(t + len, add, (unsigned)n);
-    bool ok = !IsUtf8((const unsigned char *)t, len + n) ||
-              ClusterCount((const unsigned char *)t, len + n) <= VF1_NAME_LETTERS;
-    Free(t);
-    return ok;
+    return len + n <= VF1_NAME_BOX_BYTES;
 }
 
 // 0x40DA70 ldwTextControlImpl::HandleMessage(message, a, b), ret 0xC: the stock rules, plus a whole code

@@ -96,16 +96,17 @@ def add_history(folder: Path, slot: int, *numbers: int, text="Smith history\r\n"
 @pytest.mark.parametrize("name", ["A", "Smith Family", "Zed-9 & Co.", "x" * 19, " Spaced ",
                                   # Render Unicode with In-Game Fonts: UTF-8, 19 bytes (patcher/vf1_text.py)
                                   "Caf\u00e9", "\u4e2d\u6587", "\u00e9" * 9 + "x", "Zo\u00eb \U0001f44d\U0001f3fd",
-                                  # one character limit for every name box: 300 (a longer name than
-                                  # the field is kept as a short form, the whole name in its Names file)
-                                  "x" * 20, "\u00e9" * 10, "\u4e2d" * 7, "x" * 300, "\U0001F600" * 300])
+                                  # one limit for every name box: 1,200 bytes as stored, no character cap (a
+                                  # longer name than the field is kept as a short form, the whole name in its Names file)
+                                  "x" * 20, "\u00e9" * 10, "\u4e2d" * 7, "x" * 300, "\U0001F600" * 300,
+                                  "x" * 1200, "\u00e9" * 600, "\u4e2d" * 400])
 def test_names_the_game_can_store_are_accepted(name):
     assert rf.name_problem(name) is None
 
 
 @pytest.mark.parametrize("name,words", [
-    ("", "Type a name"), ("x" * 301, "too long"), ("   ", "only spaces"), ("\u00e9" * 301, "too long"),
-    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 301, "too long"),
+    ("", "Type a name"), ("x" * 1201, "too long"), ("   ", "only spaces"), ("\u00e9" * 601, "too long"),
+    ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 401, "too long"),
     ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 67, "1,200 bytes"),
     ("Bad\x85", "characters"),
 ])
@@ -194,7 +195,7 @@ def test_the_longest_name_fits_and_shortening_zeroes_the_rest(save):
 
 
 @pytest.mark.parametrize("slot,name,words", [
-    (1, "x" * 301, "too long"), (1, "", "Type a name"), (1, "Smith", "already called"),
+    (1, "x" * 1201, "too long"), (1, "", "Type a name"), (1, "Smith", "already called"),
     (4, "Fresh", "no family"), (6, "Fresh", "no save slot"),
 ])
 def test_refused_renames_change_nothing(save, slot, name, words):
