@@ -726,6 +726,7 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 #define TC_P(c, off) (*(char **)((c)->raw + (off)))
 
 #include "names.inc"
+#include "wrap.inc"
 
 // A name box takes a character while the text stays within VF1_NAME_LETTERS characters (and its bytes within the
 // box's VF1_NAME_BOX_BYTES, checked by the caller).
