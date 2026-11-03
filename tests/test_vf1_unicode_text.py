@@ -83,6 +83,30 @@ def test_installs_all_six_sites_or_nothing(dll, vanilla_dir):
     assert w.e.read(0x402320, 3) == bytes.fromhex("83ec10")    # nothing was written
 
 
+def test_unicode_text_active_is_nonzero_only_once_every_hook_is_installed(dll, vanilla_dir):
+    """VF1Text_UnicodeTextActive (stdcall, no arguments; Translations and Copy and Paste ask it): 0 before the
+    start, 0 when the start refused a changed executable (the DLL is loaded and draws bytes), 1 once all ten hooks
+    are in. Exported by that undecorated name."""
+    import pefile
+    import text_emu
+    exe = vanilla_dir / "Virtual Families.exe"
+    exports = {s.name.decode() for s in pefile.PE(str(dll)).DIRECTORY_ENTRY_EXPORT.symbols if s.name}
+    assert "VF1Text_UnicodeTextActive" in exports and "_VF1Text_UnicodeTextActive@0" not in exports
+
+    def active(w):
+        return w.e.call(w.e.dll_export("VF1Text_UnicodeTextActive"))
+
+    before = text_emu.TextWorld(exe, dll, vanilla_dir, install=False)
+    assert active(before) == 0
+    changed = text_emu.TextWorld(exe, dll, vanilla_dir, install=False)
+    changed.e.write(0x409450, b"\x90")
+    assert changed.e.call(changed.e.dll_export("VF1Text_Startup")) == 0
+    assert active(changed) == 0
+    installed = text_emu.TextWorld(exe, dll, vanilla_dir, install=True)
+    assert installed.installed == 1 and installed.e.r32(installed.e.dll_export("VF1Text_Installed")) == 0x3FF
+    assert active(installed) != 0
+
+
 @pytest.mark.parametrize("font", gf.GAME_FONTS)
 def test_every_name_is_drawn_as_the_patcher_draws_it(world, fonts, font):
     for name in NAMES:

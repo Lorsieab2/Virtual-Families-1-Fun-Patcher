@@ -1157,6 +1157,7 @@ static void LoadTextCompanion(const wchar_t *name) {
     // One character limit for every name box: the whole names (text_names.inc)
     TextFullName = (TextFullNameFn)GetProcAddress(text, "VF1Text_FullName");
     TextStoreName = (TextStoreNameFn)GetProcAddress(text, "VF1Text_StoreName");
+    TextActive = (TextActiveFn)GetProcAddress(text, "VF1Text_UnicodeTextActive");
 }
 
 // ---------------------------------------------------------------- Translations

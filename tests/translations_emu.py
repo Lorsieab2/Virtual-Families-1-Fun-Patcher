@@ -66,7 +66,8 @@ class Emu(K.Emu):
 class TranslationWorld:
     """One emulated process: the game's string manager, vf1tr.dll started over the given files."""
 
-    def __init__(self, exe: Path, dll: Path, files: dict[str, bytes], unicode_dll: bool = False):
+    def __init__(self, exe: Path, dll: Path, files: dict[str, bytes], unicode_dll: bool = False,
+                 unicode_active: bool = True):
         self.e = e = Emu(exe, dll, 0)
         self.files = {k.lower(): v for k, v in files.items()}     # path -> bytes (reading)
         self.written: dict[str, bytearray] = {}
@@ -74,7 +75,9 @@ class TranslationWorld:
         self.next_handle = 0x700
         self.protect_calls: list[int] = []
         if unicode_dll:
+            # vf1text.dll is loaded; whether its hooks are installed is what its VF1Text_UnicodeTextActive answers
             e.modules["vf1text.dll"] = 0x6E000000
+            e.dyn_procs["VF1Text_UnicodeTextActive"] = lambda em: (1 if unicode_active else 0, 0)
         self._seams()
         self.installed = None
 

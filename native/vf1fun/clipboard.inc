@@ -73,7 +73,8 @@ static unsigned char *FocusedBox() {
     return 0;
 }
 
-static bool UnicodeTextOn() { return TextFullName != 0; }   // vf1text.dll or vf1font.dll installed
+// vf1text.dll or vf1font.dll has its hooks installed (asked of the DLL, not guessed from its being loaded).
+static bool UnicodeTextOn() { return TextActive != 0 && TextActive() != 0; }
 
 static HWND ClipOwner() {
     HWND w = GetActiveWindow();

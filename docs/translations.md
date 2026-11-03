@@ -223,7 +223,10 @@ translations ship in the next release, and anyone can download them at once with
 - `patcher/vf1_translations.py`, `patcher/vf1_translations_window.py`: the files, the choice, sharing; the window and the
   editor (drag and drop through WM_DROPFILES).
 - `native/vf1tr` builds `vf1tr.dll` (`native/build_tr.bat`). vf1fun.dll loads it last (after vf1text.dll / vf1font.dll)
-  and calls `VF1Tr_Startup`. **No code hook on the lookup:** the game's static string records `{id, key*, text*,
+  and calls `VF1Tr_Startup`. It passes a translation on as UTF-8 only when vf1text.dll or vf1font.dll answers
+  `VF1Text_UnicodeTextActive()` (stdcall, nonzero only once all of that DLL's hooks are installed: the DLL installs all
+  or nothing, so on an executable it did not match it is loaded but draws bytes); otherwise Windows-1252.
+  **No code hook on the lookup:** the game's static string records `{id, key*, text*,
   override*}` (from 0x4F5618) have an override pointer that theStringManager::GetString 0x44FD90 and the template filler
   GetStringFromNameGenderTemplate 0x44FDD0 already return when set (the game's own localisation hook, fed by an
   `sm.xml` the game does not ship). vf1tr.dll sets the override of each translated line, so every DLL that calls or

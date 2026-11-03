@@ -37,7 +37,13 @@ HARNESS = r'''
 static const char *__cdecl SameName(const char *s) { return s; }
 extern "C" __declspec(dllexport) void __cdecl T_Install() { InstallClipboard(); }
 extern "C" __declspec(dllexport) int __cdecl T_On() { return gClipboardOn; }
-extern "C" __declspec(dllexport) void __cdecl T_Unicode(int on) { TextFullName = on ? &SameName : 0; }
+static int __stdcall HooksIn() { return 1; }
+static int __stdcall HooksOut() { return 0; }
+// on = 1: the text DLL is installed; on = 2: it is loaded and has its names, but its hooks did not install
+extern "C" __declspec(dllexport) void __cdecl T_Unicode(int on) {
+    TextFullName = on ? &SameName : 0;
+    TextActive = on == 1 ? &HooksIn : on == 2 ? &HooksOut : 0;
+}
 '''
 
 
@@ -213,7 +219,8 @@ class Game:
         e.seam_live(write, clip_write)
         e.w32(e.dll_export("VF1Fun_ClipRead"), read)
         e.w32(e.dll_export("VF1Fun_ClipWrite"), write)
-        e.call(e.dll_export("T_Unicode"), (1 if unicode else 0,))
+        e.call(e.dll_export("T_Unicode"), (unicode if isinstance(unicode, int) and not isinstance(unicode, bool)
+                                           else 1 if unicode else 0,))
         if install:
             e.call(e.dll_export("T_Install"))
             assert e.call(e.dll_export("T_On")) == 1
@@ -309,6 +316,24 @@ def uni(harness_dll):
 @pytest.fixture
 def plain(harness_dll):
     return Game(harness_dll, unicode=False)
+
+
+def test_the_clipboard_asks_the_text_dll_whether_it_is_installed_not_whether_it_is_loaded(harness_dll):
+    """vf1text.dll loaded with its names exported but its hooks not installed draws bytes: a paste is then the
+    both-settings-off paste (bytes the stock fonts draw), never UTF-8."""
+    loaded = Game(harness_dll, unicode=2)
+    box = loaded.box(1200)
+    loaded.paste(box, "Zo\u00eb \u65e5\u672c")
+    assert loaded.text(box) == "Zo\u00eb ".encode("cp1252")          # one byte each; the Japanese is dropped
+    installed = Game(harness_dll, unicode=1)
+    box = installed.box(1200)
+    installed.paste(box, "Zo\u00eb \u65e5\u672c")
+    assert installed.text(box) == "Zo\u00eb \u65e5\u672c".encode("utf-8")
+
+
+def test_the_active_function_is_asked_by_name_and_stored_by_the_loader():
+    assert 'GetProcAddress(text, "VF1Text_UnicodeTextActive")' in CPP
+    assert "static bool UnicodeTextOn() { return TextActive != 0 && TextActive() != 0; }" in INC
 
 
 # ---- paste with a Unicode setting on: a name box (300 characters, 1,200 bytes)
