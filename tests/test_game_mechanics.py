@@ -607,8 +607,10 @@ def test_a_topic_button_scrolls_to_its_group_and_close_closes(app):
 
 
 def test_the_window_ships_with_the_patcher():
+    # The release ships every patcher/*.py (tools/package_release.py; tests/test_release.py checks the zip).
     source = (ROOT / "tools" / "package_release.py").read_text(encoding="utf-8")
-    assert '"vf1_game_mechanics.py"' in source
+    assert 'for path in sorted((ROOT / "patcher").glob("*.py")):' in source
+    assert (ROOT / "patcher" / "vf1_game_mechanics.py").is_file()
 
 
 def test_the_bullets_are_real_bullets_and_nothing_is_garbled():
