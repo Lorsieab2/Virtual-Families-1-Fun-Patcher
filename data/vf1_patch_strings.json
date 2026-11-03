@@ -1,0 +1,4793 @@
+{
+ "comment": "Written by tools/vf1_patch_text.py from native/; do not edit.",
+ "strings": [
+  {
+   "id": "vf1fun.40ls_ls_hair_d_outfit_d",
+   "english": "%.40ls\t%ls   Hair %d   Outfit %d",
+   "room": 96,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:77"
+   ]
+  },
+  {
+   "id": "vf1fun.female",
+   "english": "Female",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:78",
+    "native/vf1fun/appearance_page.inc:234",
+    "native/vf1fun/family_page.inc:130"
+   ]
+  },
+  {
+   "id": "vf1fun.male",
+   "english": "Male",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:78",
+    "native/vf1fun/appearance_page.inc:235",
+    "native/vf1fun/family_page.inc:129"
+   ]
+  },
+  {
+   "id": "vf1fun.change_40ls_s_ls_to_d",
+   "english": "Change %.40ls's %ls to #%d?",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:145"
+   ]
+  },
+  {
+   "id": "vf1fun.outfit",
+   "english": "outfit",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:146"
+   ]
+  },
+  {
+   "id": "vf1fun.hairstyle",
+   "english": "hairstyle",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:146"
+   ]
+  },
+  {
+   "id": "vf1fun.clothing_and_hairstyles",
+   "english": "Clothing and Hairstyles",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:230"
+   ]
+  },
+  {
+   "id": "vf1fun.hairstyles",
+   "english": "Hairstyles",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:232"
+   ]
+  },
+  {
+   "id": "vf1fun.outfits",
+   "english": "Outfits",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:233"
+   ]
+  },
+  {
+   "id": "vf1fun.pick_a_villager_then_click_a_hairstyle_or_outfit_to_give_the",
+   "english": "Pick a villager, then click a hairstyle or outfit to give them.",
+   "room": 189,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:238"
+   ]
+  },
+  {
+   "id": "vf1fun.close",
+   "english": "Close",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/appearance_page.inc:239",
+    "native/vf1fun/family_page.inc:154",
+    "native/vf1fun/pages.inc:99",
+    "native/vf1fun/pages.inc:171",
+    "native/vf1fun/pages.inc:291",
+    "native/vf1fun/pages.inc:344",
+    "native/vf1fun/patcher_achievements.inc:128",
+    "native/vf1fun/services.inc:242",
+    "native/vf1fun/vf1fun.cpp:444",
+    "native/vf1fun/vf1fun.cpp:674",
+    "native/vf1fun/vf1fun.cpp:769",
+    "native/vf1fun/vf1fun.cpp:881"
+   ]
+  },
+  {
+   "id": "vf1fun.nobody_in_the_family_can_get_married_right_now",
+   "english": "Nobody in the family can get married right now.",
+   "room": 141,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:235"
+   ]
+  },
+  {
+   "id": "vf1fun.there_is_no_adult_to_propose_to",
+   "english": "There is no adult to propose to.",
+   "room": 96,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:237"
+   ]
+  },
+  {
+   "id": "vf1fun.a_marriage_proposal_is_already_queued",
+   "english": "A marriage proposal is already queued.",
+   "room": 114,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:239"
+   ]
+  },
+  {
+   "id": "vf1fun.a_marriage_proposal_has_been_queued",
+   "english": "A marriage proposal has been queued.",
+   "room": 108,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:241"
+   ]
+  },
+  {
+   "id": "vf1fun.nobody_in_the_house_is_married",
+   "english": "Nobody in the house is married.",
+   "room": 93,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:249"
+   ]
+  },
+  {
+   "id": "vf1fun.there_is_no_family_yet",
+   "english": "There is no family yet.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:290",
+    "native/vf1fun/family.inc:316",
+    "native/vf1fun/family_page.inc:15",
+    "native/vf1fun/services.inc:61"
+   ]
+  },
+  {
+   "id": "vf1fun.enter_an_age_from_2_to_13",
+   "english": "Enter an age from 2 to 13.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:292",
+    "native/vf1fun/family.inc:318"
+   ]
+  },
+  {
+   "id": "vf1fun.a_child_needs_at_least_one_parent_in_the_house",
+   "english": "A child needs at least one parent in the house.",
+   "room": 141,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:296"
+   ]
+  },
+  {
+   "id": "vf1fun.the_house_is_full",
+   "english": "The house is full.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family.inc:301",
+    "native/vf1fun/family.inc:320"
+   ]
+  },
+  {
+   "id": "vf1fun.your_family_has_been_lost_you_can_adopt_a_new_person",
+   "english": "Your family has been lost. You can adopt a new person.",
+   "room": 162,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:13"
+   ]
+  },
+  {
+   "id": "vf1fun.family_ls_ls_ls_children_d_of_d_s",
+   "english": "Family: %ls%ls%ls        Children: %d of %d%s",
+   "room": 135,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:17"
+   ]
+  },
+  {
+   "id": "vf1fun.gone",
+   "english": "(gone)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:17"
+   ]
+  },
+  {
+   "id": "vf1fun.and",
+   "english": " and ",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:18"
+   ]
+  },
+  {
+   "id": "vf1fun.expecting",
+   "english": "        Expecting",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:20"
+   ]
+  },
+  {
+   "id": "vf1fun.warning_this_permanently_removes_the_spouse_from_the_family",
+   "english": "WARNING: this permanently removes the spouse from the Family Tree and the house. It cannot be undone.\n\nDivorce now?",
+   "room": 345,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:73"
+   ]
+  },
+  {
+   "id": "vf1fun.divorce_spouse",
+   "english": "Divorce Spouse",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:74"
+   ]
+  },
+  {
+   "id": "vf1fun.this_button_will_evict_your_current_family_and_reset_the_fam",
+   "english": "This button will EVICT your current family and RESET the Family Tree. You will keep all the money, the house, the furnishings and everything you own.\n\nARE YOU SURE YOU WANT TO EVICT YOUR CURRENT FAMILY?\n\nClick OK to continue. Otherwise, click Cancel.",
+   "room": 600,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:96"
+   ]
+  },
+  {
+   "id": "vf1fun.evict_family",
+   "english": "Evict Family",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:99"
+   ]
+  },
+  {
+   "id": "vf1fun.family_marriage_babies_and_children",
+   "english": "Family: Marriage, Babies and Children",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:118"
+   ]
+  },
+  {
+   "id": "vf1fun.marriage",
+   "english": "Marriage",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:120"
+   ]
+  },
+  {
+   "id": "vf1fun.enable_same_sex_marriage",
+   "english": "Enable Same-Sex Marriage",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:121"
+   ]
+  },
+  {
+   "id": "vf1fun.allow_reroll_of_marriage_candidates_reject_shows_another",
+   "english": "Allow Reroll of Marriage Candidates (Reject shows another)",
+   "room": 174,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:122"
+   ]
+  },
+  {
+   "id": "vf1fun.force_marriage_email",
+   "english": "Force Marriage Email",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:123"
+   ]
+  },
+  {
+   "id": "vf1fun.divorce_spouse_spouse_leaves",
+   "english": "Divorce Spouse (spouse leaves)...",
+   "room": 99,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:124"
+   ]
+  },
+  {
+   "id": "vf1fun.next_pregnancy_stays_set_until_a_pregnancy_succeeds",
+   "english": "Next pregnancy (stays set until a pregnancy succeeds)",
+   "room": 159,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:125"
+   ]
+  },
+  {
+   "id": "vf1fun.force_successful_pregnancy",
+   "english": "Force Successful Pregnancy",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:126"
+   ]
+  },
+  {
+   "id": "vf1fun.babies",
+   "english": "Babies:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:127"
+   ]
+  },
+  {
+   "id": "vf1fun.either",
+   "english": "Either",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:128"
+   ]
+  },
+  {
+   "id": "vf1fun.how_many",
+   "english": "How many:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:131"
+   ]
+  },
+  {
+   "id": "vf1fun.any",
+   "english": "Any",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:132"
+   ]
+  },
+  {
+   "id": "vf1fun.singleton",
+   "english": "Singleton",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:133"
+   ]
+  },
+  {
+   "id": "vf1fun.twins",
+   "english": "Twins",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:134"
+   ]
+  },
+  {
+   "id": "vf1fun.triplets",
+   "english": "Triplets",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:135"
+   ]
+  },
+  {
+   "id": "vf1fun.twins_and_triplets_need_free_child_places_6_per_family",
+   "english": "Twins and triplets need free child places (6 per family).",
+   "room": 171,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:136"
+   ]
+  },
+  {
+   "id": "vf1fun.add_children_age_2_13",
+   "english": "Add children (age 2-13)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:142"
+   ]
+  },
+  {
+   "id": "vf1fun.name_optional",
+   "english": "Name (optional):",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:143"
+   ]
+  },
+  {
+   "id": "vf1fun.age_2_13",
+   "english": "Age 2-13:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:145"
+   ]
+  },
+  {
+   "id": "vf1fun.spawn_child_in_house_male",
+   "english": "Spawn child in house (male)",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:147"
+   ]
+  },
+  {
+   "id": "vf1fun.spawn_child_in_house_female",
+   "english": "Spawn child in house (female)",
+   "room": 87,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:148"
+   ]
+  },
+  {
+   "id": "vf1fun.spawn_outside_child_in_house_male",
+   "english": "Spawn outside child in house (male)",
+   "room": 105,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:149"
+   ]
+  },
+  {
+   "id": "vf1fun.spawn_outside_child_in_house_female",
+   "english": "Spawn outside child in house (female)",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:150"
+   ]
+  },
+  {
+   "id": "vf1fun.start_again",
+   "english": "Start again",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:151"
+   ]
+  },
+  {
+   "id": "vf1fun.adopt_new_person_the_game_s_adoption_screen_after_a_game_ove",
+   "english": "Adopt New Person (the game's Adoption screen; after a game over)",
+   "room": 192,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:152"
+   ]
+  },
+  {
+   "id": "vf1fun.evict_family_everyone_leaves_the_house",
+   "english": "Evict Family (everyone leaves the house)...",
+   "room": 129,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/family_page.inc:153"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_a_movie",
+   "english": "Watching a movie",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:19"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_a_tv_show",
+   "english": "Watching a TV show",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:20"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_a_documentary",
+   "english": "Watching a documentary",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:21"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_the_news",
+   "english": "Watching the news",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:22"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_the_weather_channel",
+   "english": "Watching the weather channel",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:23"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_movieflix",
+   "english": "Watching MovieFlix",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:24"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_cartoons",
+   "english": "Watching cartoons",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:25"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_anime",
+   "english": "Watching anime",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:26"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_novel",
+   "english": "Reading a novel",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:28"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_textbook",
+   "english": "Reading a textbook",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:29"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_comic_book",
+   "english": "Reading a comic book",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:30"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_picture_book",
+   "english": "Reading a picture book",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:31"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_chapter_book",
+   "english": "Reading a chapter book",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:32"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_manga",
+   "english": "Reading manga",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:33"
+   ]
+  },
+  {
+   "id": "vf1fun.reading_a_how_to_manual",
+   "english": "Reading a how-to manual",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:34"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_ldwforums",
+   "english": "Browsing LDWForums",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:36"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_cat_videos",
+   "english": "Watching cat videos",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:37"
+   ]
+  },
+  {
+   "id": "vf1fun.watching_memes",
+   "english": "Watching memes",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:38"
+   ]
+  },
+  {
+   "id": "vf1fun.making_memes",
+   "english": "Making memes",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:39"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_memes_online",
+   "english": "Posting memes online",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:40"
+   ]
+  },
+  {
+   "id": "vf1fun.buying_stuff_online",
+   "english": "Buying stuff online",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:42"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_fakebook",
+   "english": "Browsing Fakebook",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:44"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_social_media",
+   "english": "Browsing social media",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:45"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_videotube",
+   "english": "Browsing VideoTube",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:46"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_cliptok",
+   "english": "Browsing ClipTok",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:47"
+   ]
+  },
+  {
+   "id": "vf1fun.browsing_picstagram",
+   "english": "Browsing Picstagram",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:48"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_on_fakebook",
+   "english": "Posting on Fakebook",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:49"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_on_social_media",
+   "english": "Posting on social media",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:50"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_on_videotube",
+   "english": "Posting on VideoTube",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:51"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_on_cliptok",
+   "english": "Posting on ClipTok",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:52"
+   ]
+  },
+  {
+   "id": "vf1fun.posting_on_picstagram",
+   "english": "Posting on Picstagram",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:53"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_virtual_villagers",
+   "english": "Playing Virtual Villagers",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:55"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_virtual_town",
+   "english": "Playing Virtual Town",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:56"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_virtual_families",
+   "english": "Playing Virtual Families",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:57"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_little_pocket_pet",
+   "english": "Playing Little Pocket Pet",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:58"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_fish_tycoon",
+   "english": "Playing Fish Tycoon",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:59"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_plant_tycoon",
+   "english": "Playing Plant Tycoon",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:60"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_the_sims",
+   "english": "Playing the Sims",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:61"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_blockcraft",
+   "english": "Playing BlockCraft",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:62"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_earth_rarria",
+   "english": "Playing Earth-rarria",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:63"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_farmdew_valley",
+   "english": "Playing Farmdew Valley",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:64"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_poptropicals",
+   "english": "Playing Poptropicals",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:65"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_club_puffle",
+   "english": "Playing Club Puffle",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:66"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_petkinz",
+   "english": "Playing PetKinz",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:67"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_the_older_scrolls",
+   "english": "Playing The Older Scrolls",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:69"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_rimworld",
+   "english": "Playing RimWorld",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:70"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_isola",
+   "english": "Dreaming of Isola",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:72"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_family",
+   "english": "Dreaming of family",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:73"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_pets",
+   "english": "Dreaming of pets",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:74"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_friends",
+   "english": "Dreaming of friends",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:75"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_the_future",
+   "english": "Dreaming of the future",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:76"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_the_beach",
+   "english": "Dreaming of the beach",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:77"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_snow",
+   "english": "Dreaming of snow",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:78"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_holidays",
+   "english": "Dreaming of holidays",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:79"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_vacations",
+   "english": "Dreaming of vacations",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:80"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_roller_coasters",
+   "english": "Dreaming of roller coasters",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:81"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_climbing_mountains",
+   "english": "Dreaming of climbing mountains",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:82"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_camping",
+   "english": "Dreaming of camping",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:83"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_family_trips",
+   "english": "Dreaming of family trips",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:84"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_the_countryside",
+   "english": "Dreaming of the countryside",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:85"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_ldw_games",
+   "english": "Dreaming of LDW games",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:86"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_the_city",
+   "english": "Dreaming of the city",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:87"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_the_forest",
+   "english": "Dreaming of the forest",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:88"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_unicorns",
+   "english": "Dreaming of unicorns",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:89"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_fish",
+   "english": "Dreaming of fish",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:90"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_jungles",
+   "english": "Dreaming of jungles",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:91"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_tropical_islands",
+   "english": "Dreaming of tropical islands",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:92"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_skyscrapers",
+   "english": "Dreaming of skyscrapers",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:93"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_floating_in_space",
+   "english": "Dreaming of floating in space",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:94"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_treasure",
+   "english": "Dreaming of treasure",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:95"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_getting_rich",
+   "english": "Dreaming of getting rich",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:96"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_adventures",
+   "english": "Dreaming of adventures",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:97"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_swimming",
+   "english": "Dreaming of swimming",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:98"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_flying",
+   "english": "Dreaming of flying",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:99"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_falling",
+   "english": "Dreaming of falling",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:100"
+   ]
+  },
+  {
+   "id": "vf1fun.dreaming_of_discovering_something",
+   "english": "Dreaming of discovering something",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:101"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking",
+   "english": "Thinking",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:103"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_moment_to_reflect",
+   "english": "Taking a moment to reflect",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:104"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_family",
+   "english": "Thinking of family",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:105"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_relatives",
+   "english": "Thinking of relatives",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:106"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_friends",
+   "english": "Thinking of friends",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:107"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_pets",
+   "english": "Thinking of pets",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:108"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_vacations",
+   "english": "Thinking of vacations",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:109"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_weekend_plans",
+   "english": "Thinking of weekend plans",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:110"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_what_to_watch_next",
+   "english": "Thinking of what to watch next",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:111"
+   ]
+  },
+  {
+   "id": "vf1fun.resting",
+   "english": "Resting",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:112"
+   ]
+  },
+  {
+   "id": "vf1fun.resting_eyes",
+   "english": "Resting eyes",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:113"
+   ]
+  },
+  {
+   "id": "vf1fun.resting_feet",
+   "english": "Resting feet",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:114"
+   ]
+  },
+  {
+   "id": "vf1fun.relaxing_for_a_bit",
+   "english": "Relaxing for a bit",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:115"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_break",
+   "english": "Taking a break",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:116"
+   ]
+  },
+  {
+   "id": "vf1fun.enjoying_life",
+   "english": "Enjoying life",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:117"
+   ]
+  },
+  {
+   "id": "vf1fun.enjoying_the_scenery",
+   "english": "Enjoying the scenery",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:118"
+   ]
+  },
+  {
+   "id": "vf1fun.texting",
+   "english": "Texting",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:119"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_games_on_phone",
+   "english": "Playing games on phone",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:120"
+   ]
+  },
+  {
+   "id": "vf1fun.scrolling_on_phone",
+   "english": "Scrolling on phone",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:121"
+   ]
+  },
+  {
+   "id": "vf1fun.checking_social_media_on_phone",
+   "english": "Checking social media on phone",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:122"
+   ]
+  },
+  {
+   "id": "vf1fun.scrapbooking",
+   "english": "Scrapbooking",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:123"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_friends",
+   "english": "Texting friends",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:124"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_family",
+   "english": "Texting family",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:125"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_relatives",
+   "english": "Texting relatives",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:126"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_children",
+   "english": "Thinking of children",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:128"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_grandchildren",
+   "english": "Thinking of grandchildren",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:129"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_spouse",
+   "english": "Thinking of spouse",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:130"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_spouse",
+   "english": "Texting spouse",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:131"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_work",
+   "english": "Thinking of work",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:133"
+   ]
+  },
+  {
+   "id": "vf1fun.thinking_of_school",
+   "english": "Thinking of school",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:135"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_boyfriend",
+   "english": "Texting boyfriend",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:137"
+   ]
+  },
+  {
+   "id": "vf1fun.texting_girlfriend",
+   "english": "Texting girlfriend",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:139"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_laps_in_the_pool",
+   "english": "Doing laps in the pool",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:141"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_swimming_lessons",
+   "english": "Practicing swimming lessons",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:142"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_diving_technique",
+   "english": "Practicing diving technique",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:143"
+   ]
+  },
+  {
+   "id": "vf1fun.diving_underwater",
+   "english": "Diving underwater",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:144"
+   ]
+  },
+  {
+   "id": "vf1fun.cannonball",
+   "english": "Cannonball!",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:145"
+   ]
+  },
+  {
+   "id": "vf1fun.diving_to_the_bottom_of_the_pool",
+   "english": "Diving to the bottom of the pool",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:146"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_underwater_backflips",
+   "english": "Practicing underwater backflips",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:147"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_underwater_frontflips",
+   "english": "Practicing underwater frontflips",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:148"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_underwater_handstands",
+   "english": "Practicing underwater handstands",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:149"
+   ]
+  },
+  {
+   "id": "vf1fun.snorkelling",
+   "english": "Snorkelling",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:150"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_mermaids",
+   "english": "Playing mermaids",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:152"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_pirates",
+   "english": "Playing pirates",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:153"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_dolphins",
+   "english": "Playing dolphins",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:154"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_sharks",
+   "english": "Playing sharks",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:155"
+   ]
+  },
+  {
+   "id": "vf1fun.making_sand_sculptures",
+   "english": "Making sand sculptures",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:157"
+   ]
+  },
+  {
+   "id": "vf1fun.digging_moats",
+   "english": "Digging moats",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:158"
+   ]
+  },
+  {
+   "id": "vf1fun.digging_to_the_center_of_the_earth",
+   "english": "Digging to the center of the earth",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:159"
+   ]
+  },
+  {
+   "id": "vf1fun.gardening",
+   "english": "Gardening",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:161"
+   ]
+  },
+  {
+   "id": "vf1fun.caring_for_the_magic_plants",
+   "english": "Caring for the Magic Plants",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:162"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_chess",
+   "english": "Playing chess",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:164"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_checkers",
+   "english": "Playing checkers",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:165"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_math_homework",
+   "english": "Doing math homework",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:167"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_geography_homework",
+   "english": "Doing geography homework",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:168"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_biology_homework",
+   "english": "Doing biology homework",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:169"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_literature_homework",
+   "english": "Doing literature homework",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:170"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_career_skills",
+   "english": "Practicing career skills",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:172"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_new_work_techniques",
+   "english": "Practicing new work techniques",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:173"
+   ]
+  },
+  {
+   "id": "vf1fun.working_on_a_job_project",
+   "english": "Working on a job project",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:174"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_interview_skills",
+   "english": "Practicing interview skills",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:175"
+   ]
+  },
+  {
+   "id": "vf1fun.learning_new_job_skills",
+   "english": "Learning new job skills",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:176"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_a_new_job_skill",
+   "english": "Practicing a new job skill",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:177"
+   ]
+  },
+  {
+   "id": "vf1fun.improving_job_performance",
+   "english": "Improving job performance",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:178"
+   ]
+  },
+  {
+   "id": "vf1fun.working_on_a_project_for_a_client",
+   "english": "Working on a project for a client",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:179"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_boss_advice_on_a_job_project",
+   "english": "Taking boss' advice on a job project",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:180"
+   ]
+  },
+  {
+   "id": "vf1fun.reflecting_on_recent_career_performance",
+   "english": "Reflecting on recent career performance",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:181"
+   ]
+  },
+  {
+   "id": "vf1fun.trying_to_improve_career_performance",
+   "english": "Trying to improve career performance",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:182"
+   ]
+  },
+  {
+   "id": "vf1fun.working_hard_for_the_next_promotion",
+   "english": "Working hard for the next promotion!",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:183"
+   ]
+  },
+  {
+   "id": "vf1fun.perfecting_skills_for_career",
+   "english": "Perfecting skills for career",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:184"
+   ]
+  },
+  {
+   "id": "vf1fun.need_to_meet_a_job_deadline",
+   "english": "Need to meet a job deadline!",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:185"
+   ]
+  },
+  {
+   "id": "vf1fun.pursuing_further_job_opportunities",
+   "english": "Pursuing further job opportunities",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:186"
+   ]
+  },
+  {
+   "id": "vf1fun.pursuing_personal_career_goals",
+   "english": "Pursuing personal career goals",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:187"
+   ]
+  },
+  {
+   "id": "vf1fun.busy_working",
+   "english": "Busy working!",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:188"
+   ]
+  },
+  {
+   "id": "vf1fun.learning_new_tips_and_tricks_for_career",
+   "english": "Learning new tips and tricks for career",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:189"
+   ]
+  },
+  {
+   "id": "vf1fun.updating_career_portfolio",
+   "english": "Updating career portfolio",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:190"
+   ]
+  },
+  {
+   "id": "vf1fun.updating_resume",
+   "english": "Updating resume",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:191"
+   ]
+  },
+  {
+   "id": "vf1fun.updating_cv",
+   "english": "Updating CV",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:192"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_arts_and_crafts",
+   "english": "Doing arts and crafts",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:195"
+   ]
+  },
+  {
+   "id": "vf1fun.making_origami",
+   "english": "Making origami",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:196"
+   ]
+  },
+  {
+   "id": "vf1fun.coloring_in_a_coloring_book",
+   "english": "Coloring in a coloring book",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:197"
+   ]
+  },
+  {
+   "id": "vf1fun.making_clay_sculptures",
+   "english": "Making clay sculptures",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:198"
+   ]
+  },
+  {
+   "id": "vf1fun.making_charm_bracelets",
+   "english": "Making charm bracelets",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:199"
+   ]
+  },
+  {
+   "id": "vf1fun.making_necklaces",
+   "english": "Making necklaces",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:200"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_homework",
+   "english": "Doing homework",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:201"
+   ]
+  },
+  {
+   "id": "vf1fun.procrastinating",
+   "english": "Procrastinating",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:202"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_soda",
+   "english": "Drinking soda",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:205",
+    "native/vf1fun/labels.inc:232"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_milkshakes",
+   "english": "Drinking milkshakes",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:206",
+    "native/vf1fun/labels.inc:233"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_milk",
+   "english": "Drinking milk",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:207",
+    "native/vf1fun/labels.inc:234"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_juice",
+   "english": "Drinking juice",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:208",
+    "native/vf1fun/labels.inc:235"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_mineral_water",
+   "english": "Drinking mineral water",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:209"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_sparkling_water",
+   "english": "Drinking sparkling water",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:210"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_tea",
+   "english": "Drinking tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:211"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_an_energy_drink",
+   "english": "Drinking an energy drink",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:212"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_hydr_aid",
+   "english": "Drinking Hydr-Aid",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:213"
+   ]
+  },
+  {
+   "id": "vf1fun.drinking_boba_tea",
+   "english": "Drinking boba tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:214"
+   ]
+  },
+  {
+   "id": "vf1fun.baking_a_cake",
+   "english": "Baking a cake",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:217"
+   ]
+  },
+  {
+   "id": "vf1fun.heating_up_leftovers",
+   "english": "Heating up leftovers",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:218"
+   ]
+  },
+  {
+   "id": "vf1fun.baking_a_pie",
+   "english": "Baking a pie",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:219"
+   ]
+  },
+  {
+   "id": "vf1fun.baking_cookies",
+   "english": "Baking cookies",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:220"
+   ]
+  },
+  {
+   "id": "vf1fun.heating_up_pizza",
+   "english": "Heating up pizza",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:221"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_takeout",
+   "english": "Eating takeout",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:222"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_a_bag_of_chips",
+   "english": "Eating a bag of chips",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:225"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_pretzels",
+   "english": "Eating pretzels",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:226"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_trail_mix",
+   "english": "Eating trail mix",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:227"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_cookies",
+   "english": "Eating cookies",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:228"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_pizza",
+   "english": "Eating pizza",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:229"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_popcorn",
+   "english": "Eating popcorn",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:230"
+   ]
+  },
+  {
+   "id": "vf1fun.eating_candy",
+   "english": "Eating candy",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:231"
+   ]
+  },
+  {
+   "id": "vf1fun.making_sushi",
+   "english": "Making sushi",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:238"
+   ]
+  },
+  {
+   "id": "vf1fun.making_chinese_food",
+   "english": "Making Chinese food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:239"
+   ]
+  },
+  {
+   "id": "vf1fun.making_mexican_food",
+   "english": "Making Mexican food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:240"
+   ]
+  },
+  {
+   "id": "vf1fun.making_american_food",
+   "english": "Making American food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:241"
+   ]
+  },
+  {
+   "id": "vf1fun.making_vegetarian_food",
+   "english": "Making vegetarian food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:242"
+   ]
+  },
+  {
+   "id": "vf1fun.making_japanese_food",
+   "english": "Making Japanese food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:243"
+   ]
+  },
+  {
+   "id": "vf1fun.making_salad",
+   "english": "Making salad",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:244"
+   ]
+  },
+  {
+   "id": "vf1fun.making_indian_food",
+   "english": "Making Indian food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:245"
+   ]
+  },
+  {
+   "id": "vf1fun.making_turkish_food",
+   "english": "Making Turkish Food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:246"
+   ]
+  },
+  {
+   "id": "vf1fun.making_spanish_food",
+   "english": "Making Spanish food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:247"
+   ]
+  },
+  {
+   "id": "vf1fun.making_african_food",
+   "english": "Making African food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:248"
+   ]
+  },
+  {
+   "id": "vf1fun.making_filipino_food",
+   "english": "Making Filipino food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:249"
+   ]
+  },
+  {
+   "id": "vf1fun.making_fish_and_chips",
+   "english": "Making fish and chips",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:250"
+   ]
+  },
+  {
+   "id": "vf1fun.making_lasagna",
+   "english": "Making lasagna",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:251"
+   ]
+  },
+  {
+   "id": "vf1fun.making_pasta",
+   "english": "Making pasta",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:252"
+   ]
+  },
+  {
+   "id": "vf1fun.making_dim_sum",
+   "english": "Making dim sum",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:253"
+   ]
+  },
+  {
+   "id": "vf1fun.making_pizza",
+   "english": "Making pizza",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:254"
+   ]
+  },
+  {
+   "id": "vf1fun.making_french_food",
+   "english": "Making French food",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:255"
+   ]
+  },
+  {
+   "id": "vf1fun.making_escargot",
+   "english": "Making escargot",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:256"
+   ]
+  },
+  {
+   "id": "vf1fun.making_burgers_and_fries",
+   "english": "Making burgers and fries",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:257"
+   ]
+  },
+  {
+   "id": "vf1fun.making_tacos",
+   "english": "Making tacos",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:258"
+   ]
+  },
+  {
+   "id": "vf1fun.making_paella",
+   "english": "Making paella",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:259"
+   ]
+  },
+  {
+   "id": "vf1fun.making_seafood",
+   "english": "Making seafood",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:260"
+   ]
+  },
+  {
+   "id": "vf1fun.making_steak_au_poivre",
+   "english": "Making steak au poivre",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:261"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_bath",
+   "english": "Taking a bath",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:264"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_bubble_bath",
+   "english": "Taking a bubble bath",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:265"
+   ]
+  },
+  {
+   "id": "vf1fun.singing_in_the_shower",
+   "english": "Singing in the shower",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:266"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_relaxing_bath",
+   "english": "Taking a relaxing bath",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:267"
+   ]
+  },
+  {
+   "id": "vf1fun.taking_a_relaxing_bubble_bath",
+   "english": "Taking a relaxing bubble bath",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:268"
+   ]
+  },
+  {
+   "id": "vf1fun.having_a_spa_day",
+   "english": "Having a spa day",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:271"
+   ]
+  },
+  {
+   "id": "vf1fun.playing_with_bath_toys",
+   "english": "Playing with bath toys",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:274"
+   ]
+  },
+  {
+   "id": "vf1fun.putting_on_face_mask",
+   "english": "Putting on face mask",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:277"
+   ]
+  },
+  {
+   "id": "vf1fun.trimming_nails",
+   "english": "Trimming nails",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:278"
+   ]
+  },
+  {
+   "id": "vf1fun.applying_lotion",
+   "english": "Applying lotion",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:279"
+   ]
+  },
+  {
+   "id": "vf1fun.applying_sunscreen",
+   "english": "Applying sunscreen",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:280"
+   ]
+  },
+  {
+   "id": "vf1fun.painting_fingernails",
+   "english": "Painting fingernails",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:283"
+   ]
+  },
+  {
+   "id": "vf1fun.painting_toenails",
+   "english": "Painting toenails",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:284"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_a_manicure",
+   "english": "Doing a manicure",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:285"
+   ]
+  },
+  {
+   "id": "vf1fun.doing_a_pedicure",
+   "english": "Doing a pedicure",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:286"
+   ]
+  },
+  {
+   "id": "vf1fun.putting_on_makeup",
+   "english": "Putting on makeup",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:287"
+   ]
+  },
+  {
+   "id": "vf1fun.putting_on_jewelry",
+   "english": "Putting on jewelry",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:290"
+   ]
+  },
+  {
+   "id": "vf1fun.making_espresso",
+   "english": "Making espresso",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:293"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_latte",
+   "english": "Making a latte",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:294"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_matcha_latte",
+   "english": "Making a matcha latte",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:295"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_caffe_mocha",
+   "english": "Making a caffe mocha",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:296"
+   ]
+  },
+  {
+   "id": "vf1fun.making_an_americano",
+   "english": "Making an americano",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:297"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_ristretto",
+   "english": "Making a ristretto",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:298"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_double_shot_espresso",
+   "english": "Making a double-shot espresso",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:299"
+   ]
+  },
+  {
+   "id": "vf1fun.making_black_coffee",
+   "english": "Making black coffee",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:300"
+   ]
+  },
+  {
+   "id": "vf1fun.making_cappuccino",
+   "english": "Making cappuccino",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:301"
+   ]
+  },
+  {
+   "id": "vf1fun.making_frozen_coffee",
+   "english": "Making frozen coffee",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:302"
+   ]
+  },
+  {
+   "id": "vf1fun.making_iced_coffee",
+   "english": "Making iced coffee",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:303"
+   ]
+  },
+  {
+   "id": "vf1fun.making_a_frappe",
+   "english": "Making a frappe",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:304"
+   ]
+  },
+  {
+   "id": "vf1fun.making_tea",
+   "english": "Making tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:305"
+   ]
+  },
+  {
+   "id": "vf1fun.making_matcha_tea",
+   "english": "Making matcha tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:306"
+   ]
+  },
+  {
+   "id": "vf1fun.making_earl_grey_tea",
+   "english": "Making earl grey tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:307"
+   ]
+  },
+  {
+   "id": "vf1fun.making_jasmine_tea",
+   "english": "Making jasmine tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:308"
+   ]
+  },
+  {
+   "id": "vf1fun.making_black_tea",
+   "english": "Making black tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:309"
+   ]
+  },
+  {
+   "id": "vf1fun.making_iced_tea",
+   "english": "Making iced tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:310"
+   ]
+  },
+  {
+   "id": "vf1fun.making_chamomile_tea",
+   "english": "Making chamomile tea",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:313"
+   ]
+  },
+  {
+   "id": "vf1fun.finding_constellations",
+   "english": "Finding constellations",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:316"
+   ]
+  },
+  {
+   "id": "vf1fun.finding_planets",
+   "english": "Finding planets",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:317"
+   ]
+  },
+  {
+   "id": "vf1fun.looking_for_aliens",
+   "english": "Looking for aliens",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:318"
+   ]
+  },
+  {
+   "id": "vf1fun.practicing_astronomy",
+   "english": "Practicing astronomy",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:319"
+   ]
+  },
+  {
+   "id": "vf1fun.finding_space_stations",
+   "english": "Finding space stations",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:320"
+   ]
+  },
+  {
+   "id": "vf1fun.finding_the_iss",
+   "english": "Finding the ISS",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:321"
+   ]
+  },
+  {
+   "id": "vf1fun.looking_for_rocket_ships",
+   "english": "Looking for rocket ships",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:322"
+   ]
+  },
+  {
+   "id": "vf1fun.looking_for_meteors",
+   "english": "Looking for meteors",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:323"
+   ]
+  },
+  {
+   "id": "vf1fun.trying_to_find_shooting_stars",
+   "english": "Trying to find shooting stars",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:324"
+   ]
+  },
+  {
+   "id": "vf1fun.looking_for_comets",
+   "english": "Looking for comets",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:325"
+   ]
+  },
+  {
+   "id": "vf1fun.applying_for_volunteer_opportunities",
+   "english": "Applying for volunteer opportunities",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:328"
+   ]
+  },
+  {
+   "id": "vf1fun.planning_career_path",
+   "english": "Planning career path",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:329"
+   ]
+  },
+  {
+   "id": "vf1fun.looking_for_schools_to_apply_to",
+   "english": "Looking for schools to apply to",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:330"
+   ]
+  },
+  {
+   "id": "vf1fun.exploring_future_career_opportunities",
+   "english": "Exploring future career opportunities",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:331"
+   ]
+  },
+  {
+   "id": "vf1fun.exploring_volunteer_opportunities",
+   "english": "Exploring volunteer opportunities",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:332"
+   ]
+  },
+  {
+   "id": "vf1fun.getting_some_drinks",
+   "english": "Getting some drinks",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:335"
+   ]
+  },
+  {
+   "id": "vf1fun.having_a_refreshing_drink",
+   "english": "Having a refreshing drink",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:336"
+   ]
+  },
+  {
+   "id": "vf1fun.having_private_adult_romantic_time",
+   "english": "Having private adult romantic time",
+   "room": 39,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/labels.inc:337"
+   ]
+  },
+  {
+   "id": "vf1fun.store_prices_original",
+   "english": "Store prices: original",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:32"
+   ]
+  },
+  {
+   "id": "vf1fun.store_prices_dx",
+   "english": "Store prices: %dx",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:34"
+   ]
+  },
+  {
+   "id": "vf1fun.complete_every_achievement_reset_achievements_is_the_only_wa",
+   "english": "Complete every achievement? Reset Achievements is the only way back.",
+   "room": 204,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:56"
+   ]
+  },
+  {
+   "id": "vf1fun.every_achievement_is_complete",
+   "english": "Every achievement is complete.",
+   "room": 90,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:58"
+   ]
+  },
+  {
+   "id": "vf1fun.reset_all_goals_and_progress",
+   "english": "Reset all goals and progress?",
+   "room": 87,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:62"
+   ]
+  },
+  {
+   "id": "vf1fun.reset_achievements",
+   "english": "Reset Achievements",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:62",
+    "native/vf1fun/pages.inc:94"
+   ]
+  },
+  {
+   "id": "vf1fun.complete_every_collection",
+   "english": "Complete every collection?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:66"
+   ]
+  },
+  {
+   "id": "vf1fun.every_collection_is_complete",
+   "english": "Every collection is complete.",
+   "room": 87,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:68"
+   ]
+  },
+  {
+   "id": "vf1fun.remove_every_collected_item_and_reset_collection_progress",
+   "english": "Remove every collected item and reset collection progress?",
+   "room": 174,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:72"
+   ]
+  },
+  {
+   "id": "vf1fun.reset_all_collections",
+   "english": "Reset all collections",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:72",
+    "native/vf1fun/pages.inc:97"
+   ]
+  },
+  {
+   "id": "vf1fun.store_achievement_and_collection_cheats",
+   "english": "Store, Achievement and Collection Cheats",
+   "room": 120,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:86"
+   ]
+  },
+  {
+   "id": "vf1fun.2x_prices",
+   "english": "2x Prices",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:88"
+   ]
+  },
+  {
+   "id": "vf1fun.5x_prices",
+   "english": "5x Prices",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:89"
+   ]
+  },
+  {
+   "id": "vf1fun.100x_prices",
+   "english": "100x Prices",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:90"
+   ]
+  },
+  {
+   "id": "vf1fun.reset",
+   "english": "Reset",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:91"
+   ]
+  },
+  {
+   "id": "vf1fun.achievements",
+   "english": "Achievements",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:92"
+   ]
+  },
+  {
+   "id": "vf1fun.complete_all_achievements",
+   "english": "Complete all Achievements",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:93"
+   ]
+  },
+  {
+   "id": "vf1fun.collections",
+   "english": "Collections",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:95"
+   ]
+  },
+  {
+   "id": "vf1fun.complete_all_collections",
+   "english": "Complete all collections",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:96"
+   ]
+  },
+  {
+   "id": "vf1fun.anti_spam_software_ownership_install_uninstall",
+   "english": "Anti-Spam Software Ownership (install / uninstall)",
+   "room": 150,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:98"
+   ]
+  },
+  {
+   "id": "vf1fun.spawned_d_pieces_of_mess",
+   "english": "Spawned %d pieces of mess.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:134"
+   ]
+  },
+  {
+   "id": "vf1fun.the_house_is_clean",
+   "english": "The house is clean.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:137"
+   ]
+  },
+  {
+   "id": "vf1fun.spawned_d_weeds",
+   "english": "Spawned %d weeds.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:139"
+   ]
+  },
+  {
+   "id": "vf1fun.the_garden_is_weeded",
+   "english": "The garden is weeded.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:142"
+   ]
+  },
+  {
+   "id": "vf1fun.all_d_house_malfunctions_are_now_active",
+   "english": "All %d house malfunctions are now active.",
+   "room": 123,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:145"
+   ]
+  },
+  {
+   "id": "vf1fun.fixed_d_malfunctions",
+   "english": "Fixed %d malfunctions.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:149"
+   ]
+  },
+  {
+   "id": "vf1fun.house_and_yard",
+   "english": "House and Yard",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:163"
+   ]
+  },
+  {
+   "id": "vf1fun.fill_available_house_slots_with_trash_5_smudges_5_socks_5_wr",
+   "english": "Fill available house slots with trash (5 smudges, 5 socks, 5 wrappers)",
+   "room": 210,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:164"
+   ]
+  },
+  {
+   "id": "vf1fun.clean_house",
+   "english": "Clean House",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:165"
+   ]
+  },
+  {
+   "id": "vf1fun.fill_available_yard_slots_with_weeds_15",
+   "english": "Fill available yard slots with weeds (15)",
+   "room": 123,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:166"
+   ]
+  },
+  {
+   "id": "vf1fun.clean_garden",
+   "english": "Clean Garden",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:167"
+   ]
+  },
+  {
+   "id": "vf1fun.trigger_all_house_malfunctions_leaks_clogs_fires_power_failu",
+   "english": "Trigger all house malfunctions (leaks, clogs, fires, power failure)",
+   "room": 201,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:168"
+   ]
+  },
+  {
+   "id": "vf1fun.fix_all_house_malfunctions",
+   "english": "Fix all house malfunctions",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:169"
+   ]
+  },
+  {
+   "id": "vf1fun.there_are_30_mess_slots_in_all_shared_by_the_house_and_yard",
+   "english": "There are 30 mess slots in all, shared by the house and yard.",
+   "room": 183,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:170"
+   ]
+  },
+  {
+   "id": "vf1fun.brokerage_account",
+   "english": "Brokerage Account",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:203"
+   ]
+  },
+  {
+   "id": "vf1fun.upgrade_your_broker_a_permanent_2_boost_to_your_family_s_ban",
+   "english": "Upgrade your broker: a permanent 2% boost to your family's banking interest rate, up to 11%. Buy again to remove it: the rate then drops to 1%, as in the Virtual Families 2 patcher.",
+   "room": 543,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:203"
+   ]
+  },
+  {
+   "id": "vf1fun.food_club",
+   "english": "Food Club",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:204"
+   ]
+  },
+  {
+   "id": "vf1fun.it_s_a_csa_community_sources_agriculture_subscription_bags_o",
+   "english": "It's a CSA (Community Sources Agriculture) subscription! Bags of organic, local groceries containing all 4 food groups, delivered each day (helps prevent accidental starvation). Plus a permanent 50% discount on all food! Buy again to remove it.",
+   "room": 600,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:204"
+   ]
+  },
+  {
+   "id": "vf1fun.health_plan",
+   "english": "Health Plan",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:205"
+   ]
+  },
+  {
+   "id": "vf1fun.a_permanent_75_discount_on_all_health_care_and_medicines_buy",
+   "english": "A permanent 75% discount on all health care and medicines. Buy again to remove it.",
+   "room": 246,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:205"
+   ]
+  },
+  {
+   "id": "vf1fun.lucky_rock",
+   "english": "Lucky Rock",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:206"
+   ]
+  },
+  {
+   "id": "vf1fun.this_lucky_rock_increases_the_rate_and_rarity_of_random_coll",
+   "english": "This lucky rock increases the rate and rarity of random collectibles that appear in the yard. Buy again to remove it.",
+   "room": 351,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:206"
+   ]
+  },
+  {
+   "id": "vf1fun.maid",
+   "english": "Maid",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:207"
+   ]
+  },
+  {
+   "id": "vf1fun.no_more_stray_wrappers_and_socks_ever_a_maid_comes_every_gam",
+   "english": "No more stray wrappers and socks, ever! A maid comes every game hour during the day. Buy again to let her go.",
+   "room": 327,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:207"
+   ]
+  },
+  {
+   "id": "vf1fun.gardener",
+   "english": "Gardener",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:208"
+   ]
+  },
+  {
+   "id": "vf1fun.had_enough_of_pulling_weeds_a_gardener_comes_every_game_hour",
+   "english": "Had enough of pulling weeds? A gardener comes every game hour during the day. Buy again to let him go.",
+   "room": 306,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:208"
+   ]
+  },
+  {
+   "id": "vf1fun.owned",
+   "english": "  (owned)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:217"
+   ]
+  },
+  {
+   "id": "vf1fun.remove_s_it_is_not_refunded_and_you_can_buy_it_again_later",
+   "english": "Remove %s? It is not refunded, and you can buy it again later.",
+   "room": 186,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:243"
+   ]
+  },
+  {
+   "id": "vf1fun.s_removed",
+   "english": "%s removed.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:247"
+   ]
+  },
+  {
+   "id": "vf1fun.you_don_t_have_enough_money_for_that",
+   "english": "You don't have enough money for that.",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:251",
+    "native/vf1fun/services.inc:143",
+    "native/vf1fun/services.inc:209",
+    "native/vf1fun/vf1fun.cpp:705"
+   ]
+  },
+  {
+   "id": "vf1fun.buy_s_for_d",
+   "english": "Buy %s for $%d?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:253",
+    "native/vf1fun/services.inc:213"
+   ]
+  },
+  {
+   "id": "vf1fun.purchased_s",
+   "english": "Purchased: %s.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:256",
+    "native/vf1fun/services.inc:218"
+   ]
+  },
+  {
+   "id": "vf1fun.you_are_signed_up_for_the_food_club_you_have_received_a_food",
+   "english": "You are signed up for the Food Club!\n\nYou have received a food delivery containing the 4 food groups!\nYou will now get a new food delivery every day.",
+   "room": 447,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:261"
+   ]
+  },
+  {
+   "id": "vf1fun.you_have_a_maid_now_the_house_will_always_be_clean",
+   "english": "You have a maid! Now the house will always be clean.",
+   "room": 156,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:265"
+   ]
+  },
+  {
+   "id": "vf1fun.you_have_a_gardener_no_more_pesky_weeds",
+   "english": "You have a gardener! No more pesky weeds.",
+   "room": 123,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:268"
+   ]
+  },
+  {
+   "id": "vf1fun.special_upgrades",
+   "english": "Special Upgrades",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:287"
+   ]
+  },
+  {
+   "id": "vf1fun.buy",
+   "english": "Buy",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:290",
+    "native/vf1fun/services.inc:241",
+    "native/vf1fun/vf1fun.cpp:767"
+   ]
+  },
+  {
+   "id": "vf1fun.slow",
+   "english": "slow",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:306"
+   ]
+  },
+  {
+   "id": "vf1fun.fast_2x",
+   "english": "fast (2x)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:306"
+   ]
+  },
+  {
+   "id": "vf1fun.normal",
+   "english": "normal",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:306"
+   ]
+  },
+  {
+   "id": "vf1fun.s_speed_s",
+   "english": "%s. Speed: %s.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:307"
+   ]
+  },
+  {
+   "id": "vf1fun.paused",
+   "english": "Paused",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:307"
+   ]
+  },
+  {
+   "id": "vf1fun.running",
+   "english": "Running",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:307"
+   ]
+  },
+  {
+   "id": "vf1fun.time_controls",
+   "english": "Time Controls",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:335"
+   ]
+  },
+  {
+   "id": "vf1fun.pause",
+   "english": "Pause",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:337"
+   ]
+  },
+  {
+   "id": "vf1fun.resume",
+   "english": "Resume",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:338"
+   ]
+  },
+  {
+   "id": "vf1fun.slow.2",
+   "english": "Slow",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:339"
+   ]
+  },
+  {
+   "id": "vf1fun.normal.2",
+   "english": "Normal",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:340"
+   ]
+  },
+  {
+   "id": "vf1fun.fast",
+   "english": "Fast",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/pages.inc:341"
+   ]
+  },
+  {
+   "id": "vf1fun.lucky_70_s",
+   "english": "Lucky 70's",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:20"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_person_reach_age_70",
+   "english": "Have a person reach age 70.",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:20"
+   ]
+  },
+  {
+   "id": "vf1fun.great_80_s",
+   "english": "Great 80's",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:21"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_person_reach_age_80",
+   "english": "Have a person reach age 80.",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:21"
+   ]
+  },
+  {
+   "id": "vf1fun.mighty_90_s",
+   "english": "Mighty 90's",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:22"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_person_reach_age_90",
+   "english": "Have a person reach age 90.",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:22"
+   ]
+  },
+  {
+   "id": "vf1fun.centenarian",
+   "english": "Centenarian",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:23"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_person_reach_age_100_or_more",
+   "english": "Have a person reach age 100 or more.",
+   "room": 108,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:23"
+   ]
+  },
+  {
+   "id": "vf1fun.oldest_person_in_history",
+   "english": "Oldest Person in History",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:24"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_person_surpass_age_122",
+   "english": "Have a person surpass age 122.",
+   "room": 90,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:24"
+   ]
+  },
+  {
+   "id": "vf1fun.return_of_the_rainbow",
+   "english": "Return of the Rainbow",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:25"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_female_villager_with_head_value_49_in_the_family_tree",
+   "english": "Have a female villager with head value 49 in the family tree.",
+   "room": 183,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:25"
+   ]
+  },
+  {
+   "id": "vf1fun.spiky",
+   "english": "Spiky!",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:26"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_male_villager_with_head_value_48_in_the_family_tree",
+   "english": "Have a male villager with head value 48 in the family tree.",
+   "room": 177,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:26"
+   ]
+  },
+  {
+   "id": "vf1fun.blue_s_clues",
+   "english": "Blue's Clues",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:27"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_male_villager_with_head_value_49_in_the_family_tree",
+   "english": "Have a male villager with head value 49 in the family tree.",
+   "room": 177,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:27"
+   ]
+  },
+  {
+   "id": "vf1fun.a_decade_in_blue",
+   "english": "A Decade in Blue",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:28"
+   ]
+  },
+  {
+   "id": "vf1fun.have_a_female_villager_with_head_value_48_in_the_family_tree",
+   "english": "Have a female villager with head value 48 in the family tree.",
+   "room": 183,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:28"
+   ]
+  },
+  {
+   "id": "vf1fun.no_more_worries",
+   "english": "No More Worries",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:29"
+   ]
+  },
+  {
+   "id": "vf1fun.have_the_maximum_amount_of_coins_in_the_bank_account",
+   "english": "Have the maximum amount of coins in the bank account.",
+   "room": 159,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:29"
+   ]
+  },
+  {
+   "id": "vf1fun.solving_world_hunger",
+   "english": "Solving World Hunger",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:30"
+   ]
+  },
+  {
+   "id": "vf1fun.have_the_maximum_amount_of_food_in_the_fridge",
+   "english": "Have the maximum amount of food in the fridge.",
+   "room": 138,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:30"
+   ]
+  },
+  {
+   "id": "vf1fun.achiever_extraordinaire",
+   "english": "Achiever Extraordinaire",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:31"
+   ]
+  },
+  {
+   "id": "vf1fun.complete_every_enabled_achievement",
+   "english": "Complete every enabled achievement.",
+   "room": 105,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:31"
+   ]
+  },
+  {
+   "id": "vf1fun.d_of_d_unlocked",
+   "english": "%d of %d unlocked",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:109"
+   ]
+  },
+  {
+   "id": "vf1fun.patcher_achievements",
+   "english": "Patcher Achievements",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/patcher_achievements.inc:125"
+   ]
+  },
+  {
+   "id": "vf1fun.time_warp",
+   "english": "Time Warp",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:29"
+   ]
+  },
+  {
+   "id": "vf1fun.the_whole_family_lives_3_years_61_age_units_at_once_with_the",
+   "english": "The whole family lives 3 years (61 age units) at once, with their meals, health, salary and birthdays. The money it brings is capped at $750.",
+   "room": 423,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:29"
+   ]
+  },
+  {
+   "id": "vf1fun.adoption_services",
+   "english": "Adoption Services",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:31"
+   ]
+  },
+  {
+   "id": "vf1fun.spawn_outside_child_in_house_3_years_old_male_or_female_at_r",
+   "english": "Spawn outside child in house (3 years old, male or female at random): the child joins the house at once and the family tree as an adopted child, with the game's own random look. No event text or popup.",
+   "room": 600,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:31"
+   ]
+  },
+  {
+   "id": "vf1fun.boarding_school",
+   "english": "Boarding School",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:34"
+   ]
+  },
+  {
+   "id": "vf1fun.children_only_the_child_leaves_home_as_a_child_going_to_coll",
+   "english": "Children only: the child leaves home, as a child going to college does.",
+   "room": 213,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:34"
+   ]
+  },
+  {
+   "id": "vf1fun.systematic_desensitization",
+   "english": "Systematic Desensitization",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:35"
+   ]
+  },
+  {
+   "id": "vf1fun.every_dislike_of_this_family_member_is_removed",
+   "english": "Every dislike of this family member is removed.",
+   "room": 141,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:35"
+   ]
+  },
+  {
+   "id": "vf1fun.psychotherapy",
+   "english": "Psychotherapy",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:36"
+   ]
+  },
+  {
+   "id": "vf1fun.happiness_below_25_becomes_30_to_49_from_25_to_49_it_becomes",
+   "english": "Happiness below 25 becomes 30 to 49; from 25 to 49 it becomes 55 to 74; from 50 it rises by 5 to 24 (at most 100).",
+   "room": 342,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:36"
+   ]
+  },
+  {
+   "id": "vf1fun.higher_learning_classes",
+   "english": "Higher Learning Classes",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:38"
+   ]
+  },
+  {
+   "id": "vf1fun.one_new_like_at_random_from_the_likes_this_family_member_doe",
+   "english": "One new like, at random from the likes this family member does not have, if one of the 3 like places is free. That like is taken off the dislikes.",
+   "room": 438,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:38"
+   ]
+  },
+  {
+   "id": "vf1fun.advanced_career_training",
+   "english": "Advanced Career Training",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:40"
+   ]
+  },
+  {
+   "id": "vf1fun.adults_with_a_career_a_promotion_to_the_next_career_level_wi",
+   "english": "Adults with a career: a promotion to the next career level, with its new salary. $1,100 times (the career level + 1): $1,100 for a Beginner up to $7,700 for an Exceptional; nothing is sold to a Master.",
+   "room": 600,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:40"
+   ]
+  },
+  {
+   "id": "vf1fun.career_change",
+   "english": "Career Change",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:43"
+   ]
+  },
+  {
+   "id": "vf1fun.adults_with_a_career_a_new_career_at_random_at_beginner",
+   "english": "Adults with a career: a new career at random, at Beginner.",
+   "room": 174,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:43"
+   ]
+  },
+  {
+   "id": "vf1fun.pick_a_family_member_at_home_first",
+   "english": "Pick a family member at home first.",
+   "room": 105,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:64"
+   ]
+  },
+  {
+   "id": "vf1fun.boarding_school_is_for_children_only",
+   "english": "Boarding School is for children only.",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:66"
+   ]
+  },
+  {
+   "id": "vf1fun.this_family_member_has_no_dislikes",
+   "english": "This family member has no dislikes.",
+   "room": 105,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:69"
+   ]
+  },
+  {
+   "id": "vf1fun.every_like_place_is_already_full",
+   "english": "Every like place is already full.",
+   "room": 99,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:73"
+   ]
+  },
+  {
+   "id": "vf1fun.advanced_career_training_is_for_adults_with_a_career",
+   "english": "Advanced Career Training is for adults with a career.",
+   "room": 159,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:76"
+   ]
+  },
+  {
+   "id": "vf1fun.this_family_member_is_already_a_master_nothing_to_train",
+   "english": "This family member is already a Master: nothing to train.",
+   "room": 171,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:77"
+   ]
+  },
+  {
+   "id": "vf1fun.career_change_is_for_adults_with_a_career",
+   "english": "Career Change is for adults with a career.",
+   "room": 126,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:78"
+   ]
+  },
+  {
+   "id": "vf1fun.nothing_new_to_learn",
+   "english": "Nothing new to learn.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:107",
+    "native/vf1fun/services.inc:117"
+   ]
+  },
+  {
+   "id": "vf1fun.the_game_has_no_likes_list",
+   "english": "The game has no likes list.",
+   "room": 81,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:113"
+   ]
+  },
+  {
+   "id": "vf1fun.there_is_no_such_service",
+   "english": "There is no such service.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:131",
+    "native/vf1fun/services.inc:137"
+   ]
+  },
+  {
+   "id": "vf1fun.that_is_not_sold_to_this_family_member",
+   "english": "That is not sold to this family member.",
+   "room": 117,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:142",
+    "native/vf1fun/services.inc:208"
+   ]
+  },
+  {
+   "id": "vf1fun.money_0f_s",
+   "english": "Money: $%.0f%s",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:161"
+   ]
+  },
+  {
+   "id": "vf1fun.free_and_guaranteed_cheats_all_free",
+   "english": "     (Free and Guaranteed Cheats: all free)",
+   "room": 129,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:161"
+   ]
+  },
+  {
+   "id": "vf1fun.s_not_sold_to_them",
+   "english": "%s\tnot sold to them",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:170"
+   ]
+  },
+  {
+   "id": "vf1fun.s_d_whole_family",
+   "english": "%s\t$%d  (whole family)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:171"
+   ]
+  },
+  {
+   "id": "vf1fun.buy_s_for_40ls_for_d",
+   "english": "Buy %s for %.40ls for $%d?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:212"
+   ]
+  },
+  {
+   "id": "vf1fun.time_warp_completed_it_s_3_years_later",
+   "english": "Time warp completed! It's 3 years later!",
+   "room": 120,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:217"
+   ]
+  },
+  {
+   "id": "vf1fun.services",
+   "english": "Services",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:233"
+   ]
+  },
+  {
+   "id": "vf1fun.family_member",
+   "english": "Family member:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:235"
+   ]
+  },
+  {
+   "id": "vf1fun.the_price_is_for_the_family_member_picked",
+   "english": "The price is for the family member picked.",
+   "room": 126,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/services.inc:240"
+   ]
+  },
+  {
+   "id": "vf1fun.virtual_families_1_fun_patcher",
+   "english": "Virtual Families 1 Fun Patcher",
+   "room": 90,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:276",
+    "native/vf1fun/vf1fun.cpp:279"
+   ]
+  },
+  {
+   "id": "vf1fun.this_needs_the_free_and_guaranteed_cheats_patch_tick_it_in_t",
+   "english": "This needs the Free and Guaranteed Cheats patch. Tick it in the patcher, then click Enable/Disable Patches.",
+   "room": 321,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:291"
+   ]
+  },
+  {
+   "id": "vf1fun.money_now_0f_interest_rate_now_1f",
+   "english": "Money now: $%.0f        Interest rate now: %.1f%%",
+   "room": 147,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:323"
+   ]
+  },
+  {
+   "id": "vf1fun.food_now_d",
+   "english": "Food now: %d",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:325"
+   ]
+  },
+  {
+   "id": "vf1fun.set_your_money_to_0",
+   "english": "Set your money to $0?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:374"
+   ]
+  },
+  {
+   "id": "vf1fun.set_your_food_to_0",
+   "english": "Set your food to 0?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:375"
+   ]
+  },
+  {
+   "id": "vf1fun.enter_an_amount_from_0_to_4_000_000_000",
+   "english": "Enter an amount from 0 to 4,000,000,000.",
+   "room": 120,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:393"
+   ]
+  },
+  {
+   "id": "vf1fun.enter_a_rate_from_1_to_11_percent",
+   "english": "Enter a rate from 1 to 11 percent.",
+   "room": 102,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:400"
+   ]
+  },
+  {
+   "id": "vf1fun.enter_an_amount_of_food_from_0_to_2_147_483_647",
+   "english": "Enter an amount of food from 0 to 2,147,483,647.",
+   "room": 144,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:407"
+   ]
+  },
+  {
+   "id": "vf1fun.cheat_upgrades",
+   "english": "Cheat Upgrades",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:424"
+   ]
+  },
+  {
+   "id": "vf1fun.no_money",
+   "english": "No Money",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:426"
+   ]
+  },
+  {
+   "id": "vf1fun.max",
+   "english": "Max",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:429",
+    "native/vf1fun/vf1fun.cpp:440"
+   ]
+  },
+  {
+   "id": "vf1fun.set_money_to",
+   "english": "Set money to $",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:430"
+   ]
+  },
+  {
+   "id": "vf1fun.set",
+   "english": "Set",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:432",
+    "native/vf1fun/vf1fun.cpp:443"
+   ]
+  },
+  {
+   "id": "vf1fun.interest_rate",
+   "english": "Interest rate %",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:433"
+   ]
+  },
+  {
+   "id": "vf1fun.set_rate",
+   "english": "Set rate",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:435"
+   ]
+  },
+  {
+   "id": "vf1fun.no_food",
+   "english": "No Food",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:437"
+   ]
+  },
+  {
+   "id": "vf1fun.set_food_to",
+   "english": "Set food to",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:441"
+   ]
+  },
+  {
+   "id": "vf1fun.everyone",
+   "english": "Everyone",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:529"
+   ]
+  },
+  {
+   "id": "vf1fun.40ls_health_d_happy_d_fed_d_energy_d_head_d_body_d",
+   "english": "%.40ls\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d",
+   "room": 189,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:535"
+   ]
+  },
+  {
+   "id": "vf1fun.max_health",
+   "english": "Max health",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:547",
+    "native/vf1fun/vf1fun.cpp:658"
+   ]
+  },
+  {
+   "id": "vf1fun.cure_all_illnesses",
+   "english": "Cure all illnesses",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:548"
+   ]
+  },
+  {
+   "id": "vf1fun.max_happiness",
+   "english": "Max happiness",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:549",
+    "native/vf1fun/vf1fun.cpp:660"
+   ]
+  },
+  {
+   "id": "vf1fun.max_energy",
+   "english": "Max energy",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:550",
+    "native/vf1fun/vf1fun.cpp:661"
+   ]
+  },
+  {
+   "id": "vf1fun.fill_up_fed",
+   "english": "Fill up (Fed)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:551",
+    "native/vf1fun/vf1fun.cpp:662"
+   ]
+  },
+  {
+   "id": "vf1fun.max_health_cure_illnesses_max_happiness_energy_and_fed",
+   "english": "Max health, cure illnesses, max happiness, energy and fed",
+   "room": 171,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:552"
+   ]
+  },
+  {
+   "id": "vf1fun.add_running_like",
+   "english": "Add Running Like",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:553",
+    "native/vf1fun/vf1fun.cpp:664"
+   ]
+  },
+  {
+   "id": "vf1fun.set_age_to_18",
+   "english": "Set Age to 18",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:554",
+    "native/vf1fun/vf1fun.cpp:665"
+   ]
+  },
+  {
+   "id": "vf1fun.change_appearance",
+   "english": "Change Appearance",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:555"
+   ]
+  },
+  {
+   "id": "vf1fun.give_a_random_look",
+   "english": "Give a random look",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:556"
+   ]
+  },
+  {
+   "id": "vf1fun.s_for_everyone_in_the_house",
+   "english": "%s for EVERYONE in the house?",
+   "room": 87,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:567"
+   ]
+  },
+  {
+   "id": "vf1fun.s_for_40ls",
+   "english": "%s for %.40ls?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:568"
+   ]
+  },
+  {
+   "id": "vf1fun.head_and_body_are_each_a_number_from_0_to_49",
+   "english": "Head and body are each a number from 0 to 49.",
+   "room": 135,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:600"
+   ]
+  },
+  {
+   "id": "vf1fun.pick_one_villager_set_age_to_18_only_changes_the_selected_vi",
+   "english": "Pick one villager: Set Age to 18 only changes the selected villager.",
+   "room": 204,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:617"
+   ]
+  },
+  {
+   "id": "vf1fun.villager_cheats",
+   "english": "Villager Cheats",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:656"
+   ]
+  },
+  {
+   "id": "vf1fun.cure_illnesses",
+   "english": "Cure illnesses",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:659"
+   ]
+  },
+  {
+   "id": "vf1fun.all_of_these",
+   "english": "All of these",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:663"
+   ]
+  },
+  {
+   "id": "vf1fun.change_appearance_hairstyle_and_face_clothes",
+   "english": "Change Appearance (hairstyle and face, clothes)",
+   "room": 141,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:666"
+   ]
+  },
+  {
+   "id": "vf1fun.head",
+   "english": "Head:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:667"
+   ]
+  },
+  {
+   "id": "vf1fun.body",
+   "english": "Body:",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:669"
+   ]
+  },
+  {
+   "id": "vf1fun.change_0_49",
+   "english": "Change (0-49)",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:671"
+   ]
+  },
+  {
+   "id": "vf1fun.random_look",
+   "english": "Random look",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:672"
+   ]
+  },
+  {
+   "id": "vf1fun.pick_everyone_to_change_everybody_at_once",
+   "english": "Pick Everyone to change everybody at once.",
+   "room": 126,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:673"
+   ]
+  },
+  {
+   "id": "vf1fun.money_0f",
+   "english": "Money: $%.0f",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:694"
+   ]
+  },
+  {
+   "id": "vf1fun.pick_an_item_first",
+   "english": "Pick an item first.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:702"
+   ]
+  },
+  {
+   "id": "vf1fun.buy_60hs_for_d",
+   "english": "Buy %.60hs for $%d?",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:709"
+   ]
+  },
+  {
+   "id": "vf1fun.this_item",
+   "english": "this item",
+   "room": 60,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:709"
+   ]
+  },
+  {
+   "id": "vf1fun.your_item_tray_is_full_use_or_sell_something_first",
+   "english": "Your item tray is full. Use or sell something first.",
+   "room": 156,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:715"
+   ]
+  },
+  {
+   "id": "vf1fun.purchased_60hs",
+   "english": "Purchased: %.60hs.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:720"
+   ]
+  },
+  {
+   "id": "vf1fun.item",
+   "english": "item",
+   "room": 60,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:720"
+   ]
+  },
+  {
+   "id": "vf1fun.flea_market",
+   "english": "Flea Market",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:764"
+   ]
+  },
+  {
+   "id": "vf1fun.get_for_free",
+   "english": "Get for free",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:768"
+   ]
+  },
+  {
+   "id": "vf1fun.roll_the_dice_free_a_popup_event_now",
+   "english": "Roll the Dice (free): a Popup Event now",
+   "room": 117,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:810"
+   ]
+  },
+  {
+   "id": "vf1fun.generation_d_oldest_villager_d_achievements_d_d",
+   "english": "Generation: %d     Oldest Villager: %d     Achievements: %d/%d",
+   "room": 186,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:816"
+   ]
+  },
+  {
+   "id": "vf1fun.roll_the_dice_costs_d_and_you_don_t_have_enough_money",
+   "english": "Roll the Dice costs $%d, and you don't have enough money.",
+   "room": 171,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:841"
+   ]
+  },
+  {
+   "id": "vf1fun.roll_the_dice_for_d_a_popup_event_happens_right_away",
+   "english": "Roll the Dice for $%d? A Popup Event happens right away.",
+   "room": 168,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:845"
+   ]
+  },
+  {
+   "id": "vf1fun.purchased_roll_the_dice_d",
+   "english": "Purchased: Roll the Dice ($%d).",
+   "room": 93,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:848"
+   ]
+  },
+  {
+   "id": "vf1fun.upgrades_menu",
+   "english": "Upgrades Menu",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:867"
+   ]
+  },
+  {
+   "id": "vf1fun.cheat_upgrades_money_food_interest",
+   "english": "Cheat Upgrades: money, food, interest...",
+   "room": 120,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:869"
+   ]
+  },
+  {
+   "id": "vf1fun.villager_cheats_health_cures",
+   "english": "Villager Cheats: health, cures...",
+   "room": 99,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:870"
+   ]
+  },
+  {
+   "id": "vf1fun.store_achievement_and_collection_cheats.2",
+   "english": "Store, Achievement and Collection Cheats...",
+   "room": 129,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:871"
+   ]
+  },
+  {
+   "id": "vf1fun.house_and_yard_trash_weeds_cleaning",
+   "english": "House and Yard: trash, weeds, cleaning...",
+   "room": 123,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:872"
+   ]
+  },
+  {
+   "id": "vf1fun.time_controls_pause_speed",
+   "english": "Time Controls: pause, speed...",
+   "room": 90,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:873"
+   ]
+  },
+  {
+   "id": "vf1fun.special_upgrades_food_club_maid_lucky_rock",
+   "english": "Special Upgrades: Food Club, Maid, Lucky Rock...",
+   "room": 144,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:874"
+   ]
+  },
+  {
+   "id": "vf1fun.services_time_warp_adoption_career_training",
+   "english": "Services: Time Warp, Adoption, Career Training...",
+   "room": 147,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:875"
+   ]
+  },
+  {
+   "id": "vf1fun.family_marriage_babies_children",
+   "english": "Family: marriage, babies, children...",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:876"
+   ]
+  },
+  {
+   "id": "vf1fun.flea_market.2",
+   "english": "Flea Market...",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:877"
+   ]
+  },
+  {
+   "id": "vf1fun.roll_the_dice_2_000_a_popup_event_now",
+   "english": "Roll the Dice ($2,000): a Popup Event now",
+   "room": 123,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:878"
+   ]
+  },
+  {
+   "id": "vf1fun.patcher_achievements.2",
+   "english": "Patcher Achievements...",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:879"
+   ]
+  },
+  {
+   "id": "vf1fun.clothing_and_hairstyles.2",
+   "english": "Clothing and Hairstyles...",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:880"
+   ]
+  },
+  {
+   "id": "vf1fun.this_family_has_no_room_for_another_child_28_at_most",
+   "english": "This family has no room for another child (28 at most).",
+   "room": 165,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:1183"
+   ]
+  },
+  {
+   "id": "vf1fun.this_family_already_has_six_children",
+   "english": "This family already has six children.",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:1184"
+   ]
+  },
+  {
+   "id": "vf1fun.no_popup_event_can_happen_right_now_so_the_dice_weren_t_roll",
+   "english": "No Popup Event can happen right now, so the dice weren't rolled. Your $%d was refunded.",
+   "room": 261,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:1218"
+   ]
+  },
+  {
+   "id": "vf1fun.upgrades",
+   "english": "Upgrades",
+   "room": 60,
+   "drawn_by_game": true,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:1254"
+   ]
+  },
+  {
+   "id": "vf1fun.the_game_has_no_such_like",
+   "english": "The game has no such like.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/villager_upgrades.inc:62"
+   ]
+  },
+  {
+   "id": "vf1fun.every_like_slot_is_already_full",
+   "english": "Every like slot is already full.",
+   "room": 96,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/villager_upgrades.inc:69"
+   ]
+  },
+  {
+   "id": "vf1fun.boarding_school_is_for_children_only.2",
+   "english": "Boarding school is for children only.",
+   "room": 111,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/villager_upgrades.inc:90"
+   ]
+  },
+  {
+   "id": "vf1fun.has_already_left_home",
+   "english": "Has already left home.",
+   "room": 80,
+   "drawn_by_game": false,
+   "where": [
+    "native/vf1fun/villager_upgrades.inc:92"
+   ]
+  }
+ ]
+}

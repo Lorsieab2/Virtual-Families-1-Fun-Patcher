@@ -83,7 +83,7 @@ def test_the_prices_are_vf2s():
         if name == "Roll the Dice":
             assert f"RollTheDicePrice = {price};" in CPP
             continue
-        row = re.search(r'\{ L"%s", (\d+), (true|false),' % re.escape(name), SERVICES)
+        row = re.search(r'\{ TR_N\(L"%s"\), (\d+), (true|false),' % re.escape(name), SERVICES)   # marked for translation
         assert row, name
         assert int(row.group(1)) == price, name
     assert "price = 1100 * (CareerLevel(who) + 1);" in SERVICES and "kTopCareerLevel = 7;" in SERVICES

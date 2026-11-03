@@ -133,6 +133,19 @@
       ]
     },
     {
+      "id": "Translations",
+      "label": "Translations",
+      "description": "Lets the game show a translation of its own text in another language, chosen with Translations... on the Tools tab (English (original) by default). The choice takes effect the next time the game starts, without patching again. A line the translation does not have, or has wrong, stays in English, and no translated line is ever longer than the space the game keeps for it. Without the Unicode settings the game shows Latin letters only (French, German, Spanish, Portuguese, Italian, Dutch...); with Render Unicode with In-Game Fonts or Use Unicode Font any language shows. The Family History log keeps its English words. Installs its own small DLL, vf1tr.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.",
+      "default": true,
+      "category": "main",
+      "files": [
+        {
+          "source": "vf1tr.dll",
+          "target": "Virtual Families 1 Patcher Files/vf1tr.dll"
+        }
+      ]
+    },
+    {
       "id": "AllowOlderPregnancies",
       "label": "Allow Older Pregnancies",
       "description": "Optional patch: preserves normal fertility behavior below age 50, then allows a small pregnancy chance when either parent is 50 or older. The older parent caps the chance from 10.0% at age 50 down to a permanent 0.1% floor at age 69+. Failed attempts involving an age-50+ parent do not start the stock try-for-baby cooldown. The stock Next Generation flow also becomes available when the oldest living person reaches age 60, provided there is a surviving child.",

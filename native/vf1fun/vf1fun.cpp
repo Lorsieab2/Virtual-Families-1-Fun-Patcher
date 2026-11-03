@@ -24,6 +24,7 @@
 #include <shlobj.h>
 
 #include "text_names.inc"
+#include "translate.inc"
 
 // ---------------------------------------------------------------- game ABI
 struct ldwPoint { int x, y; };
@@ -133,14 +134,18 @@ static float CurrentMoney() { return *(float *)Money; }
 // hand. (A hand-written count once said 29 for the Family page's 31 controls, so Windows created only the first 29
 // and the page had no Evict Family and no Close button.) A control that would not fit the buffer is left out and
 // counted in `dropped`, which tests/test_vf1fun_dialogs.py requires to be 0 for every dialog.
+// The title and every control's text are translated here (translate.inc; TR_N marks them at the call). The buffer
+// holds a page whose every text is as long as a translation may make it (tools/vf1_patch_text.wide_room, at most
+// 600 bytes each); tests/test_patch_text_coverage.py checks that.
 class Template {
-    WORD buf[4096];
+    WORD buf[32768];
     int n;
     int dropped;
     void Str(const wchar_t *s) { do buf[n++] = *s; while (*s++); }
     static int Words(const wchar_t *s) { int k = 1; while (*s++) ++k; return k; }
 public:
     DLGTEMPLATE *Begin(const wchar_t *title, int w, int h) {
+        title = Tr(title);
         n = 0;
         dropped = 0;
         DLGTEMPLATE *t = (DLGTEMPLATE *)buf;
@@ -156,6 +161,7 @@ public:
         return t;
     }
     void Item(WORD cls, DWORD style, int x, int y, int w, int h, int id, const wchar_t *text) {
+        text = Tr(text);
         // the most this control takes: alignment, the item, its class, its text and its creation-data word
         int need = 1 + (int)(sizeof(DLGITEMTEMPLATE) / 2) + 2 + Words(text) + 1;
         if (n + need > (int)(sizeof buf / sizeof buf[0])) { ++dropped; return; }
@@ -267,10 +273,10 @@ public:
 };
 
 static void Message(HWND owner, const wchar_t *text) {
-    MessageBoxW(owner, text, L"Virtual Families 1 Fun Patcher", MB_OK | MB_ICONINFORMATION);
+    MessageBoxW(owner, Tr(text), TR(L"Virtual Families 1 Fun Patcher"), MB_OK | MB_ICONINFORMATION);
 }
 static bool Confirm(HWND owner, const wchar_t *text) {
-    return MessageBoxW(owner, text, L"Virtual Families 1 Fun Patcher", MB_YESNO | MB_ICONQUESTION) == IDYES;
+    return MessageBoxW(owner, Tr(text), TR(L"Virtual Families 1 Fun Patcher"), MB_YESNO | MB_ICONQUESTION) == IDYES;
 }
 
 // ---- Free and Guaranteed Cheats (setting FreeAndGuaranteedCheats, off by default; the owner, 2026-11-01)
@@ -282,7 +288,7 @@ static bool Confirm(HWND owner, const wchar_t *text) {
 // Read once at startup (ReadFreeCheatsSetting); a missing key is off.
 static bool gFreeCheats;
 static const wchar_t FreeCheatsNeeded[] =
-    L"This needs the Free and Guaranteed Cheats patch. Tick it in the patcher, then click Enable/Disable Patches.";
+    TR_N(L"This needs the Free and Guaranteed Cheats patch. Tick it in the patcher, then click Enable/Disable Patches.");
 static bool FreeCheatsRefused(HWND dlg) {
     if (gFreeCheats) return false;
     Message(dlg, FreeCheatsNeeded);
@@ -314,9 +320,9 @@ static void AddFoodSaturating(int amount) {  // never wraps past the maximum
 
 static void RefreshCheats(HWND dlg) {
     wchar_t s[128];
-    swprintf(s, 128, L"Money now: $%.0f        Interest rate now: %.1f%%", CurrentMoney(), gInterestPercent);
+    swprintf(s, 128, TR(L"Money now: $%.0f        Interest rate now: %.1f%%"), CurrentMoney(), gInterestPercent);
     SetDlgItemTextW(dlg, ID_MONEY_NOW, s);
-    swprintf(s, 128, L"Food now: %d", *Food);
+    swprintf(s, 128, TR(L"Food now: %d"), *Food);
     SetDlgItemTextW(dlg, ID_FOOD_NOW, s);
 }
 
@@ -365,8 +371,8 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     case WM_COMMAND: {
         int id = LOWORD(wp);
         float add = id == ID_ADD100 ? 100.f : id == ID_ADD10K ? 10000.f : 0.f;
-        if ((id == ID_MONEY0 && !Confirm(dlg, L"Set your money to $0?")) ||
-            (id == ID_FOOD0 && !Confirm(dlg, L"Set your food to 0?")))
+        if ((id == ID_MONEY0 && !Confirm(dlg, TR_N(L"Set your money to $0?"))) ||
+            (id == ID_FOOD0 && !Confirm(dlg, TR_N(L"Set your food to 0?"))))
             return TRUE;
         if (id == ID_MONEY0 || id == ID_ADDMAX) {
             MoneyAdjust(Money, (id == ID_ADDMAX ? kMaxMoney : 0.f) - CurrentMoney(), false);
@@ -384,21 +390,21 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_SET_EDIT, s, 64);
             float target = (float)_wtof(s);
-            if (target < 0 || target > kMaxMoney) { Message(dlg, L"Enter an amount from 0 to 4,000,000,000."); break; }
+            if (target < 0 || target > kMaxMoney) { Message(dlg, TR_N(L"Enter an amount from 0 to 4,000,000,000.")); break; }
             MoneyAdjust(Money, target - CurrentMoney(), false);
             RefreshCheats(dlg);
         } else if (id == ID_RATE) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_RATE_EDIT, s, 64);
             float rate = (float)_wtof(s);
-            if (rate < 1 || rate > 11) { Message(dlg, L"Enter a rate from 1 to 11 percent."); break; }
+            if (rate < 1 || rate > 11) { Message(dlg, TR_N(L"Enter a rate from 1 to 11 percent.")); break; }
             SetInterestRate(rate);
             RefreshCheats(dlg);
         } else if (id == ID_FOOD_SET) {
             wchar_t s[64];
             GetDlgItemTextW(dlg, ID_FOOD_EDIT, s, 64);
             long long target = _wtoi64(s);
-            if (target < 0 || target > kMaxFood) { Message(dlg, L"Enter an amount of food from 0 to 2,147,483,647."); break; }
+            if (target < 0 || target > kMaxFood) { Message(dlg, TR_N(L"Enter an amount of food from 0 to 2,147,483,647.")); break; }
             AddFoodSaturating((int)(target - *Food));
             RefreshCheats(dlg);
         } else if (id == IDCANCEL || id == IDOK) {
@@ -415,27 +421,27 @@ static INT_PTR CALLBACK CheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static Template &CheatsTemplate() {
     static Template t;
-    t.Begin(L"Cheat Upgrades", 260, 200);
+    t.Begin(TR_N(L"Cheat Upgrades"), 260, 200);
     t.Item(STATIC, SS_LEFT, 10, 8, 240, 12, ID_MONEY_NOW, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 26, 56, 16, ID_MONEY0, L"No Money");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 26, 56, 16, ID_MONEY0, TR_N(L"No Money"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 70, 26, 56, 16, ID_ADD100, L"+ 100");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 130, 26, 62, 16, ID_ADD10K, L"+ 10,000");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 26, 53, 16, ID_ADDMAX, L"Max");
-    t.Item(STATIC, SS_LEFT, 10, 52, 80, 12, -1, L"Set money to $");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 26, 53, 16, ID_ADDMAX, TR_N(L"Max"));
+    t.Item(STATIC, SS_LEFT, 10, 52, 80, 12, -1, TR_N(L"Set money to $"));
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 92, 50, 75, 14, ID_SET_EDIT, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 49, 75, 16, ID_SET, L"Set");
-    t.Item(STATIC, SS_LEFT, 10, 78, 80, 12, -1, L"Interest rate %");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 49, 75, 16, ID_SET, TR_N(L"Set"));
+    t.Item(STATIC, SS_LEFT, 10, 78, 80, 12, -1, TR_N(L"Interest rate %"));
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP, 92, 76, 75, 14, ID_RATE_EDIT, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 75, 75, 16, ID_RATE, L"Set rate");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 75, 75, 16, ID_RATE, TR_N(L"Set rate"));
     t.Item(STATIC, SS_LEFT, 10, 104, 240, 12, ID_FOOD_NOW, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 120, 56, 16, ID_FOOD0, L"No Food");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 120, 56, 16, ID_FOOD0, TR_N(L"No Food"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 70, 120, 56, 16, ID_FOOD100, L"+ 100");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 130, 120, 62, 16, ID_FOOD10K, L"+ 10,000");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 120, 53, 16, ID_FOODMAX, L"Max");
-    t.Item(STATIC, SS_LEFT, 10, 146, 80, 12, -1, L"Set food to");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 196, 120, 53, 16, ID_FOODMAX, TR_N(L"Max"));
+    t.Item(STATIC, SS_LEFT, 10, 146, 80, 12, -1, TR_N(L"Set food to"));
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | ES_NUMBER | WS_BORDER | WS_TABSTOP, 92, 144, 75, 14, ID_FOOD_EDIT, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 143, 75, 16, ID_FOOD_SET, L"Set");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 174, 176, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 174, 143, 75, 16, ID_FOOD_SET, TR_N(L"Set"));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 174, 176, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowCheats(HWND owner) { DialogBoxIndirectParamW(Module, CheatsTemplate().Get(), owner, CheatsProc, 0); }
@@ -520,13 +526,13 @@ static void ApplyVillagerCheat(int i, int id) {
 static void FillVillagerList(HWND dlg) {
     HWND list = GetDlgItem(dlg, ID_VC_LIST);
     SendMessageW(list, LB_RESETCONTENT, 0, 0);
-    int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)L"Everyone");
+    int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)TR(L"Everyone"));
     SendMessageW(list, LB_SETITEMDATA, row, -1);
     for (int i = 0; i < VillagerSlots; ++i) {
         if (!VillagerPresent(i))
             continue;
         wchar_t line[128];
-        swprintf(line, 128, L"%.40ls\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d",
+        swprintf(line, 128, TR(L"%.40ls\tHealth %d  Happy %d  Fed %d  Energy %d  Head %d  Body %d"),
                  NameW((const char *)(Villager(i) + 0x2A44), 0x19), *Stat(i, STAT_HEALTH), *Stat(i, STAT_HAPPINESS),
                  Fed(i), *Stat(i, STAT_ENERGY), *Head(i), *Body(i));
         row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
@@ -538,16 +544,16 @@ static void FillVillagerList(HWND dlg) {
 // The confirmation text for a Villager Cheats button: what it does and to whom.
 static const wchar_t *VillagerCheatAction(int id) {
     switch (id) {
-    case ID_VC_HEALTH: return L"Max health";
-    case ID_VC_CURE: return L"Cure all illnesses";
-    case ID_VC_HAPPY: return L"Max happiness";
-    case ID_VC_ENERGY: return L"Max energy";
-    case ID_VC_FED: return L"Fill up (Fed)";
-    case ID_VC_ALL: return L"Max health, cure illnesses, max happiness, energy and fed";
-    case ID_VC_RUNNING: return L"Add Running Like";
-    case ID_VC_AGE18: return L"Set Age to 18";
-    case ID_VC_LOOKS: return L"Change Appearance";
-    case ID_VC_RANDOM_LOOKS: return L"Give a random look";
+    case ID_VC_HEALTH: return TR(L"Max health");
+    case ID_VC_CURE: return TR(L"Cure all illnesses");
+    case ID_VC_HAPPY: return TR(L"Max happiness");
+    case ID_VC_ENERGY: return TR(L"Max energy");
+    case ID_VC_FED: return TR(L"Fill up (Fed)");
+    case ID_VC_ALL: return TR(L"Max health, cure illnesses, max happiness, energy and fed");
+    case ID_VC_RUNNING: return TR(L"Add Running Like");
+    case ID_VC_AGE18: return TR(L"Set Age to 18");
+    case ID_VC_LOOKS: return TR(L"Change Appearance");
+    case ID_VC_RANDOM_LOOKS: return TR(L"Give a random look");
     }
     return 0;
 }
@@ -558,8 +564,8 @@ static bool ConfirmVillagerCheat(HWND dlg, int id) {
     int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
     int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
     wchar_t text[256];
-    if (who < 0) swprintf(text, 256, L"%s for EVERYONE in the house?", action);
-    else swprintf(text, 256, L"%s for %.40ls?", action, NameW((const char *)(Villager(who) + 0x2A44), 0x19));
+    if (who < 0) swprintf(text, 256, TR(L"%s for EVERYONE in the house?"), action);
+    else swprintf(text, 256, TR(L"%s for %.40ls?"), action, NameW((const char *)(Villager(who) + 0x2A44), 0x19));
     return Confirm(dlg, text);
 }
 
@@ -591,7 +597,7 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
             int head = (int)GetDlgItemInt(dlg, ID_VC_HEAD, &okHead, FALSE);
             int body = (int)GetDlgItemInt(dlg, ID_VC_BODY, &okBody, FALSE);
             if (id == ID_VC_LOOKS && (!okHead || !okBody || head >= AppearanceRows || body >= AppearanceRows)) {
-                Message(dlg, L"Head and body are each a number from 0 to 49.");
+                Message(dlg, TR_N(L"Head and body are each a number from 0 to 49."));
                 return TRUE;
             }
             for (int i = 0; i < VillagerSlots; ++i) {
@@ -608,7 +614,7 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
             int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
             int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
             if (id == ID_VC_AGE18 && who < 0) {
-                Message(dlg, L"Pick one villager: Set Age to 18 only changes the selected villager.");
+                Message(dlg, TR_N(L"Pick one villager: Set Age to 18 only changes the selected villager."));
                 return TRUE;
             }
             int done = 0;
@@ -647,25 +653,25 @@ static Template &VillagerCheatsTemplate() {
     static Template t;
     // Instant job promotion, Career Change, Boarding School, Systematic Desensitization, Higher Learning and
     // Psychotherapy are VF2's paid services now, on the Services page (SpecialUpgrades), not cheats.
-    t.Begin(L"Villager Cheats", 340, 274);
+    t.Begin(TR_N(L"Villager Cheats"), 340, 274);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 320, 110, ID_VC_LIST, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, L"Max health");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, L"Cure illnesses");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 128, 90, 18, ID_VC_HAPPY, L"Max happiness");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 152, 90, 18, ID_VC_ENERGY, L"Max energy");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 152, 90, 18, ID_VC_FED, L"Fill up (Fed)");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, L"All of these");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 104, 18, ID_VC_RUNNING, L"Add Running Like");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 176, 104, 18, ID_VC_AGE18, L"Set Age to 18");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 200, 328, 40, -1, L"Change Appearance (hairstyle and face, clothes)");
-    t.Item(STATIC, SS_LEFT, 14, 218, 30, 12, -1, L"Head:");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, TR_N(L"Max health"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, TR_N(L"Cure illnesses"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 128, 90, 18, ID_VC_HAPPY, TR_N(L"Max happiness"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 152, 90, 18, ID_VC_ENERGY, TR_N(L"Max energy"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 152, 90, 18, ID_VC_FED, TR_N(L"Fill up (Fed)"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, TR_N(L"All of these"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 104, 18, ID_VC_RUNNING, TR_N(L"Add Running Like"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 176, 104, 18, ID_VC_AGE18, TR_N(L"Set Age to 18"));
+    t.Item(BUTTON, BS_GROUPBOX, 6, 200, 328, 40, -1, TR_N(L"Change Appearance (hairstyle and face, clothes)"));
+    t.Item(STATIC, SS_LEFT, 14, 218, 30, 12, -1, TR_N(L"Head:"));
     t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 44, 216, 26, 14, ID_VC_HEAD, L"");
-    t.Item(STATIC, SS_LEFT, 78, 218, 30, 12, -1, L"Body:");
+    t.Item(STATIC, SS_LEFT, 78, 218, 30, 12, -1, TR_N(L"Body:"));
     t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 108, 216, 26, 14, ID_VC_BODY, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 215, 84, 16, ID_VC_LOOKS, L"Change (0-49)");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 215, 94, 16, ID_VC_RANDOM_LOOKS, L"Random look");
-    t.Item(STATIC, SS_LEFT, 10, 252, 220, 12, -1, L"Pick Everyone to change everybody at once.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 248, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 215, 84, 16, ID_VC_LOOKS, TR_N(L"Change (0-49)"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 215, 94, 16, ID_VC_RANDOM_LOOKS, TR_N(L"Random look"));
+    t.Item(STATIC, SS_LEFT, 10, 252, 220, 12, -1, TR_N(L"Pick Everyone to change everybody at once."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 248, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowVillagerCheats(HWND owner) {
@@ -685,7 +691,7 @@ static bool FleaMarketItem(int id) {
 
 static void RefreshFleaMoney(HWND dlg) {
     wchar_t s[64];
-    swprintf(s, 64, L"Money: $%.0f", CurrentMoney());
+    swprintf(s, 64, TR(L"Money: $%.0f"), CurrentMoney());
     SetDlgItemTextW(dlg, ID_FM_MONEY, s);
 }
 
@@ -693,25 +699,25 @@ static void BuyItem(HWND dlg, bool free) {
     if (free && FreeCheatsRefused(dlg)) return;  // Get for free needs Free and Guaranteed Cheats; Buy never does
     HWND list = GetDlgItem(dlg, ID_FM_LIST);
     int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
-    if (sel < 0) { Message(dlg, L"Pick an item first."); return; }
+    if (sel < 0) { Message(dlg, TR_N(L"Pick an item first.")); return; }
     int id = (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
     int price = Item(id)->price;
-    if (!free && CurrentMoney() < price) { Message(dlg, L"You don't have enough money for that."); return; }
+    if (!free && CurrentMoney() < price) { Message(dlg, TR_N(L"You don't have enough money for that.")); return; }
     const char *itemName = GetString(StringsGet(), Item(id)->shortDesc);
     wchar_t text[200];
     if (!free) {
-        swprintf(text, 200, L"Buy %.60hs for $%d?", itemName ? itemName : "this item", price);
+        swprintf(text, 200, TR(L"Buy %.60hs for $%d?"), itemName ? itemName : TR_A(60, "this item"), price);
         if (!Confirm(dlg, text)) return;
     }
     // Same calls the store makes when you buy (theStoreScene::Buy 0x449A70),
     // except the store's limited stock is not used up.
     if (!TrayAddItem(ToolTray, id, GetUseCount(Inventory, id))) {
-        Message(dlg, L"Your item tray is full. Use or sell something first.");
+        Message(dlg, TR_N(L"Your item tray is full. Use or sell something first."));
         return;
     }
     if (!free) {
         MoneyAdjust(Money, (float)-price, false);
-        swprintf(text, 200, L"Purchased: %.60hs.", itemName ? itemName : "item");
+        swprintf(text, 200, TR(L"Purchased: %.60hs."), itemName ? itemName : TR_A(60, "item"));
         Message(dlg, text);
     }
     RefreshFleaMoney(dlg);
@@ -755,12 +761,12 @@ static INT_PTR CALLBACK FleaProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static Template &FleaMarketTemplate() {
     static Template t;
-    t.Begin(L"Flea Market", 280, 250);
+    t.Begin(TR_N(L"Flea Market"), 280, 250);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_FM_MONEY, L"");
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 24, 260, 190, ID_FM_LIST, L"");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 224, 80, 16, ID_FM_BUY, L"Buy");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 96, 224, 80, 16, ID_FM_FREE, L"Get for free");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 190, 224, 80, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 224, 80, 16, ID_FM_BUY, TR_N(L"Buy"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 96, 224, 80, 16, ID_FM_FREE, TR_N(L"Get for free"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 190, 224, 80, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowFleaMarket(HWND owner) { DialogBoxIndirectParamW(Module, FleaMarketTemplate().Get(), owner, FleaProc, 0); }
@@ -801,13 +807,13 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
         EnableWindow(GetDlgItem(dlg, ID_UP_TIME), SettingOn(L"CheatUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_PURCHASES), SettingOn(L"SpecialUpgrades", true));
         EnableWindow(GetDlgItem(dlg, ID_UP_SERVICES), SettingOn(L"SpecialUpgrades", true));
-        if (gFreeCheats) SetDlgItemTextW(dlg, ID_UP_DICE, L"Roll the Dice (free): a Popup Event now");
+        if (gFreeCheats) SetDlgItemTextW(dlg, ID_UP_DICE, TR(L"Roll the Dice (free): a Popup Event now"));
         EnableWindow(GetDlgItem(dlg, ID_UP_FAMILY), SettingOn(L"CheatUpgrades", true));
         // Clothing and Hairstyles gives any outfit or hairstyle for free: it also needs Free and Guaranteed Cheats.
         EnableWindow(GetDlgItem(dlg, ID_UP_APPEARANCE), SettingOn(L"CheatUpgrades", true) && gFreeCheats);
         {
             wchar_t s[96];
-            swprintf(s, 96, L"Generation: %d     Oldest Villager: %d     Achievements: %d/%d", GenerationNumber(),
+            swprintf(s, 96, TR(L"Generation: %d     Oldest Villager: %d     Achievements: %d/%d"), GenerationNumber(),
                      OldestEverAge(), AchievementsUnlocked(), kAchievementTotal);
             SetDlgItemTextW(dlg, ID_UP_COUNTERS, s);
         }
@@ -832,14 +838,14 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             {
                 wchar_t s[120];
                 if (CurrentMoney() < RollTheDiceCost()) {
-                    swprintf(s, 120, L"Roll the Dice costs $%d, and you don't have enough money.", RollTheDiceCost());
+                    swprintf(s, 120, TR(L"Roll the Dice costs $%d, and you don't have enough money."), RollTheDiceCost());
                     Message(dlg, s);
                     break;
                 }
-                swprintf(s, 120, L"Roll the Dice for $%d? A Popup Event happens right away.", RollTheDiceCost());
+                swprintf(s, 120, TR(L"Roll the Dice for $%d? A Popup Event happens right away."), RollTheDiceCost());
                 if (!Confirm(dlg, s))
                     break;
-                swprintf(s, 120, L"Purchased: Roll the Dice ($%d).", RollTheDiceCost());
+                swprintf(s, 120, TR(L"Purchased: Roll the Dice ($%d)."), RollTheDiceCost());
                 Message(dlg, s);
             }
             // The event shows the game's own dialog, so this one closes first.
@@ -858,21 +864,21 @@ static INT_PTR CALLBACK UpgradesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static Template &UpgradesTemplate() {
     static Template t;
-    t.Begin(L"Upgrades Menu", 220, 326);
+    t.Begin(TR_N(L"Upgrades Menu"), 220, 326);
     t.Item(STATIC, SS_LEFT, 10, 8, 200, 12, ID_UP_COUNTERS, L"");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, L"Cheat Upgrades: money, food, interest...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, L"Villager Cheats: health, cures...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 68, 200, 18, ID_UP_STORE, L"Store, Achievement and Collection Cheats...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 90, 200, 18, ID_UP_HOUSE, L"House and Yard: trash, weeds, cleaning...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, L"Time Controls: pause, speed...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, L"Special Upgrades: Food Club, Maid, Lucky Rock...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_SERVICES, L"Services: Time Warp, Adoption, Career Training...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FAMILY, L"Family: marriage, babies, children...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_FLEA, L"Flea Market...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_DICE, L"Roll the Dice ($2,000): a Popup Event now");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_ACH, L"Patcher Achievements...");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 266, 200, 18, ID_UP_APPEARANCE, L"Clothing and Hairstyles...");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 302, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 24, 200, 18, ID_UP_CHEATS, TR_N(L"Cheat Upgrades: money, food, interest..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 46, 200, 18, ID_UP_VILLAGERS, TR_N(L"Villager Cheats: health, cures..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 68, 200, 18, ID_UP_STORE, TR_N(L"Store, Achievement and Collection Cheats..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 90, 200, 18, ID_UP_HOUSE, TR_N(L"House and Yard: trash, weeds, cleaning..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 112, 200, 18, ID_UP_TIME, TR_N(L"Time Controls: pause, speed..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 134, 200, 18, ID_UP_PURCHASES, TR_N(L"Special Upgrades: Food Club, Maid, Lucky Rock..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 156, 200, 18, ID_UP_SERVICES, TR_N(L"Services: Time Warp, Adoption, Career Training..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 178, 200, 18, ID_UP_FAMILY, TR_N(L"Family: marriage, babies, children..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 200, 200, 18, ID_UP_FLEA, TR_N(L"Flea Market..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 222, 200, 18, ID_UP_DICE, TR_N(L"Roll the Dice ($2,000): a Popup Event now"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 244, 200, 18, ID_UP_ACH, TR_N(L"Patcher Achievements..."));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 266, 200, 18, ID_UP_APPEARANCE, TR_N(L"Clothing and Hairstyles..."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 135, 302, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowUpgrades() { DialogBoxIndirectParamW(Module, UpgradesTemplate().Get(), GameWindow(), UpgradesProc, 0); }
@@ -1153,10 +1159,29 @@ static void LoadTextCompanion(const wchar_t *name) {
     TextStoreName = (TextStoreNameFn)GetProcAddress(text, "VF1Text_StoreName");
 }
 
+// ---------------------------------------------------------------- Translations
+// Its own DLL, vf1tr.dll, installed beside this one only while the Translations setting is on (patcher/
+// manifest.json). Loaded last, after vf1text.dll / vf1font.dll, so it can tell whether the game draws UTF-8. It
+// changes no hook of this DLL or of the others: it sets the string table's own override pointers (see
+// native/vf1tr/vf1tr.c). This DLL only loads it.
+static void LoadTranslationsCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1tr.dll");
+    HMODULE tr = LoadLibraryW(path);
+    if (!tr) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(tr, "VF1Tr_Startup");
+    if (startup) startup();   // not installed: the game stays in English
+}
+
 // "This family already has six children." -- or the 28 when Up to 28 Children is installed.
 static const wchar_t *FamilyFullText() {
-    return KidsLimit ? L"This family has no room for another child (28 at most)."
-                     : L"This family already has six children.";
+    return KidsLimit ? TR(L"This family has no room for another child (28 at most).")
+                     : TR(L"This family already has six children.");
 }
 
 #include "features.inc"
@@ -1190,7 +1215,7 @@ static bool __fastcall StoreHandleMessage(void *scene, void *, int message, int 
             if (!FireEvent(IslandEventsGet(), scene)) {
                 MoneyAdjust(Money, (float)cost, false);
                 wchar_t s[140];
-                swprintf(s, 140, L"No Popup Event can happen right now, so the dice weren't rolled. Your $%d was refunded.", cost);
+                swprintf(s, 140, TR(L"No Popup Event can happen right now, so the dice weren't rolled. Your $%d was refunded."), cost);
                 Message(GameWindow(), s);
             } else {
                 LogFamilyEvent(LOGS_ROLL_DICE, -1, cost);   // after the event it fired
@@ -1226,7 +1251,7 @@ static void AddUpgradesButton(void *scene) {
     ButtonCtor(button, UpgradesButtonId, grid, pos, scene, false);
     void *font = *(void **)StringsGet();
     unsigned colour = *ButtonTextColour;
-    ButtonSetText(button, "Upgrades", colour, colour, colour, font);
+    ButtonSetText(button, TR_A(60, "Upgrades"), colour, colour, colour, font);
     int width = ButtonGetWidth(button);
     ButtonSetPos(button, DoneButtonX + width + 12, DoneButtonY);
     AddControl(scene, button);
@@ -1288,6 +1313,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadTextCompanion(L"vf1font.dll");
     if (SettingOn(L"CopyPasteInTextBoxes", true))   // after the text DLLs: a paste follows their rules when installed
         InstallClipboard();
+    if (SettingOn(L"Translations", false))   // last: after the text companions
+        LoadTranslationsCompanion();
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Fun_StoreCreated(void *scene) {
