@@ -24,6 +24,11 @@
    give vf1logs.dll the English, so the Family History log stays English while the game shows the translation.  The
    likes and dislikes lists keep every item, each no longer than its English; only the decimal point is never.
 
+   PERCENT.  Only a line's own English placeholders are placeholders; any other '%' in a translation is plain text
+   ("2 %", "50 % de reduction").  A line the game (VF1TR_FORMAT) or vf1fun.dll (VF1TR_PATCH_FORMAT) uses as a
+   printf FORMAT gets each such '%' as "%%" (tt_escape_percent), which counts toward its room; a line that reaches
+   the guarded sprintf as its format without being one is handed an escaped copy there (row.out_fmt).
+
    No choice, "English (original)", a missing or unreadable file, a file for another game: nothing is changed.
    A bad line (a broken placeholder, a changed English, too long, a line that is never translated) shows English;
    the file's other lines still work.  Every problem goes to "Translations.log" beside the DLL (line numbers,
@@ -38,6 +43,7 @@
 #include <intrin.h>
 #include "translation_text.h"
 #include "vf1tr_limits.h"
+#include "vf1tr_patch_formats.h"
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -83,6 +89,8 @@ typedef struct row {
     int patch;
     int size;                        /* measure() of the translation, in UTF-8 bytes */
     int has_conv;                    /* the English has a printf conversion (it goes through swprintf) */
+    int is_format;                   /* the program uses it as a printf format: plain '%' written "%%" */
+    char *out_fmt;                   /* not a format but has a plain '%': `out` with every '%' as "%%" (guard_sprintf) */
     char *utf8;                      /* the translation rendered as UTF-8 */
     wchar_t *wide;                   /* ... and as UTF-16, made on first use */
     struct row *next;                /* the next patch line in its hash bucket */
@@ -375,6 +383,40 @@ static int measure(const char *s, int n, const tt_template *t) {
 
 static tt_template tmpl_english, tmpl_translation;
 
+static int is_patch_format(unsigned int hash) {
+    int k;
+    for (k = 0; k < VF1TR_PATCH_FORMAT_COUNT; ++k) if (VF1TR_PATCH_FORMAT[k] == hash) return 1;
+    return 0;
+}
+
+/* A FORMAT line: its translation with every plain '%' as "%%" (a new text), parsed again; 0 when it cannot be. */
+static int escape_row(row *r) {
+    char *esc;
+    int n;
+    if (!r->is_format) return 1;
+    esc = (char *)tr_alloc((SIZE_T)r->translation_n * 2 + 4);
+    if (esc == NULL) return 0;
+    n = tt_escape_percent(r->translation, r->translation_n, &tmpl_english, esc, r->translation_n * 2 + 4);
+    if (n < 0) return 0;
+    r->translation = esc;
+    r->translation_n = n;
+    tt_parse_template(esc, n, &tmpl_translation, &tmpl_english);
+    return tmpl_translation.errors == 0;
+}
+
+/* `s` with every '%' as "%%": a line that is no format, handed to sprintf as its format (guard_sprintf). */
+static char *escape_all(const char *s) {
+    int n = slen(s), o = 0, k;
+    char *out;
+    for (k = 0; k < n && s[k] != '%'; ++k) {}
+    if (k == n) return NULL;
+    out = (char *)tr_alloc((SIZE_T)n * 2 + 2);
+    if (out == NULL) return NULL;
+    for (k = 0; k < n; ++k) { out[o++] = s[k]; if (s[k] == '%') out[o++] = '%'; }
+    out[o] = 0;
+    return out;
+}
+
 /* ----------------------------------------------------------------- the patches' own text */
 
 static unsigned int patch_hash(const char *s, int n) {
@@ -569,7 +611,10 @@ static int read_rows(const char *text, int n) {
         }
         if (tt_span_is(source, "patch")) {
             /* Text a patch adds: used where the patch asks for it by its English (patch_find). */
-            if (!tt_translation_ok(r->english, r->english_n, r->translation, r->translation_n, &tmpl_english, &tmpl_translation)) {
+            r->is_format = is_patch_format(hash);
+            if (!tt_translation_ok(r->english, r->english_n, r->translation, r->translation_n, &tmpl_english, &tmpl_translation,
+                                   r->is_format)
+                || !escape_row(r)) {
                 log_refused(line_no, "the placeholders or choices do not match the English");
                 continue;
             }
@@ -601,7 +646,10 @@ static int read_rows(const char *text, int n) {
         if (in_list(VF1TR_NEVER, v)) { log_refused(line_no, "this line is never translated"); continue; }
         r->rec = record_of(v);
         if (r->rec == NULL) { log_refused(line_no, "no such game line"); continue; }
-        if (!tt_translation_ok(r->english, r->english_n, r->translation, r->translation_n, &tmpl_english, &tmpl_translation)) {
+        r->is_format = in_list(VF1TR_FORMAT, v);
+        if (!tt_translation_ok(r->english, r->english_n, r->translation, r->translation_n, &tmpl_english, &tmpl_translation,
+                               r->is_format)
+            || !escape_row(r)) {
             log_refused(line_no, "the placeholders or choices do not match the English");
             continue;
         }
@@ -616,6 +664,7 @@ static int read_rows(const char *text, int n) {
         }
         r->out = render_out(r->translation, r->translation_n, &tmpl_translation, text_mode);
         if (r->out == NULL) { log_refused(line_no, "could not be written"); continue; }
+        if (!r->is_format) r->out_fmt = escape_all(r->out);
         if (is_item_list(v) && !items_fit(r->english_game, r->out)) {
             log_refused(line_no, "a list must keep every item, each no longer than its English");
             continue;
@@ -686,13 +735,18 @@ static int __cdecl guard_sprintf(char *dst, const char *format, DWORD a0, DWORD 
     int k = guard_index(_ReturnAddress()), changed = 0, q, lt, le;
     DWORD a[8], e[8];
     const char *fe = format;
+    const char *ft = format;
     sprintf_fn next;
     if (k < 0) return 0;
     next = (sprintf_fn)(UINT_PTR)guard_next[k];
     a[0] = a0; a[1] = a1; a[2] = a2; a[3] = a3; a[4] = a4; a[5] = a5; a[6] = a6; a[7] = a7;
     __try {
         const row *r = row_of_out(format);
-        if (r != NULL) { fe = r->english_game; changed = 1; }
+        if (r != NULL) {
+            fe = r->english_game;
+            changed = 1;
+            if (r->out_fmt != NULL) ft = r->out_fmt;   /* a line that is no format: its '%' are plain text */
+        }
         for (q = 0; q < 8; ++q) {
             const row *x = row_of_out((const void *)(UINT_PTR)a[q]);
             e[q] = x != NULL ? (DWORD)(UINT_PTR)x->english_game : a[q];
@@ -704,7 +758,7 @@ static int __cdecl guard_sprintf(char *dst, const char *format, DWORD a0, DWORD 
     }
     /* an untranslated format with each text no longer than its English: the English game's length at most */
     if (!changed) return next(dst, format, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
-    lt = next(sprintf_t, format, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
+    lt = next(sprintf_t, ft, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]);
     le = next(sprintf_e, fe, e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7]);
     if (lt < 0 || le < 0) return next(dst, fe, e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7]);
     if (lt > le) {

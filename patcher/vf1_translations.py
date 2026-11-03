@@ -4,8 +4,10 @@ the lines are vf1_translation_strings.py; the game side is vf1tr.dll (native/vf1
 Fish and Plant Tycoon Fix Patcher (src/translations.py).
 
 * Every translation lives in the patcher's "translations" folder, one flat folder of
-  "Virtual Families - <language>.txt" files; the ones that came with the patcher (accepted on GitHub)
-  are in its "vf1" subfolder. Only the English template is ever generated.
+  "Virtual Families - <language>.txt" files; the ones that came with the patcher (accepted on GitHub, from
+  the repository's public translations/ folder, "<language code>.tsv") and the ones downloaded with
+  Download from GitHub... (vf1_translations_github.py) are in its "vf1" subfolder. Only the English
+  template is ever generated.
 * The choice is remembered in "translation_choice.json" beside the patcher and written into every
   modded copy of the game the patcher knows: "<copy>\\Virtual Families 1 Patcher Files\\Translation.ini"
   (language=, file=<full path>) and a copy of the file, Translation.txt, beside it (used when the
@@ -111,7 +113,8 @@ def installed(game: str, folder: Path | None = None) -> list[Installed]:
     """Every translation for this game: the ones that came with the patcher, then the player's."""
     folder = folder or TRANSLATIONS_DIR
     found: list[Installed] = []
-    for path in sorted(list((folder / game).glob("*.txt")) + list(folder.glob("*.txt"))):
+    for path in sorted(list((folder / game).glob("*.txt")) + list((folder / game).glob("*.tsv"))
+                       + list(folder.glob("*.txt"))):
         info = read_info(path, game)
         if info is not None:
             found.append(info)

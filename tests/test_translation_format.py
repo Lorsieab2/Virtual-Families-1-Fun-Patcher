@@ -95,7 +95,7 @@ class Reading(unittest.TestCase):
         self.assertEqual(tf.parse_text(text, "vf1").language, "Français")
 
     def test_bad_rows_fall_back_and_name_their_line(self) -> None:
-        text = tf.to_text(sample(("Âge : %d", "Vous avez vendu %s !", "")))
+        text = tf.to_text(sample(("Âge : {x}", "Vous avez vendu %s !", "")))
         parsed = tf.parse_text(text, "vf1")
         lines = text.split("\r\n")
         bad = {p.line for p in parsed.errors}
@@ -132,11 +132,14 @@ class Placeholders(unittest.TestCase):
         self.assertTrue(self.check("%s has %d", "%d a %s")[0])
         self.assertTrue(self.check("%d", "")[0] == [])                    # empty: untranslated, not an error
         self.assertTrue(self.check("%d", "rien")[0])
-        self.assertTrue(self.check("%d", "%d %n")[0])
-        self.assertTrue(self.check("%d", "%d 50%")[0])                    # lone %: write %%
-        self.assertEqual(self.check("%d", "%d 50%%")[0], [])
-        self.assertEqual(self.check("Save 50%! %d", "50% !%d")[0], [])     # the English has one too
-        self.assertTrue(self.check("50% of %d", "50% de %d")[0])           # "% o" and "% d" are conversions
+        self.assertEqual(self.check("%d", "%d 50%")[0], [])               # a lone %: plain text
+        self.assertTrue(self.check("%d", "%d 50%%")[1])                   # "%%" would show two: a warning
+        self.assertEqual(self.check("%d", "%d %n")[0], [])                # no token of the English: plain text
+        self.assertEqual(tf.runtime_text("%d %n", "%d", True), "%d %%n")  # ... handed to printf as "%%n"
+        self.assertEqual(self.check("%d%%", "%d %%")[0], [])               # the English's own "%%"
+        self.assertEqual(self.check("Save 50%! %d", "50% !%d")[0], [])
+        self.assertEqual(self.check("50% of %d", "50 % de %d")[0], [])     # "% d" is no token of the English
+        self.assertTrue(self.check("%d of %d", "%d sur % d")[0])           # "% d" is not the English's "%d"
 
     def test_named_variables_any_order(self) -> None:
         self.assertEqual(self.check("{a} and {b}", "{b} et {a}")[0], [])
@@ -382,3 +385,73 @@ def test_a_list_keeps_every_item_each_no_longer():
     assert report.errors and tf.ITEMS_MESSAGE in report.errors[0].message
     f.rows[0].translation = "Courir,Nager,Lire"
     assert tf.validate(f, [entry]).errors == []
+
+
+# ---------------------------------------------------------------------------------------------- percent signs
+
+
+FRENCH_PERCENTS = ("2 %", "2\u00a0%", "2\u202f%", "50 % de réduction")
+
+
+@pytest.mark.parametrize("text", FRENCH_PERCENTS)
+@pytest.mark.parametrize("is_format", [False, None])
+def test_french_percent_signs_are_plain_text(text, is_format):
+    """Only the English's own tokens are placeholders: "% d" in "50 % de" is plain text, not the space flag."""
+    errors, warnings = tf.check_translation("%d of %d", f"%d sur %d, {text}", "fr", is_format=True)
+    assert errors == [] and warnings == []
+    errors, _w = tf.check_translation("Sale: 50% off", f"Soldes : {text}", "fr", is_format=is_format)
+    assert errors == []
+
+
+@pytest.mark.parametrize("text", FRENCH_PERCENTS)
+def test_a_format_line_hands_printf_a_double_percent_and_shows_one(text):
+    """In a printf FORMAT line every plain '%' is written "%%", so the real formatter shows a single '%'."""
+    english = "Interest: %d"
+    translation = f"Intérêt : %d ({text})"
+    runtime = tf.runtime_text(translation, english, True)
+    assert runtime == f"Intérêt : %d ({text.replace('%', '%%')})"
+    shown = runtime.replace("%d", "{}", 1).replace("%%", "%").format(7)     # what printf("%d", 7) makes
+    assert shown == f"Intérêt : 7 ({text})"
+    import ctypes
+    import ctypes.util
+    if os.name == "nt":                                                     # the C runtime's own formatter
+        buf = ctypes.create_unicode_buffer(256)
+        ctypes.cdll.msvcrt.swprintf(buf, runtime, ctypes.c_int(7))
+        assert buf.value == f"Intérêt : 7 ({text})"
+
+
+@pytest.mark.parametrize("text", FRENCH_PERCENTS)
+def test_a_line_that_is_no_format_is_handed_on_unchanged(text):
+    translation = f"Soldes : {text}"
+    assert tf.runtime_text(translation, "Sale: 50% off", False) == translation
+    assert tf.game_text(translation, "Sale: 50% off", False) == translation
+
+
+def test_the_extra_percent_bytes_count_toward_the_room():
+    english = "%d off"
+    assert tf.measure("%d 5 %", english=english, is_format=True) == len("%d 5 %%")
+    assert tf.measure("%d 5 %", english=english, is_format=False) == len("%d 5 %")
+    assert not tf.too_long("%d 5 %", 7, english=english, is_format=True)
+    assert tf.too_long("%d 5 %", 6, english=english, is_format=True)        # 7 bytes as handed to printf
+    entry = tf.Entry(tf.make_key("strings", "460", english), english, max_length=6, is_format=True)
+    f = tf.new_file("vf1", [entry], "Français", "fr")
+    f.rows[0].translation = "%d 5 %"
+    report = tf.validate(tf.parse_bytes(tf.to_bytes(f), "vf1"), [entry])
+    assert any("too long" in p.message for p in report.errors)
+
+
+def test_the_format_lines_come_from_the_programs_own_calls():
+    """A game line the game hands sprintf as its format, and a patch line vf1fun.dll hands swprintf as its format,
+    are formats; a line with a percent sign it only shows is not."""
+    assert ts.is_format_key(tf.make_key("strings", "460", "%d of %d")) is True          # eString_XofY
+    assert ts.is_format_key(tf.make_key("strings", "1323", "x")) is None                # no format: its English decides
+    patch = {e.english: e for e in ts.patch_entries()}
+    assert patch["Food now: %d"].is_format is True
+    assert patch["Money now: $%.0f        Interest rate now: %.1f%%"].is_format is True
+    assert patch["There is no family yet."].is_format is True                           # swprintf(s, 200, TR(...))
+    broker = next(e for t, e in patch.items() if t.startswith("Upgrade your broker"))
+    assert broker.is_format is False
+    assert ts.is_format_key(broker.key) is False and ts.is_format_key("other/x~12345678") is None
+    # "% d" in "50% discount" is no placeholder of a line that is no format
+    csa = next(e for t, e in patch.items() if "50% discount" in t)
+    assert tf.check_translation(csa.english, "Un abonnement : 50 % de réduction.", "fr", is_format=False)[0] == []

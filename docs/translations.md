@@ -18,8 +18,9 @@ game it knows (the folders on the main tab): `<copy>\Virtual Families 1 Patcher 
 the file, `Translation.txt`, beside it. `Translations.log` there says what the game used (line numbers of any line that
 shows English, never the text).
 
-Translations that came with the patcher (accepted on GitHub) are in its `translations\vf1` folder and are listed with
-their translator's credit name. Yours are in `translations` itself.
+Translations that came with the patcher (accepted on GitHub) and the ones you download with **Download from
+GitHub...** are in its `translations\vf1` folder and are listed with their translator's credit name. Yours are in
+`translations` itself.
 
 ## Making a translation
 
@@ -48,7 +49,8 @@ the top does. **Export...** saves a copy of each selected translation (one file 
 choose). **Delete...** asks one Yes/No question listing the files (No is the default and does nothing) and moves them
 to the Windows Recycle Bin (`SHFileOperationW` with `FOF_ALLOWUNDO`), so you can restore them; if the Recycle Bin
 refuses, nothing is deleted. "English (original)" is part of the game and is never deleted. A translation that came
-with the patcher comes back with the next patcher update. Deleting the language the game uses puts the game back in
+with the patcher comes back with the next patcher update, and any translation on GitHub can be downloaded again with
+**Download from GitHub...**. Deleting the language the game uses puts the game back in
 English from its next start, exactly as choosing English does.
 
 After a patcher update, open your file in the editor: new lines appear untranslated, a line whose English changed is
@@ -80,7 +82,12 @@ strings/679~b3b0dc0a	{name} finally got a promotion! {He/She} worked so hard for
 
 - **Names and numbers the game fills:** `{name}` and `{name2}` are family members' names, `{award}` a number. Keep each
   one; any order.
-- **printf conversions** (`%d`): keep the same ones in the same order. Write `%%` for a percent sign.
+- **printf conversions** (`%d`): keep the same ones in the same order.
+- **Percent signs:** only the placeholders the line's English has count as placeholders. Any other `%` is plain text,
+  so write a percent sign as you normally would: `2 %`, `2 %` (no-break space), `50 % de réduction`. Where the
+  game or a patch formats the line with printf, the patcher hands it each such `%` as `%%`, so it shows one `%`
+  (the extra byte counts toward the line's room); anywhere else it is shown as you wrote it. `%%` shows as two
+  percent signs unless the English has `%%` itself.
 - `{{` and `}}` are literal braces.
 
 ### Choosing words by person
@@ -153,6 +160,39 @@ lists can be translated item by item: keep every item, in order, separated by co
 Any Unicode character can be used (the whole Unicode 18.0 chart collection and anything later): the patcher never
 rejects a letter because it does not know it. Whether the game can draw it depends on the Unicode settings and fonts.
 
+## The public translations folder
+
+Every accepted translation is in the repository's public [`translations/`](../translations/README.md) folder, one
+file per language: `translations/<language code>.tsv` (`fr.tsv`, `pt-BR.tsv`), and `<code>-<credit>.tsv` when that
+language already has a file (`fr-ann-lee.tsv`, then `fr-ann-lee-2.tsv`: ASCII, lower case, `a-z 0-9 -`, at most 40
+letters; nothing is ever overwritten). The content is the same format as above (only the name and the `.tsv`
+extension differ). The older `patcher/translations/vf1/*.txt` place is still read. A release ships every accepted
+file except a "(TEST)" one (its language name or credit starts with "(TEST)", or its file name says it).
+`translations/fr.tsv`, "(TEST) - French AI Translation" (credit "(TEST) AI translation"), is one: an AI translation of
+every line, the game's and the patches', for trying out.
+
+- **Download from GitHub...** (Translations window) lists that folder on the default branch with GitHub's read-only
+  public API (only `api.github.com` and `raw.githubusercontent.com`, only this repository's `translations/`, no
+  login, nothing about you sent): language, credit (shown in the name when a language has several files), the date
+  it last changed, and **Update available** when your copy differs (GitHub's file SHA against your file's git blob
+  SHA). Select one or more and press **Download**: each is checked as data (at most 2 MB, the validator, no email
+  address) before it goes into `translations\vf1`. No network or GitHub's hourly limit is said plainly and changes
+  nothing.
+- **Uploading by hand:** the folder's README explains how to download a file, translate it, type a credit name, and
+  upload it with GitHub's **Add file > Upload files** (a pull request is opened for you).
+- **Checks on every pull request** (`.github/workflows/translations-check.yml`, `pull_request_target`, never
+  checking out or running the pull request): the changed `translations/` files are fetched through the API as data
+  (UTF-8 `.tsv` only, at most 2 MB), sent to **VirusTotal** first (`scripts/virustotal_scan.py`: looked up by
+  SHA-256, uploaded and polled when unknown, at most 4 requests a minute), and only then validated with the base
+  branch's validator (`scripts/translation_pr_check.py`); the result is commented on the pull request. Any engine
+  that calls a file malicious or suspicious refuses it, naming the engines; VirusTotal unreachable, too slow, or the
+  `VT_API_KEY` secret missing refuses it as "not scanned": nothing passes by default. Files sent to VirusTotal can
+  be seen by VirusTotal's partners. Every push to main under `translations/` is scanned again
+  (`translations-rescan.yml`).
+- **The key:** the owner adds a VirusTotal API key as the repository secret `VT_API_KEY` (Settings > Secrets and
+  variables > Actions). It is only passed to the one step that scans, never printed; without it every check fails
+  and says the key is missing.
+
 ## Sharing
 
 The Translations window says: "If you want to share your translation, consider going to the Patcher's GitHub page and
@@ -166,15 +206,12 @@ GitHub's translation form with the game and language filled in: drag the file in
 
 You need a free GitHub account: https://github.com/signup
 
-When the owner accepts it (the `accept-translation` label), a GitHub Action downloads the file, checks it as data only
-with the patcher's own validator, and opens a pull request adding it to `patcher/translations/vf1/`, committed by the
-bot (github-actions[bot]) and credited only to the typed credit name; if something is wrong it comments the problems
-instead. Accepted translations ship in the next release and appear in every player's language list.
-
-A "(TEST)" translation (its file name, language name or credit says "(TEST)") is for trying out only: it lives in
-the repository's `translations/` folder and never ships in a release (`tools/package_release.py` leaves it out;
-`tests/test_release.py` checks it). `translations/fr.tsv`, "(TEST) - French AI Translation" credited to "(TEST) AI
-translation", is one: an AI translation of every line, game and patch, to install with **Add translation file...**.
+When the owner accepts it (the `accept-translation` label), a GitHub Action downloads the file, scans it with
+VirusTotal first (flagged or not scanned: refused, with a comment), downloads it again (it must be the scanned file),
+checks it as data only with the patcher's own validator, and opens a pull request adding it to the public folder as
+`translations/<language code>.tsv` (or `<code>-<credit>.tsv`), committed by the bot (github-actions[bot]) and
+credited only to the typed credit name; if something is wrong it comments the problems instead. Accepted
+translations ship in the next release, and anyone can download them at once with **Download from GitHub...**.
 
 ## For developers
 
@@ -200,7 +237,13 @@ translation", is one: an AI translation of every line, game and patch, to instal
   `VF1Tr_TextA` for a line by its English; vf1logs.dll asks `VF1Tr_English` / `VF1Tr_EnglishOf` so the log stays in
   English. `tests/test_patch_text_coverage.py` fails on any visible literal that is not marked, on a DLL that shows
   text without being listed, on a stale JSON, and on a dialog or buffer a translation could overrun.
-- `scripts/accept_translation.py` is the Action's check; `.github/ISSUE_TEMPLATE/translation.yml` the form.
+- `scripts/accept_translation.py` is the Action's check; `.github/ISSUE_TEMPLATE/translation.yml` the form;
+  `scripts/virustotal_scan.py` the VirusTotal scan; `scripts/translation_pr_check.py` the pull request check;
+  `patcher/vf1_translations_github.py` Download from GitHub....
+- A line is a printf format when the game hands it to sprintf as the format (`"format"` in
+  `data/vf1_translation_limits.json`) or vf1fun.dll hands it to swprintf (`"format"` in `data/vf1_patch_strings.json`,
+  `native/vf1tr/vf1tr_patch_formats.h`); only those get a plain `%` written as `%%`.
 - Tests: `tests/test_translation_format.py`, `tests/test_translations_runtime.py` (the DLL in Unicorn against the real
   game's GetString, template filler and guarded calls), `tests/test_translations_window.py`,
-  `tests/test_translation_sharing.py`, `tests/test_patch_text_coverage.py`.
+  `tests/test_translation_sharing.py`, `tests/test_patch_text_coverage.py`, `tests/test_virustotal_scan.py`,
+  `tests/test_translation_pr_check.py`, `tests/test_translations_github.py`.

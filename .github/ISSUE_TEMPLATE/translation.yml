@@ -12,6 +12,9 @@ body:
 
         Please DO NOT put ANY PRIVATE DETAILS you do not want to make public in this form or in the file.
         Email addresses are never saved and are rejected from translation files.
+
+        Your file is sent to VirusTotal (virustotal.com) to be scanned before it is added; VirusTotal's partners
+        can see files sent to it. If it is accepted it goes into the public translations folder of this repository.
   - type: dropdown
     id: game
     attributes:

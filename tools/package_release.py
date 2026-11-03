@@ -57,28 +57,35 @@ def write_transparency_log() -> Path:
 
 
 TEST_MARK = "(TEST)"
+TRANSLATION_FOLDERS = (ROOT / "translations", ROOT / "patcher" / "translations" / "vf1")
 
 
 def is_test_translation(path: Path) -> bool:
-    """A "(TEST)" translation (for example translations/fr.tsv, "(TEST) - French AI Translation"): it lives in the
-    repository's translations/ folder for trying out and never ships in a release. Marked in its file name, its
-    language name (@language) or its credit (@translator)."""
-    if TEST_MARK in path.name:
+    """A "(TEST)" translation (the owner: "Only exclude TEST files"): it lives in the repository's public
+    translations/ folder for trying out and never ships in a release. Its display name (@language) or its credit
+    (@translator) starts with "(TEST)"; its file name saying "(TEST)" is the backstop."""
+    if TEST_MARK.lower() in path.name.lower():
         return True
     try:
-        head = path.read_bytes()[:4096].decode("utf-8", "replace")
+        head = path.read_bytes()[:64 * 1024].decode("utf-8-sig", "replace")
     except OSError:
         return False
-    return any(line.split("\t", 1)[0].strip() in ("@language", "@translator") and TEST_MARK in line
-               for line in head.splitlines())
+    for line in head.splitlines():
+        cells = line.split("\t")
+        key = cells[0].strip().replace("\uff20", "@")
+        if key in ("@language", "@translator") and any(c.strip().upper().startswith(TEST_MARK) for c in cells[1:3]):
+            return True
+    return False
 
 
 def shipped_translations(folder: Path) -> list[Path]:
-    """The accepted translations in a folder that a release ships: every one but the "(TEST)" ones."""
-    return [p for p in sorted(folder.glob("*.txt")) if not is_test_translation(p)]
+    """The accepted translations in a folder that a release ships (.tsv, the public folder's, and .txt, the older
+    patcher/translations/vf1/): every one but the "(TEST)" ones."""
+    return [p for p in sorted(list(folder.glob("*.tsv")) + list(folder.glob("*.txt"))) if not is_test_translation(p)]
 
 
-def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None) -> Path:
+def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None,
+          translation_roots: list[Path] | None = None) -> Path:
     top = f"Virtual-Families-1-Fun-Patcher-{version}"
     manifest = load_manifest()
     vf1_patcher.manifest_settings(manifest)  # refuse an inconsistent manifest
@@ -121,8 +128,11 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
     # left modules out (v1.7's first build shipped without vf1_game_art and the Picture Maker could not open).
     for path in sorted((ROOT / "patcher").glob("*.py")):
         files[path.name] = path.read_bytes()
-    for path in shipped_translations(ROOT / "patcher" / "translations" / "vf1"):   # accepted on GitHub
-        files[f"translations/vf1/{path.name}"] = path.read_bytes()
+    # The accepted translations (the repository's public translations/ folder, and the older
+    # patcher/translations/vf1/), never a "(TEST)" one (the owner: "Only exclude TEST files").
+    for folder in (translation_roots if translation_roots is not None else TRANSLATION_FOLDERS):
+        for path in shipped_translations(folder):
+            files.setdefault(f"translations/vf1/{path.name}", path.read_bytes())
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():

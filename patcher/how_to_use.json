@@ -446,6 +446,7 @@
         "Keep the placeholders ({name}, %d): the editor colours them and says when one is missing. {he/she} is the person's sex: write it in your language, for example {il/elle}.",
         "Add translation file... (or drag a .txt file onto the window) adds one you were sent. Ctrl+click, Shift+click or Select All picks several.",
         "Export... saves each one picked; Delete... asks once (No does nothing) and moves them to the Recycle Bin.",
+        "Download from GitHub... adds translations from GitHub.",
         "Share on GitHub... asks first (No does nothing) and needs a GitHub account and a credit name you type. Email addresses are never saved and are rejected from translation files."
       ]
     }

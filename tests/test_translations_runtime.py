@@ -380,3 +380,78 @@ def test_the_likes_lists_keep_every_item_each_no_longer(exe, dll, table, entries
         assert (k in {p.key for p in report.errors}) == (not used), tr
     dk, den = key(0x45C, table)
     assert entries[dk].items
+
+
+# ---------------------------------------------------------------------------------------------- percent signs
+
+PERCENTS = ("2 %", "2 %", "2 %", "50 % de réduction")
+
+
+def real_sprintf(fmt: bytes, *numbers: int) -> bytes:
+    """The C runtime's own sprintf (msvcrt), on the bytes the DLL hands the game."""
+    import ctypes
+    buf = ctypes.create_string_buffer(1024)
+    ctypes.cdll.msvcrt.sprintf(buf, fmt, *(ctypes.c_int(n) for n in numbers))
+    return buf.value
+
+
+def real_swprintf(fmt: str, *numbers: int) -> str:
+    import ctypes
+    buf = ctypes.create_unicode_buffer(1024)
+    ctypes.cdll.msvcrt.swprintf(buf, fmt, *(ctypes.c_int(n) for n in numbers))
+    return buf.value
+
+
+@pytest.mark.parametrize("text", PERCENTS)
+def test_a_percent_sign_in_a_game_format_line_shows_one_percent(exe, dll, table, entries, text):
+    """eString_ReportSalary "$%d/day. Has $%d in the bank." is a format the game hands sprintf: a French "2 %" is
+    handed on as "2 %%" (the space flag never reads it as "% d"), and formatting shows a single '%'. The validator
+    accepts it, and the escaped bytes count toward the room."""
+    k, en = key(59, table)
+    assert entries[k].is_format
+    translation = f"$%d/j;{text};$%d"                                                 # at most 29 bytes as handed on
+    w, tf = world(exe, dll, [(k, en, translation)], unicode_dll=True)
+    held = w.get_string(59)
+    assert held == f"$%d/j;{text.replace('%', '%%')};$%d".encode("utf-8")
+    assert real_sprintf(held, 5, 100) == f"$5/j;{text};$100".encode("utf-8")         # the real formatter
+    dst = w.e.alloc(256, fill=0xCC)                                                     # the game's guarded sprintf
+    w.run_call(0x47A513, [dst, w.translation_of(59), 5, 100])
+    assert w.e.read_cstr_bytes(dst) == f"$5/j;{text};$100".encode("utf-8")
+    report = tfmt.validate(tfmt.parse_text(tfmt.to_bytes(tf).decode("utf-8-sig"), "vf1"), list(entries.values()))
+    assert k not in {p.key for p in report.errors}
+
+
+@pytest.mark.parametrize("text", PERCENTS)
+def test_a_percent_sign_in_a_line_that_is_no_format_shows_unchanged(exe, dll, table, entries, text):
+    """eString_CurrentInterestRateLabel ("Current Interest Rate: %") is only shown: its translation is handed on
+    as it is, a single '%'."""
+    k, en = key(38, table)
+    assert entries[k].is_format is False
+    w, _tf = world(exe, dll, [(k, en, f"Taux : {text}")], unicode_dll=True)
+    assert w.get_string(38) == f"Taux : {text}".encode("utf-8")
+
+
+def test_the_escaped_percent_counts_toward_the_room(exe, dll, table, entries):
+    """eString_XofY "%d of %d" has 8 bytes: "%d/%d 9%" is 8 as written but 9 as handed to sprintf ("9%%"): English."""
+    k, en = key(460, table)
+    assert entries[k].max_length == 8
+    w, tf = world(exe, dll, [(k, en, "%d/%d %")])
+    assert w.get_string(460) == b"%d/%d %%"                                             # 8 bytes: fits
+    w2, tf2 = world(exe, dll, [(k, en, "%d/%d 9%")])
+    assert w2.translation_of(460) == 0 and w2.get_string(460) == b"%d of %d"
+    report = tfmt.validate(tfmt.parse_text(tfmt.to_bytes(tf2).decode("utf-8-sig"), "vf1"), list(entries.values()))
+    assert k in {p.key for p in report.errors}
+
+
+@pytest.mark.parametrize("text", PERCENTS)
+def test_a_percent_sign_in_a_patch_line(exe, dll, patch, text):
+    """vf1fun.dll's "Food now: %d" is swprintf's format: VF1Tr_TextW hands "%%", which the real swprintf shows as one
+    '%'; "Interest rate %" is only shown: unchanged."""
+    food, rate = patch["Food now: %d"], patch["Interest rate %"]
+    assert food.is_format and not rate.is_format
+    w, _tf = world(exe, dll, [(food.key, food.english, f"Nourriture : %d ({text})"),
+                              (rate.key, rate.english, f"Taux : {text}")])
+    shown = text_w(w, "Food now: %d")[2]
+    assert shown == f"Nourriture : %d ({text.replace('%', '%%')})"
+    assert real_swprintf(shown, 7) == f"Nourriture : 7 ({text})"
+    assert text_w(w, "Interest rate %")[2] == f"Taux : {text}"
