@@ -884,6 +884,15 @@ extern "C" __declspec(dllexport) const char *__cdecl VF1Text_FullName(const char
     return e ? e->full : stored;
 }
 
+// For vf1fun.dll's theGameState::Save hook, after the game wrote a save: every record not in its file yet (a pending
+// one, or one whose write failed) is written now, without the draw's 2-second wait, so a name stored just before the
+// player quits is in the Names file. (A record is already written at once when its slot is known; this is not run at
+// DLL detach, when the game's objects may be gone.)
+extern "C" __declspec(dllexport) void __cdecl VF1Text_FlushNames() {
+    RetryStarted = false;
+    RetryWrites();
+}
+
 // For vf1fun.dll's windows: what a member's field of `room` bytes stores for the typed name `full` (UTF-8) in the
 // slot being played; out has room + 1 bytes. Returns the bytes stored.
 extern "C" __declspec(dllexport) int __cdecl VF1Text_StoreName(const char *full, int room, char *out) {

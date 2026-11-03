@@ -169,6 +169,7 @@ static bool __fastcall GameStateSave(void *state, void *, int slot) {
     if (ok && slot >= 1 && slot <= 5) {
         SaveVillageState(slot);
         OutfitsAfterSave(state, slot);
+        if (TextFlushNames) TextFlushNames();   // a name stored just before the save is in its Names file too
     }
     return ok;
 }

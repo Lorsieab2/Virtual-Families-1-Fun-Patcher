@@ -29,6 +29,8 @@ static TextFullNameFn TextFullName;
 typedef int (__stdcall *TextActiveFn)();
 static TextActiveFn TextActive;      // VF1Text_UnicodeTextActive: nonzero only once the text DLL's hooks are installed
 static TextStoreNameFn TextStoreName;
+typedef void (__cdecl *TextFlushNamesFn)();
+static TextFlushNamesFn TextFlushNames;   // VF1Text_FlushNames: writes every Names record not in its file yet
 
 // `bytes` (n bytes of stored text) as UTF-16 by the per-sequence rule into out (at most cap units; a NUL follows).
 // Returns the units written.

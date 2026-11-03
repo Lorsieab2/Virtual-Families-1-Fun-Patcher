@@ -451,7 +451,7 @@ written at once, the moment a name leaves a box; when that cannot be done (the m
 state has no save path yet, the folder cannot be written) the record stays in memory, its book marked dirty, and every
 draw retries, at most once in 2 seconds, until a write of that book has succeeded (a record made with no slot known is
 kept in a pending book and moves to the slot's book, whose file is read first so nothing in it is lost, as soon as the
-slot is known). The whole names it holds are shown meanwhile. A line is never removed: a short form no longer in the save is harmless (a new one
+slot is known). The whole names it holds are shown meanwhile. After every save of slot 1..5 (vf1fun.dll's theGameState::Save hook) vf1fun.dll calls `VF1Text_FlushNames`, which writes every such record at once, without the 2-second wait, so a name stored just before the player saves and quits is in the file (never at DLL detach, when the game's objects may be gone). A line is never removed: a short form no longer in the save is harmless (a new one
 is never made equal to it), and the older autosave copies `<N+20>` / `<N+40>` stay readable. A line that is not
 valid (no mark, too long for its room, a control character, more than 1,200 bytes) is left out;
 a file that cannot be read is read as empty, and the save shows its short forms.
