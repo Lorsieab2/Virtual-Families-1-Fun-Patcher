@@ -84,6 +84,8 @@ class NamesWorld(text_emu.TextWorld):
             if not path.startswith(SAVES):
                 return 0xFFFFFFFF, 28
             if access & 0x40000000:                     # GENERIC_WRITE, CREATE_ALWAYS
+                if self.write_fails:
+                    return 0xFFFFFFFF, 28
                 self.handles += 4
                 self.open_files[self.handles] = [path, bytearray()]
                 return self.handles, 28
@@ -122,8 +124,11 @@ class NamesWorld(text_emu.TextWorld):
             self.dirs.add(em.cstr(em.arg(0)))
             return 1, 8
 
+        self.ticks = 100000                             # GetTickCount, in ms: the tests move it
+        self.write_fails = False                        # a save folder that cannot be written (the temporary file)
         e.imports.update({"CreateFileA": create, "WriteFile": write, "CloseHandle": close, "MoveFileExA": move,
-                          "DeleteFileA": delete, "CreateDirectoryA": mkdir})
+                          "DeleteFileA": delete, "CreateDirectoryA": mkdir,
+                          "GetTickCount": lambda em: (self.ticks & 0xFFFFFFFF, 0)})
 
     def names_file(self, slot: int) -> str:
         return f"{SAVES}Virtual Families 1 Patcher Data\\Names\\Virtual Families{slot}.ldw.txt"
