@@ -96,9 +96,10 @@ static int FitNameStored(const wchar_t *name, char *out, int room) {
     int count = 0;
     for (int i = 0; i < n;) {
         int j = i + 1;
+        // vf1_text.clusters (control characters, CR and LF among them, were dropped above, so CR LF never occurs)
         if (cps[i] >= 0x1F1E6 && cps[i] <= 0x1F1FF && j < n && cps[j] >= 0x1F1E6 && cps[j] <= 0x1F1FF) ++j;
         while (j < n) {
-            if (cps[j] == 0x200D) { ++j; if (j < n) ++j; continue; }
+            if (cps[j] == 0x200D) { ++j; if (j < n && cps[j] != '\r' && cps[j] != '\n') ++j; continue; }
             if (NameExtender(cps[j])) { ++j; continue; }
             break;
         }

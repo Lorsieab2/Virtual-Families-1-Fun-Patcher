@@ -83,7 +83,10 @@ valid UTF-8 as a whole but holds a valid sequence (for example the bytes of "Zo√
 it now reads its sequence as that letter instead of two Latin-1 letters. A box holds its text in this stored form, so
 its 1,200 bytes are bytes as stored: a character is added by the rule (the whole text is stored again when a neighbour's
 form must change), and Backspace stores the rest again. A name is cut only between whole characters (grapheme
-clusters: a letter with its marks, emoji with skin tones, joiners and variation selectors, a flag's two letters).
+clusters: a letter with its marks, emoji with skin tones, joiners and variation selectors, a flag's two letters, and
+CR LF as one character, the shared Unicode spec's rule and the Virtual Families 2 patcher's; a joiner never takes a
+line break after it). The draw and measure loops still take CR and then LF (`DrawEnd`, `vf1_text.clusters(draw=True)`),
+so text with line breaks is drawn exactly as before (`tests/test_cluster_crlf.py`).
 The patcher's readers share one rule, `patcher/vf1_text.py` (the save reader, the Family Tree and genealogy, the
 Family History log reader, Rename Family, Copy Player Slot, the Game Text tool); the DLL uses the same cluster
 table, generated from it (`scripts/build_vf1_text_tables.py`, checked by `tests/test_vf1_text.py`).

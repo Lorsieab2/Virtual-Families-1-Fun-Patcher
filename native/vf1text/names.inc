@@ -421,7 +421,7 @@ static const char *FittedName(NameEntry *e, void *impl) {
         if (out && DecodeRun(&run, e->full, e->fullLen)) {
             int bytes = 0, best = 0;
             for (int i = 0; i < run.n;) {
-                int j = ClusterEnd(run.cps, run.n, i);
+                int j = DrawEnd(run.cps, run.n, i);
                 int add = 0;
                 for (int k = i; k < j; ++k) add += run.widths[k];
                 Copy(out, e->full, (unsigned)(bytes + add));
@@ -603,7 +603,7 @@ static const char *FitToRoom(const char *text, void *impl, int room, char **owne
     int width = 0, bytes = 0, keep = 0;
     bool any = ellipsis - spacing <= room;
     for (int i = 0; i < run.n && any;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         int add = 0;
         for (int k = i; k < j; ++k) add += run.widths[k];
         int w = width + Advance(impl, f, run.cps, i, j);
