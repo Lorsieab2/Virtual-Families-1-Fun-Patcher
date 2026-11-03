@@ -1,0 +1,64 @@
+name: Translation
+description: Share your translation of Virtual Families 1, made with the patcher's Translations window.
+title: "Translation: "
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for translating! The owner checks every translation. If it is accepted, it is added to the
+        patcher, everyone who uses the patcher can choose it in the game, and the credit name you type below is
+        shown with it.
+
+        Please DO NOT put ANY PRIVATE DETAILS you do not want to make public in this form or in the file.
+        Email addresses are never saved and are rejected from translation files.
+
+        Your file is sent to VirusTotal (virustotal.com) to be scanned before it is added; VirusTotal's partners
+        can see files sent to it. If it is accepted it goes into the public translations folder of this repository.
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - Virtual Families
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language's own name, as its speakers write it (Français, Türkçe, 日本語...).
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: Credit name
+      description: >-
+        The name shown in the credits. It is public. Email addresses are never saved and are rejected from
+        translation files.
+    validations:
+      required: true
+  - type: input
+    id: coverage
+    attributes:
+      label: Coverage
+      description: How much is translated (the Translations window shows it), e.g. 85%.
+    validations:
+      required: false
+  - type: textarea
+    id: file
+    attributes:
+      label: Translation file
+      description: Drag your translation file ("Virtual Families - <Language>.txt") here.
+    validations:
+      required: true
+  - type: checkboxes
+    id: licence
+    attributes:
+      label: Licence
+      options:
+        - label: >-
+            I made this translation (or may share it), and I agree that it is shared on the same terms as the
+            patcher and may be changed and shipped with the patcher, credited to the credit name above.
+          required: true

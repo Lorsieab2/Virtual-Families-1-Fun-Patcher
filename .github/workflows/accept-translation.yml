@@ -1,0 +1,112 @@
+name: Accept translation
+
+# When the owner adds the "accept-translation" label to a translation issue
+# (.github/ISSUE_TEMPLATE/translation.yml), this:
+#
+# 1. scan (first, on its own): downloads the attached file as DATA only, refuses anything that is not a
+#    UTF-8 .txt/.tsv of at most 2 MB, and sends it to VirusTotal (scripts/virustotal_scan.py). Any engine
+#    that calls it malicious or suspicious, VirusTotal being unreachable or too slow, or a missing
+#    VT_API_KEY secret refuses it ("not scanned" never passes); the reason is commented on the issue.
+# 2. accept (only after a clean scan, `needs: scan`): downloads it again (it must have the scanned
+#    SHA-256), checks it with the patcher's own validator (scripts/accept_translation.py,
+#    patcher/translation_format.py; nothing in the file is ever executed), and opens a pull request
+#    adding it to the public folder as translations/<language code>.tsv (or <code>-<credit>.tsv when
+#    that language is already there), credited to the typed credit name only -- or comments the problems.
+#    The commit is made by the bot identity (github-actions[bot]), never by the person who shared it.
+#
+# Everything in the issue is untrusted: no issue field is ever put into a shell command. The
+# script reads the issue from the event file itself; the shell sees only the issue NUMBER and the
+# scanned file's SHA-256. The VirusTotal key comes only from the VT_API_KEY secret, through the
+# environment of the one step that scans; it is never printed.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: accept-translation-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    if: >-
+      github.event.label.name == 'accept-translation'
+      && contains(github.event.issue.labels.*.name, 'translation')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      sha256: ${{ steps.scan.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan the attachment with VirusTotal (as data only, at most 2 MB)
+        id: scan
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: python -I scripts/accept_translation.py scan "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/scan"
+
+      - name: Comment why it was refused
+        if: failure()
+        run: |
+          set -euo pipefail
+          case "$ISSUE_NUMBER" in (*[!0-9]*|"") echo "bad issue number"; exit 1;; esac
+          if [ -f "$RUNNER_TEMP/scan/comment.md" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/scan/comment.md"
+          fi
+
+  accept:
+    needs: scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPECTED_SHA256: ${{ needs.scan.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the translation (the scanned file, as data only, at most 2 MB)
+        run: python -I scripts/accept_translation.py accept "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/translation"
+
+      - name: Open a pull request
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/translation"
+          if [ "$(cat "$work/result.txt")" != "accepted" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body-file "$work/comment.md"
+            exit 0
+          fi
+          case "$ISSUE_NUMBER" in (*[!0-9]*|"") echo "bad issue number"; exit 1;; esac
+          branch="translation/issue-$ISSUE_NUMBER"
+          git config user.name "github-actions[bot]"
+          # No email address anywhere (the owner): the commit's address is left empty.
+          git config user.email ""
+          git checkout -b "$branch"
+          git add -- "$(cat "$work/target.txt")"
+          git commit -m "Translations: add the translation shared in issue #$ISSUE_NUMBER"
+          git push --force origin "$branch"
+          gh pr create --head "$branch" --title "Translation from issue #$ISSUE_NUMBER" --body-file "$work/pr_body.md"

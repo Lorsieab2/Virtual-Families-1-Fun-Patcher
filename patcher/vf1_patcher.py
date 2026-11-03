@@ -1377,6 +1377,13 @@ def apply_manifest(args: argparse.Namespace) -> int:
         if dry_run:
             print(f"Dry run complete. Nothing was written to the game folders. Log: {shown_path(log_path)}")
         else:
+            if "Translations" in effective:
+                # The language chosen in the Translations window (Tools tab) goes into the new copy too.
+                try:
+                    import vf1_translations
+                    vf1_translations.write_choice_into(Path(shown_path(output_dir)), "vf1")
+                except Exception:  # noqa: BLE001 -- the game then starts in English; the patch itself is done
+                    pass
             print(f"Patched files successfully. Modded folder: {shown_path(output_dir)}")
             print(f"Play: {shown_path(Path(str(output_dir)) / exe_name)}")
             print(f"Backup: {shown_path(str(backup_dir))}")

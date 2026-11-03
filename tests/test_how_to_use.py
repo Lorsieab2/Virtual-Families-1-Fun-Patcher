@@ -27,7 +27,7 @@ CONTROLS = {
     "patch_selection_settings", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
     "rename_family", "copy_player_slot", "game_speed", "game_mechanics", "family_tree", "picture_maker",
-    "game_text", "unicode_font",
+    "game_text", "unicode_font", "translations",
 }
 
 # Words a player never sees in the patcher or the game.
@@ -111,10 +111,14 @@ def test_the_preset_guides_name_what_they_tick():
 
 
 def test_the_guides_ship_with_the_patcher():
+    # The release ships every patcher/*.py and how_to_use.json (tools/package_release.py; tests/test_release.py
+    # checks the zip itself).
     source = (ROOT / "tools" / "package_release.py").read_text(encoding="utf-8")
+    assert 'for path in sorted((ROOT / "patcher").glob("*.py")):' in source
+    assert '"how_to_use.json"' in source
     for name in ("vf1_how_to_use.py", "vf1_save_backup.py", "vf1_rename_family.py", "vf1_copy_slot.py", "vf1_game_speed.py",
                  "vf1_game_mechanics.py", "how_to_use.json"):
-        assert f'"{name}"' in source
+        assert (ROOT / "patcher" / name).is_file()
 
 
 def test_the_gui_wires_every_control_to_a_question_mark():

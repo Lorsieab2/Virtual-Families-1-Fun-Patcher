@@ -92,16 +92,12 @@ def test_the_gui_finds_its_files_from_another_folder(bundle, tmp_path):
 
 def test_bundle_layout_matches_the_vf2_release(bundle):
     folder, names = bundle
+    modules = sorted(p.name for p in (ROOT / "patcher").glob("*.py"))
+    assert {"vf1_patcher.py", "vf1_patcher_gui.py", "vf1_picture_maker.py", "vf1_game_art.py", "vf1_jpeg.py",
+            "vf1_small_formats.py", "vf1_art_fonts.py", "vf1_art_sheets.py", "vf1_game_text.py"} <= set(modules)
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(set(PLAYER_FILES + [f"{FILES}/{n}" for n in [
-        "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
-        "vf1_save.py", "vf1_rename_family.py", "vf1_copy_slot.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
-        "vf1_picture_maker.py", "vf1_people_pictures.py", "vf1_picture_image.py",
-        "vf1_how_to_use.py", "how_to_use.json", "stub.json",
-        "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
-        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_relationships.py", "vf1_line_colours.py",
-        "vf1_tree_editor_tools.py", "vf1_gdiplus.py",
-        "vf1_text.py", "vf1_names.py", "vf1_game_fonts.py", "vf1_glyph_gdi.py", "vf1_glyph_maker.py", "vf1_game_text.py",
-        "vf1_unicode_font.py", "vf1_emoji.py", "vf1_glyph_color.py",
+        "manifest.json", "how_to_use.json", "stub.json", *modules,
+        "vf1_translation_limits.json", "vf1_patch_strings.json",
         "payload/vf1fun.dll"] + [f"payload/UnicodeText/{p.name}" for p in (ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")
                                  if p.stem not in ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]]))
@@ -115,6 +111,28 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         vp.transparency_log_text(manifest)
     for name in names:
         assert "patch" not in Path(name).name.lower() or not name.lower().endswith(".exe")
+
+
+def test_every_bundled_module_imports_from_the_bundle_alone(bundle, tmp_path):
+    """Each module the bundle ships imports from an empty folder, with only the bundle on the path (python -I), and
+    so does every module a tool loads only when its window opens: nothing the zip needs is left in the repository."""
+    folder, _names = bundle
+    elsewhere = tmp_path / "empty"
+    elsewhere.mkdir()
+    probe = ("import importlib, sys; from pathlib import Path; folder = Path(sys.argv[1]).resolve(); "
+             "sys.path.insert(0, str(folder)); bad = []\n"
+             "for p in sorted(folder.glob('*.py')):\n"
+             "    try:\n"
+             "        m = importlib.import_module(p.stem)\n"
+             "        if Path(m.__file__).resolve().parent != folder: bad.append(p.stem + ' from ' + m.__file__)\n"
+             "    except Exception as e: bad.append(p.stem + ': ' + repr(e))\n"
+             "for name in ('vf1_jpeg', 'vf1_small_formats', 'vf1_art_sheets', 'vf1_art_fonts', 'vf1_art_meters', "
+             "'vf1_art_ui', 'vf1_art_house', 'vf1_art_misc', 'vf1_game_text', 'vf1_unicode_font', 'vf1_picture_maker'):\n"
+             "    if name not in sys.modules: bad.append(name + ' not loaded')\n"
+             "print('\\n'.join(bad)); sys.exit(1 if bad else 0)")
+    result = subprocess.run([sys.executable, "-I", "-c", probe, str(folder)], capture_output=True, text=True,
+                            cwd=elsewhere)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def run_bundled(folder, *args):
@@ -146,3 +164,43 @@ def test_the_tree_pictures_ship_byte_for_byte(bundle):
     for name in shipped:
         assert (folder / "tree_pictures" / name).read_bytes() == (ROOT / "patcher" / "tree_pictures" / name).read_bytes()
         assert f"  {name}\r\n" in log or f"  {name}\n" in log
+
+
+def test_test_translations_never_ship(bundle, tmp_path):
+    """The owner: "Only exclude TEST files". The release ships the accepted translations of the public translations/
+    folder (and of patcher/translations/vf1/), but never a "(TEST)" one: its display name (@language) or its credit
+    (@translator) starts with "(TEST)", or, as a backstop, its file name says "(TEST)"."""
+    _folder, names = bundle
+    assert not any("(TEST)" in n.upper() for n in names)
+    for name in names:                                                  # the real folders: no (TEST) file shipped
+        if "/translations/vf1/" in name:
+            source = next(p for f in package_release.TRANSLATION_FOLDERS for p in [f / name.rsplit("/", 1)[1]]
+                          if p.is_file())
+            assert not package_release.is_test_translation(source), name
+    french = ROOT / "translations" / "fr.tsv"
+    if french.is_file() and "(TEST)" in french.read_text(encoding="utf-8-sig")[:2000]:
+        assert package_release.is_test_translation(french)
+    shelf = tmp_path / "shelf"
+    shelf.mkdir()
+    head = "Key\tEnglish\tTranslation\tNotes\r\n@format\t1\t1\r\n@game\tVirtual Families\t\r\n"
+    (shelf / "Virtual Families - Deutsch.txt").write_text(head + "@language\tEnglish\tDeutsch\r\n", encoding="utf-8")
+    (shelf / "de.tsv").write_text(head + "@language\tEnglish\tDeutsch\r\n@translator\t\tBob\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Test.txt").write_text(
+        head + "@language\tEnglish\t(TEST) - French AI Translation\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Credit.txt").write_text(
+        head + "@language\tEnglish\tFrançais\r\n@translator\t\t(TEST) AI translation\r\n", encoding="utf-8")
+    (shelf / "fr.tsv").write_text("﻿" + head + "@language\tEnglish\t(test) Français\r\n", encoding="utf-8")
+    (shelf / "(TEST) Virtual Families - Español.txt").write_text(head, encoding="utf-8")
+    assert sorted(p.name for p in package_release.shipped_translations(shelf)) == ["Virtual Families - Deutsch.txt",
+                                                                                  "de.tsv"]
+    dll = tmp_path / "vf1fun.dll"
+    dll.write_bytes(b"MZ stand-in")
+    payload = tmp_path / "payload2"
+    for setting in package_release.load_manifest()["settings"]:
+        for row in setting.get("files", []):
+            (payload / row["source"]).parent.mkdir(parents=True, exist_ok=True)
+            (payload / row["source"]).write_bytes(b"stand-in")
+    zip_path = package_release.build(VERSION, dll, tmp_path / "zip2", payload, translation_roots=[shelf])
+    with zipfile.ZipFile(zip_path) as z:
+        shipped = sorted(n.rsplit("/", 1)[1] for n in z.namelist() if "/translations/vf1/" in n)
+    assert shipped == ["Virtual Families - Deutsch.txt", "de.tsv"]       # an accepted one ships, no (TEST) one

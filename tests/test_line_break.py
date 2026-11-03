@@ -265,6 +265,29 @@ def test_without_icu_the_built_in_table_wraps(dll, vanilla_dir, fonts, ratio):
     assert w.icu_calls == []
 
 
+def test_a_zero_width_space_is_a_break_with_or_without_icu(dll, vanilla_dir, fonts, ratio):
+    """UAX #14 LB8: a line may break after U+200B, between Latin letters too, with ICU and with the built-in table."""
+    import vf1_glyph_gdi as g
+    text = "Supercalifragilistic​expialidocious​Wonderful"
+    assert lb.break_points(text, use_icu=False)[0] == {21, 36}
+    if lb.icu() is not None:
+        assert lb.break_points(text)[0] == {21, 36}
+    if not g.AVAILABLE:
+        pytest.skip("needs Windows")
+    w = _world(dll, vanilla_dir, True, real_gdi=True)
+    w.icu = False
+    f = fonts.font("SegoeUiBold18")
+    got, blits = w.wrap(vf1_text.encode(text), 200, limit=50_000_000)
+    want, draws = lb.wrap(f, text, 0, 0, 200, ratio, use_icu=False)
+    assert got == want and world_blits(blits) == model_blits(f, draws)
+    lines: dict[int, str] = {}
+    for piece, _, y in draws:
+        lines[y] = lines.get(y, "") + piece
+    assert len(lines) > 1                               # cut only at the zero-width spaces, never inside a word
+    for line in lines.values():
+        assert set(line.replace("​", " ").split()) <= {"Supercalifragilistic", "expialidocious", "Wonderful"}
+
+
 def test_vf1font_wraps_the_same_way(dll, vanilla_dir, fonts, ratio):
     """Use Unicode Font (vf1font.dll, the same source): stock text as the stock code lays it out with its letters,
     Japanese and emoji text as the model with the chosen font."""

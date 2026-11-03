@@ -181,6 +181,16 @@
         "With it off, or in the original game, the save still works, but an accented letter shows as two or three odd letters.",
         "Off by default, and Owner's Defaults leaves it off (it ticks Render Unicode with In-Game Fonts). Not yet tested in a running game."
       ]
+    },
+    {
+      "ids": ["Translations"],
+      "guide": [
+        "Lets the game show a translation of its own text in another language.",
+        "Choose the language with Translations... on the Tools tab: it takes effect the next time the game starts, without patching again. English (original) is the default.",
+        "A line the translation lacks or has wrong stays in English, and no line is ever longer than the space the game keeps for it.",
+        "Without the Unicode settings only Latin letters show (French, German, Spanish...); with Render Unicode with In-Game Fonts or Use Unicode Font any language shows.",
+        "The Family History log keeps its English words. Saves and game files are not changed."
+      ]
     }
   ],
   "controls": {
@@ -426,6 +436,18 @@
         "The preview shows the game's four text sizes exactly as the game will draw them. Press Save.",
         "The game uses it from its next start. Use Unicode Font must be ticked and patched too.",
         "Letters the font lacks come from Segoe UI and the other Windows fonts. Saves and game files are not changed."
+      ]
+    },
+    "translations": {
+      "title": "Translations",
+      "guide": [
+        "Plays the game in another language, or makes a translation: Language in the game (each language by its own name) applies from the next game start; Translations must be ticked and patched once.",
+        "Make a translation... opens the built-in editor: the English on the left, your translation on the right, a preview in the game's own font, and it saves by itself.",
+        "Keep the placeholders ({name}, %d): the editor colours them and says when one is missing. {he/she} is the person's sex: write it in your language, for example {il/elle}.",
+        "Add translation file... (or drag a .txt file onto the window) adds one you were sent. Ctrl+click, Shift+click or Select All picks several.",
+        "Export... saves each one picked; Delete... asks once (No does nothing) and moves them to the Recycle Bin.",
+        "Download from GitHub... adds translations from GitHub.",
+        "Share on GitHub... asks first (No does nothing) and needs a GitHub account and a credit name you type. Email addresses are never saved and are rejected from translation files."
       ]
     }
   }

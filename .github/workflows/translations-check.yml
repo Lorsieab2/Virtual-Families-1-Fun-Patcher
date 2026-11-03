@@ -1,0 +1,79 @@
+name: Translation check
+
+# Every pull request that touches translations/ (the public folder of translation files, translations/README.md).
+#
+# pull_request_target, so a pull request from a fork can be commented on -- and therefore NOTHING of the pull
+# request is ever checked out or run: the checkout is the BASE branch (this repository's own code), and the
+# pull request's changed translations/ files are fetched through GitHub's API as DATA only (at most 2 MB each,
+# scripts/translation_pr_check.py), never written where anything would run them.
+#
+# 1. scan (first, on its own): every changed file must be a UTF-8 .tsv directly in translations/, then each is
+#    sent to VirusTotal (scripts/virustotal_scan.py). Flagged, refused, unreachable, too slow or a missing
+#    VT_API_KEY secret: the job fails ("not scanned" never passes) and comments why.
+# 2. validate (`needs: scan`): the same files, fetched again (each must have its scanned SHA-256), checked with
+#    the base branch's validator (format, keys, placeholders and choices; an email address refused, naming its
+#    line). The result is commented on the pull request.
+#
+# No pull request text is ever put into a shell: the steps only run the base branch's scripts with fixed
+# arguments; the scripts read the pull request from the event file. The VirusTotal key comes only from the
+# VT_API_KEY secret, through the environment of the one step that scans; it is never printed.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "translations/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: translation-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      scanned: ${{ steps.scan.outputs.scanned }}
+    steps:
+      - name: Check out the base branch (never the pull request)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scan the changed translation files with VirusTotal (as data only, at most 2 MB each)
+        id: scan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: python -I scripts/translation_pr_check.py scan "$RUNNER_TEMP/check"
+
+  validate:
+    needs: scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the base branch (never the pull request)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate the scanned files with the base branch's validator
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCANNED: ${{ needs.scan.outputs.scanned }}
+        run: python -I scripts/translation_pr_check.py validate "$RUNNER_TEMP/check"

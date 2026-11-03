@@ -152,7 +152,7 @@ class Emu:
             return emu.sdl_module, 4
         if emu.wstr(name).lower() == "kernel32.dll":
             return 0x7FFF0000, 4
-        if emu.wstr(name).lower() in ("vf1text.dll", "vf1font.dll"):     # vf1logs asks for the whole names
+        if emu.wstr(name).lower() in ("vf1text.dll", "vf1font.dll", "vf1tr.dll"):  # whole names; English words
             return self.modules.get(emu.wstr(name).lower(), 0), 4
         raise EmuError("GetModuleHandleW of an unexpected module")
 

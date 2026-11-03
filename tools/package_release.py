@@ -14,11 +14,13 @@ release bundle: one folder, "Virtual-Families-1-Fun-Patcher-<version>", holding 
 and one folder, "Virtual Families 1 Fun Patcher Files" (vf1_patcher.BUNDLE_FOLDER, as the Virtual Villagers
 patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the two .bat files run from it:
 
-  manifest.json, vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
+  manifest.json, every module in patcher/ (patcher/*.py), among them
+  vf1_patcher.py, vf1_patcher_gui.py, vf1_save_backup.py (Back Up Saves / Restore Saves),
   vf1_save.py, vf1_rename_family.py (Rename Family), vf1_copy_slot.py (Copy Player Slot),
   vf1_game_speed.py (Game Speed),
   vf1_game_mechanics.py (Game Mechanics), the Picture Maker (vf1_picture_maker.py, vf1_people_pictures.py,
-  vf1_picture_image.py),
+  vf1_picture_image.py, and for its Every picture tab vf1_game_art.py, vf1_art_*.py, vf1_jpeg.py,
+  vf1_small_formats.py),
   vf1_how_to_use.py and how_to_use.json (the "?" guides), the Family Tree
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_relationships.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
@@ -54,7 +56,36 @@ def write_transparency_log() -> Path:
     return TRANSPARENCY_LOG
 
 
-def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None) -> Path:
+TEST_MARK = "(TEST)"
+TRANSLATION_FOLDERS = (ROOT / "translations", ROOT / "patcher" / "translations" / "vf1")
+
+
+def is_test_translation(path: Path) -> bool:
+    """A "(TEST)" translation (the owner: "Only exclude TEST files"): it lives in the repository's public
+    translations/ folder for trying out and never ships in a release. Its display name (@language) or its credit
+    (@translator) starts with "(TEST)"; its file name saying "(TEST)" is the backstop."""
+    if TEST_MARK.lower() in path.name.lower():
+        return True
+    try:
+        head = path.read_bytes()[:64 * 1024].decode("utf-8-sig", "replace")
+    except OSError:
+        return False
+    for line in head.splitlines():
+        cells = line.split("\t")
+        key = cells[0].strip().replace("\uff20", "@")
+        if key in ("@language", "@translator") and any(c.strip().upper().startswith(TEST_MARK) for c in cells[1:3]):
+            return True
+    return False
+
+
+def shipped_translations(folder: Path) -> list[Path]:
+    """The accepted translations in a folder that a release ships (.tsv, the public folder's, and .txt, the older
+    patcher/translations/vf1/): every one but the "(TEST)" ones."""
+    return [p for p in sorted(list(folder.glob("*.tsv")) + list(folder.glob("*.txt"))) if not is_test_translation(p)]
+
+
+def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None,
+          translation_roots: list[Path] | None = None) -> Path:
     top = f"Virtual-Families-1-Fun-Patcher-{version}"
     manifest = load_manifest()
     vf1_patcher.manifest_settings(manifest)  # refuse an inconsistent manifest
@@ -85,40 +116,23 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
     }
     files: dict[str, bytes] = {     # the patcher's own files, in BUNDLE_FOLDER
         "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
-        "vf1_patcher.py": (ROOT / "patcher" / "vf1_patcher.py").read_bytes(),
-        "vf1_patcher_gui.py": (ROOT / "patcher" / "vf1_patcher_gui.py").read_bytes(),
-        "vf1_save_backup.py": (ROOT / "patcher" / "vf1_save_backup.py").read_bytes(),
-        "vf1_save.py": (ROOT / "patcher" / "vf1_save.py").read_bytes(),
-        "vf1_rename_family.py": (ROOT / "patcher" / "vf1_rename_family.py").read_bytes(),
-        "vf1_copy_slot.py": (ROOT / "patcher" / "vf1_copy_slot.py").read_bytes(),
-        "vf1_game_speed.py": (ROOT / "patcher" / "vf1_game_speed.py").read_bytes(),
-        "vf1_game_mechanics.py": (ROOT / "patcher" / "vf1_game_mechanics.py").read_bytes(),
-        "vf1_picture_maker.py": (ROOT / "patcher" / "vf1_picture_maker.py").read_bytes(),
-        "vf1_people_pictures.py": (ROOT / "patcher" / "vf1_people_pictures.py").read_bytes(),
-        "vf1_picture_image.py": (ROOT / "patcher" / "vf1_picture_image.py").read_bytes(),
-        "vf1_how_to_use.py": (ROOT / "patcher" / "vf1_how_to_use.py").read_bytes(),
-        "vf1_genealogy.py": (ROOT / "patcher" / "vf1_genealogy.py").read_bytes(),
-        "vf1_family_history.py": (ROOT / "patcher" / "vf1_family_history.py").read_bytes(),
-        "vf1_tree_memory.py": (ROOT / "patcher" / "vf1_tree_memory.py").read_bytes(),
-        "vf1_family_tree.py": (ROOT / "patcher" / "vf1_family_tree.py").read_bytes(),
-        "vf1_family_tree_window.py": (ROOT / "patcher" / "vf1_family_tree_window.py").read_bytes(),
-        "vf1_member_info.py": (ROOT / "patcher" / "vf1_member_info.py").read_bytes(),
-        "vf1_relationships.py": (ROOT / "patcher" / "vf1_relationships.py").read_bytes(),
-        "vf1_line_colours.py": (ROOT / "patcher" / "vf1_line_colours.py").read_bytes(),
-        "vf1_tree_editor_tools.py": (ROOT / "patcher" / "vf1_tree_editor_tools.py").read_bytes(),
-        "vf1_gdiplus.py": (ROOT / "patcher" / "vf1_gdiplus.py").read_bytes(),
-        "vf1_text.py": (ROOT / "patcher" / "vf1_text.py").read_bytes(),
-        "vf1_names.py": (ROOT / "patcher" / "vf1_names.py").read_bytes(),
-        "vf1_game_fonts.py": (ROOT / "patcher" / "vf1_game_fonts.py").read_bytes(),
-        "vf1_glyph_gdi.py": (ROOT / "patcher" / "vf1_glyph_gdi.py").read_bytes(),
-        "vf1_glyph_maker.py": (ROOT / "patcher" / "vf1_glyph_maker.py").read_bytes(),
-        "vf1_game_text.py": (ROOT / "patcher" / "vf1_game_text.py").read_bytes(),
-        "vf1_unicode_font.py": (ROOT / "patcher" / "vf1_unicode_font.py").read_bytes(),
-        "vf1_emoji.py": (ROOT / "patcher" / "vf1_emoji.py").read_bytes(),
-        "vf1_glyph_color.py": (ROOT / "patcher" / "vf1_glyph_color.py").read_bytes(),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
+        # Translations (docs/translations.md): the room of the game's lines (the modules ship below)
+        "vf1_translation_limits.json": (ROOT / "data" / "vf1_translation_limits.json").read_bytes(),
+        # ... and the lines the patches add (tools/vf1_patch_text.py), after the game's in the template
+        "vf1_patch_strings.json": (ROOT / "data" / "vf1_patch_strings.json").read_bytes(),
     }
+    # Every module in patcher/: the tools import each other, some only when a window opens (the Picture Maker's
+    # Every picture tab loads vf1_game_art, vf1_art_*, vf1_jpeg and vf1_small_formats), so a hand-kept list
+    # left modules out (v1.7's first build shipped without vf1_game_art and the Picture Maker could not open).
+    for path in sorted((ROOT / "patcher").glob("*.py")):
+        files[path.name] = path.read_bytes()
+    # The accepted translations (the repository's public translations/ folder, and the older
+    # patcher/translations/vf1/), never a "(TEST)" one (the owner: "Only exclude TEST files").
+    for folder in (translation_roots if translation_roots is not None else TRANSLATION_FOLDERS):
+        for path in shipped_translations(folder):
+            files.setdefault(f"translations/vf1/{path.name}", path.read_bytes())
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():

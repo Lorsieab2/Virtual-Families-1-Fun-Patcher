@@ -10,3 +10,8 @@ build/
 patcher/patcher_local_settings.json
 patcher/patch_dry_run_log.json
 patcher/patch_error_log.json
+
+# Translations: the player's own files and choice (shipped ones are in patcher/translations/vf1/)
+patcher/translation_choice.json
+patcher/translations/*.txt
+patcher/translations/Shared/
