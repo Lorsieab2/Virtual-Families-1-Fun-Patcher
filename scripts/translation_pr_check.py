@@ -15,6 +15,10 @@ are fetched, through the API, as DATA (at most MAX_BYTES each, never written whe
   branch's own validator (patcher/translation_format.py): the format, keys, placeholders and choices, and email
   addresses (refused, naming the line). The result is commented on the pull request.
 
+A run speaks only for the commit it checked (the event's head, named in the comment): a newer push cancels it
+(the workflow's concurrency), and the pull request's head is asked again after the scan and just before the
+validator's comment. When it moved, nothing is commented and the run fails (HeadMoved); the newer run checks.
+
 Everything about the pull request is untrusted: its number and head come from the event file, file names are
 checked against a strict pattern before they are used, and no pull request text ever reaches a shell. The token
 (GH_TOKEN, the workflow's own GITHUB_TOKEN) is only sent to api.github.com.
@@ -51,6 +55,10 @@ NAME_RE = re.compile(r"^translations/(?P<code>[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})
 
 class CheckError(Exception):
     pass
+
+
+class HeadMoved(CheckError):
+    """The pull request's head is no longer the commit this run checked: a newer run checks it."""
 
 
 def show(name: str) -> str:
@@ -116,6 +124,26 @@ class PullRequest:
             raise CheckError(f"GitHub answered {status} for {path}")
         return raw[:MAX_BYTES + 1]
 
+    def current_head(self) -> str:
+        """The pull request's head commit right now, asked again (never taken from the event)."""
+        status, raw = self.api("GET", f"{API}/repos/{self.repo}/pulls/{self.number}", self.token)
+        if status != 200:
+            raise CheckError(f"GitHub answered {status} when asked for the pull request")
+        try:
+            sha = str(((json.loads(raw.decode("utf-8")) or {}).get("head") or {}).get("sha") or "")
+        except (ValueError, AttributeError):
+            sha = ""
+        if not SHA_RE.match(sha):
+            raise CheckError("GitHub did not say which commit the pull request is at")
+        return sha
+
+    def ensure_head(self) -> None:
+        """HeadMoved unless the pull request is still at the commit this run checked (the event's head)."""
+        now = self.current_head()
+        if now != self.head_sha:
+            raise HeadMoved(f"the pull request changed during the check (it was at {self.head_sha[:12]}, it is now "
+                            f"at {now[:12]}); the newer commit's own run checks it")
+
     def comment(self, text: str) -> None:
         status, _raw = self.api("POST", f"{API}/repos/{self.repo}/issues/{self.number}/comments", self.token,
                                 {"body": text[:60000]})
@@ -166,6 +194,9 @@ def scan(pr: PullRequest, scanner: vt.Scanner) -> tuple[bool, dict, str]:
         verdicts.append(verdict)
         if verdict.clean:
             scanned[path] = verdict.sha256
+    # GitHub lists the pull request's files as they are NOW, and the scan takes a while: the result
+    # belongs to the event's head only when nobody pushed meanwhile.
+    pr.ensure_head()
     ok = all(v.clean for v in verdicts)
     text = vt.report(verdicts) if verdicts else "No translation file to scan.\n"
     return ok, scanned if ok else {}, text
@@ -219,8 +250,9 @@ def validate(pr: PullRequest, scanned: dict[str, str]) -> tuple[bool, str]:
         else:
             lines.append(f"- {show(path)}: OK")
     head = "Translation check: every file is valid." if ok else "Translation check: REFUSED."
-    return ok, f"**{head}**\n\n" + "\n".join(lines) + "\n\nChecked as data with the base branch's validator " \
-                                                        "(patcher/translation_format.py). " + tfmt.EMAIL_MESSAGE + "\n"
+    return ok, f"**{head}**\n\nChecked commit `{pr.head_sha[:12]}` only; a newer push is checked again by its own " \
+               "run.\n\n" + "\n".join(lines) + "\n\nChecked as data with the base branch's validator " \
+                                               "(patcher/translation_format.py). " + tfmt.EMAIL_MESSAGE + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -251,7 +283,11 @@ def main(argv: list[str] | None = None) -> int:
                 ok, text = False, "Translation check: the scan results are not usable.\n"
             else:
                 ok, text = validate(pr, {str(k): str(v) for k, v in scanned.items()})
+            pr.ensure_head()                       # again, just before the result is posted
             pr.comment(text)
+    except HeadMoved as exc:
+        # A stale run: it never speaks for the newer commit (no comment); it fails, and the newer run checks.
+        ok, text = False, f"Translation check: NOT CHECKED ({exc}).\n"
     except CheckError as exc:
         ok, text = False, f"Translation check: NOT CHECKED ({exc}); nothing is accepted.\n"
         pr.comment(text)

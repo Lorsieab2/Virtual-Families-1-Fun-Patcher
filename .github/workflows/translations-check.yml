@@ -14,6 +14,10 @@ name: Translation check
 #    the base branch's validator (format, keys, placeholders and choices; an email address refused, naming its
 #    line). The result is commented on the pull request.
 #
+# Each run speaks only for its event's head commit (named in the comment): a newer push cancels it
+# (concurrency below), and the script asks GitHub for the pull request's head again after the scan and just
+# before the validator's comment; when it moved, the stale run comments nothing and fails.
+#
 # No pull request text is ever put into a shell: the steps only run the base branch's scripts with fixed
 # arguments; the scripts read the pull request from the event file. The VirusTotal key comes only from the
 # VT_API_KEY secret, through the environment of the one step that scans; it is never printed.

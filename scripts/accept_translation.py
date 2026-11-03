@@ -3,6 +3,15 @@
     python -I scripts/accept_translation.py scan <event.json> <work folder>
     python -I scripts/accept_translation.py accept <event.json> <work folder>
     python -I scripts/accept_translation.py <event.json> <work folder>          (the same as accept)
+    python -I scripts/accept_translation.py scan-written <target.txt> <work folder>
+    python -I scripts/accept_translation.py recheck <event.json> <current issue.json>
+
+The file committed must be exactly the bytes that were scanned. accept writes the attachment with its
+@translator row set to the typed credit name, so it is no longer the attachment byte for byte:
+scan-written sends the WRITTEN file (its repository path read from target.txt, never through a shell)
+to VirusTotal too, and puts its SHA-256 in the step output "sha256"; the workflow commits only a staged
+file with that SHA-256. recheck reads the issue again just before the pull request is pushed and exits 1
+when it was edited, unlabelled or closed during the run (still_current): a stale run never acts.
 
 Run by the Action when the owner adds the "accept-translation" label. Everything in the issue is
 untrusted DATA: the issue form is read from the event JSON file (never through a shell), the
@@ -238,8 +247,83 @@ def accept(event: dict, work: Path, fetch=download, root: Path = ROOT, expected_
         return _refuse(work, why)
 
 
+def written_file(target_txt: Path, root: Path = ROOT) -> tuple[str, bytes]:
+    """The file accept wrote: its path (translations/<name>.tsv) from target.txt, checked, and its bytes."""
+    path = target_txt.read_text(encoding="utf-8").strip()
+    problem = vt.check_path(path)
+    if problem:
+        raise Refused(f"{path}: {problem}")
+    target = (root / path).resolve()
+    if (root / PUBLIC_FOLDER).resolve() not in target.parents or not target.is_file():
+        raise Refused(f"{path}: not a file in the public folder")
+    return path, target.read_bytes()[: MAX_BYTES + 1]
+
+
+def scan_written(target_txt: Path, work: Path, scanner: vt.Scanner | None = None, root: Path = ROOT) -> str:
+    """VirusTotal on the file that will be committed: "clean" (its SHA-256 to the step output "sha256" and
+    <work>/sha256.txt) or "refused" (<work>/comment.md)."""
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        path, data = written_file(target_txt, root)
+    except (Refused, OSError) as why:
+        return _refuse(work, why)
+    verdict = vt.scan_files([(path, data)], scanner or vt.Scanner(vt.key_from_env()), extensions=(".tsv",))[0]
+    if not verdict.clean:
+        (work / "comment.md").write_text("This translation could not be added automatically:\n\n"
+                                         + vt.report([verdict]), encoding="utf-8")
+        (work / "result.txt").write_text("refused", encoding="utf-8")
+        return "refused"
+    (work / "sha256.txt").write_text(verdict.sha256, encoding="utf-8")
+    (work / "result.txt").write_text("clean", encoding="utf-8")
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(f"sha256={verdict.sha256}\n")
+    return "clean"
+
+
+RECHECK_FIELDS = ("game", "credit name", "translation file", "licence")
+
+
+def still_current(event: dict, current: dict) -> str:
+    """"" when the issue, read again from GitHub just before the pull request is pushed, still asks for exactly
+    what this run scanned and checked (the same form answers, still labelled accept-translation, still open);
+    otherwise why not."""
+    then = form_fields(str((event.get("issue") or {}).get("body") or ""))
+    now = form_fields(str((current or {}).get("body") or ""))
+    changed = [name for name in RECHECK_FIELDS if then.get(name, "") != now.get(name, "")]
+    if changed:
+        return "the issue was edited during the check (" + ", ".join(changed) + "); a newer run checks it"
+    labels = [str(label.get("name") or "") for label in (current or {}).get("labels") or [] if isinstance(label, dict)]
+    if "accept-translation" not in labels:
+        return "the accept-translation label was removed during the check"
+    if str((current or {}).get("state") or "") != "open":
+        return "the issue was closed during the check"
+    return ""
+
+
+def recheck(event_path: Path, current_path: Path) -> int:
+    try:
+        event = json.loads(event_path.read_text(encoding="utf-8"))
+        current = json.loads(current_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(f"Could not read the issue again: {exc}")
+        return 1
+    why = still_current(event if isinstance(event, dict) else {}, current if isinstance(current, dict) else {})
+    print(why or "unchanged")
+    return 1 if why else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["recheck"] and len(argv) == 3:
+        return recheck(Path(argv[1]), Path(argv[2]))
+    if argv[:1] == ["scan-written"] and len(argv) == 3:
+        work = Path(argv[2])
+        work.mkdir(parents=True, exist_ok=True)
+        result = scan_written(Path(argv[1]), work)
+        print(result)
+        return 0 if result == "clean" else 1
     mode = argv.pop(0) if argv[:1] in (["scan"], ["accept"]) else "accept"
     if len(argv) != 2:
         raise SystemExit(__doc__)

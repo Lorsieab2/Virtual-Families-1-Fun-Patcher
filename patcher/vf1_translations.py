@@ -142,9 +142,88 @@ def install_file(source: Path, game: str, entries: list[tfmt.Entry] | None = Non
     language = parsed.language.strip() or source.stem.split(" - ", 1)[-1]
     target = folder / tfmt.file_name(tfmt.GAME_TITLES[game], language)
     folder.mkdir(parents=True, exist_ok=True)
-    if target.resolve() != source.resolve():
-        shutil.copyfile(source, target)
+    if target.exists() and target.resolve() == source.resolve():
+        return target, report
+    if target.exists():
+        try:
+            same_bytes = target.read_bytes() == data
+        except OSError:
+            same_bytes = False
+        if same_bytes:
+            return target, report
+        old = read_info(target, game)
+        new_translator = parsed.translator.strip() if not tfmt.contains_email(parsed.translator) else ""
+        if old is not None and is_update(old, language, parsed.code.strip(), new_translator):
+            # The same person's newer version: the old one goes to the Recycle Bin, never deleted for good.
+            try:
+                recycle([target])
+            except OSError as exc:
+                raise TranslationProblem(f"{target.name} could not be moved to the Recycle Bin ({exc}), so it "
+                                         "was not replaced. Nothing was changed.") from None
+        else:
+            # Another person's translation of the same language (or one that cannot be read): keep both.
+            wanted = tfmt.file_name(tfmt.GAME_TITLES[game], f"{language} (by {new_translator})" if new_translator
+                                    else language)
+            target = folder / free_name(wanted, taken_names(folder))
+    elif target.name.casefold() in taken_names(folder):
+        # Not in the player's folder, but a translation that came with the patcher or from GitHub has that
+        # name: the player's file gets a name of its own.
+        target = folder / free_name(target.name, taken_names(folder))
+    shutil.copyfile(source, target)
     return target, report
+
+
+def same_person(a: str, b: str) -> bool:
+    """Two @translator rows name the same person (spaces and case aside). Empty never matches: an
+    uncredited file is nobody's update."""
+    a, b = " ".join((a or "").split()).casefold(), " ".join((b or "").split()).casefold()
+    return bool(a) and a == b
+
+
+def is_update(old: Installed, language: str, code: str, translator: str) -> bool:
+    """A new file replaces an installed one only when it is the same translation: the same language, the
+    same @code and the same @translator. Anything else is kept beside it."""
+    return (old.language.strip().casefold() == (language or "").strip().casefold()
+            and old.code.strip().casefold() == (code or "").strip().casefold()
+            and same_person(old.translator, translator))
+
+
+def taken_names(folder: Path | None = None) -> set[str]:
+    """Every file name in use (without case, as Windows compares them): the player's translations AND the
+    ones that came with the patcher or were downloaded (translations\\vf1), so a player's file never shares
+    a name with one of those."""
+    folder = folder or TRANSLATIONS_DIR
+    names: set[str] = set()
+    for place in (folder, *(folder / g for g in GAME_IDS)):
+        try:
+            names.update(p.name.casefold() for p in place.iterdir())
+        except OSError:
+            continue
+    return names
+
+
+def free_name(wanted: str, taken) -> str:
+    """`wanted`, or "<stem> (2)<ext>", "(3)"... when that name is in `taken` (compared without case)."""
+    used = {str(n).casefold() for n in taken}
+    if wanted.casefold() not in used:
+        return wanted
+    stem, dot, ext = wanted.rpartition(".")
+    stem, ext = (stem, dot + ext) if dot else (wanted, "")
+    number = 2
+    while f"{stem} ({number}){ext}".casefold() in used:
+        number += 1
+    return f"{stem} ({number}){ext}"
+
+
+def own_copy_path(item: Installed, folder: Path | None = None) -> Path:
+    """Where Edit... keeps the player's own copy of a translation that came with the patcher or from GitHub:
+    "Virtual Families - <its name> (own copy).txt" in the player's folder (listed there, as .txt), never the
+    shipped file's bare name. The same shipped file always gets the same copy (Edit... again reopens it)."""
+    folder = folder or TRANSLATIONS_DIR
+    path = folder / f"{tfmt.GAME_TITLES[item.game]} - {item.path.stem} (own copy).txt"
+    if path.exists() and read_info(path, item.game) is None:      # something else has that name: never touch it
+        path = folder / free_name(path.name, taken_names(folder))
+    return path
 
 
 def export_file(source: Path, destination: Path) -> Path:
@@ -237,11 +316,14 @@ def chosen_path(game: str, choices: dict[str, str] | None = None, folder: Path |
 
 
 def relative_name(path: Path, folder: Path | None = None) -> str:
+    """How a choice is remembered: its source and name together, never the bare name. "vf1/fr.tsv" (came
+    with the patcher or from GitHub) and "Virtual Families - Français.txt" (the player's own) can never be
+    confused; a file outside the folder is remembered by its full path."""
     folder = folder or TRANSLATIONS_DIR
     try:
         return path.resolve().relative_to(folder.resolve()).as_posix()
     except ValueError:
-        return path.name
+        return str(path.resolve())
 
 
 def write_choice(game_copy: Path, game: str, translation: Path | None, language: str = "") -> bool:
