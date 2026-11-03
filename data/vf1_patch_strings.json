@@ -5243,7 +5243,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1183"
+    "native/vf1fun/vf1fun.cpp:1184"
    ]
   },
   {
@@ -5253,7 +5253,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1184"
+    "native/vf1fun/vf1fun.cpp:1185"
    ]
   },
   {
@@ -5263,7 +5263,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1218"
+    "native/vf1fun/vf1fun.cpp:1219"
    ]
   },
   {
@@ -5273,7 +5273,7 @@
    "drawn_by_game": true,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1254"
+    "native/vf1fun/vf1fun.cpp:1255"
    ]
   },
   {
