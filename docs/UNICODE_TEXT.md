@@ -674,6 +674,15 @@ The patcher's `vf1_game_fonts.GameFont.glyph` does the same in the same order (`
 line and its picker ("colour emoji: Segoe UI Emoji") show what the game shows; its "Colour emoji" tick box previews
 `ColourEmoji=0`.
 
+### The same as the Virtual Villagers Fun Patcher
+
+The Virtual Villagers Fun Patcher's in-game Unicode text and Picture Studio draw emoji in full colour from Segoe UI
+Emoji's COLR/CPAL layers, untinted, one picture per ZWJ sequence, skin tone, keycap or tag sequence, at the line's
+size (its `docs/picture-studio-text.md`, "Emoji, in full colour"). VF1 draws the same layers through DirectWrite and
+Direct2D. **Flags:** Segoe UI Emoji has no country-flag pictures, so the Virtual Villagers patcher shows a country
+flag as its two letters, and so does VF1 (both as Windows itself draws them); a tag flag such as Scotland's is the
+font's plain black flag in both.
+
 ### Proved (`tests/test_colour_emoji.py`)
 
 * The rule: 😀, 👍🏽, 👨‍👩‍👧, 🇯🇵, 1️⃣, ❤️, ☃️ and the Scotland tag flag are colour emoji and one whole character each;
@@ -681,8 +690,14 @@ line and its picker ("colour emoji: Segoe UI Emoji") show what the game shows; i
 * The DLL's own `VF1Text_ColourLetter` through 32-bit rundll32 gives, for each of those in all four fonts' styles,
   the same width, height and every R, G, B, A byte as `vf1_glyph_color.draw`, and the picture is in colour (not
   every inked pixel grey).
-* Size and baseline: the colour picture's first and last inked rows are within 2 pixels of GDI's black-and-white
-  Segoe UI Emoji glyph at the same em and baseline, and its width within 3.
+* Size and baseline, in each of the four fonts: the colour picture's first and last inked rows are within 2 pixels
+  of GDI's black-and-white Segoe UI Emoji glyph at the same em and baseline, and its width within 3.
+* Text without a colour emoji (accents, Japanese, Korean, Thai, Greek, Cyrillic, Cuneiform, the text-style ❤ and
+  ☃, combining marks) is drawn by the DLL with colour emoji on exactly as with `ColourEmoji=0`: every blit's kind,
+  place, box and all four channels, in all four fonts, white, a colour and see-through, and the word wrapper's
+  lines; no picture is asked for. Checked once more against origin/main's own vf1text.dll and vf1font.dll (Segoe
+  UI and Comic Sans MS) built from main's source, in the same emulator: 14 such texts in 4 fonts and 3 colours
+  plus the wrapper at 3 widths, every blit identical.
 * The patcher's fonts: every such character is a "colour emoji" Glyph; white and a colour give the same picture
   pixels; a see-through colour thins it; the letters around it are the game's own; off, the black-and-white letter.
 * In the game (the REAL vf1text.dll on the REAL exe in Unicorn, GDI by real GDI, `VF1Text_ColourLetter` by the

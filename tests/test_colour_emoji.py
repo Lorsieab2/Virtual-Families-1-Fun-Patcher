@@ -104,7 +104,7 @@ def dll_colours(dll, tmp_path, face, weight, em, baseline, height, letters):
 def test_the_dll_draws_each_emoji_as_the_patcher_does(dll, tmp_path, font):
     need_colour()
     style = gf.load_glyph_file(font).style
-    height = {"SegoeUi33": 33, "SegoeUiBold17": 17, "SegoeUiBold18": 18, "SegoeUiBold24": 24}[font]
+    height = HEIGHTS[font]
     theirs = dll_colours(dll, tmp_path, gc.EMOJI_FACE, 400, style.em, style.baseline, height, EMOJI)
     for letter, (w, h, drawn, rows) in zip(EMOJI, theirs):
         image = gc.draw(letter, 400, style.em, style.baseline, height)
@@ -128,14 +128,19 @@ def test_a_face_that_is_not_there_draws_nothing(dll, tmp_path):
     assert (w, h, bool(drawn)) == ((image.width, image.height, True) if image else (0, 18, False))
 
 
-def test_size_and_baseline_match_the_black_and_white_letters():
-    """The colour picture sits on the same baseline and em as GDI's monochrome emoji: its bottom row of ink is on
-    or above the baseline row and no lower than GDI's, and its height of ink is within a few pixels of GDI's."""
+HEIGHTS = {"SegoeUi33": 33, "SegoeUiBold17": 17, "SegoeUiBold18": 18, "SegoeUiBold24": 24}
+
+
+@pytest.mark.parametrize("font", gf.GAME_FONTS)
+def test_size_and_baseline_match_the_black_and_white_letters(font):
+    """The colour picture sits on the same baseline and em as GDI's monochrome emoji, in each of the game's four
+    fonts: its first and last rows of ink are within 2 pixels of GDI's and its width within 3."""
     need_colour()
-    style = gf.load_glyph_file("SegoeUiBold18").style
-    mono = g.Renderer(gc.EMOJI_FACE, 400, style.em, style.baseline, 18, ())
+    style = gf.load_glyph_file(font).style
+    height = HEIGHTS[font]
+    mono = g.Renderer(gc.EMOJI_FACE, 400, style.em, style.baseline, height, ())
     for letter in EMOJI[:3]:
-        colour = gc.draw(letter, 400, style.em, style.baseline, 18)
+        colour = gc.draw(letter, 400, style.em, style.baseline, height)
         grey, face = mono.draw(letter)
         assert face
 
@@ -259,6 +264,48 @@ def test_switched_off_in_settings_ini_the_emoji_are_black_and_white(dll, vanilla
     blits = w.draw(vf1_text.encode(name), "SegoeUiBold18")
     same_pixels(w, blits, f.layout(name))
     assert w.colour_calls == [] and "TextOutW" in w.gdi_calls
+
+
+def blitted(world, blits):
+    """Each blit's kind, size, place and blitted pixels (all four channels); the game's own sheet by its box."""
+    import vf1_picture_image as pi
+    out = []
+    for blit in blits:
+        kind, surface, box, place = blit[:4]
+        info = world.surfaces.get(surface)
+        if info is None:
+            out.append((kind, tuple(box), place, "game"))
+            continue
+        sheet = pi.Image(info["w"], info["h"], world.surface_pixels(surface))
+        out.append((kind, tuple(box[2:]), place, bytes(sheet.sub(*box).data)))
+    return out
+
+
+NON_EMOJI_TEXT = ["Zoë Ångström", "Çağrı Nguyễn", "日本語のテキスト 한국어", "Ελληνικά Кириллица", "\U0001208D ❤ ☃ ☹ ★",
+                  "é ä ﬁ ½ ™", "Thai ภาษาไทย 中文"]
+
+
+def test_text_without_emoji_is_drawn_exactly_as_with_colour_emoji_off(world, dll, vanilla_dir):
+    """Colour emoji change nothing else: text without a colour emoji (accents, Japanese, Korean, Greek, Cuneiform,
+    the text-style ❤ and ☃) is drawn by the DLL with ColourEmoji on exactly as with it off (the code before colour
+    emoji): every blit's kind, place, box and pixel, in all four fonts, white, a colour and see-through, and the
+    word wrapper's lines; no colour picture is asked for."""
+    import text_emu
+    off = text_emu.TextWorld(vanilla_dir / "Virtual Families.exe", dll, vanilla_dir, install=True, real_gdi=True,
+                             ini={("UnicodeText", "ColourEmoji"): "0"})
+    before = len(world.colour_calls)
+    for font in gf.GAME_FONTS:
+        for text in NON_EMOJI_TEXT:
+            data = vf1_text.encode(text)
+            for colour in (0xFFFFFFFF, 0xFF2040C0, 0x80FFFFFF):
+                assert blitted(world, world.draw(data, font, 3, 4, colour)) == \
+                    blitted(off, off.draw(data, font, 3, 4, colour)), (font, text, hex(colour))
+            assert world.width(data, font) == off.width(data, font)
+    sentence = vf1_text.encode("Zoë and 日本語 went to the 한국어 market with ❤ and ☃ for Ελληνικά friends today")
+    on_r, on_b = world.wrap(sentence, 160, limit=50_000_000)
+    off_r, off_b = off.wrap(sentence, 160, limit=50_000_000)
+    assert on_r == off_r and blitted(world, on_b) == blitted(off, off_b)
+    assert len(world.colour_calls) == before and off.colour_calls == []
 
 
 def test_without_direct2d_the_emoji_are_black_and_white(dll, vanilla_dir):
