@@ -12,7 +12,15 @@ A line's key is "strings/<id>~<hash of its English>".  Its room (Entry.max_lengt
 * where it goes through sprintf, strncat or a byte-copy loop: its English length ("english_length"), so every
   buffer holds at most what it holds in the English game;
 * every line: at most MAX_LINE.
-The lines in "never" are never translated (the Family History log's own words, the lists the game splits).
+The lines in "never" are never translated (the decimal point). The likes and dislikes lists (ITEM_LISTS) keep every
+item, each no longer than its English (Entry.items).
+
+After the game's lines come the patches' own (key source "patch"): every line a player can see that vf1fun.dll adds
+(its menus, pages, messages, behaviour captions, ...), from data/vf1_patch_strings.json (tools/vf1_patch_text.py,
+which reads native/). Their key is "patch/<dll>.<words>~<hash of its English>"; vf1tr.dll finds a translation by
+its English when the DLL asks for it, so a line without one shows English. Room: a line with a printf conversion
+keeps its English length, any other wide line three times its English (80 to 600), a line the game draws its own
+room (see tools/vf1_patch_text.py).
 """
 from __future__ import annotations
 
@@ -28,6 +36,9 @@ HERE = Path(__file__).resolve().parent
 # data/ in the repository; beside this module in the release (tools/package_release.py)
 LIMITS_JSON = next((p for p in (HERE / "vf1_translation_limits.json", HERE.parent / "data" / "vf1_translation_limits.json")
                     if p.is_file()), HERE.parent / "data" / "vf1_translation_limits.json")
+PATCH_JSON = next((p for p in (HERE / "vf1_patch_strings.json", HERE.parent / "data" / "vf1_patch_strings.json")
+                   if p.is_file()), HERE.parent / "data" / "vf1_patch_strings.json")
+ITEM_LISTS = (0x45B, 0x45C)      # eSayLikesList, eSayDislikesList: picked by position (0x481E20, 0x481420)
 GAME = "vf1"
 EXE_NAMES = ("Virtual Families.exe", "Virtual Families - Modded.exe")
 VANILLA_SHA256 = "5db828c3f53c68696c18719aec0eb114be3fd4458ae2cbf185d8d4ef7eca4487"
@@ -137,7 +148,37 @@ def entries_for(exe: bytes) -> list[tfmt.Entry]:
             notes.append(" ".join(f"%{n} ({c.text})" for n, c in enumerate(template.conversions, 1)))
         if max_length < MAX_LINE:
             notes.append(f"at most {max_length} letters (the game keeps it in a fixed space)")
-        out.append(tfmt.Entry(tfmt.make_key("strings", str(sid), english), english, "; ".join(notes), max_length))
+        items = sid in ITEM_LISTS
+        if items:
+            notes.append(f"a list of {english.count(',') + 1} items: keep every one, in order, separated by commas, "
+                         "each no longer than its English")
+        out.append(tfmt.Entry(tfmt.make_key("strings", str(sid), english), english, "; ".join(notes), max_length,
+                              items=items))
+    return out + patch_entries()
+
+
+@lru_cache(maxsize=1)
+def _patch_rows() -> tuple:
+    try:
+        data = json.loads(PATCH_JSON.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ()
+    return tuple(data.get("strings", ()))
+
+
+def patch_entries() -> list[tfmt.Entry]:
+    """The patches' own lines a player sees (data/vf1_patch_strings.json), after the game's."""
+    out = []
+    for row in _patch_rows():
+        english, room = row["english"], int(row["room"])
+        where = row["id"].split(".", 1)[0]
+        notes = [f"{where}: " + ("drawn by the game" if row.get("drawn_by_game")
+                                 else "a patcher window or message in the game")]
+        template = tfmt.parse_template(english)
+        if template.conversions:
+            notes.append(" ".join(f"%{n} ({c.text})" for n, c in enumerate(template.conversions, 1)))
+        notes.append(f"at most {room} letters")
+        out.append(tfmt.Entry(tfmt.make_key("patch", row["id"], english), english, "; ".join(notes), room))
     return out
 
 

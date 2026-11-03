@@ -26,21 +26,21 @@
 enum { SV_TIME_WARP, SV_ADOPTION, SV_BOARDING, SV_DESENS, SV_PSYCHO, SV_LEARN, SV_TRAINING, SV_CAREER, SV_COUNT };
 struct Service { const wchar_t *name; int price; bool member; const wchar_t *what; };
 static const Service kServices[SV_COUNT] = {
-    { L"Time Warp", 2000, false, L"The whole family lives 3 years (61 age units) at once, with their meals, health, "
-      L"salary and birthdays. The money it brings is capped at $750." },
-    { L"Adoption Services", 4000, false, L"Spawn outside child in house (3 years old, male or female at random): "
+    { TR_N(L"Time Warp"), 2000, false, TR_N(L"The whole family lives 3 years (61 age units) at once, with their meals, health, "
+      L"salary and birthdays. The money it brings is capped at $750.") },
+    { TR_N(L"Adoption Services"), 4000, false, TR_N(L"Spawn outside child in house (3 years old, male or female at random): "
       L"the child joins the house at once and the family tree as an adopted child, with the game's own random look. "
-      L"No event text or popup." },
-    { L"Boarding School", 1500, true, L"Children only: the child leaves home, as a child going to college does." },
-    { L"Systematic Desensitization", 2500, true, L"Every dislike of this family member is removed." },
-    { L"Psychotherapy", 1750, true, L"Happiness below 25 becomes 30 to 49; from 25 to 49 it becomes 55 to 74; from "
-      L"50 it rises by 5 to 24 (at most 100)." },
-    { L"Higher Learning Classes", 1000, true, L"One new like, at random from the likes this family member does not "
-      L"have, if one of the 3 like places is free. That like is taken off the dislikes." },
-    { L"Advanced Career Training", 1100, true, L"Adults with a career: a promotion to the next career level, with its "
+      L"No event text or popup.") },
+    { TR_N(L"Boarding School"), 1500, true, TR_N(L"Children only: the child leaves home, as a child going to college does.") },
+    { TR_N(L"Systematic Desensitization"), 2500, true, TR_N(L"Every dislike of this family member is removed.") },
+    { TR_N(L"Psychotherapy"), 1750, true, TR_N(L"Happiness below 25 becomes 30 to 49; from 25 to 49 it becomes 55 to 74; from "
+      L"50 it rises by 5 to 24 (at most 100).") },
+    { TR_N(L"Higher Learning Classes"), 1000, true, TR_N(L"One new like, at random from the likes this family member does not "
+      L"have, if one of the 3 like places is free. That like is taken off the dislikes.") },
+    { TR_N(L"Advanced Career Training"), 1100, true, TR_N(L"Adults with a career: a promotion to the next career level, with its "
       L"new salary. $1,100 times (the career level + 1): $1,100 for a Beginner up to $7,700 for an Exceptional; "
-      L"nothing is sold to a Master." },
-    { L"Career Change", 1200, true, L"Adults with a career: a new career at random, at Beginner." },
+      L"nothing is sold to a Master.") },
+    { TR_N(L"Career Change"), 1200, true, TR_N(L"Adults with a career: a new career at random, at Beginner.") },
 };
 static const int kTopCareerLevel = 7;  // Master (strings 0x1C1..0x1C8: Beginner .. Master)
 static int CareerLevel(int i) { return *(int *)(Villager(i) + 0x2B70); }
@@ -58,24 +58,24 @@ static int ServicePrice(int item, int who) {
 
 // Why this family member cannot have it (nothing is charged), or 0.
 static const wchar_t *ServiceRefusal(int item, int who) {
-    if (!CurrentFamily()) return L"There is no family yet.";
+    if (!CurrentFamily()) return TR(L"There is no family yet.");
     if (!kServices[item].member) return 0;
     if (who < 0 || who >= VillagerSlots || !VillagerPresent(who) || Villager(who)[0x13578])
-        return L"Pick a family member at home first.";
+        return TR(L"Pick a family member at home first.");
     switch (item) {
-    case SV_BOARDING: return HasCareer(who) ? L"Boarding School is for children only." : 0;
+    case SV_BOARDING: return HasCareer(who) ? TR(L"Boarding School is for children only.") : 0;
     case SV_DESENS: {
         int *d = Dislikes(who);
-        return d[0] == -1 && d[1] == -1 && d[2] == -1 ? L"This family member has no dislikes." : 0;
+        return d[0] == -1 && d[1] == -1 && d[2] == -1 ? TR(L"This family member has no dislikes.") : 0;
     }
     case SV_LEARN: {
         int *l = Likes(who);
-        return l[0] != -1 && l[1] != -1 && l[2] != -1 ? L"Every like place is already full." : 0;
+        return l[0] != -1 && l[1] != -1 && l[2] != -1 ? TR(L"Every like place is already full.") : 0;
     }
     case SV_TRAINING:
-        if (!HasCareer(who)) return L"Advanced Career Training is for adults with a career.";
-        return CareerLevel(who) >= kTopCareerLevel ? L"This family member is already a Master: nothing to train." : 0;
-    case SV_CAREER: return HasCareer(who) ? 0 : L"Career Change is for adults with a career.";
+        if (!HasCareer(who)) return TR(L"Advanced Career Training is for adults with a career.");
+        return CareerLevel(who) >= kTopCareerLevel ? TR(L"This family member is already a Master: nothing to train.") : 0;
+    case SV_CAREER: return HasCareer(who) ? 0 : TR(L"Career Change is for adults with a career.");
     }
     return 0;
 }
@@ -104,17 +104,17 @@ static const wchar_t *HigherLearning(int i) {
     int candidates = 0;
     for (int k = 0; k < total; ++k)
         if (l[0] != k && l[1] != k && l[2] != k) ++candidates;
-    if (candidates <= 0) return L"Nothing new to learn.";
+    if (candidates <= 0) return TR(L"Nothing new to learn.");
     int pick = GetRandom(candidates);
     for (int k = 0; k < total; ++k) {
         if (l[0] == k || l[1] == k || l[2] == k) continue;
         if (pick-- == 0) {
             char name[48];
-            if (!NameAt(likes, k, name, sizeof name)) return L"The game has no likes list.";
+            if (!NameAt(likes, k, name, sizeof name)) return TR(L"The game has no likes list.");
             return GiveLike(i, name);
         }
     }
-    return L"Nothing new to learn.";
+    return TR(L"Nothing new to learn.");
 }
 
 static const wchar_t *DoService(int item, int who) {
@@ -128,19 +128,19 @@ static const wchar_t *DoService(int item, int who) {
     case SV_TRAINING: PromoteVillager(who); return 0;
     case SV_CAREER: ChangeCareer(who); return 0;
     }
-    return L"There is no such service.";
+    return TR(L"There is no such service.");
 }
 
 // Buys one service: refused (0 charged, nothing changed) when it is not for this family member or the family
 // cannot afford it; otherwise the service is done and its price is paid. Returns 0 when bought, or the reason.
 static const wchar_t *BuyService(int item, int who) {
-    if (item < 0 || item >= SV_COUNT) return L"There is no such service.";
+    if (item < 0 || item >= SV_COUNT) return TR(L"There is no such service.");
     if (!kServices[item].member) who = -1;
     const wchar_t *why = ServiceRefusal(item, who);
     if (why) return why;
     int price = ServicePrice(item, who);
-    if (price < 0) return L"That is not sold to this family member.";
-    if (CurrentMoney() < price) return L"You don't have enough money for that.";
+    if (price < 0) return TR(L"That is not sold to this family member.");
+    if (CurrentMoney() < price) return TR(L"You don't have enough money for that.");
     why = DoService(item, who);
     if (why) return why;
     if (price) MoneyAdjust(Money, (float)-price, false);
@@ -158,7 +158,7 @@ static int SelectedMember(HWND dlg) {
 
 static void FillServices(HWND dlg) {
     wchar_t s[96];
-    swprintf(s, 96, L"Money: $%.0f%s", CurrentMoney(), gFreeCheats ? L"     (Free and Guaranteed Cheats: all free)" : L"");
+    swprintf(s, 96, TR(L"Money: $%.0f%s"), CurrentMoney(), gFreeCheats ? TR(L"     (Free and Guaranteed Cheats: all free)") : L"");
     SetDlgItemTextW(dlg, ID_SV_MONEY, s);
     int who = SelectedMember(dlg);
     HWND list = GetDlgItem(dlg, ID_SV_LIST);
@@ -167,14 +167,14 @@ static void FillServices(HWND dlg) {
     for (int item = 0; item < SV_COUNT; ++item) {
         wchar_t line[128];
         int price = ServicePrice(item, kServices[item].member ? who : -1);
-        if (price < 0) swprintf(line, 128, L"%s\tnot sold to them", kServices[item].name);
-        else if (!kServices[item].member) swprintf(line, 128, L"%s\t$%d  (whole family)", kServices[item].name, price);
-        else swprintf(line, 128, L"%s\t$%d", kServices[item].name, price);
+        if (price < 0) swprintf(line, 128, TR(L"%s\tnot sold to them"), Tr(kServices[item].name));
+        else if (!kServices[item].member) swprintf(line, 128, TR(L"%s\t$%d  (whole family)"), Tr(kServices[item].name), price);
+        else swprintf(line, 128, L"%s\t$%d", Tr(kServices[item].name), price);
         SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
     }
     sel = sel < 0 ? 0 : sel;
     SendMessageW(list, LB_SETCURSEL, sel, 0);
-    SetDlgItemTextW(dlg, ID_SV_DESC, kServices[sel].what);
+    SetDlgItemTextW(dlg, ID_SV_DESC, Tr(kServices[sel].what));
 }
 
 static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
@@ -205,17 +205,17 @@ static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             int who = kServices[item].member ? SelectedMember(dlg) : -1;
             const wchar_t *why = ServiceRefusal(item, who);
             int price = why ? -1 : ServicePrice(item, who);
-            if (!why && price < 0) why = L"That is not sold to this family member.";
-            if (!why && CurrentMoney() < price) why = L"You don't have enough money for that.";
+            if (!why && price < 0) why = TR(L"That is not sold to this family member.");
+            if (!why && CurrentMoney() < price) why = TR(L"You don't have enough money for that.");
             if (why) { Message(dlg, why); return TRUE; }
             wchar_t text[200];
-            if (who >= 0) swprintf(text, 200, L"Buy %s for %.40ls for $%d?", kServices[item].name, NameW(VillagerName(who), 0x19), price);
-            else swprintf(text, 200, L"Buy %s for $%d?", kServices[item].name, price);
+            if (who >= 0) swprintf(text, 200, TR(L"Buy %s for %.40ls for $%d?"), Tr(kServices[item].name), NameW(VillagerName(who), 0x19), price);
+            else swprintf(text, 200, TR(L"Buy %s for $%d?"), Tr(kServices[item].name), price);
             if (!Confirm(dlg, text)) return TRUE;
             why = BuyService(item, who);
             if (why) { Message(dlg, why); FillServices(dlg); return TRUE; }
-            if (item == SV_TIME_WARP) swprintf(text, 200, L"Time warp completed! It's 3 years later!");
-            else swprintf(text, 200, L"Purchased: %s.", kServices[item].name);
+            if (item == SV_TIME_WARP) swprintf(text, 200, TR(L"Time warp completed! It's 3 years later!"));
+            else swprintf(text, 200, TR(L"Purchased: %s."), Tr(kServices[item].name));
             Message(dlg, text);
             FillServices(dlg);
         } else if (id == IDOK || id == IDCANCEL) {
@@ -230,16 +230,16 @@ static INT_PTR CALLBACK ServicesProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 
 static Template &ServicesTemplate() {
     static Template t;
-    t.Begin(L"Services", 300, 226);
+    t.Begin(TR_N(L"Services"), 300, 226);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_SV_MONEY, L"");
-    t.Item(STATIC, SS_LEFT, 10, 24, 90, 12, -1, L"Family member:");
+    t.Item(STATIC, SS_LEFT, 10, 24, 90, 12, -1, TR_N(L"Family member:"));
     // LBS_USETABSTOPS: a list box draws its rows with Windows' script fallback only then (UseNameFont); names have no tabs
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 38, 90, 120, ID_SV_WHO, L"");
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 106, 24, 184, 106, ID_SV_LIST, L"");
     t.Item(STATIC, SS_LEFT, 106, 134, 184, 60, ID_SV_DESC, L"");
-    t.Item(STATIC, SS_LEFT, 10, 166, 90, 24, -1, L"The price is for the family member picked.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 202, 75, 16, ID_SV_BUY, L"Buy");
-    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 215, 202, 75, 16, IDOK, L"Close");
+    t.Item(STATIC, SS_LEFT, 10, 166, 90, 24, -1, TR_N(L"The price is for the family member picked."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 202, 75, 16, ID_SV_BUY, TR_N(L"Buy"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 215, 202, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowServices(HWND owner) { DialogBoxIndirectParamW(Module, ServicesTemplate().Get(), owner, ServicesProc, 0); }

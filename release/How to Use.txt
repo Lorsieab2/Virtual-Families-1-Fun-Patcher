@@ -178,6 +178,10 @@ for example {il/elle}. Add translation file... (or drag a .txt file onto the
 window) adds a translation you were sent. Lines whose English changed after a
 patcher update are marked.
 
+The template also has every text the patches add (the Upgrades menu and
+its pages, messages, the captions under a villager). The Family History
+log file stays in English. Any Unicode letter can be used.
+
 The list of translations takes several at once: click one, Ctrl+click to add
 or remove one, Shift+click for a range, Ctrl+A or Select All for everything.
 Selecting never changes the game's language; only "Language in the game" does.

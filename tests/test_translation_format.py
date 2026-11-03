@@ -285,11 +285,12 @@ def test_the_inventory_is_the_games_string_table():
     if exe is None:
         pytest.skip("set VF1_VANILLA_DIR to a copy of the vanilla Virtual Families folder")
     table = ts.read_table(exe.read_bytes())
-    entries = ts.entries_for(exe.read_bytes())
+    entries = [e for e in ts.entries_for(exe.read_bytes()) if e.key.startswith("strings/")]
+    assert ts.entries_for(exe.read_bytes())[len(entries):] == ts.patch_entries()      # the patches' lines after
     assert len(table) == 1643
     assert table[0x41A] == ("eSayDone", "Done")
     ids = {int(e.key.split("/")[1].split("~")[0]) for e in entries}
-    assert not ids & set(ts.limits()["never"])                                      # the log's words stay English
+    assert not ids & set(ts.limits()["never"])                                      # only the decimal point
     assert 0x41A in ids and len(entries) > 1600
     for e in entries:
         assert tf.split_key(e.key) and e.key.endswith(tf.key_hash(e.english))
@@ -314,3 +315,70 @@ def test_a_file_that_is_not_the_game_is_refused(tmp_path):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------------------------- Unicode 18.0
+
+
+def _every_code_point(step: int = 1):
+    """Every Unicode scalar value a translation may hold as text: all of planes 0-16 but the surrogates, the
+    controls and the characters the format itself gives a meaning ({ } % \\ @ and the full-width at sign)."""
+    special = set(map(ord, "{}%\\@＠  "))
+    for cp in range(0x20, 0x110000, step):
+        if 0xD800 <= cp <= 0xDFFF or cp in special or 0x7F <= cp <= 0x9F:
+            continue
+        yield chr(cp)
+
+
+def test_every_unicode_18_code_point_is_accepted():
+    """The owner: support the whole Unicode 18.0 chart collection. Nothing in the validator, the file format or
+    the template checks a character's Unicode category, so a code point Python's own unicodedata does not know
+    yet is accepted like any other: every scalar value is, assigned or not."""
+    import unicodedata
+    text = "".join(_every_code_point())
+    unknown = [c for c in text if unicodedata.category(c) == "Cn"]
+    assert len(unknown) > 800_000                                          # far more than Unicode 18.0 assigns
+    size = 4000
+    count = (len(text) + size - 1) // size
+    entries = [tf.Entry(tf.make_key("strings", str(n), f"Line {n}"), f"Line {n}") for n in range(1, count + 1)]
+    f = tf.new_file("vf1", entries, "Test", "und")
+    for n, row in enumerate(f.rows):
+        row.translation = text[n * size:(n + 1) * size]
+        errors, _warnings = tf.check_translation(row.english, row.translation, "und")
+        assert errors == [], (hex(ord(row.translation[0])), errors)
+    back = tf.parse_bytes(tf.to_bytes(f), "vf1")
+    assert not back.fatal
+    assert [r.translation for r in back.rows] == [r.translation for r in f.rows]
+    report = tf.validate(back, entries)
+    assert report.errors == [] and report.translated == len(entries)
+
+
+def test_code_points_new_in_unicode_17_and_18_are_kept_exactly():
+    # Code points Python's unicodedata may still call unassigned, from blocks Unicode 17.0 and 18.0 fill (Sidetic
+    # U+10940, Tangut Components Supplement U+18D80, CJK Extension J U+323B0 ...), and a grapheme cluster with a
+    # combining mark and ZWJ sequences: written, read back and checked unchanged.
+    sample = "\U00010940\U00010941\U00018D80\U000323B0\U0001CEC0́‍\U0001FAE9\U0001F9D1‍\U0001F9B0"
+    f = tf.new_file("vf1", [tf.Entry(tf.make_key("strings", "1", "Done"), "Done")], "Test", "und")
+    f.rows[0].translation = sample
+    assert tf.check_translation("Done", sample, "und")[0] == []
+    back = tf.parse_bytes(tf.to_bytes(f), "vf1")
+    assert back.rows[0].translation == sample
+    assert tf.measure(sample) == len(sample.encode("utf-8"))
+
+
+# ---------------------------------------------------------------------------------------------- lists
+
+
+def test_a_list_keeps_every_item_each_no_longer():
+    english = "Running,Swimming,Reading"
+    assert not tf.items_problem(english, "Courir,Nager,Lire")
+    assert tf.items_problem(english, "Courir,Nager")                       # an item less
+    assert tf.items_problem(english, "Courir,Nager,Lire,Danser")           # an item more
+    assert tf.items_problem(english, "Faire du jogging,Nager,Lire")        # longer than "Running"
+    entry = tf.Entry(tf.make_key("strings", "1115", english), english, items=True)
+    f = tf.new_file("vf1", [entry], "Test", "fr")
+    f.rows[0].translation = "Courir,Nager"
+    report = tf.validate(f, [entry])
+    assert report.errors and tf.ITEMS_MESSAGE in report.errors[0].message
+    f.rows[0].translation = "Courir,Nager,Lire"
+    assert tf.validate(f, [entry]).errors == []

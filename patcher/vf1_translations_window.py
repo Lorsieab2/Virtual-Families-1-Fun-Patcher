@@ -55,6 +55,8 @@ HELP = (
         "there. \"English (original)\" is part of the game and is never deleted. A translation that came with "
         "the patcher comes back with the next patcher update. Deleting the language the game uses puts the "
         "game back in English from its next start, as choosing English does.",
+        "The template has every text the patches add too: the Upgrades menu and its pages, their messages, the "
+        "captions under a villager. The Family History log file stays in English. Any Unicode letter can be used.",
         "After a patcher update, new lines appear untranslated in the editor and your translation keeps "
         "working; a line whose English changed shows the new English until you translate it again.",
         tr.SHARE_INVITE + " " + tr.SHARE_HOW + " You need a free GitHub account (" + tr.SIGNUP_URL + "). "
@@ -760,7 +762,8 @@ class TranslationEditor:
             return "new"
         errors, _w = tfmt.check_translation(row.english, row.translation, self.file.code)
         entry = self.entries.get(row.key)
-        if errors or (entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide)):
+        if errors or (entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide)) \
+                or (entry and entry.items and tfmt.items_problem(entry.english, row.translation)):
             return "error"
         return "done"
 
@@ -872,6 +875,8 @@ class TranslationEditor:
         entry = self.entries.get(row.key)
         if row.translation and entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide):
             errors.append(tfmt.too_long_message(entry.max_length))
+        if row.translation and entry and entry.items and tfmt.items_problem(entry.english, row.translation):
+            errors.append(tfmt.ITEMS_MESSAGE)
         if tfmt.contains_email(row.translation):
             errors.append(tfmt.EMAIL_MESSAGE)
         if any(ord(c) > 0xFF and c not in "€‚ƒ„…†‡ˆ‰Š‹Œ"

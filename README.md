@@ -307,7 +307,7 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     confirmation, No by
     default; a credit name typed by hand, never filled in; email addresses are refused everywhere). The owner accepts
     a shared file with the `accept-translation` label: `.github/workflows/accept-translation.yml` checks it as data
-    only (`scripts/accept_translation.py`) and opens a pull request as the bot. Modules `patcher/vf1_translations*.py`,
+    only (`scripts/accept_translation.py`) and opens a pull request as the bot. Every patch's own text (the Upgrades menu and its pages, messages, captions; `native/vf1fun/translate.inc`, `tools/vf1_patch_text.py`, `data/vf1_patch_strings.json`) is in the template too, with its room; the Family History log stays in English. Modules `patcher/vf1_translations*.py`,
     `patcher/translation_format.py`, `patcher/vf1_translation_strings.py`; see `docs/translations.md`.
   - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
     save* lists a save's family members (at home, then those who left home) and the outfits in the store and the

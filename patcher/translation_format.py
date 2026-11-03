@@ -946,6 +946,21 @@ class Entry:
     notes: str = ""
     max_length: int | None = None     # the translation may not be longer (see too_long)
     wide: bool = False                # counted in UTF-16 units (a Windows popup's text), not UTF-8 bytes
+    items: bool = False               # a comma-separated list the program picks from by position (items_problem)
+
+
+ITEMS_MESSAGE = ("this list must keep every item, in order, separated by commas, each no longer than its English; "
+                 "it shows English")
+
+
+def items_problem(english: str, translation: str) -> bool:
+    """A list line (Entry.items) whose translation has another number of items, or an item longer than the English
+    one at its place (UTF-8 bytes of the text the program is handed): the program counts commas to pick an item and
+    copies it where the English item fits."""
+    ours = game_text(translation).split(",")
+    theirs = english.split(",")
+    return len(ours) != len(theirs) or any(len(a.encode("utf-8")) > len(b.encode("utf-8"))
+                                           for a, b in zip(ours, theirs))
 
 
 def new_file(game: str, entries: list[Entry], language: str, code: str, translator: str = "",
@@ -1079,6 +1094,8 @@ def validate(tf: TranslationFile, entries: list[Entry] | None = None) -> Report:
             if row.translation and row.key not in bad:
                 if entry.max_length is not None and too_long(row.translation, entry.max_length, entry.wide):
                     errors.append(Problem(row.line, "error", too_long_message(entry.max_length), row.key))
+                elif entry.items and items_problem(entry.english, row.translation):
+                    errors.append(Problem(row.line, "error", ITEMS_MESSAGE, row.key))
                 else:
                     translated += 1
         elif split_key(row.key) and base_key(row.key) in bases:

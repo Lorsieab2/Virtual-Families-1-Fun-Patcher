@@ -9,8 +9,10 @@
 // +0x13620 and +0x1362C, into the comma-separated name lists of strings 0x45B
 // (likes, read by 0x481E20) and 0x45C (dislikes, read by 0x481420).
 
-static const char *LikeNames() { return GetString(StringsGet(), 0x45B); }
-static const char *DislikeNames() { return GetString(StringsGet(), 0x45C); }
+// The lists in English whatever the translation (translate.inc): the code finds a like by its English name and the
+// game keeps only the index, so the English list is the one to search (a translated list has the same items).
+static const char *LikeNames() { const char *e = GameEnglish(0x45B); return e ? e : GetString(StringsGet(), 0x45B); }
+static const char *DislikeNames() { const char *e = GameEnglish(0x45C); return e ? e : GetString(StringsGet(), 0x45C); }
 
 static int NameIndex(const char *list, const char *name) {  // index of `name` in "a, b, c", or -1
     if (!list) return -1;
@@ -57,14 +59,14 @@ static int *Dislikes(int i) { return (int *)(Villager(i) + 0x1362C); }
 // Gives the like called `name`, and clears the matching dislike. Returns 0 when done, or the reason.
 static const wchar_t *GiveLike(int i, const char *name) {
     int like = NameIndex(LikeNames(), name);
-    if (like < 0) return L"The game has no such like.";
+    if (like < 0) return TR(L"The game has no such like.");
     int *l = Likes(i);
     bool has = false;
     for (int s = 0; s < 3; ++s) if (l[s] == like) has = true;
     if (!has) {
         int slot = -1;
         for (int s = 0; s < 3 && slot < 0; ++s) if (l[s] == -1) slot = s;
-        if (slot < 0) return L"Every like slot is already full.";
+        if (slot < 0) return TR(L"Every like slot is already full.");
         l[slot] = like;
     }
     int dislike = NameIndex(DislikeNames(), name);
@@ -85,9 +87,9 @@ static const wchar_t *SetAgeTo18(int i) {
 // SetLeftHome, life event 5 (the "is going to college!" picture). Children only.
 typedef void (__thiscall *SetLeftHomeFn)(void *villager);
 static const wchar_t *BoardingSchool(int i) {
-    if (HasCareer(i)) return L"Boarding school is for children only.";
+    if (HasCareer(i)) return TR(L"Boarding school is for children only.");
     unsigned char *v = Villager(i);
-    if (v[0x13578]) return L"Has already left home.";
+    if (v[0x13578]) return TR(L"Has already left home.");
     ForgetPlans(v, v);
     if (v[0x13575]) ClearFocus(VillagerManager);
     LogFamilyEvent(LOGS_BOARDING_SCHOOL, i);   // Family History: the departure that follows is Boarding School

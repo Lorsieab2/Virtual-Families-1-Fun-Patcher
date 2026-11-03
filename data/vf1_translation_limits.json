@@ -370,20 +370,7 @@
   1622
  ],
  "never": {
-  "2": "the decimal point (eString_Decimal): numbers are written with it",
-  "458": "\"New Generation\": a Family History log record kind",
-  "942": "the college title: the Family History log's Left Home record",
-  "1115": "the likes list (eSayLikesList): the game picks its items by position",
-  "1116": "the dislikes list (eSayDislikesList): the game picks its items by position",
-  "1124": "\"Male\": the Family History log's Sex word, read back by the Family Tree Maker",
-  "1125": "\"Female\": the Family History log's Sex word, read back by the Family Tree Maker",
-  "1287": "a cause of death in the Family History log",
-  "1288": "a cause of death in the Family History log",
-  "1289": "a cause of death in the Family History log",
-  "1290": "a cause of death in the Family History log",
-  "1291": "a cause of death in the Family History log",
-  "1292": "a cause of death in the Family History log",
-  "1584": "\"Nursing\": a Family History log word"
+  "2": "the decimal point (eString_Decimal): numbers are written with it"
  },
  "unresolved": [
   {

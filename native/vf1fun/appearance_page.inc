@@ -74,8 +74,8 @@ static void FillList(HWND dlg, int keep) {
     for (int i = 0; i < VillagerSlots; ++i) {
         if (!VillagerPresent(i)) continue;
         wchar_t line[128];
-        swprintf(line, 128, L"%.40ls\t%ls   Hair %d   Outfit %d", NameW((const char *)(Villager(i) + 0x2A44), 0x19),
-                 *(int *)(Villager(i) + 0x2A38) == 1 ? L"Female" : L"Male", *Head(i), *Body(i));
+        swprintf(line, 128, TR(L"%.40ls\t%ls   Hair %d   Outfit %d"), NameW((const char *)(Villager(i) + 0x2A44), 0x19),
+                 *(int *)(Villager(i) + 0x2A38) == 1 ? TR(L"Female") : TR(L"Male"), *Head(i), *Body(i));
         int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
         SendMessageW(list, LB_SETITEMDATA, row, i);
         if (i == keep) SendMessageW(list, LB_SETCURSEL, row, 0);
@@ -142,8 +142,8 @@ static void Apply(HWND dlg, int n) {
     if (who < 0) return;
     if ((*(int *)(Villager(who) + 0x2A38) != 1) != gMale) return;  // gender-locked
     wchar_t text[200];
-    swprintf(text, 200, L"Change %.40ls's %ls to #%d?", NameW((const char *)(Villager(who) + 0x2A44), 0x19),
-             gOutfits ? L"outfit" : L"hairstyle", n);
+    swprintf(text, 200, TR(L"Change %.40ls's %ls to #%d?"), NameW((const char *)(Villager(who) + 0x2A44), 0x19),
+             gOutfits ? TR(L"outfit") : TR(L"hairstyle"), n);
     if (!Confirm(dlg, text)) return;
     // The head and body rows are the same 0-49 numbers for both genders (each gender draws them from its own sheet).
     if (gOutfits) *Body(who) = n; else *Head(who) = n;
@@ -227,16 +227,16 @@ static INT_PTR CALLBACK Proc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 static Template &AppearanceTemplate() {
     static Template t;
     using namespace appearance;
-    t.Begin(L"Clothing and Hairstyles", 330, 300);
+    t.Begin(TR_N(L"Clothing and Hairstyles"), 330, 300);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 8, 8, 314, 62, ID_AP_LIST, L"");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 76, 70, 12, ID_AP_HAIR, L"Hairstyles");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON, 82, 76, 60, 12, ID_AP_OUTFIT, L"Outfits");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_DISABLED, 190, 76, 60, 12, ID_AP_FEMALE, L"Female");
-    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_DISABLED, 254, 76, 60, 12, ID_AP_MALE, L"Male");
+    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP, 8, 76, 70, 12, ID_AP_HAIR, TR_N(L"Hairstyles"));
+    t.Item(BUTTON, BS_AUTORADIOBUTTON, 82, 76, 60, 12, ID_AP_OUTFIT, TR_N(L"Outfits"));
+    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_GROUP | WS_DISABLED, 190, 76, 60, 12, ID_AP_FEMALE, TR_N(L"Female"));
+    t.Item(BUTTON, BS_AUTORADIOBUTTON | WS_DISABLED, 254, 76, 60, 12, ID_AP_MALE, TR_N(L"Male"));
     t.Item(STATIC, SS_OWNERDRAW | SS_NOTIFY | WS_BORDER, 8, 92, 300, 176, ID_AP_CANVAS, L"");
     t.Item(0x84, SBS_VERT, 308, 92, 12, 176, ID_AP_SCROLL, L"");
-    t.Item(STATIC, SS_LEFT, 8, 274, 230, 20, ID_AP_HINT, L"Pick a villager, then click a hairstyle or outfit to give them.");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 247, 278, 75, 16, IDOK, L"Close");
+    t.Item(STATIC, SS_LEFT, 8, 274, 230, 20, ID_AP_HINT, TR_N(L"Pick a villager, then click a hairstyle or outfit to give them."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 247, 278, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowAppearance(HWND owner) {

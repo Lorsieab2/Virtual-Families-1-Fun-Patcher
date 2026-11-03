@@ -136,6 +136,23 @@ vf1tr.dll passes the text on as UTF-8, which they draw, so Turkish, Polish, Russ
 The patcher's own windows and the Upgrades pages of vf1fun.dll are not part of the file; names the player types, and the
 game's pictures (with their words), stay as they are.
 
+## The patches' own text
+
+Everything a patch adds that a player can see is in the template too, after the game's own lines: the Upgrades button
+and menu, every page of it (Cheat Upgrades, Villager Cheats, Store, House and Yard, Time Controls, Special Upgrades,
+Services, Family, Clothing and Hairstyles, Flea Market, Patcher Achievements), every message and question, the
+achievements and services, and the Behavior Label Variants captions under a villager. Their keys start with `patch/`
+(for example `patch/vf1fun.no_money~...`); a line you leave empty shows its English. Each has its room: a caption the
+game draws under a villager at most 39 letters, a window's text three times its English (at least 80, at most 600).
+
+The Family History log's words ("Male", "Female", the causes of death, "New Generation", "Nursing"...) are translated
+in the game; the log file itself stays in English, because the Family Tree Maker reads it back. The likes and dislikes
+lists can be translated item by item: keep every item, in order, separated by commas, each no longer than its English
+(the game picks an item by counting commas). Only the decimal point is never translated.
+
+Any Unicode character can be used (the whole Unicode 18.0 chart collection and anything later): the patcher never
+rejects a letter because it does not know it. Whether the game can draw it depends on the Unicode settings and fonts.
+
 ## Sharing
 
 The Translations window says: "If you want to share your translation, consider going to the Patcher's GitHub page and
@@ -172,7 +189,13 @@ instead. Accepted translations ship in the next release and appear in every play
   instructions (0x41AE55, 0x4374F9, 0x4491BC, 0x4492F9, 0x44E8E3, 0x46EE9D, 0x4797D2, 0x47A513), each chained to whatever
   that call reached before. It writes all of it or nothing.
 - `tools/build_vf1_translation_limits.py` writes `data/vf1_translation_limits.json` and `native/vf1tr/vf1tr_limits.h`.
+- The patches' own text: every visible literal in `native/vf1fun` is marked with `TR`, `TR_N`, `TR_A` or `TR_NA`
+  (`native/vf1fun/translate.inc`); `tools/vf1_patch_text.py` writes `data/vf1_patch_strings.json`, which
+  `vf1_translation_strings.patch_entries` adds to the template. At run time vf1fun.dll asks `VF1Tr_TextW` /
+  `VF1Tr_TextA` for a line by its English; vf1logs.dll asks `VF1Tr_English` / `VF1Tr_EnglishOf` so the log stays in
+  English. `tests/test_patch_text_coverage.py` fails on any visible literal that is not marked, on a DLL that shows
+  text without being listed, on a stale JSON, and on a dialog or buffer a translation could overrun.
 - `scripts/accept_translation.py` is the Action's check; `.github/ISSUE_TEMPLATE/translation.yml` the form.
 - Tests: `tests/test_translation_format.py`, `tests/test_translations_runtime.py` (the DLL in Unicorn against the real
   game's GetString, template filler and guarded calls), `tests/test_translations_window.py`,
-  `tests/test_translation_sharing.py`.
+  `tests/test_translation_sharing.py`, `tests/test_patch_text_coverage.py`.

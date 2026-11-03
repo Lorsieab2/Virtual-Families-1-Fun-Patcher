@@ -19,6 +19,11 @@
    through a guard here (call rel32 -> guard -> the call's own target): a translated line reaching one is handed
    on cut to its English length, so those copies never hold more than in the English game.
 
+   PATCHES.  Lines keyed "patch/..." are the patches' own text (tools/vf1_patch_text.py): kept by their English and
+   handed out when vf1fun.dll asks (VF1Tr_TextW / VF1Tr_TextA), within their room.  VF1Tr_English / VF1Tr_EnglishOf
+   give vf1logs.dll the English, so the Family History log stays English while the game shows the translation.  The
+   likes and dislikes lists keep every item, each no longer than its English; only the decimal point is never.
+
    No choice, "English (original)", a missing or unreadable file, a file for another game: nothing is changed.
    A bad line (a broken placeholder, a changed English, too long, a line that is never translated) shows English;
    the file's other lines still work.  Every problem goes to "Translations.log" beside the DLL (line numbers,
@@ -74,7 +79,20 @@ typedef struct row {
     int translation_n;
     char *out;                       /* the translation as the game gets it */
     record *rec;
+    /* a "patch/..." line: text a patch adds (vf1fun.dll), found by its English (VF1Tr_TextW / VF1Tr_TextA) */
+    int patch;
+    int size;                        /* measure() of the translation, in UTF-8 bytes */
+    int has_conv;                    /* the English has a printf conversion (it goes through swprintf) */
+    char *utf8;                      /* the translation rendered as UTF-8 */
+    wchar_t *wide;                   /* ... and as UTF-16, made on first use */
+    struct row *next;                /* the next patch line in its hash bucket */
 } row;
+
+#define PATCH_BUCKETS 1024
+#define PATCH_WIDE_MIN 80
+#define PATCH_WIDE_MAX 600
+static row *patch_bucket[PATCH_BUCKETS];
+static int patch_used = 0;
 
 static int installed = 0;
 static int text_mode = 0;            /* 0 Windows-1252, 1 UTF-8 */
@@ -357,6 +375,54 @@ static int measure(const char *s, int n, const tt_template *t) {
 
 static tt_template tmpl_english, tmpl_translation;
 
+/* ----------------------------------------------------------------- the patches' own text */
+
+static unsigned int patch_hash(const char *s, int n) {
+    unsigned int h = 2166136261u;
+    int k;
+    for (k = 0; k < n; ++k) h = (h ^ (unsigned char)s[k]) * 16777619u;
+    return h;
+}
+
+static row *patch_find(const char *english, int n) {
+    row *r;
+    int k;
+    for (r = patch_bucket[patch_hash(english, n) % PATCH_BUCKETS]; r != NULL; r = r->next) {
+        if (r->english_n != n) continue;
+        for (k = 0; k < n && r->english[k] == english[k]; ++k) {}
+        if (k == n) return r;
+    }
+    return NULL;
+}
+
+/* The most a patch's wide line may hold, in UTF-8 bytes (tools/vf1_patch_text.wide_room): three times its English,
+   at least PATCH_WIDE_MIN, at most PATCH_WIDE_MAX.  vf1fun.dll's dialog templates hold that much, and its every
+   swprintf is given its buffer's size, so a long line is cut there, never written past. */
+static int patch_room_w(const row *r) {
+    int room;
+    room = r->english_n * 3;
+    if (room < PATCH_WIDE_MIN) room = PATCH_WIDE_MIN;
+    if (room > PATCH_WIDE_MAX) room = PATCH_WIDE_MAX;
+    return room;
+}
+
+/* The likes and dislikes lists (0x45B, 0x45C): the game picks an item by counting commas (0x481E20, 0x481420) and
+   copies it into its sentence, so a translation keeps every item, in order, each no longer than its English. */
+static int is_item_list(int id) { return id == 0x45B || id == 0x45C; }
+
+static int items_fit(const char *english, const char *translation) {
+    for (;;) {
+        int a = 0, b = 0;
+        while (english[a] && english[a] != ',') ++a;
+        while (translation[b] && translation[b] != ',') ++b;
+        if (b > a) return 0;
+        if ((english[a] == ',') != (translation[b] == ',')) return 0;
+        if (english[a] == 0) return 1;
+        english += a + 1;
+        translation += b + 1;
+    }
+}
+
 static int read_rows(const char *text, int n) {
     int i = 0, line_no = 0, header = 0, lines = 1, k, format_seen = 0, pool_at = 0;
     char *pool;
@@ -501,6 +567,30 @@ static int read_rows(const char *text, int n) {
             log_refused(line_no, "the English column does not match the key");
             continue;
         }
+        if (tt_span_is(source, "patch")) {
+            /* Text a patch adds: used where the patch asks for it by its English (patch_find). */
+            if (!tt_translation_ok(r->english, r->english_n, r->translation, r->translation_n, &tmpl_english, &tmpl_translation)) {
+                log_refused(line_no, "the placeholders or choices do not match the English");
+                continue;
+            }
+            r->patch = 1;
+            r->has_conv = tmpl_english.nconv > 0;
+            r->size = measure(r->translation, r->translation_n, &tmpl_translation);
+            if (r->size > VF1TR_MAX_LINE) { log_refused(line_no, "too long for its space"); continue; }
+            r->out = render_out(r->translation, r->translation_n, &tmpl_translation, text_mode);
+            r->utf8 = render_out(r->translation, r->translation_n, &tmpl_translation, 1);
+            if (r->out == NULL || r->utf8 == NULL) { log_refused(line_no, "could not be written"); continue; }
+            if (patch_find(r->english, r->english_n) != NULL) continue;      /* the same line again: the first counts */
+            {
+                unsigned int b = patch_hash(r->english, r->english_n) % PATCH_BUCKETS;
+                r->next = patch_bucket[b];
+                patch_bucket[b] = r;
+            }
+            ++row_count;
+            ++used;
+            ++patch_used;
+            continue;
+        }
         if (!tt_span_is(source, "strings")) { log_refused(line_no, "unknown source"); continue; }
         for (j = 0; j < id.n; ++j) {
             if (!tt_is_digit((unsigned char)id.s[j]) || v > 100000) { v = -1; break; }
@@ -526,7 +616,11 @@ static int read_rows(const char *text, int n) {
         }
         r->out = render_out(r->translation, r->translation_n, &tmpl_translation, text_mode);
         if (r->out == NULL) { log_refused(line_no, "could not be written"); continue; }
-        if (by_id[v] != NULL) continue;                                      /* the same line again: the first counts */
+        if (is_item_list(v) && !items_fit(r->english_game, r->out)) {
+            log_refused(line_no, "a list must keep every item, each no longer than its English");
+            continue;
+        }
+        if (by_id[v] != NULL) continue;                                     /* the same line again: the first counts */
         by_id[v] = r;
         ++row_count;
         ++used;
@@ -733,6 +827,80 @@ __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
 /* The line's override for a string id now (tests and other DLLs): the translation, or NULL (English). */
 __declspec(dllexport) const char *__cdecl VF1Tr_Translation(int id) {
     return id >= 1 && id <= VF1TR_MAX_ID && by_id[id] != NULL && installed ? by_id[id]->out : NULL;
+}
+
+/* ----------------------------------------------------------------- for the other DLLs */
+
+/* A patch's wide text (a Windows dialog, message box or list, vf1fun.dll): its translation, or `english` itself
+   when there is none, it is too long for its room (patch_room_w), or nothing is installed.  Never NULL for a
+   non-NULL `english`.  The translation lives as long as the game. */
+__declspec(dllexport) const wchar_t *__cdecl VF1Tr_TextW(const wchar_t *english) {
+    static char key[(VF1TR_MAX_LINE + 8) * 3];
+    tt_out o;
+    row *r;
+    int k = 0;
+    if (english == NULL || !installed || patch_used == 0) return english;
+    o.buf = key;
+    o.cap = VF1TR_MAX_LINE * 3;
+    o.mode = 1;
+    o.at = 0;
+    o.overflow = 0;
+    while (english[k] != 0 && !o.overflow) {
+        unsigned int cp = english[k++];
+        if (cp >= 0xD800 && cp < 0xDC00 && english[k] >= 0xDC00 && english[k] < 0xE000)
+            cp = 0x10000u + ((cp - 0xD800u) << 10) + (english[k++] - 0xDC00u);
+        tt_put_cp(&o, cp);
+    }
+    if (o.overflow) return english;
+    r = patch_find(key, o.at);
+    if (r == NULL || r->size > patch_room_w(r)) return english;
+    if (r->wide == NULL) {
+        int n = slen(r->utf8);
+        wchar_t *w = (wchar_t *)tr_alloc((SIZE_T)(n + 2) * sizeof(wchar_t) * 2);
+        if (w == NULL || !utf8_to_wide(r->utf8, n, w, n * 2 + 2)) return english;
+        r->wide = w;
+    }
+    return r->wide;
+}
+
+/* A patch's narrow text that the game draws (a button, a villager's caption): its translation as the game draws
+   text (Windows-1252, or UTF-8 with the Unicode settings), or `english` itself when there is none, it is longer than
+   `room` bytes, or nothing is installed.  `english` is Windows-1252 (the patches' own text is ASCII). */
+__declspec(dllexport) const char *__cdecl VF1Tr_TextA(const char *english, int room) {
+    static char key[(VF1TR_MAX_LINE + 8) * 3];
+    tt_out o;
+    row *r;
+    int k = 0;
+    if (english == NULL || !installed || patch_used == 0) return english;
+    o.buf = key;
+    o.cap = VF1TR_MAX_LINE * 3;
+    o.mode = 1;
+    o.at = 0;
+    o.overflow = 0;
+    while (english[k] != 0 && !o.overflow) {
+        unsigned char c = (unsigned char)english[k++];
+        tt_put_cp(&o, c < 0x80 || c >= 0xA0 ? c : '?');
+    }
+    if (o.overflow) return english;
+    r = patch_find(key, o.at);
+    if (r == NULL || r->size > room || slen(r->out) > room) return english;
+    return r->out;
+}
+
+/* A game line's English, whatever the translation (the Family History log is written in English: vf1logs.dll). */
+__declspec(dllexport) const char *__cdecl VF1Tr_English(int id) {
+    record *r = record_of(id);
+    return r != NULL ? r->text : NULL;
+}
+
+/* The English of a line the game showed translated (a Random Event's title, for the Family History log): `shown`
+   when it is no translated line. */
+__declspec(dllexport) const char *__cdecl VF1Tr_EnglishOf(const char *shown) {
+    int k;
+    if (shown == NULL || !installed) return shown;
+    for (k = 1; k <= VF1TR_MAX_ID; ++k)
+        if (by_id[k] != NULL && (by_id[k]->out == shown || bsame(by_id[k]->out, shown))) return by_id[k]->rec->text;
+    return shown;
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {

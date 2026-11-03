@@ -91,6 +91,8 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "stub.json": vf1_patcher.STUB.read_bytes(),
         # Translations (docs/translations.md): the room of the game's lines (the modules ship below)
         "vf1_translation_limits.json": (ROOT / "data" / "vf1_translation_limits.json").read_bytes(),
+        # ... and the lines the patches add (tools/vf1_patch_text.py), after the game's in the template
+        "vf1_patch_strings.json": (ROOT / "data" / "vf1_patch_strings.json").read_bytes(),
     }
     # Every module in patcher/: the tools import each other, some only when a window opens (the Picture Maker's
     # Every picture tab loads vf1_game_art, vf1_art_*, vf1_jpeg and vf1_small_formats), so a hand-kept list

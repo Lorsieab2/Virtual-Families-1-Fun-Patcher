@@ -121,7 +121,7 @@ def test_bad_lines_show_english_and_the_rest_still_work(exe, dll, table, entries
     long_sid = next(int(e.key.split("/")[1].split("~")[0]) for e in entries.values()
                     if e.max_length and e.max_length < 40 and len(e.english) > 3)
     long_k, long_en = key(long_sid, table)
-    never_k, never_en = key(0x464, table)                                # "Male": the log's word
+    never_k, never_en = key(0x002, table)                                # the decimal point: never
     wrong_k = tfmt.make_key("strings", "1065", "Something else")         # the English changed since
     plain = first(table, lambda t: "{" not in t and "%" not in t and len(t) > 10, skip=(0x41A,))
     plain_k, plain_en = key(plain, table)
@@ -129,14 +129,14 @@ def test_bad_lines_show_english_and_the_rest_still_work(exe, dll, table, entries
         (ok_k, ok_en, "Terminé"),
         (xy_k, xy_en, "%d sur %s"),                                      # a placeholder changed
         (long_k, long_en, "x" * 200),                                    # past its room
-        (never_k, never_en, "Masculin"),
+        (never_k, never_en, "Masculin"),                                 # (a decimal point is never)
         (wrong_k, "Something else", "Autre"),
         (plain_k, plain_en, "{il/elle} " + plain_en),                    # a person choice in a line nobody fills
     ]
     w, tf = world(exe, dll, rows)
     assert w.installed == 1
     assert w.get_string(0x41A) == "Terminé".encode("cp1252")
-    for sid in (sid_xy, long_sid, 0x464, 1065, plain):
+    for sid in (sid_xy, long_sid, 0x002, 1065, plain):
         assert w.get_string(sid) == table[sid][1].encode("cp1252"), sid
         assert w.translation_of(sid) == 0
     log = w.log()
@@ -265,3 +265,118 @@ def test_the_limits_are_the_vanilla_codes(exe):
     assert json.loads((ROOT / "data" / "vf1_translation_limits.json").read_text(encoding="utf-8")) == data
     assert (ROOT / "native" / "vf1tr" / "vf1tr_limits.h").read_text(encoding="utf-8") == bl.header(data)
     assert data["get_string_calls"] == 571 and data["copies"] == 390
+
+
+# ---------------------------------------------------------------------------------------------- the patches' own text
+
+
+def text_w(w, english: str) -> tuple[int, int, str]:
+    """VF1Tr_TextW(english): (the pointer handed in, the pointer back, the text back)."""
+    at = w.e.alloc(len(english) * 2 + 4)
+    w.e.write(at, english.encode("utf-16-le") + b"\0\0")
+    back = w.e.call(w.e.dll_export("VF1Tr_TextW"), (at,))
+    return at, back, w.e.wstr(back)
+
+
+def text_a(w, english: str, room: int) -> tuple[int, int, bytes]:
+    at = w.e.alloc(len(english) + 4)
+    w.e.write(at, english.encode("cp1252") + b"\0")
+    back = w.e.call(w.e.dll_export("VF1Tr_TextA"), (at, room))
+    return at, back, w.e.read_cstr_bytes(back)
+
+
+@pytest.fixture(scope="module")
+def patch():
+    return {e.english: e for e in vts.patch_entries()}
+
+
+def test_a_patchs_own_text_is_translated_by_its_english(exe, dll, table, patch, entries):
+    """vf1fun.dll asks for its text by its English: the translation when there is one that fits, else the very
+    pointer it handed in (its English). The validator accepts exactly the same lines."""
+    money, food, movie, upgrades = (patch[t] for t in ("No Money", "Food now: %d", "Watching a movie", "Upgrades"))
+    menu = patch["Upgrades Menu"]
+    rows = [
+        (money.key, money.english, "Plus d'argent"),
+        (food.key, food.english, "Nourriture : %s"),                        # a placeholder changed: English
+        (movie.key, movie.english, "Regarde un film"),
+        (upgrades.key, upgrades.english, "Améliorations"),
+        (menu.key, menu.english, "é" * (menu.max_length // 2 + 1)),         # past its room: English
+    ]
+    w, tf = world(exe, dll, rows)
+    assert w.installed == 1, w.log()
+    at, back, text = text_w(w, "No Money")
+    assert text == "Plus d'argent" and back != at
+    for english in ("Food now: %d", "Upgrades Menu", "Not a line of any patch"):
+        at, back, text = text_w(w, english)
+        assert back == at and text == english, english
+    at, back, text = text_a(w, "Watching a movie", 39)
+    assert text == "Regarde un film".encode("cp1252")
+    assert text_a(w, "Upgrades", 60)[2] == "Améliorations".encode("cp1252")
+    at, back, text = text_a(w, "Upgrades", 12)                              # its caller's room is 12: English
+    assert back == at and text == b"Upgrades"
+    report = tfmt.validate(tfmt.parse_text(tfmt.to_bytes(tf).decode("utf-8-sig"), "vf1"), list(entries.values()))
+    bad = {p.key for p in report.errors}
+    assert bad == {food.key, menu.key}
+    # with the Unicode settings the game draws UTF-8
+    w2, _tf = world(exe, dll, rows, unicode_dll=True)
+    assert text_a(w2, "Upgrades", 60)[2] == "Améliorations".encode("utf-8")
+    assert text_w(w2, "No Money")[2] == "Plus d'argent"
+
+
+def test_a_patchs_text_with_any_letter_and_at_its_room(exe, dll, patch):
+    e = patch["Max happiness"]
+    fits = "😀" * (e.max_length // 4)                                         # 4 UTF-8 bytes each, a surrogate pair
+    w, _tf = world(exe, dll, [(e.key, e.english, fits)])
+    assert text_w(w, "Max happiness")[2] == fits
+    w2, _tf = world(exe, dll, [(e.key, e.english, fits + "x" * 4)])
+    assert text_w(w2, "Max happiness")[2] == "Max happiness"
+
+
+def test_nothing_chosen_every_patch_line_is_its_english(exe, dll):
+    import translations_emu as te
+    w = te.TranslationWorld(exe, dll, {})
+    assert w.start() == 0
+    at, back, text = text_w(w, "No Money")
+    assert back == at
+    at, back, text = text_a(w, "Upgrades", 60)
+    assert back == at
+
+
+def test_the_family_history_words_are_translated_on_screen_and_english_for_the_log(exe, dll, table):
+    """"Male", the causes of death, "New Generation"... are translated in the game; vf1logs.dll asks
+    VF1Tr_English for the log, and VF1Tr_EnglishOf gives the English of a title the game showed translated."""
+    male_k, male_en = key(0x464, table)
+    done_k, done_en = key(0x41A, table)
+    cause_k, cause_en = key(0x508, table)
+    w, _tf = world(exe, dll, [(male_k, male_en, "Masc"), (done_k, done_en, "Terminé"), (cause_k, cause_en, "Vieillesse")])
+    assert w.get_string(0x464) == b"Masc" and w.get_string(0x508) == b"Vieillesse"
+    english = w.e.dll_export("VF1Tr_English")
+    assert w.e.read_cstr_bytes(w.e.call(english, (0x464,))) == b"Male"
+    assert w.e.read_cstr_bytes(w.e.call(english, (0x508,))) == cause_en.encode("cp1252")
+    assert w.e.call(english, (0,)) == 0
+    english_of = w.e.dll_export("VF1Tr_EnglishOf")
+    shown = w.translation_of(0x41A)
+    assert w.e.read_cstr_bytes(w.e.call(english_of, (shown,))) == b"Done"
+    copy = w.e.alloc(16)
+    w.e.write(copy, "Terminé".encode("cp1252") + b"\0")                    # the same text in a dialog's buffer
+    assert w.e.read_cstr_bytes(w.e.call(english_of, (copy,))) == b"Done"
+    other = w.e.alloc(16)
+    w.e.write(other, b"A name\0")
+    assert w.e.call(english_of, (other,)) == other
+
+
+def test_the_likes_lists_keep_every_item_each_no_longer(exe, dll, table, entries):
+    k, en = key(0x45B, table)
+    items = en.split(",")
+    same = ",".join(i[: max(1, len(i) - 1)] for i in items)                 # each item one letter shorter
+    fewer = ",".join(items[:-1])
+    longer = ",".join(items[:-1] + [items[-1] + "xx"])
+    entry = entries[k]
+    assert entry.items and "items" in entry.notes
+    for tr, used in ((same, True), (fewer, False), (longer, False)):
+        w, tf = world(exe, dll, [(k, en, tr)])
+        assert bool(w.translation_of(0x45B)) == used, tr
+        report = tfmt.validate(tfmt.parse_text(tfmt.to_bytes(tf).decode("utf-8-sig"), "vf1"), list(entries.values()))
+        assert (k in {p.key for p in report.errors}) == (not used), tr
+    dk, den = key(0x45C, table)
+    assert entries[dk].items

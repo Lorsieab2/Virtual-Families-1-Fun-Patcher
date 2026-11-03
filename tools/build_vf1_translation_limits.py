@@ -20,8 +20,9 @@ A copy whose id cannot be told (the id comes from data: an item, an event, a cal
 "unresolved" with the copying call; vf1tr.dll redirects each of those calls through a guard that hands the copy a
 translated line cut to its English length (at a whole letter), so the copy never holds more than in the English
 game. Every other call is left as it is.
-Lines vf1logs.dll writes into the Family History log as record words ("Male", "Female", "New Generation"...) and
-the lines the game splits into items (the likes and dislikes lists, the decimal point) are never translated.
+Only the decimal point is never translated (numbers are written with it). The Family History log's record words
+("Male", "Female", "New Generation"...) are translated on screen and written in English by vf1logs.dll; the likes and
+dislikes lists keep every item, each no longer than its English (vf1tr.dll checks it).
 """
 from __future__ import annotations
 
@@ -41,19 +42,11 @@ SPRINTF, STRNCPY, STRNCAT = 0x4985BB, 0x4993C0, 0x498660
 TABLE = 0x4F5618                 # the first of the static records {id, key*, text*, override*}
 MAX_ID = 0x675                   # GetString's own bound (id - 1 <= 0x674)
 WINDOW = 40
-# The Family History log's record words (native/vf1logs/vf1logs_sites.h) and the lines the game parses.
+# The lines the game parses: never translated. The Family History log's record words ("Male", "Female", the causes
+# of death...) are translated on screen; vf1logs.dll writes the log in English (VF1Tr_English). The likes and
+# dislikes lists are translated item by item: vf1tr.dll keeps every item, each no longer than its English.
 NEVER = {
     0x002: "the decimal point (eString_Decimal): numbers are written with it",
-    0x45B: "the likes list (eSayLikesList): the game picks its items by position",
-    0x45C: "the dislikes list (eSayDislikesList): the game picks its items by position",
-    0x464: "\"Male\": the Family History log's Sex word, read back by the Family Tree Maker",
-    0x465: "\"Female\": the Family History log's Sex word, read back by the Family Tree Maker",
-    0x1CA: "\"New Generation\": a Family History log record kind",
-    0x3AE: "the college title: the Family History log's Left Home record",
-    0x630: "\"Nursing\": a Family History log word",
-    0x507: "a cause of death in the Family History log", 0x508: "a cause of death in the Family History log",
-    0x509: "a cause of death in the Family History log", 0x50A: "a cause of death in the Family History log",
-    0x50B: "a cause of death in the Family History log", 0x50C: "a cause of death in the Family History log",
 }
 
 

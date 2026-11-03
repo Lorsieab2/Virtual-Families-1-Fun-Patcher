@@ -97,7 +97,7 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
             "vf1_small_formats.py", "vf1_art_fonts.py", "vf1_art_sheets.py", "vf1_game_text.py"} <= set(modules)
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(set(PLAYER_FILES + [f"{FILES}/{n}" for n in [
         "manifest.json", "how_to_use.json", "stub.json", *modules,
-        "vf1_translation_limits.json",
+        "vf1_translation_limits.json", "vf1_patch_strings.json",
         "payload/vf1fun.dll"] + [f"payload/UnicodeText/{p.name}" for p in (ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")
                                  if p.stem not in ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]]))

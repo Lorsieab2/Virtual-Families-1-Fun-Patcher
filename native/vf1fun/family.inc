@@ -232,13 +232,13 @@ static bool __fastcall DatingHandleMessage(void *scene, void *, int message, int
 // proposal is due. Only when the family can marry (parent-2 free).
 static const wchar_t *ForceMarriageEmail() {
     if (!CurrentFamily() || !CanMarry(FamilyTree))
-        return L"Nobody in the family can get married right now.";
+        return TR(L"Nobody in the family can get married right now.");
     if (!GetMatriarch(VillagerManager) && !GetPatriarch(VillagerManager))
-        return L"There is no adult to propose to.";
+        return TR(L"There is no adult to propose to.");
     if (MailQueued(GameStateGet(), 2))  // the game queues only one (0x424500 checks 0x424030), as VF2 does
-        return L"A marriage proposal is already queued.";
+        return TR(L"A marriage proposal is already queued.");
     QueueMail(GameStateGet(), 2);
-    return L"A marriage proposal has been queued.";
+    return TR(L"A marriage proposal has been queued.");
 }
 
 // Divorce Spouse: research/villagers.md section 3's recipe. The spouse is the
@@ -246,7 +246,7 @@ static const wchar_t *ForceMarriageEmail() {
 static const wchar_t *DivorceSpouse() {
     unsigned char *r = CurrentFamily();
     int spouse = SpouseSlot();
-    if (!r || spouse < 0) return L"Nobody in the house is married.";
+    if (!r || spouse < 0) return TR(L"Nobody in the house is married.");
     LogFamilyEvent(LOGS_DIVORCE, spouse);   // Family History: logged while the spouse is still in the house
     // As VF2DivorceSpouse: allowed at any time, even while expecting. VF1 (unlike VF2) creates the babies at
     // conception and reserves their villager slots (theGameState +0x1B120..0x1B128), so when the spouse who
@@ -287,18 +287,18 @@ static void SetName(int slot, const wchar_t *name) {
 // inherited, and AddOffspring puts it in the Family Tree. Not a birth: no
 // "new baby" event and no births statistic.
 static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
-    if (!CurrentFamily()) return L"There is no family yet.";
+    if (!CurrentFamily()) return TR(L"There is no family yet.");
     if (EmptyOffspringSlots(FamilyTree) <= 0) return FamilyFullText();
-    if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
+    if (years < 2 || years > 13) return TR(L"Enter an age from 2 to 13.");
     int a = FounderSlot(), b = SpouseSlot();
     if (a < 0) a = b;
     if (b < 0) b = a;
-    if (a < 0) return L"A child needs at least one parent in the house.";
+    if (a < 0) return TR(L"A child needs at least one parent in the house.");
     unsigned char *p1 = Villager(a), *p2 = Villager(b);
     int slot = SpawnPeepFull(VillagerManager, -1, gender, years * 20, VillagerName(a), VillagerName(b),
                              *(int *)(p1 + 0x2A64), *(int *)(p1 + 0x2A60), *(int *)(p2 + 0x2A64),
                              *(int *)(p2 + 0x2A60), 0, 0, 0);
-    if (slot < 0) return L"The house is full.";
+    if (slot < 0) return TR(L"The house is full.");
     SetName(slot, name);
     AddOffspring(FamilyTree, Villager(slot));
     LogFamilyEvent(LOGS_SPAWN_CHILD, slot, a, b);
@@ -313,11 +313,11 @@ static const wchar_t *SpawnChild(int gender, int years, const wchar_t *name) {
 // same at any age 2-13 with an optional name. The child has no parents in the
 // house, so its look is the game's own random one, not the couple's.
 static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *name) {
-    if (!CurrentFamily()) return L"There is no family yet.";
+    if (!CurrentFamily()) return TR(L"There is no family yet.");
     if (EmptyOffspringSlots(FamilyTree) <= 0) return FamilyFullText();
-    if (years < 2 || years > 13) return L"Enter an age from 2 to 13.";
+    if (years < 2 || years > 13) return TR(L"Enter an age from 2 to 13.");
     int slot = SpawnPeep(VillagerManager, 1, gender, years * 20);
-    if (slot < 0) return L"The house is full.";
+    if (slot < 0) return TR(L"The house is full.");
     SetName(slot, name);   // SetName fits the name to its field, whole characters only
     AddOffspring(FamilyTree, Villager(slot));
     LogFamilyEvent(LOGS_ADOPT_CHILD, slot);
