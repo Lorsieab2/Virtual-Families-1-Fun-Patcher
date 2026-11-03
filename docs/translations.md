@@ -171,6 +171,11 @@ with the patcher's own validator, and opens a pull request adding it to `patcher
 bot (github-actions[bot]) and credited only to the typed credit name; if something is wrong it comments the problems
 instead. Accepted translations ship in the next release and appear in every player's language list.
 
+A "(TEST)" translation (its file name, language name or credit says "(TEST)") is for trying out only: it lives in
+the repository's `translations/` folder and never ships in a release (`tools/package_release.py` leaves it out;
+`tests/test_release.py` checks it). `translations/fr.tsv`, "(TEST) - French AI Translation" credited to "(TEST) AI
+translation", is one: an AI translation of every line, game and patch, to install with **Add translation file...**.
+
 ## For developers
 
 - `patcher/translation_format.py`: the format (reading, writing, placeholders, person and number choices, CLDR plural
