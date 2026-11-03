@@ -1,16 +1,13 @@
 // ---------------------------------------------------------------- names in this DLL's own windows
-// The patcher's one rule for text in the save (patcher/vf1_text.py, vf1text.dll): a name that is valid UTF-8 is
-// UTF-8; any other name is one character per byte (Windows-1252, its five unassigned bytes as Latin-1). A name
-// typed in this DLL's own windows (Spawn Child, Adopt Outside Child) is stored as UTF-8, cut only between whole
-// characters (the same cluster table, generated from vf1_text.py). The stock game shows such a name as Latin-1
-// letters; Render Unicode with In-Game Fonts or Use Unicode Font show it as typed.
+// The patcher's one rule for text in the save (patcher/vf1_text.py, vf1text.dll, native/vf1text/text_rule.inc): a
+// Windows-1252 character is stored as its one byte, any other character as UTF-8, in the same string (all UTF-8 when
+// the mix would read back differently); it is read per sequence: each well-formed UTF-8 sequence is its character,
+// every other byte is Windows-1252 (its five unassigned bytes as Latin-1). A name typed in this DLL's own windows
+// (Spawn Child, Adopt Outside Child) is stored by that rule, cut only between whole characters (the same cluster table,
+// generated from vf1_text.py). The stock game shows such a name as Latin-1 letters where it must (the characters
+// outside Windows-1252); Render Unicode with In-Game Fonts or Use Unicode Font show it as typed.
 #include "../vf1text/extenders.inc"
-
-static const unsigned short NameCp1252[32] = {
-    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152,
-    0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122,
-    0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
-};
+#include "../vf1text/text_rule.inc"
 
 static bool NameExtender(unsigned cp) {
     int lo = 0, hi = (int)(sizeof ExtenderRanges / sizeof ExtenderRanges[0]) - 1;
@@ -23,7 +20,7 @@ static bool NameExtender(unsigned cp) {
     return false;
 }
 
-// One character limit for every name box (vf1text.dll / vf1font.dll, native/vf1text/names.inc): a name longer than
+// One limit for every name box (vf1text.dll / vf1font.dll, native/vf1text/names.inc): a name longer than
 // its save field is kept there as its short form, the whole name in the save's Names file. Set by LoadTextCompanion
 // when one of the two is installed; without them a name is only what fits its field.
 typedef const char *(__cdecl *TextFullNameFn)(const char *stored);
@@ -32,6 +29,28 @@ static TextFullNameFn TextFullName;
 typedef int (__stdcall *TextActiveFn)();
 static TextActiveFn TextActive;      // VF1Text_UnicodeTextActive: nonzero only once the text DLL's hooks are installed
 static TextStoreNameFn TextStoreName;
+
+// `bytes` (n bytes of stored text) as UTF-16 by the per-sequence rule into out (at most cap units; a NUL follows).
+// Returns the units written.
+static int DecodeStoredW(const char *bytes, int n, wchar_t *out, int cap) {
+    int k = 0;
+    for (int i = 0; i < n;) {
+        unsigned cp;
+        int w = Utf8At((const unsigned char *)bytes + i, n - i, &cp);
+        if (!w) { cp = SingleCp((unsigned char)bytes[i]); w = 1; }
+        if (cp >= 0x10000) {
+            if (k + 2 > cap) break;
+            out[k++] = (wchar_t)(0xD800 + ((cp - 0x10000) >> 10));
+            out[k++] = (wchar_t)(0xDC00 + ((cp - 0x10000) & 0x3FF));
+        } else {
+            if (k + 1 > cap) break;
+            out[k++] = (wchar_t)cp;
+        }
+        i += w;
+    }
+    out[k] = 0;
+    return k;
+}
 
 // The name in a save field (up to its NUL or `cap` bytes) as text for a window, by the one rule: the whole name when
 // it is a short form. The result lives until four more names have been read.
@@ -52,23 +71,16 @@ static const wchar_t *NameW(const char *bytes, int cap = 64) {
     }
     int n = 0;
     while (n < cap && bytes[n]) ++n;
-    int got = n ? MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes, n, out, VF1_NAME_BOX_BYTES + 7) : 0;
-    if (got > 0 || n == 0) {
-        out[got] = 0;
-        return out;
-    }
-    int k = 0;
-    for (int i = 0; i < n && k < VF1_NAME_BOX_BYTES + 7; ++i) {
-        unsigned b = (unsigned char)bytes[i];
-        out[k++] = (wchar_t)((b >= 0x80 && b < 0xA0) ? NameCp1252[b - 0x80] : b);
-    }
-    out[k] = 0;
+    DecodeStoredW(bytes, n, out, VF1_NAME_BOX_BYTES + 6);
     return out;
 }
 
-// `name` as UTF-8 in at most `room` bytes (plus a NUL), cut only between whole characters (vf1_text.cut_to_bytes).
-static int FitNameUtf8(const wchar_t *name, char *out, int room) {
+// `name` stored by the write rule in at most `room` bytes (plus a NUL), cut only between whole characters
+// (vf1_text.cut_to_bytes: a start's stored length never shrinks as it grows, so the cut is found by halving).
+static int FitNameStored(const wchar_t *name, char *out, int room) {
     static unsigned cps[VF1_NAME_BOX_BYTES + 8];
+    static int ends[VF1_NAME_BOX_BYTES + 8];
+    static unsigned char tmp[4 * (VF1_NAME_BOX_BYTES + 8)];
     int n = 0;
     for (int i = 0; name && name[i] && n < VF1_NAME_BOX_BYTES + 8; ++i) {
         unsigned c = name[i];
@@ -81,7 +93,7 @@ static int FitNameUtf8(const wchar_t *name, char *out, int room) {
         if (c < 0x20 || (c >= 0x7F && c < 0xA0)) continue;   // nor a control character
         cps[n++] = c;
     }
-    int used = 0;
+    int count = 0;
     for (int i = 0; i < n;) {
         int j = i + 1;
         if (cps[i] >= 0x1F1E6 && cps[i] <= 0x1F1FF && j < n && cps[j] >= 0x1F1E6 && cps[j] <= 0x1F1FF) ++j;
@@ -90,25 +102,16 @@ static int FitNameUtf8(const wchar_t *name, char *out, int room) {
             if (NameExtender(cps[j])) { ++j; continue; }
             break;
         }
-        char piece[64];
-        int bytes = 0;
-        for (int k = i; k < j && bytes + 4 <= (int)sizeof piece; ++k) {
-            unsigned c = cps[k];
-            if (c < 0x80) piece[bytes++] = (char)c;
-            else if (c < 0x800) { piece[bytes++] = (char)(0xC0 | (c >> 6)); piece[bytes++] = (char)(0x80 | (c & 0x3F)); }
-            else if (c < 0x10000) {
-                piece[bytes++] = (char)(0xE0 | (c >> 12)); piece[bytes++] = (char)(0x80 | ((c >> 6) & 0x3F));
-                piece[bytes++] = (char)(0x80 | (c & 0x3F));
-            } else {
-                piece[bytes++] = (char)(0xF0 | (c >> 18)); piece[bytes++] = (char)(0x80 | ((c >> 12) & 0x3F));
-                piece[bytes++] = (char)(0x80 | ((c >> 6) & 0x3F)); piece[bytes++] = (char)(0x80 | (c & 0x3F));
-            }
-        }
-        if (used + bytes > room) break;
-        memcpy(out + used, piece, bytes);
-        used += bytes;
+        ends[count++] = j;
         i = j;
     }
+    int lo = 0, hi = count;
+    while (lo < hi) {
+        int mid = (lo + hi + 1) / 2;
+        if (EncodeStored(cps, ends[mid - 1], tmp) <= room) lo = mid; else hi = mid - 1;
+    }
+    int used = lo ? EncodeStored(cps, ends[lo - 1], tmp) : 0;
+    memcpy(out, tmp, used);
     out[used] = 0;
     return used;
 }
@@ -117,14 +120,14 @@ static int FitNameUtf8(const wchar_t *name, char *out, int room) {
 // and the Names file when vf1text.dll / vf1font.dll is installed, else what fits the field.
 static int StoreTypedName(const wchar_t *name, char *field25) {
     static char whole[VF1_NAME_BOX_BYTES + 1];
-    if (FitNameUtf8(name, whole, VF1_NAME_BOX_BYTES) <= 0) return 0;
+    if (FitNameStored(name, whole, VF1_NAME_BOX_BYTES) <= 0) return 0;
     if (TextStoreName) return TextStoreName(whole, 24, field25);
-    return FitNameUtf8(name, field25, 24);
+    return FitNameStored(name, field25, 24);
 }
 
 // For the tests (tests/test_vf1fun_names.py): the two rules, one call each.
 extern "C" __declspec(dllexport) int __cdecl VF1Fun_FitName(const wchar_t *name, char *out, int room) {
-    return FitNameUtf8(name, out, room);
+    return FitNameStored(name, out, room);
 }
 extern "C" __declspec(dllexport) const wchar_t *__cdecl VF1Fun_NameW(const char *bytes, int cap) {
     return NameW(bytes, cap);

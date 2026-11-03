@@ -130,7 +130,8 @@ def over(background, image: pi.Image) -> pi.Image:
 
 
 def stock_picture(font: gf.GameFont, text: str, colour: int) -> pi.Image:
-    """`text` stored as the patch stores it (UTF-8) and drawn by the stock game: one byte, one game letter."""
+    """`text` stored as the patch stores it (a Windows-1252 letter its one byte, any other character UTF-8) and drawn
+    by the stock game: one byte, one game letter."""
     lines = vf1_text.encode(text).split(b"\n")
     widths = [sum(font.game_glyph(b).width + font.spacing for b in line) - (font.spacing if line else 0)
               for line in lines]

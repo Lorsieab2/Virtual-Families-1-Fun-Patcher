@@ -52,9 +52,11 @@ static const unsigned NameBoxCalls[] = {          // return addresses of SetEdit
 // ---- the Names files
 struct NameEntry {
     NameEntry *next;
-    char *shortForm; int shortLen;
+    char *shortForm; int shortLen;                    // stored text (text_rule.inc): the rule's canonical form
+    char *shortU; int shortULen;                      // the same short form with every non-ASCII character as UTF-8
+                                                      // (a save written before the rule stores it so): also matched
     int room;
-    char *full; int fullLen;
+    char *full; int fullLen;                          // the whole name, stored text
     void *fitImpl[8]; char *fit[8];                   // the whole name fitted to its room, per font
 };
 struct NameBook { bool loaded; NameEntry *first, *last; };
@@ -93,16 +95,19 @@ static bool NamesPath(int slot, char *out, unsigned cap, char *data, char *names
     return true;
 }
 
-// patcher/vf1_names.name_problem: at least one character, at most 1,200 bytes, valid UTF-8, no control characters.
+// patcher/vf1_names.name_problem: at least one character and no control characters (the length, 1,200 bytes as
+// stored, is checked by the caller on the stored form). `s` is read by the per-sequence rule.
 static bool GoodName(const unsigned char *s, int n) {
-    if (n <= 0 || n > VF1_NAME_BOX_BYTES || !IsUtf8(s, n)) return false;
-    for (int i = 0; i < n;) {
-        unsigned cp;
-        int k = Utf8At(s + i, n - i, &cp);
-        if (cp < 0x20 || (cp >= 0x7F && cp < 0xA0)) return false;
-        i += k;
+    if (n <= 0 || n > 4 * VF1_NAME_BOX_BYTES) return false;
+    Run run;
+    if (!DecodeRun(&run, (const char *)s, n)) return false;
+    bool ok = run.n > 0;
+    for (int i = 0; i < run.n; ++i) {
+        unsigned cp = run.cps[i];
+        if (cp < 0x20 || (cp >= 0x7F && cp < 0xA0)) ok = false;
     }
-    return true;
+    FreeRun(&run);
+    return ok;
 }
 
 static char *Dup(const char *s, int n) {
@@ -111,11 +116,18 @@ static char *Dup(const char *s, int n) {
     return p;
 }
 
+// The length of the short form of `e` that `s` (n bytes) is, in either of its two forms; 0 when it is neither.
+static int ShortMatch(const NameEntry *e, const char *s, int n) {
+    if (e->shortLen == n && Same(e->shortForm, s, (unsigned)n)) return n;
+    if (e->shortULen == n && Same(e->shortU, s, (unsigned)n)) return n;
+    return 0;
+}
+
 static NameEntry *FindShort(const char *s, int n, int slot) {      // slot 0: every book
     for (int b = 1; b <= 5; ++b) {
         if (slot && b != slot) continue;
         for (NameEntry *e = Books[b].first; e; e = e->next)
-            if (e->shortLen == n && Same(e->shortForm, s, (unsigned)n)) return e;
+            if (ShortMatch(e, s, n)) return e;
     }
     return 0;
 }
@@ -126,6 +138,11 @@ static bool AddEntry(int slot, const char *s, int sn, int room, const char *full
     e->shortForm = Dup(s, sn); e->shortLen = sn; e->room = room;
     e->full = Dup(full, fn); e->fullLen = fn;
     if (!e->shortForm || !e->full) return false;
+    char *u = (char *)Alloc((unsigned)sn * 4 + 4);
+    if (!u) return false;
+    int un = StoredToUtf8((const unsigned char *)s, sn, u);
+    if (un == sn && Same(u, s, (unsigned)sn)) { Free(u); e->shortU = e->shortForm; e->shortULen = sn; }
+    else { e->shortU = u; e->shortULen = un; }
     if (Books[slot].last) Books[slot].last->next = e; else Books[slot].first = e;
     Books[slot].last = e;
     return true;
@@ -173,10 +190,18 @@ static void LoadBook(int slot) {
             }
             const char *s = line; int sn = tab1;
             const char *full = line + tab2 + 1; int fn = (int)len - tab2 - 1;
-            if (digits && room >= 1 && room < VF1_NAME_BOX_BYTES && sn >= MarkLen && sn <= room &&
-                Same(s + sn - MarkLen, VF1_NAME_MARK, (unsigned)MarkLen) && GoodName((const unsigned char *)s, sn) &&
-                GoodName((const unsigned char *)full, fn) && !FindShort(s, sn, slot))
-                AddEntry(slot, s, sn, room, full, fn);
+            if (digits && room >= 1 && room < VF1_NAME_BOX_BYTES && sn >= MarkLen &&
+                Same(s + sn - MarkLen, VF1_NAME_MARK, (unsigned)MarkLen) && IsUtf8((const unsigned char *)s, sn) &&
+                IsUtf8((const unsigned char *)full, fn) && GoodName((const unsigned char *)s, sn) &&
+                GoodName((const unsigned char *)full, fn)) {
+                unsigned char *cs, *cf;
+                int csn = CanonStored((const unsigned char *)s, sn, &cs);
+                int cfn = CanonStored((const unsigned char *)full, fn, &cf);
+                if (csn >= MarkLen && csn <= room && cfn > 0 && cfn <= VF1_NAME_BOX_BYTES && !FindShort((const char *)cs, csn, slot))
+                    AddEntry(slot, (const char *)cs, csn, room, (const char *)cf, cfn);
+                Free(cs);
+                Free(cf);
+            }
         }
         at = end + 1;
     }
@@ -189,20 +214,20 @@ static bool WriteBook(int slot) {
     char path[MAX_PATH + 96], data[MAX_PATH + 96], names[MAX_PATH + 96], temp[MAX_PATH + 104];
     if (!NamesPath(slot, path, sizeof path, data, names)) return false;
     unsigned total = sizeof NamesHeader + 1;
-    for (NameEntry *e = Books[slot].first; e; e = e->next) total += (unsigned)(e->shortLen + e->fullLen) + 16;
+    for (NameEntry *e = Books[slot].first; e; e = e->next) total += (unsigned)(e->shortLen + e->fullLen) * 4 + 16;
     char *buf = (char *)Alloc(total);
     if (!buf) return false;
     unsigned n = 0;
     Copy(buf, NamesHeader, sizeof NamesHeader - 1); n += sizeof NamesHeader - 1;
     buf[n++] = '\n';
     for (NameEntry *e = Books[slot].first; e; e = e->next) {
-        Copy(buf + n, e->shortForm, (unsigned)e->shortLen); n += (unsigned)e->shortLen;
+        n += (unsigned)StoredToUtf8((const unsigned char *)e->shortForm, e->shortLen, buf + n);   // the file is UTF-8
         buf[n++] = '\t';
         char d[12]; int k = 0; int r = e->room;
         do { d[k++] = (char)('0' + r % 10); r /= 10; } while (r);
         while (k) buf[n++] = d[--k];
         buf[n++] = '\t';
-        Copy(buf + n, e->full, (unsigned)e->fullLen); n += (unsigned)e->fullLen;
+        n += (unsigned)StoredToUtf8((const unsigned char *)e->full, e->fullLen, buf + n);
         buf[n++] = '\n';
     }
     CreateDirectoryA(data, 0);
@@ -227,7 +252,16 @@ static bool WriteBook(int slot) {
 // ---- the short form (vf1_names.short_form)
 // `full` (n bytes) for a field of `room` bytes, into out (room + 1 bytes). slot 1..5 records a new short form in that
 // slot's Names file; slot 0 only reuses one (a GetText that reads a box) and otherwise cuts as the stock game does.
-static int ShortFor(const char *full, int n, int room, int slot, char *out) {
+static int ShortForStored(const char *full, int n, int room, int slot, char *out);
+static int ShortFor(const char *typed, int tn, int room, int slot, char *out) {
+    unsigned char *canon;
+    int n = CanonStored((const unsigned char *)typed, tn, &canon);        // by the write rule, whatever form came in
+    if (n < 0) return ShortForStored(typed, tn, room, slot, out);
+    int r = ShortForStored((const char *)canon, n, room, slot, out);
+    Free(canon);
+    return r;
+}
+static int ShortForStored(const char *full, int n, int room, int slot, char *out) {
     LoadBooks();
     for (int b = 1; b <= 5; ++b)
         for (NameEntry *e = Books[b].first; e; e = e->next)
@@ -244,9 +278,9 @@ static int ShortFor(const char *full, int n, int room, int slot, char *out) {
         Copy(out, full, (unsigned)n); out[n] = 0;
         return n;
     }
-    if (slot < 1 || !GoodName((const unsigned char *)full, n)) {
-        int keep = FitBytes((const unsigned char *)full, n, room);
-        Copy(out, full, (unsigned)keep); out[keep] = 0;
+    if (slot < 1 || n > VF1_NAME_BOX_BYTES || !GoodName((const unsigned char *)full, n)) {
+        int keep = FitStored((const unsigned char *)full, n, room, (unsigned char *)out);
+        out[keep] = 0;
         return keep;
     }
     for (int k = 1; k < 100000; ++k) {
@@ -254,9 +288,8 @@ static int ShortFor(const char *full, int n, int room, int slot, char *out) {
         if (k > 1) { char d[8]; int m = 0; int v = k; do { d[m++] = (char)('0' + v % 10); v /= 10; } while (v); while (m) tail[tl++] = d[--m]; }
         Copy(tail + tl, VF1_NAME_MARK, (unsigned)MarkLen); tl += MarkLen;
         if (tl > room) break;
-        int head = FitBytes((const unsigned char *)full, n, room - tl);
-        while (head > 0 && full[head - 1] == ' ') --head;
-        Copy(out, full, (unsigned)head);
+        int head = FitStored((const unsigned char *)full, n, room - tl, (unsigned char *)out);
+        while (head > 0 && out[head - 1] == ' ') --head;
         Copy(out + head, tail, (unsigned)tl);
         int sn = head + tl;
         out[sn] = 0;
@@ -265,8 +298,8 @@ static int ShortFor(const char *full, int n, int room, int slot, char *out) {
             return sn;
         }
     }
-    int keep = FitBytes((const unsigned char *)full, n, room);
-    Copy(out, full, (unsigned)keep); out[keep] = 0;
+    int keep = FitStored((const unsigned char *)full, n, room, (unsigned char *)out);
+    out[keep] = 0;
     return keep;
 }
 
@@ -305,7 +338,7 @@ static const char *FittedName(NameEntry *e, void *impl) {
     } else {
         Run run;
         out = (char *)Alloc((unsigned)e->fullLen + 4);
-        if (out && DecodeRun(&run, e->full, e->fullLen, 1)) {
+        if (out && DecodeRun(&run, e->full, e->fullLen)) {
             int bytes = 0, best = 0;
             for (int i = 0; i < run.n;) {
                 int j = ClusterEnd(run.cps, run.n, i);
@@ -343,7 +376,7 @@ static const char *WithNames(const char *text, void *impl, char **owned) {
     bool mark = false;
     for (int i = 0; i + MarkLen <= n; ++i)
         if (Same(text + i, VF1_NAME_MARK, (unsigned)MarkLen)) { mark = true; break; }
-    if (!mark || !IsUtf8((const unsigned char *)text, n) || !AnyNames()) return text;
+    if (!mark || !AnyNames()) return text;
     // first pass: the replacements, left to right, the longest short form ending at each mark
     struct Hit { int at, len; const char *with; };
     Hit hits[32];
@@ -354,11 +387,14 @@ static const char *WithNames(const char *text, void *impl, char **owned) {
         int bestLen = 0;
         for (int b = 1; b <= 5; ++b)
             for (NameEntry *e = Books[b].first; e; e = e->next)
-                if (e->shortLen <= i - done && e->shortLen > bestLen &&
-                    Same(text + i - e->shortLen, e->shortForm, (unsigned)e->shortLen)) {
-                    NameEntry *d = DisplayEntry(e->shortForm, e->shortLen);
-                    best = d ? d : e;
-                    bestLen = e->shortLen;
+                for (int form = 0; form < 2; ++form) {
+                    const char *sf = form ? e->shortU : e->shortForm;
+                    int sl = form ? e->shortULen : e->shortLen;
+                    if (sl <= i - done && sl > bestLen && Same(text + i - sl, sf, (unsigned)sl)) {
+                        NameEntry *d = DisplayEntry(sf, sl);
+                        best = d ? d : e;
+                        bestLen = sl;
+                    }
                 }
         if (!best) continue;
         hits[count].at = i - bestLen; hits[count].len = bestLen; hits[count].with = FittedName(best, impl);
@@ -474,9 +510,8 @@ static const char *FitToRoom(const char *text, void *impl, int room, char **owne
     int n = (int)Len(text);
     for (int i = 0; i < n; ++i) if (text[i] == '\n') return text;     // names are one line
     if (MeasureRaw(impl, f, text, n) <= room) return text;
-    bool utf8 = IsUtf8((const unsigned char *)text, n);
     Run run;
-    if (!DecodeRun(&run, text, n, utf8 ? 1 : 0)) return text;
+    if (!DecodeRun(&run, text, n)) return text;
     unsigned ell[2] = { 0x2026, 0 };
     int spacing = *(int *)((char *)impl + 8);
     int ellipsis = Advance(impl, f, ell, 0, 1);
@@ -501,8 +536,7 @@ static const char *FitToRoom(const char *text, void *impl, int room, char **owne
     FreeRun(&run);
     if (!any) { out[0] = 0; *owned = out; return out; }
     Copy(out, text, (unsigned)keep);
-    if (utf8) { Copy(out + keep, Ellipsis, 4); }
-    else { ((unsigned char *)out)[keep] = 0x85; out[keep + 1] = 0; }
+    Copy(out + keep, Ellipsis, 4);                       // "..." as U+2026 in UTF-8 (read per sequence, any text)
     *owned = out;
     return out;
 }
@@ -700,7 +734,7 @@ static void __fastcall BoxDrawHook(TextControl *c, void *) {
     Run run;
     if (BoxFits(c, font, shown)) {
         Copy(copy, shown, (unsigned)n + 1);
-    } else if (!DecodeRun(&run, shown, n, IsUtf8((const unsigned char *)shown, n) ? 1 : 0)) {
+    } else if (!DecodeRun(&run, shown, n)) {
         copy[0] = 0;
     } else {
         // cluster starts, in bytes

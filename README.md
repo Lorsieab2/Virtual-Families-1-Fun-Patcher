@@ -159,9 +159,10 @@ Six settings change the base game on their own (plus the optional ones below):
 - **Render Unicode with In-Game Fonts** (a Main Patch, on by default): the game types, keeps and shows any
   Unicode text with its own fonts. Typing in the game's own name boxes takes every character the keyboard gives
   (accent keys, dead keys, Alt codes, an input method's text; the stock game drops any SDL text event longer than
-  one byte and any key from 0x80), and backspace deletes a whole character. Names are stored as UTF-8 inside the
-  save's own name fields (no field is made bigger; a name is cut only between whole characters); a string that is
-  not valid UTF-8 is read as before, one byte one character. Every piece of text is drawn letter by letter as the
+  one byte and any key from 0x80), and backspace deletes a whole character. Names are stored in the
+  save's own name fields (no field is made bigger; a name is cut only between whole characters) one letter at a time: a
+  Windows-1252 letter as its one byte, any other letter as UTF-8; each valid UTF-8 sequence reads as its letter and every
+  other byte as before, one byte one character. Every piece of text is drawn letter by letter as the
   game draws its own: the game's letter (U+0020..U+007F, U+00A2..U+00FF), else a patcher-made letter in the
   font's style (`payload\UnicodeText`, made by `scripts/build_vf1_glyphs.py`: accented letters built from the
   game's own letters and accents, the rest drawn by Windows in the font's face, size and coverage; about 3,000
@@ -291,7 +292,7 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     game's size, 2x, 4x or a custom size. The four fonts the game uses come first; the ten font sheets in Images
     the game never draws follow, "(unused in the game; metrics not from the game)", with glyph boxes found from
     the sheet. A character picker searches by name or code point and says where each letter comes from (the game,
-    patcher-made, drawn by Windows, or missing). "As the stock game shows it" draws the same text's UTF-8 bytes as
+    patcher-made, drawn by Windows, or missing). "As the stock game shows it" draws the same text's stored bytes as
     the unpatched game would. Module `patcher/vf1_game_text.py` (fonts in `vf1_game_fonts.py`).
   - **Unicode Font...:** the font Use Unicode Font draws with: the modded folder, an installed font or a font
     file (copied into `Virtual Families 1 Patcher Files\Unicode Font`), a preview of the four game fonts as the

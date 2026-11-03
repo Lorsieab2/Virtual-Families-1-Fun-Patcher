@@ -6,6 +6,7 @@ import pytest
 import vf1_game_fonts as gf
 import vf1_game_text as tool
 import vf1_picture_image as pi
+import vf1_text
 
 
 @pytest.mark.parametrize("text,cp", [("U+00E9", 0xE9), ("u+1f600", 0x1F600), ("0x41", 0x41), ("e9", 0xE9),
@@ -55,7 +56,7 @@ def test_export_sizes(fonts, tmp_path):
 def test_the_stock_view_draws_the_bytes(fonts):
     f = fonts.font("SegoeUiBold18")
     stock = tool.stock_picture(f, "Zoë", 0xFFFFFFFF)
-    assert stock.width == sum(f.box(b)[2] - f.box(b)[0] for b in "Zoë".encode())
+    assert stock.width == sum(f.box(b)[2] - f.box(b)[0] for b in vf1_text.encode("Zoë"))   # the stored bytes
 
 
 @pytest.fixture(scope="module")

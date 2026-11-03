@@ -120,10 +120,12 @@ Every name field is a NUL-terminated byte string. The stock game only ever write
 SDL_TEXTINPUT case drops any event text longer than one byte (0x4049BB `cmp eax, 1; jne`), and the text box reads
 the posted character as a signed char, so 0x40DB0F refuses every byte from 0x80. Its four fonts draw bytes
 0x20..0x7F and 0xA2..0xFF (Latin-1) and any other byte as their row 0, "!". With Render Unicode with In-Game Fonts
-(vf1text.dll) a name is stored as UTF-8 in the same field, cut only between whole characters; a string that is not
-valid UTF-8 is read one byte per character (Windows-1252, its five unassigned bytes as Latin-1). The patcher's
+(vf1text.dll) a name is stored in the same field by the per-character write rule (a Windows-1252 letter its one byte,
+any other letter UTF-8, all UTF-8 when the mix would read back differently), cut only between whole characters; it is
+read per sequence (each well-formed UTF-8 sequence its character, every other byte Windows-1252, its five unassigned
+bytes as Latin-1). The patcher's
 readers use the same rule (patcher/vf1_text.py), and Rename Family accepts any printable character, counting the
-19 bytes. The stock game loads, draws, keeps and saves a UTF-8 name unchanged (each byte as its Latin-1 letter).
+19 bytes. The stock game loads, draws, keeps and saves such a name unchanged (a UTF-8 byte as its Latin-1 letter, a Windows-1252 letter as itself).
 
 ### 1.3 Where the Back Up / Restore tool's rule (feat/tools-tab, `patcher/vf1_save_backup.py`) is wrong
 

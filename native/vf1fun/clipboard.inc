@@ -140,7 +140,7 @@ static const wchar_t *Composed(const wchar_t *s) {
     return out;
 }
 
-// The box's text as Unicode by the one rule (UTF-8, else Windows-1252); a short form as its whole name (a name box
+// The box's text as Unicode by the one rule (per sequence); a short form as its whole name (a name box
 // opens with the whole name, so this is only ever a box filled some other way).
 static const wchar_t *BoxTextW(const char *buf) {
     int n = 0;
@@ -172,26 +172,23 @@ static int PasteInto(unsigned char *box, const wchar_t *clip) {
     if (UnicodeTextOn()) {
         // the box's text and the pasted text as one name, cut at whole characters to the box's room
         // (the box's own text as one rule reads it: never a short form's whole name here)
-        static wchar_t had[VF1_NAME_BOX_BYTES + 1], all[VF1_NAME_BOX_BYTES + ClipMax + 2];
+        static wchar_t had[VF1_NAME_BOX_BYTES + 8], all[VF1_NAME_BOX_BYTES + ClipMax + 2];
+        static wchar_t keptText[VF1_NAME_BOX_BYTES + 8], newText[VF1_NAME_BOX_BYTES + 8];
         static char out[VF1_NAME_BOX_BYTES + 8], before[VF1_NAME_BOX_BYTES + 8];
-        size_t hl = 0;
-        int got = len ? MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, buf, len, had, VF1_NAME_BOX_BYTES) : 0;
-        if (got > 0 || len == 0) hl = (size_t)got;
-        else for (int i = 0; i < len; ++i) {                 // Windows-1252
-            unsigned b = (unsigned char)buf[i];
-            had[hl++] = (wchar_t)((b >= 0x80 && b < 0xA0) ? NameCp1252[b - 0x80] : b);
-        }
-        had[hl] = 0;
-        int old = FitNameUtf8(had, before, limit);            // the box's text alone, as UTF-8
+        size_t hl = (size_t)DecodeStoredW(buf, len, had, VF1_NAME_BOX_BYTES + 6);   // the box's text, per sequence
+        int old = FitNameStored(had, before, limit);          // the box's text alone, stored by the write rule
         memcpy(all, had, hl * sizeof(wchar_t));
         memcpy(all + hl, clean, (k + 1) * sizeof(wchar_t));
-        got = FitNameUtf8(all, out, limit);                   // control characters and lone surrogates are dropped
-        // never lose what was there (a pasted mark joining the last letter that then no longer fits)
-        bool keepsOld = got >= old && memcmp(out, before, (size_t)old) == 0;
-        if (keepsOld && got > old) {
+        int got = FitNameStored(all, out, limit);             // control characters and lone surrogates are dropped
+        // never lose what was there (a pasted mark joining the last letter that then no longer fits): the new text
+        // must start with the box's text, and be longer
+        size_t kl = (size_t)DecodeStoredW(before, old, keptText, VF1_NAME_BOX_BYTES + 6);
+        size_t nl = (size_t)DecodeStoredW(out, got, newText, VF1_NAME_BOX_BYTES + 6);
+        bool keepsOld = nl >= kl && memcmp(newText, keptText, kl * sizeof(wchar_t)) == 0;
+        if (keepsOld && nl > kl) {
             memcpy(buf, out, (size_t)got);                    // got <= limit: the buffer has limit + 1 bytes
             buf[got] = 0;
-            added = got - old;
+            added = got > old ? got - old : 1;
         }
     } else {
         const wchar_t *src = Composed(clean);

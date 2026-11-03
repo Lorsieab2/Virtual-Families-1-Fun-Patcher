@@ -46,8 +46,8 @@ def test_dialog_ids_are_unique():
 
 
 def test_adopted_name_is_cut_to_fit_by_setname():
-    # The typed name goes to SetName, which fits it to the 24-byte field as UTF-8, cut only between whole
-    # characters (text_names.inc FitNameUtf8; tests/test_vf1fun_names.py runs it against vf1_text). Before, the
+    # The typed name goes to SetName, which fits it to the 24-byte field by the write rule, cut only between whole
+    # characters (text_names.inc FitNameStored; tests/test_vf1fun_names.py runs it against vf1_text). Before, the
     # name was cut here with the system code page.
     body = _function("AdoptOutsideChild")
     assert "SetName(slot, name)" in body
@@ -57,16 +57,16 @@ def test_adopted_name_is_cut_to_fit_by_setname():
     # StoreTypedName: the name cut to the one name limit, then its short form (vf1text) or what fits the 24 bytes
     names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
     store = names[names.index("static int StoreTypedName"):]
-    assert "TextStoreName(whole, 24, field25)" in store and "FitNameUtf8(name, field25, 24)" in store
+    assert "TextStoreName(whole, 24, field25)" in store and "FitNameStored(name, field25, 24)" in store
 
 
 def test_adopted_name_never_splits_a_surrogate_pair():
-    # A non-BMP character is two UTF-16 units: FitNameUtf8 joins a pair into one code point and drops a lone one,
+    # A non-BMP character is two UTF-16 units: FitNameStored joins a pair into one code point and drops a lone one,
     # and cuts between whole characters only.
     names = (ROOT / "native" / "vf1fun" / "text_names.inc").read_text(encoding="utf-8")
-    fit = names[names.index("static int FitNameUtf8"):]
+    fit = names[names.index("static int FitNameStored"):]
     assert "c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF" in fit
-    assert "if (used + bytes > room) break;" in fit and "VF1_NAME_LETTERS" not in fit
+    assert "EncodeStored(cps, ends[mid - 1], tmp) <= room" in fit and "VF1_NAME_LETTERS" not in fit
 
 
 def test_evidence_recorded():

@@ -111,7 +111,8 @@ def test_the_stock_game_draws_utf8_names_as_latin1_letters_without_harm(fonts, s
         assert [(b[2][0], b[2][0] + b[2][2]) for b in blits] == [(l, r) for l, _t, r, _b in expected]
         assert stock.width(data) == sum(r - l for l, _t, r, _b in expected)
         picture = tool.stock_picture(f, text, 0xFFFFFFFF)
-        assert picture.width == stock.width(data)
+        import vf1_text
+        assert picture.width == stock.width(vf1_text.encode(text))        # the tool draws the bytes the patch stores
 
 
 def test_unknown_bytes_draw_row_zero_as_the_game(fonts, stock):
