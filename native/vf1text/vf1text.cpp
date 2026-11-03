@@ -9,6 +9,8 @@
 // character (grapheme cluster) at a time:
 //   * the game's own letter: U+0020..U+007F and U+00A2..U+00FF, which every font sheet has, and the control
 //     characters, which the game draws as its row 0 ("!"), exactly as the stock game does;
+//   * an emoji shown as a picture: drawn in colour by DirectWrite and Direct2D (glyph_color.inc, the same steps as
+//     patcher/vf1_glyph_color.py; emoji.inc says which), kept on a colour page the tint never touches;
 //   * else a patcher-made letter: "Unicode Text\<font>.png / .txt" beside this DLL (scripts/build_vf1_glyphs.py);
 //   * else the letter drawn now by Windows in the font's style (glyph_gdi.inc, the same steps as
 //     patcher/vf1_glyph_gdi.py), kept for the rest of the session;
@@ -248,12 +250,13 @@ struct Extra {
     Extra *next;
     unsigned hash;
     unsigned keyLen;
-    unsigned char key[32];            // the letter in UTF-8 (longer letters are not kept: drawn as the box)
+    unsigned char key[64];            // the letter in UTF-8 (longer letters are not kept: drawn as the box)
     struct Sheet *sheet;              // the font sheet it is on (the patcher-made one or a page)
     int x, y, w;
 };
 struct TintList { TintList *next; unsigned colour; SDL_Surface *surface; };
-struct Sheet { SDL_Surface *white; TintList *tints; int usedX, usedY; };
+// colour: a page of colour emoji (glyph_color.inc), drawn as it is whatever the text's colour
+struct Sheet { SDL_Surface *white; TintList *tints; int usedX, usedY; bool colour; };
 
 struct Style {
     wchar_t face[64];
@@ -270,6 +273,8 @@ struct FontExtra {
     Sheet shipped;                    // the patcher-made sheet (may be empty)
     Sheet pages[16];                  // letters drawn this session, 1024 x 16 rows each
     int pageCount;
+    Sheet colourPages[4];             // colour emoji drawn this session (glyph_color.inc), never tinted
+    int colourPageCount;
     Extra *buckets[512];
 };
 static FontExtra *Fonts[8];
@@ -302,14 +307,16 @@ static Extra *AddExtra(FontExtra *f, const unsigned char *key, unsigned n) {
     return e;
 }
 
+static Extra *MakeColourLetter(FontExtra *f, const unsigned *cps, int n, const unsigned char *key, unsigned keyLen);
 #include "glyph_file.inc"
 #include "glyph_gdi.inc"
+#include "glyph_color.inc"
 
 // The tinted copy of a sheet (0x402940's rule: white is the sheet itself, else every pixel ANDed with
-// MapRGBA(r, g, b, 255)), kept per colour.
+// MapRGBA(r, g, b, 255)), kept per colour. A colour page is drawn as it is (Windows does not recolour emoji).
 static SDL_Surface *TintedSheet(Sheet *sheet, unsigned colour) {
     SDL_Surface *white = sheet->white;
-    if (!white) return 0;
+    if (!white || sheet->colour) return white;
     unsigned char r = (unsigned char)colour, g = (unsigned char)(colour >> 8), b = (unsigned char)(colour >> 16);
     if (r == 0xFF && g == 0xFF && b == 0xFF) return white;
     for (TintList *t = sheet->tints; t; t = t->next)
@@ -390,6 +397,14 @@ static Letter LetterFor(FontExtra *f, void *impl, const unsigned *cps, int i, in
     if (j - i == 1) n = (unsigned)Utf8Put(cp, key);
     else for (int k = i; k < j && n + 4 <= sizeof key; ++k) n += (unsigned)Utf8Put(cps[k], key + n);
     if (!f) { l.byte = 0; return l; }
+    // a colour emoji (glyph_color.inc) is kept under its own key (a leading 0x01, never in a letter's UTF-8), before
+    // the patcher-made letters: the same emoji may be shipped black and white
+    bool picture = WantColour() && IsColourEmoji(j - i == 1 ? &cp : cps + i, j - i == 1 ? 1 : j - i);
+    if (picture && n + 1 <= sizeof key) {
+        for (unsigned k = n; k > 0; --k) key[k] = key[k - 1];
+        key[0] = 1;
+        ++n;
+    }
     Extra *e = FindExtra(f, key, n);
     if (!e) e = (j - i == 1) ? MakeLetter(f, &cp, 1, key, n) : MakeLetter(f, cps + i, j - i, key, n);
     if (!e) { l.byte = 0; return l; }

@@ -621,9 +621,90 @@ layout) and `patched=True` the DLL's.
    narrow) instead of freezing the game.
 3. Use Unicode Font with Comic Sans MS: the same two checks.
 
+## Colour emoji (2026-11-02)
+
+### Release note
+
+> **Emoji in colour.** With Render Unicode with In-Game Fonts or Use Unicode Font on, an emoji in a name or a
+> sentence is drawn as the colour picture Windows shows for it (Segoe UI Emoji): a skin tone, a joined family (👨‍👩‍👧)
+> or a keycap (1️⃣) is one picture; a flag shows as its two letters, as everywhere in Windows. The picture is the
+> text's size, sits on its baseline and keeps its own colours whatever colour the text is drawn in (a see-through
+> colour still makes it see-through). The Game Text tool previews the same pictures. Add `ColourEmoji=0` under
+> `[UnicodeText]` in `Virtual Families 1 Patcher Files\settings.ini` to have emoji black and white as before, which
+> is also what a Windows without Direct2D gets.
+
+### Why they were black and white
+
+GDI (`TextOutW`) draws every letter in one colour and knows nothing of a font's colour layers, so the chain drew
+each emoji from the first face that had it (Segoe UI Symbol) as a white outline the game then tinted. Colour glyphs
+(Segoe UI Emoji's COLR layers) are drawn only by DirectWrite through Direct2D (`D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT`).
+
+### The rule: which characters (`patcher/vf1_emoji.py` = `native/vf1text/emoji.inc`)
+
+A whole character (grapheme cluster) is a colour emoji when nothing in it asks for text presentation (U+FE0E) and
+a code point of it has Unicode's Emoji_Presentation property (an emoji shown as a picture by default: faces,
+animals, regional indicators, skin tones), or it holds U+FE0F (emoji presentation asked for: ❤️ ☃️), a keycap U+20E3,
+a skin tone U+1F3FB..U+1F3FF or a tag character U+E0020..U+E007F. So ❤ and ☃ alone, digits and letters stay
+letters. `EMOJI_PRESENTATION_RANGES` is Unicode 15.1's property read from Windows 11's own `icu.dll`
+(`u_hasBinaryProperty UCHAR_EMOJI_PRESENTATION`, `build_emoji_presentation`), fixed in the module;
+`scripts/build_vf1_text_tables.py` writes `emoji.inc` from it (`tests/test_vf1_text.py` checks it is up to date,
+`tests/test_colour_emoji.py` that it equals ICU's answer).
+
+### How a picture is made (`native/vf1text/glyph_color.inc` = `patcher/vf1_glyph_color.py`, both DLLs)
+
+`VF1Text_ColourLetter(face, weight, em, baseline, height, text)`: DirectWrite lays the character out in Segoe UI
+Emoji at the font's em (Use Unicode Font: the fitted em) and the regular weight (a picture is never emboldened),
+no wrapping; Direct2D draws it with `ENABLE_COLOR_FONT` and grayscale anti-aliasing on a software DC render
+target bound to a 32-bit top-down DIB the cell's height high, transparent, the layout's baseline on the font's
+baseline row (y = baseline - the line's baseline), x = pad. Its box is the black-and-white letters' rule (from
+min(pad, first inked column) to max(pad + advance, last inked column + 1), the advance the layout's width rounded);
+its premultiplied pixels are made straight (colour x 255 / alpha). `d2d1.dll` and `dwrite.dll` are loaded from
+System32 once; `D2D1CreateFactory` / `DWriteCreateFactory` need no COM initialisation.
+
+In the DLLs (`LetterFor`), such a character is kept under its own cache key (a leading 0x01 before its UTF-8, so a
+shipped black-and-white letter of the same character is left alone) on a colour page of the font (`colourPages`,
+1024 x 16 bands, up to 4): `TintedSheet` gives a colour page back untinted whatever the colour, so the game's
+AND tint (0x402940's rule) never touches it, while a see-through colour still goes through BlitRectWithAlpha as
+for any letter. When DirectWrite cannot draw it (no Direct2D, no Segoe UI Emoji, a failed step) the character is
+drawn by GDI in black and white, as before, and kept under the same key. `settings.ini [UnicodeText] ColourEmoji=0`
+(read once, `WantColour`) keeps every emoji black and white and the old keys.
+
+The patcher's `vf1_game_fonts.GameFont.glyph` does the same in the same order (`colour_emoji`, on by default; a
+`Glyph` whose `colour` is set keeps its colours through `paint`), so the Game Text tool's preview, its "letters:"
+line and its picker ("colour emoji: Segoe UI Emoji") show what the game shows; its "Colour emoji" tick box previews
+`ColourEmoji=0`.
+
+### Proved (`tests/test_colour_emoji.py`)
+
+* The rule: 😀, 👍🏽, 👨‍👩‍👧, 🇯🇵, 1️⃣, ❤️, ☃️ and the Scotland tag flag are colour emoji and one whole character each;
+  A, é, 日, ❤, ☃, ☹, 1, 😀︎ (U+FE0E) and e + U+0301 are not; the DLLs' table equals the patcher's and ICU's.
+* The DLL's own `VF1Text_ColourLetter` through 32-bit rundll32 gives, for each of those in all four fonts' styles,
+  the same width, height and every R, G, B, A byte as `vf1_glyph_color.draw`, and the picture is in colour (not
+  every inked pixel grey).
+* Size and baseline: the colour picture's first and last inked rows are within 2 pixels of GDI's black-and-white
+  Segoe UI Emoji glyph at the same em and baseline, and its width within 3.
+* The patcher's fonts: every such character is a "colour emoji" Glyph; white and a colour give the same picture
+  pixels; a see-through colour thins it; the letters around it are the game's own; off, the black-and-white letter.
+* In the game (the REAL vf1text.dll on the REAL exe in Unicorn, GDI by real GDI, `VF1Text_ColourLetter` by the
+  machine's real Direct2D through `text_emu._colour_letter`): DrawString with a name holding all eight emoji and
+  with ❤ beside ❤️, in white and in a colour, in all four fonts: every blit's place, box and all four channels equal
+  the tool's layout; GetWidth equals the tool's; a see-through colour goes through the alpha blit; a picture is made
+  once and kept; the word wrapper and the counted draw use the same pictures; with `ColourEmoji=0` the emoji are
+  black and white (GDI drew them, no colour call); without Direct2D the same; vf1font.dll draws them in colour at
+  its fitted em.
+
+### Live checks (not yet done)
+
+1. Name a family member "Mia 😀👍🏽👨‍👩‍👧" and the family "❤️ Smith 🇯🇵": the house's bottom bar, the Family Tree
+   screen, the slot menu and an event pop-up show the emoji in colour, at the text's size, not tinted (the store's
+   coloured prices, the dialogs' dark text); ❤ without U+FE0F stays a plain heart.
+2. Add `[UnicodeText]` / `ColourEmoji=0` to `Virtual Families 1 Patcher Files\settings.ini`, start the game: the
+   same emoji are black and white as before.
+3. Use Unicode Font with Comic Sans MS: the emoji are still Segoe UI Emoji pictures at Comic Sans' fitted size.
+4. Frame rate in the house with several emoji names on screen (each picture is made once).
+
 ## Not in this part (the rest of the stage-3 work)
 
-* Colour emoji (GDI draws them in one colour; DirectWrite would be needed).
 * Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,
   unshaped.
 * Translations, the Translations window and Share on GitHub.

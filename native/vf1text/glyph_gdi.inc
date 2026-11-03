@@ -266,6 +266,8 @@ static Extra *PlaceLetter(FontExtra *f, const unsigned char *rows, int w, const 
 }
 
 static Extra *MakeLetter(FontExtra *f, const unsigned *use, int count, const unsigned char *key, unsigned keyLen) {
+    Extra *picture = MakeColourLetter(f, use, count, key, keyLen);     // a colour emoji (glyph_color.inc)
+    if (picture) return picture;
     unsigned char *rows = 0;
     int w = 0;
     bool drawn = DrawLetter(f->style, f->height, use, count, &rows, &w);
