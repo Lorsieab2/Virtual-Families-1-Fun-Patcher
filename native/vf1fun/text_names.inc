@@ -29,6 +29,8 @@ static bool NameExtender(unsigned cp) {
 typedef const char *(__cdecl *TextFullNameFn)(const char *stored);
 typedef int (__cdecl *TextStoreNameFn)(const char *full, int room, char *out);
 static TextFullNameFn TextFullName;
+typedef int (__stdcall *TextActiveFn)();
+static TextActiveFn TextActive;      // VF1Text_UnicodeTextActive: nonzero only once the text DLL's hooks are installed
 static TextStoreNameFn TextStoreName;
 
 // The name in a save field (up to its NUL or `cap` bytes) as text for a window, by the one rule: the whole name when

@@ -57,14 +57,15 @@ def ini(path: str = "C:\\Translations\\Virtual Families - Test.txt") -> bytes:
     return ("\ufefflanguage=Test\r\nfile=" + path + "\r\n").encode("utf-8")
 
 
-def world(exe, dll, rows: list[tuple[str, str, str]], unicode_dll=False, code="fr", extra: dict | None = None):
+def world(exe, dll, rows: list[tuple[str, str, str]], unicode_dll=False, code="fr", extra: dict | None = None,
+          unicode_active=True):
     import translations_emu as te
     tf = tfmt.new_file("vf1", [tfmt.Entry(k, en) for k, en, _t in rows], "Test", code)
     for row, (_k, _en, tr) in zip(tf.rows, rows):
         row.translation = tr
     files = {INI: ini(), te.CHOSEN: tfmt.to_bytes(tf)}
     files.update(extra or {})
-    w = te.TranslationWorld(exe, dll, files, unicode_dll=unicode_dll)
+    w = te.TranslationWorld(exe, dll, files, unicode_dll=unicode_dll, unicode_active=unicode_active)
     w.start()
     return w, tf
 
@@ -99,6 +100,24 @@ def test_unicode_settings_get_utf8(exe, dll, table):
     assert w.get_string(0x41A) == "Готово".encode("utf-8")
     w2, _tf = world(exe, dll, [(k, en, "Готово")])
     assert w2.get_string(0x41A) == b"??????"                           # Windows-1252 without the Unicode DLLs
+
+
+def test_a_loaded_text_dll_that_did_not_install_is_not_utf8(exe, dll, table):
+    """vf1text.dll installs all or nothing: loaded but not installed, the game draws bytes, so the translation is
+    written in Windows-1252 (not UTF-8 mojibake). The DLL's own VF1Text_UnicodeTextActive is what decides."""
+    k, en = key(0x41A, table)
+    w, _tf = world(exe, dll, [(k, en, "Готово")], unicode_dll=True, unicode_active=False)
+    assert w.get_string(0x41A) == b"??????"
+    assert "Windows-1252 text" in w.log()
+    w2, _tf = world(exe, dll, [(k, en, "Готово")], unicode_dll=True, unicode_active=True)
+    assert w2.get_string(0x41A) == "Готово".encode("utf-8")
+    assert "UTF-8 text" in w2.log()
+
+
+def test_the_translations_dll_asks_the_export_not_the_module():
+    src = (ROOT / "native" / "vf1tr" / "vf1tr.c").read_text(encoding="utf-8")
+    assert "VF1Text_UnicodeTextActive" in src
+    assert 'text_mode = (GetModuleHandleW(L"vf1text.dll") != NULL' not in src
 
 
 def test_the_games_own_template_fills_a_translated_person_choice(exe, dll, table):

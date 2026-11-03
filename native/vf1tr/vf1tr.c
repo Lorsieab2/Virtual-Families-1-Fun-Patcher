@@ -35,8 +35,9 @@
    never the text).
 
    TEXT.  The game draws bytes.  Without the Unicode settings the translation is written in Windows-1252 (Latin-1
-   and the usual quotes and dashes; any other letter as '?'); with vf1text.dll or vf1font.dll loaded (Render
-   Unicode with In-Game Fonts / Use Unicode Font, loaded before this DLL) it is passed on as UTF-8, which they draw.
+   and the usual quotes and dashes; any other letter as '?'); with vf1text.dll or vf1font.dll installed (Render
+   Unicode with In-Game Fonts / Use Unicode Font, loaded before this DLL; asked through VF1Text_UnicodeTextActive, so a
+   DLL that is loaded but did not install its hooks counts as not installed) it is passed on as UTF-8, which they draw.
 
    Ported from the Fish and Plant Tycoon Fix Patcher's native/ftfp_translations. */
 #include <windows.h>
@@ -826,6 +827,16 @@ static void own_folder(void) {
     *slash = 0;
 }
 
+/* UTF-8 only when the Unicode text DLL has its hooks installed, not merely when it is loaded: vf1text.dll installs all
+   or nothing, so on an executable whose bytes do not match it is loaded but draws bytes.  Its VF1Text_UnicodeTextActive
+   (stdcall, nonzero only once every hook is installed) is the answer. */
+static int text_dll_active(const wchar_t *name) {
+    typedef int (WINAPI *ActiveFn)(void);
+    HMODULE module = GetModuleHandleW(name);
+    ActiveFn active = module != NULL ? (ActiveFn)GetProcAddress(module, "VF1Text_UnicodeTextActive") : NULL;
+    return active != NULL && active() != 0;
+}
+
 static int started = 0;
 
 __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
@@ -839,7 +850,7 @@ __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
         if (!is_this_game()) {
             log_add("Translations: NOT installed; this is not the game this build expects\r\n");
         } else if ((data = chosen_file(&size)) != NULL) {
-            text_mode = (GetModuleHandleW(L"vf1text.dll") != NULL || GetModuleHandleW(L"vf1font.dll") != NULL) ? 1 : 0;
+            text_mode = (text_dll_active(L"vf1text.dll") || text_dll_active(L"vf1font.dll")) ? 1 : 0;
             text = (char *)tr_alloc((SIZE_T)size * 2 + 16);
             text_n = text != NULL ? tt_decode(data, size, text, size * 2 + 16) : -1;
             if (text_n < 0) {

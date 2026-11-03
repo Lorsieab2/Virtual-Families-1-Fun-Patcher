@@ -317,7 +317,8 @@ and goes no further; with none, it goes on exactly as before.
 
 **Paste rules.** CR, LF and Tab become one space each; other control characters and unpaired surrogates are dropped;
 a numbers-only box keeps digits (and a first '-', as the stock box allows). With vf1text.dll or vf1font.dll installed
-the text is UTF-8 cut between whole characters at the box's limit (a name box 300 characters and 1,200 bytes,
+(asked of the DLL: `VF1Text_UnicodeTextActive`, nonzero only once all ten hooks are in, not merely that the file is
+loaded) the text is UTF-8 cut between whole characters at the box's limit (a name box 300 characters and 1,200 bytes,
 any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
 With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
 U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. Nothing is ever

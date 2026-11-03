@@ -908,6 +908,13 @@ static bool WriteCode(unsigned site, const unsigned char *bytes, int n) {
 struct Hook { unsigned site; unsigned char stock[9]; int n; void *target; };
 
 extern "C" __declspec(dllexport) volatile unsigned VF1Text_Installed = 0;
+static volatile int HooksAllIn = 0;                // set once, after the last of the hooks is written
+
+// For vf1tr.dll and vf1fun.dll's Copy and Paste: does the game now draw and store UTF-8? Nonzero only once every hook
+// is installed (the DLL installs all or nothing), not merely because the DLL is loaded. Modelled on Fish / Plant's
+// FtfpUnicodeTextActive. Exported undecorated: the linker pragma names the stdcall symbol.
+#pragma comment(linker, "/EXPORT:VF1Text_UnicodeTextActive=_VF1Text_UnicodeTextActive@0")
+extern "C" int __stdcall VF1Text_UnicodeTextActive() { return HooksAllIn; }
 
 extern "C" __declspec(dllexport) int __cdecl VF1Text_Startup() {
     static const Hook hooks[] = {
@@ -936,6 +943,7 @@ extern "C" __declspec(dllexport) int __cdecl VF1Text_Startup() {
         if (!WriteCode(hooks[i].site, patch, hooks[i].n)) return 0;
         VF1Text_Installed |= 1u << i;
     }
+    HooksAllIn = 1;
     return 1;
 }
 
