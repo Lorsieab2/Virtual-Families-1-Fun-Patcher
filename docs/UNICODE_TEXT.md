@@ -67,6 +67,7 @@ after checking each site's stock bytes:
 | 0x40D740 GetText | the stock copy, never cutting inside a character |
 | 0x40DA70 text box handler | the stock rules, plus whole code points (posted as 0x40000000 + code point) added by the write rule (below) when they fit, and Backspace deleting a whole character |
 | 0x4049BB SDL_TEXTINPUT | one byte goes on as before; longer text is posted a character at a time |
+| 0x40DA70 text box handler, typing | a mark typed right after a refused character belongs to it and is refused too (it never lands on the box's last character; a character after a refused joiner is refused as well); in a box that is not a name box, a character that would make the text wider than its byte limit times the widest plain letter of its font is refused (a name box scrolls instead) |
 
 **Storage in the game's own fields: a Windows-1252 letter is one byte, any other letter UTF-8** (the shared Unicode
 spec's per-character write rule and per-sequence read rule, the Virtual Villagers patcher's). ASCII is unchanged. *Write,
@@ -325,13 +326,16 @@ takes typing while +0x25 (being edited) is set and its owner (+0x1C) is shown (+
 (10 stock bytes checked first): for these keys it looks for that box among the listeners; with one, the key is used
 and goes no further; with none, it goes on exactly as before.
 
-**Paste rules.** CR, LF and Tab become one space each; other control characters and unpaired surrogates are dropped;
+**Paste rules.** CR LF becomes ONE space, and a lone CR, LF or Tab one space each; the text is composed (NFC, FoldStringW
+MAP_PRECOMPOSED: "e" + U+0308 pastes as "ë") with a Unicode setting on as well as with both off; other control characters and unpaired surrogates are dropped;
 a numbers-only box keeps digits (and a first '-', as the stock box allows). With vf1text.dll or vf1font.dll installed
 (asked of the DLL: `VF1Text_UnicodeTextActive`, nonzero only once all ten hooks are in, not merely that the file is
 loaded) the text is stored by the write rule, cut between whole characters at the box's limit (a name box 1,200 bytes with no character cap,
 any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
 With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
-U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. Nothing is ever
+U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. A held key's auto-repeats (SDL's repeat flag) are
+swallowed while a box has the typing focus, so one press acts once; Ctrl+X empties the box only after the copy succeeded.
+Nothing is ever
 written past the box's buffer (limit + 1 bytes); the game is told the text changed (0xC, 0x401EA0) as after a typed
 letter. (A Latin-1 name pasted with both settings off is read by the one rule as Windows-1252, except in the rare
 case its bytes also form a valid UTF-8 sequence, such as "Ã©", which then reads as "é".)

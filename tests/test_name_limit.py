@@ -190,6 +190,62 @@ def test_other_boxes_keep_their_stock_limit(world, site, limit, what):
     assert w.box_bytes(impl) == b"x" * limit
 
 
+# --------------------------------------------------------------------------- typing: a mark after a refused letter
+def test_a_mark_typed_after_a_refused_character_is_refused_too(world):
+    """The box has room for 3 bytes. A four-byte emoji is refused; a combining acute (2 bytes) that would fit must not
+    land on the box's last letter: it belongs to the refused emoji."""
+    w = world
+    ctl, impl = name_box(w)
+    w.type_text(impl, "a" * (BOX - 3))
+    w.type_text(impl, "\U0001F600")                      # 4 bytes: refused
+    assert len(w.box_bytes(impl)) == BOX - 3
+    w.type_text(impl, "\u0301")                          # would fit (2 bytes), but it marks the refused emoji
+    assert len(w.box_bytes(impl)) == BOX - 3
+    w.type_text(impl, "\U0001F3FD")                      # an emoji skin tone: also an extender, also refused
+    assert len(w.box_bytes(impl)) == BOX - 3
+    w.type_text(impl, "b")                                # a letter is typed again; it clears the refusal
+    assert w.box_bytes(impl).endswith(b"ab") or w.box_bytes(impl)[-1:] == b"b"
+    w.type_text(impl, "\u0301")                          # now a mark of an accepted letter
+    assert vf1_text.decode(w.box_bytes(impl)).endswith("b\u0301")
+    assert w.guards_intact()
+
+
+def test_a_character_joined_to_a_refused_joiner_is_refused_too(world):
+    w = world
+    ctl, impl = name_box(w)
+    w.type_text(impl, "a" * (BOX - 4))
+    w.press(impl, UNICODE_KEY | 0x1F600)                  # 4 bytes: fits
+    w.type_text(impl, "\u200d")                          # a joiner (3 bytes): refused
+    assert len(w.box_bytes(impl)) == BOX
+    w.press(impl, 8)                                      # Backspace clears the refusal and removes the emoji
+    assert len(w.box_bytes(impl)) == BOX - 4
+    w.type_text(impl, "\U0001F600\u200d\u2764")        # emoji fits, joiner refused (3 > 0 left), heart joins it: refused
+    assert vf1_text.decode(w.box_bytes(impl)).endswith("a\U0001F600") and len(w.box_bytes(impl)) == BOX
+
+
+def test_a_wide_character_is_refused_in_a_box_that_is_not_a_name_box_but_a_name_box_scrolls(dll, vanilla_dir):
+    """A box that is not a name box never gets wider than its byte limit times the widest plain letter. Here the
+    font's letter spacing is 100 pixels, so two wide characters (6 bytes, inside the 6-byte limit) are wider than
+    six of the widest plain letters: the second is refused. A name box takes both (it scrolls)."""
+    w = make_world(dll, vanilla_dir, gdi=True)
+    font = w.impl("SegoeUiBold18")
+    w.e.w32(font + 8, 100)                                # spacing
+    ctl, impl = w.control()
+    w.set_editable_from(0x43F1B0, ctl, 6)                 # the animation tool's box, here with a 6-byte limit
+    w.e.write(impl + 0x25, b"\x01")
+    w.e.write(impl + 0x2C, b"\x01")
+    w.type_text(impl, "\u65e5")                          # one wide character: narrower than six plain letters
+    assert w.box_bytes(impl) == "\u65e5".encode()
+    w.type_text(impl, "\u65e5")                          # two would be wider than the widest stock text: refused
+    assert w.box_bytes(impl) == "\u65e5".encode()
+    w.type_text(impl, "ab")                               # plain letters are not wide characters: they follow the stock rule
+    assert w.box_bytes(impl) == "\u65e5".encode() + b"ab"
+    ctl, impl = name_box(w)
+    w.type_text(impl, "\u65e5" * 5)
+    assert vf1_text.decode(w.box_bytes(impl)) == "\u65e5" * 5, "a name box scrolls instead"
+    assert w.guards_intact()
+
+
 # --------------------------------------------------------------------------- the per-character write rule
 def test_a_box_stores_what_the_write_rule_stores(world):
     """A Windows-1252 letter is its one byte, any other letter UTF-8, in one string (vf1_text.encode)."""

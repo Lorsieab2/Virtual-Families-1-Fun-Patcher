@@ -17,17 +17,20 @@
 // the key is used here and never goes on to the game (so Insert's own message is not sent); with none, the key goes
 // on exactly as in the stock game.
 //   * Paste: the clipboard's CF_UNICODETEXT is added at the end of the box's text (a game box's caret is always at
-//     the end). CR, LF and Tab become one space each; other control characters and unpaired surrogates are dropped;
+//     the end). CR LF becomes ONE space, and a lone CR, LF or Tab one space each; other control characters and unpaired
+//     surrogates are dropped; the text is composed (NFC, FoldStringW MAP_PRECOMPOSED) first, whichever setting is on;
 //     a numbers-only box keeps only digits (and a '-' first, as the stock box allows). With Render Unicode with
-//     In-Game Fonts or Use Unicode Font installed it is UTF-8 cut to the box's limit at whole characters (grapheme
-//     clusters): a name box 300 characters and 1,200 bytes, any other box its own bytes. With neither, only the
-//     characters the stock game can both store and draw are kept, one byte each (Windows-1252 / Latin-1: U+0020..
-//     U+007E and U+00A2..U+00FF, after composing accents), cut to the box's own byte limit. Nothing is ever written
+//     In-Game Fonts or Use Unicode Font installed it is stored by the write rule (text_rule.inc) cut to the box's limit
+//     at whole characters (grapheme clusters): a name box 1,200 bytes, any other box its own bytes. With neither, only
+//     the characters the stock fonts can draw are kept, one byte each (U+0020..U+007E and U+00A2..U+00FF), cut to the
+//     box's own byte limit.
+//   * A held key: its auto-repeats (SDL's repeat flag) are swallowed while a box has the typing focus, so one press
+//     acts once. Nothing is ever written
 //     past the box's buffer (limit + 1 bytes, 0x40D370). The game is told the text changed (0xC, 0x401EA0), as
 //     after a typed letter.
 //   * Copy: the box's whole text (a name box holds the whole name, never its short form) as Unicode, read by the
 //     one rule (UTF-8, else Windows-1252).
-//   * Cut: copy, then the box is emptied.
+//   * Cut: copy, then the box is emptied -- only if the copy succeeded.
 // vf1fun.dll's own Win32 windows are standard edit boxes, which already copy and paste themselves.
 
 static const unsigned kKeyDownSite = 0x404826, kKeyDownOn = 0x404830, kKeyDownDone = 0x404A87;
@@ -163,11 +166,15 @@ static int PasteInto(unsigned char *box, const wchar_t *clip) {
     size_t k = 0;
     for (size_t i = 0; i < cn; ++i) {
         wchar_t c = clip[i];
+        if (c == L'\r' && i + 1 < cn && clip[i + 1] == L'\n') continue;       // CR LF is one space: the LF makes it
         if (c == L'\r' || c == L'\n' || c == L'\t') c = L' ';
         if (numeric && !(c >= L'0' && c <= L'9') && !(c == L'-' && len == 0 && k == 0)) continue;
         clean[k++] = c;
     }
     clean[k] = 0;
+    // composed (NFC) whichever Unicode setting is on, or neither: "e" + U+0308 pastes as e with a diaeresis
+    const wchar_t *composed = Composed(clean);
+    k = wcslen(composed);
     int added = 0;
     if (UnicodeTextOn()) {
         // the box's text and the pasted text as one name, cut at whole characters to the box's room
@@ -178,7 +185,7 @@ static int PasteInto(unsigned char *box, const wchar_t *clip) {
         size_t hl = (size_t)DecodeStoredW(buf, len, had, VF1_NAME_BOX_BYTES + 6);   // the box's text, per sequence
         int old = FitNameStored(had, before, limit);          // the box's text alone, stored by the write rule
         memcpy(all, had, hl * sizeof(wchar_t));
-        memcpy(all + hl, clean, (k + 1) * sizeof(wchar_t));
+        memcpy(all + hl, composed, (k + 1) * sizeof(wchar_t));
         int got = FitNameStored(all, out, limit);             // control characters and lone surrogates are dropped
         // never lose what was there (a pasted mark joining the last letter that then no longer fits): the new text
         // must start with the box's text, and be longer
@@ -191,7 +198,7 @@ static int PasteInto(unsigned char *box, const wchar_t *clip) {
             added = got > old ? got - old : 1;
         }
     } else {
-        const wchar_t *src = Composed(clean);
+        const wchar_t *src = composed;
         int at = len;
         for (size_t i = 0; src[i] && at < limit; ++i) {
             wchar_t c = src[i];
@@ -204,11 +211,12 @@ static int PasteInto(unsigned char *box, const wchar_t *clip) {
 }
 
 // The key handler: true when the key was used by a focused box.
-static int __cdecl ClipKeyDown(unsigned key, unsigned mod) {
+static int __cdecl ClipKeyDown(unsigned key, unsigned mod, unsigned repeat) {
     int action = ClipAction(key, mod & 0xFFFF);
     if (action == CLIP_NONE) return 0;
     unsigned char *box = FocusedBox();
     if (!box) return 0;
+    if (repeat) return 1;                                    // a held key's auto-repeat: the first press acted, this one is used and does nothing
     char *buf = *(char **)(box + 0x30);
     if (action == CLIP_PASTE) {
         wchar_t *clip = VF1Fun_ClipRead();
@@ -228,11 +236,13 @@ static int __cdecl ClipKeyDown(unsigned key, unsigned mod) {
 
 __declspec(naked) static void ClipKeyDownDetour() {
     __asm {
-        movzx edx, word ptr [esp + 0x3C]     // the key's modifiers
+        movzx eax, byte ptr [esp + 0x31]     // SDL_KeyboardEvent.repeat: 1 for a held key's auto-repeat
+        push eax
+        movzx edx, word ptr [esp + 0x40]     // the key's modifiers ([esp+0x3C] before the push)
         push edx
-        push dword ptr [esp + 0x3C]          // the key's code ([esp+0x38] before the push)
+        push dword ptr [esp + 0x40]          // the key's code ([esp+0x38] before the two pushes)
         call ClipKeyDown
-        add esp, 8
+        add esp, 12
         test eax, eax
         jnz used
         mov ecx, dword ptr [esp + 0x38]      // the stock instructions, then on
