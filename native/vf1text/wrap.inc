@@ -118,7 +118,7 @@ static bool BreaksFor(const unsigned char *text, int n, unsigned char *out) {
             unsigned before = run.cps[prev], after = run.cps[i], last = run.cps[i - 1];
             bool ok = before != ' ' && before != '\n' && after != ' ' && after != '\n' &&
                       (NoSpaceLetter(before) || NoSpaceLetter(after) || last == 0x200B);
-            if (ok) ok = useIcu ? icu[i] != 0 : FallbackMayBreak(before, after);
+            if (ok) ok = useIcu ? icu[i] != 0 : (last == 0x200B || FallbackMayBreak(before, after));   // LB8: after U+200B
             if (ok) out[at[i]] = 1;
         }
         prev = i;

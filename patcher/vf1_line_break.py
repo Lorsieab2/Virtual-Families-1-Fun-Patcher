@@ -165,7 +165,7 @@ def break_points(text: str, use_icu: bool = True) -> tuple[set[int], bool]:
             ok = (before not in (0x20, 0x0A) and after not in (0x20, 0x0A)
                   and (no_space_letter(before, use_icu) or no_space_letter(after, use_icu) or last == 0x200B))
             if ok:
-                ok = (i in allowed) if allowed is not None else fallback_may_break(before, after)
+                ok = (i in allowed) if allowed is not None else (last == 0x200B or fallback_may_break(before, after))
             if ok:
                 out.add(i)
         prev = i
