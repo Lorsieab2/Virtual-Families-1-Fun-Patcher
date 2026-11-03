@@ -432,8 +432,15 @@ family member: it follows them wherever the game copies their name (their childr
 Tree's records, their death), through Copy Player Slot, Back Up / Restore Saves and a rename.
 
 **The Names file**: `<saves>\Virtual Families 1 Patcher Data\Names\Virtual Families<N>.ldw.txt`, UTF-8 text (the file's names are text, never the game's mixed bytes; the DLL converts) in lines
-`VF1 Names 1`, then `short<TAB>room<TAB>whole name` (room: the field's bytes it was made for). Written through a
-temporary file and MoveFileEx. A line is never removed: a short form no longer in the save is harmless (a new one
+`VF1 Names 2`, then `short<TAB>room<TAB>whole name<TAB>CRC` (room: the field's bytes it was made for; CRC: the CRC-32
+of everything before the last tab, 8 upper-case hex digits, as in the Virtual Villagers patcher). A record whose CRC
+fails (cut short, merged with another, changed) is skipped. A `VF1 Names 1` file (no CRC column) is still read, and the
+next write of it makes it version 2. Written through a temporary file and MoveFileEx. **Pending writes:** a record is
+written at once, the moment a name leaves a box; when that cannot be done (the member's slot is not known yet, the game
+state has no save path yet, the folder cannot be written) the record stays in memory, its book marked dirty, and every
+draw retries, at most once in 2 seconds, until a write of that book has succeeded (a record made with no slot known is
+kept in a pending book and moves to the slot's book, whose file is read first so nothing in it is lost, as soon as the
+slot is known). The whole names it holds are shown meanwhile. A line is never removed: a short form no longer in the save is harmless (a new one
 is never made equal to it), and the older autosave copies `<N+20>` / `<N+40>` stay readable. A line that is not
 valid (no mark, too long for its room, a control character, more than 1,200 bytes) is left out;
 a file that cannot be read is read as empty, and the save shows its short forms.

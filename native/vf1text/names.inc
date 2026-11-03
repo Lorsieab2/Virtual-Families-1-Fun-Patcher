@@ -59,8 +59,13 @@ struct NameEntry {
     char *full; int fullLen;                          // the whole name, stored text
     void *fitImpl[8]; char *fit[8];                   // the whole name fitted to its room, per font
 };
-struct NameBook { bool loaded; NameEntry *first, *last; };
-static NameBook Books[6];                             // 1..5
+struct NameBook { bool loaded; bool dirty; NameEntry *first, *last; };
+// 1..5: a slot's Names file. 0: the PENDING book, the records made while no slot was known (a member's name typed
+// before the game state's slot is set); they move to the slot's book, and are written, as soon as it is known.
+// A book is dirty from the moment it holds a record that is not in its file until a write of it succeeds.
+static NameBook Books[6];
+static bool RetryStarted;                             // a write failed, or was retried, at RetryAt (GetTickCount)
+static DWORD RetryAt;
 extern "C" __declspec(dllexport) volatile unsigned VF1Text_NamesWritten = 0;   // for the tests
 extern "C" __declspec(dllexport) volatile unsigned VF1Text_NamesFailed = 0;
 
@@ -123,8 +128,8 @@ static int ShortMatch(const NameEntry *e, const char *s, int n) {
     return 0;
 }
 
-static NameEntry *FindShort(const char *s, int n, int slot) {      // slot 0: every book
-    for (int b = 1; b <= 5; ++b) {
+static NameEntry *FindShort(const char *s, int n, int slot) {      // slot 0: every book, the pending one too
+    for (int b = slot ? 1 : 0; b <= 5; ++b) {
         if (slot && b != slot) continue;
         for (NameEntry *e = Books[b].first; e; e = e->next)
             if (ShortMatch(e, s, n)) return e;
@@ -145,10 +150,22 @@ static bool AddEntry(int slot, const char *s, int sn, int room, const char *full
     else { e->shortU = u; e->shortULen = un; }
     if (Books[slot].last) Books[slot].last->next = e; else Books[slot].first = e;
     Books[slot].last = e;
+    Books[slot].dirty = true;                                 // not in the file yet
     return true;
 }
 
-static const char NamesHeader[] = "VF1 Names 1";
+static const char NamesHeader[] = "VF1 Names 2";          // written: every record carries its CRC-32
+static const char NamesHeaderV1[] = "VF1 Names 1";        // still read: records without a CRC
+
+// CRC-32 (the zlib / PNG one), bit by bit: patcher/vf1_names.record_crc is the same sum.
+static unsigned Crc32(const unsigned char *p, unsigned n) {
+    unsigned c = 0xFFFFFFFFu;
+    for (unsigned i = 0; i < n; ++i) {
+        c ^= p[i];
+        for (int k = 0; k < 8; ++k) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u)));
+    }
+    return ~c;
+}
 
 static void LoadBook(int slot) {
     NameBook &book = Books[slot];
@@ -165,12 +182,14 @@ static void LoadBook(int slot) {
     BOOL ok = buf ? ReadFile(h, buf, size, &got, 0) : FALSE;
     CloseHandle(h);
     if (!ok || got != size) { Free(buf); return; }
-    // the header line, then "short<TAB>room<TAB>name" lines (vf1_names.parse: anything not valid is left out)
+    // the header line, then "short<TAB>room<TAB>name<TAB>CRC" lines, or without the CRC under the version 1 header
+    // (vf1_names.parse: anything not valid, a failed CRC included, is left out)
     unsigned at = 0, hl = sizeof NamesHeader - 1;
     unsigned end0 = 0;
     while (end0 < size && buf[end0] != '\n') ++end0;
     unsigned hlen = (end0 > 0 && buf[end0 - 1] == '\r') ? end0 - 1 : end0;
-    if (hlen != hl || !Same(buf, NamesHeader, hl)) { Free(buf); return; }
+    bool version2 = hlen == hl && Same(buf, NamesHeader, hl);
+    if (!version2 && !(hlen == sizeof NamesHeaderV1 - 1 && Same(buf, NamesHeaderV1, hlen))) { Free(buf); return; }
     at = end0 + 1;
     while (at < size) {
         unsigned end = at;
@@ -178,10 +197,25 @@ static void LoadBook(int slot) {
         unsigned len = end - at;
         if (len && buf[at + len - 1] == '\r') --len;
         char *line = buf + at;
-        int tab1 = -1, tab2 = -1, tabs = 0;
+        int tab1 = -1, tab2 = -1, tab3 = -1, tabs = 0;
         for (unsigned i = 0; i < len; ++i)
-            if (line[i] == '\t') { ++tabs; if (tab1 < 0) tab1 = (int)i; else if (tab2 < 0) tab2 = (int)i; }
-        if (tabs == 2 && tab2 > tab1 + 1) {
+            if (line[i] == '\t') {
+                ++tabs;
+                if (tab1 < 0) tab1 = (int)i; else if (tab2 < 0) tab2 = (int)i; else if (tab3 < 0) tab3 = (int)i;
+            }
+        bool crcOk = true;
+        if (version2 && tabs == 3 && (int)len - tab3 - 1 == 8) {          // the CRC of everything before the last tab
+            unsigned want = 0;
+            for (int i = tab3 + 1; i < (int)len && crcOk; ++i) {
+                char hx = line[i];
+                int v = (hx >= '0' && hx <= '9') ? hx - '0' : (hx >= 'A' && hx <= 'F') ? hx - 'A' + 10 : -1;
+                if (v < 0) crcOk = false; else want = (want << 4) | (unsigned)v;
+            }
+            if (crcOk) crcOk = want == Crc32((const unsigned char *)line, (unsigned)tab3);
+        } else if (version2) {
+            crcOk = false;
+        }
+        if (crcOk && tabs == (version2 ? 3 : 2) && tab2 > tab1 + 1) {
             int room = 0;
             bool digits = true;
             for (int i = tab1 + 1; i < tab2; ++i) {
@@ -189,7 +223,7 @@ static void LoadBook(int slot) {
                 room = room * 10 + (line[i] - '0');
             }
             const char *s = line; int sn = tab1;
-            const char *full = line + tab2 + 1; int fn = (int)len - tab2 - 1;
+            const char *full = line + tab2 + 1; int fn = (version2 ? tab3 : (int)len) - tab2 - 1;
             if (digits && room >= 1 && room < VF1_NAME_BOX_BYTES && sn >= MarkLen &&
                 Same(s + sn - MarkLen, VF1_NAME_MARK, (unsigned)MarkLen) && IsUtf8((const unsigned char *)s, sn) &&
                 IsUtf8((const unsigned char *)full, fn) && GoodName((const unsigned char *)s, sn) &&
@@ -210,17 +244,22 @@ static void LoadBook(int slot) {
 
 static void LoadBooks() { for (int b = 1; b <= 5; ++b) LoadBook(b); }
 
+// The slot a record made now belongs to: the slot being played, or -1 when none is known yet (the record is then
+// PENDING, in book 0, and is written as soon as the slot is known).
+static int SlotNow() { int s = CurrentSlot(); return s ? s : -1; }
+
 static bool WriteBook(int slot) {
     char path[MAX_PATH + 96], data[MAX_PATH + 96], names[MAX_PATH + 96], temp[MAX_PATH + 104];
     if (!NamesPath(slot, path, sizeof path, data, names)) return false;
     unsigned total = sizeof NamesHeader + 1;
-    for (NameEntry *e = Books[slot].first; e; e = e->next) total += (unsigned)(e->shortLen + e->fullLen) * 4 + 16;
+    for (NameEntry *e = Books[slot].first; e; e = e->next) total += (unsigned)(e->shortLen + e->fullLen) * 4 + 32;
     char *buf = (char *)Alloc(total);
     if (!buf) return false;
     unsigned n = 0;
     Copy(buf, NamesHeader, sizeof NamesHeader - 1); n += sizeof NamesHeader - 1;
     buf[n++] = '\n';
     for (NameEntry *e = Books[slot].first; e; e = e->next) {
+        unsigned start = n;
         n += (unsigned)StoredToUtf8((const unsigned char *)e->shortForm, e->shortLen, buf + n);   // the file is UTF-8
         buf[n++] = '\t';
         char d[12]; int k = 0; int r = e->room;
@@ -228,6 +267,9 @@ static bool WriteBook(int slot) {
         while (k) buf[n++] = d[--k];
         buf[n++] = '\t';
         n += (unsigned)StoredToUtf8((const unsigned char *)e->full, e->fullLen, buf + n);
+        unsigned crc = Crc32((const unsigned char *)buf + start, n - start);        // everything before the last tab
+        buf[n++] = '\t';
+        for (int sh = 28; sh >= 0; sh -= 4) buf[n++] = "0123456789ABCDEF"[(crc >> sh) & 15];
         buf[n++] = '\n';
     }
     CreateDirectoryA(data, 0);
@@ -245,13 +287,50 @@ static bool WriteBook(int slot) {
         if (!ok) DeleteFileA(temp);
     }
     Free(buf);
-    if (ok) ++VF1Text_NamesWritten; else ++VF1Text_NamesFailed;
+    if (ok) { ++VF1Text_NamesWritten; Books[slot].dirty = false; } else { ++VF1Text_NamesFailed; RetryStarted = true; RetryAt = GetTickCount(); }
     return ok;
+}
+
+// ---- pending records, and writes that failed
+// A record is written at once, the moment a name leaves a box. When that cannot be done (no slot is known, the game
+// state has no save path yet, the folder cannot be written) the record stays in its book, marked dirty, and every draw
+// tries again, at most once in 2 seconds, until a write of that book has succeeded (VV's long_names.inc rule).
+static void RetryWrites() {
+    bool any = false;
+    for (int b = 0; b <= 5; ++b) if (Books[b].dirty) any = true;
+    if (!any) return;
+    DWORD now = GetTickCount();
+    if (RetryStarted && now - RetryAt < 2000) return;
+    RetryStarted = true;
+    RetryAt = now;
+    int cur = CurrentSlot();
+    if (cur > 0 && Books[0].first) {                    // the slot is known now: the pending records go to its book
+        LoadBook(cur);
+        if (Books[cur].loaded) {
+            NameEntry *e = Books[0].first;
+            while (e) {
+                NameEntry *next = e->next;
+                e->next = 0;
+                if (Books[cur].last) Books[cur].last->next = e; else Books[cur].first = e;
+                Books[cur].last = e;
+                e = next;
+            }
+            Books[0].first = Books[0].last = 0;
+            Books[0].dirty = false;
+            Books[cur].dirty = true;
+        }
+    }
+    for (int b = 1; b <= 5; ++b) {
+        if (!Books[b].dirty) continue;
+        if (!Books[b].loaded) LoadBook(b);              // never write a file over entries it holds and we have not read
+        if (Books[b].loaded) WriteBook(b);
+    }
 }
 
 // ---- the short form (vf1_names.short_form)
 // `full` (n bytes) for a field of `room` bytes, into out (room + 1 bytes). slot 1..5 records a new short form in that
-// slot's Names file; slot 0 only reuses one (a GetText that reads a box) and otherwise cuts as the stock game does.
+// slot's Names file; slot -1 records it as pending (no slot is known yet); slot 0 only reuses one (a GetText that
+// reads a box) and otherwise cuts as the stock game does.
 static int ShortForStored(const char *full, int n, int room, int slot, char *out);
 static int ShortFor(const char *typed, int tn, int room, int slot, char *out) {
     unsigned char *canon;
@@ -263,7 +342,7 @@ static int ShortFor(const char *typed, int tn, int room, int slot, char *out) {
 }
 static int ShortForStored(const char *full, int n, int room, int slot, char *out) {
     LoadBooks();
-    for (int b = 1; b <= 5; ++b)
+    for (int b = 0; b <= 5; ++b)
         for (NameEntry *e = Books[b].first; e; e = e->next)
             if (e->fullLen == n && e->shortLen <= room && Same(e->full, full, (unsigned)n)) {
                 Copy(out, e->shortForm, (unsigned)e->shortLen);
@@ -278,7 +357,7 @@ static int ShortForStored(const char *full, int n, int room, int slot, char *out
         Copy(out, full, (unsigned)n); out[n] = 0;
         return n;
     }
-    if (slot < 1 || n > VF1_NAME_BOX_BYTES || !GoodName((const unsigned char *)full, n)) {
+    if (slot == 0 || n > VF1_NAME_BOX_BYTES || !GoodName((const unsigned char *)full, n)) {
         int keep = FitStored((const unsigned char *)full, n, room, (unsigned char *)out);
         out[keep] = 0;
         return keep;
@@ -294,7 +373,8 @@ static int ShortForStored(const char *full, int n, int room, int slot, char *out
         int sn = head + tl;
         out[sn] = 0;
         if (!FindShort(out, sn, 0)) {
-            if (AddEntry(slot, out, sn, room, full, n)) WriteBook(slot);
+            int book = slot < 0 ? 0 : slot;                   // pending when no slot is known
+            if (AddEntry(book, out, sn, room, full, n) && book) WriteBook(book);   // a failed write stays dirty: retried
             return sn;
         }
     }
@@ -312,7 +392,7 @@ static NameEntry *DisplayEntry(const char *s, int n) {
 
 static bool AnyNames() {
     LoadBooks();
-    for (int b = 1; b <= 5; ++b) if (Books[b].first) return true;
+    for (int b = 0; b <= 5; ++b) if (Books[b].first) return true;
     return false;
 }
 
@@ -377,6 +457,7 @@ static const char *WithNames(const char *text, void *impl, char **owned) {
     for (int i = 0; i + MarkLen <= n; ++i)
         if (Same(text + i, VF1_NAME_MARK, (unsigned)MarkLen)) { mark = true; break; }
     if (!mark || !AnyNames()) return text;
+    RetryWrites();
     // first pass: the replacements, left to right, the longest short form ending at each mark
     struct Hit { int at, len; const char *with; };
     Hit hits[32];
@@ -385,7 +466,7 @@ static const char *WithNames(const char *text, void *impl, char **owned) {
         if (!Same(text + i - MarkLen, VF1_NAME_MARK, (unsigned)MarkLen)) continue;
         NameEntry *best = 0;
         int bestLen = 0;
-        for (int b = 1; b <= 5; ++b)
+        for (int b = 0; b <= 5; ++b)
             for (NameEntry *e = Books[b].first; e; e = e->next)
                 for (int form = 0; form < 2; ++form) {
                     const char *sf = form ? e->shortU : e->shortForm;
@@ -807,5 +888,6 @@ extern "C" __declspec(dllexport) const char *__cdecl VF1Text_FullName(const char
 // slot being played; out has room + 1 bytes. Returns the bytes stored.
 extern "C" __declspec(dllexport) int __cdecl VF1Text_StoreName(const char *full, int room, char *out) {
     if (!full || !out || room <= 0 || room >= VF1_NAME_BOX_BYTES) return 0;
-    return ShortFor(full, (int)Len(full), room, CurrentSlot(), out);
+    RetryWrites();
+    return ShortFor(full, (int)Len(full), room, SlotNow(), out);
 }

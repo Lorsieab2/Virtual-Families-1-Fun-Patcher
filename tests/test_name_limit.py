@@ -759,6 +759,140 @@ def test_a_damaged_names_file_is_read_as_empty(dll, vanilla_dir, data):
     assert vf1_names.parse(data) == []
 
 
+# --------------------------------------------------------------------------- the Names file: CRC-32, pending writes
+def adopt(w, name):
+    """The adoption box given `name`, then the game's own code from its GetText to the copy into the member's field:
+    the bytes the game stored."""
+    import kids_emu as K
+    ctl, impl = name_box(w, 0x435AFB, 0x12)
+    w.type_text(impl, name)
+    dlg = w.e.alloc(0x100)
+    w.e.w32(dlg + 0x54, ctl)
+    villager = w.e.alloc(0x2C00, fill=0xCC)
+    w.run_window(0x43681A, 0x43684D, {K.UC_X86_REG_ECX: w.gs, K.UC_X86_REG_EBP: dlg, K.UC_X86_REG_ESI: villager,
+                                      K.UC_X86_REG_EDI: 7}, esp=w.frame())
+    return w.e.read(villager + 0x2A44, 0x19).split(b"\0", 1)[0]
+
+
+def counter(w, name):
+    return w.e.r32(w.e.dll_export(name))
+
+
+def test_the_dll_writes_version_2_with_a_crc_on_every_record(world):
+    w = world
+    stored = adopt(w, FULL)
+    data = w.fs[w.names_file(2)]
+    lines = data.decode("utf-8").split("\n")
+    assert lines[0] == "VF1 Names 2" and lines[-1] == "" and len(lines) == 3
+    short, room, whole, crc = lines[1].split("\t")
+    assert (short, room, whole) == (vf1_text.decode(stored), "18", FULL)
+    assert crc == vf1_names.record_crc("\t".join([short, room, whole])) and len(crc) == 8 and crc == crc.upper()
+    assert vf1_names.parse(data) == [vf1_names.Entry(short, 18, FULL)]
+
+
+def test_the_crc_is_the_zlib_one_over_everything_before_the_last_tab():
+    import zlib
+    assert vf1_names.record_crc("123456789") == "CBF43926"
+    e = vf1_names.Entry("Ab...", 18, "Ab\u00e9\u65e5 and more")
+    line = vf1_names.render_record(e)
+    body, crc = line.rsplit("\t", 1)
+    assert body == "Ab...\t18\tAb\u00e9\u65e5 and more" and crc == f"{zlib.crc32(body.encode('utf-8')):08X}"
+
+
+def test_a_record_that_fails_its_crc_is_skipped(dll, vanilla_dir):
+    good = vf1_names.Entry("Alexandrina Ma...", 18, FULL)
+    other = vf1_names.Entry("Bartholomew Ch...", 18, "Bartholomew Christopher")
+    lines = vf1_names.render([good, other]).decode("utf-8").split("\n")
+    assert vf1_names.parse("\n".join(lines).encode()) == [good, other]
+    bad = lines[:]
+    bad[1] = bad[1][:-1] + ("0" if bad[1][-1] != "0" else "1")                   # one digit of the CRC changed
+    cut = lines[:]
+    cut[2] = cut[2][:-12]                                                        # a record cut short
+    merged = [lines[0], lines[1] + lines[2], ""]                                  # two records run together
+    changed = lines[:]
+    changed[1] = changed[1].replace("Alexandrina", "Alexandrino")               # the name changed, the CRC did not
+    for label, text, kept in (("bad crc", bad, [other]), ("cut short", cut, [good]), ("merged", merged, []),
+                              ("changed", changed, [other])):
+        data = "\n".join(text).encode("utf-8")
+        assert vf1_names.parse(data) == kept, label
+        w = make_world(dll, vanilla_dir)
+        w.fs[w.names_file(2)] = data
+        for e in (good, other):
+            stored = vf1_text.encode(e.short)
+            expect = e.full if e in kept else e.short
+            assert vf1_text.decode(full_of(w, stored)) == expect, (label, e.short)
+
+
+def test_a_version_1_file_is_still_read_and_the_next_write_makes_it_version_2(dll, vanilla_dir):
+    old = b"VF1 Names 1\n" + vf1_text.encode("Alexandrina Ma...") + b"\t18\t" + FULL.encode() + b"\n"
+    assert vf1_names.parse(old) == [vf1_names.Entry("Alexandrina Ma...", 18, FULL)]
+    w = make_world(dll, vanilla_dir)
+    w.fs[w.names_file(2)] = old
+    assert vf1_text.decode(full_of(w, b"Alexandrina Ma...")) == FULL
+    adopt(w, "Bartholomew Christopher Jones")                                    # a new record: the file is written
+    data = w.fs[w.names_file(2)]
+    assert data.startswith(b"VF1 Names 2\n")
+    entries = vf1_names.parse(data)
+    assert [e.short for e in entries][0] == "Alexandrina Ma..." and len(entries) == 2
+    assert all(len(line.split("\t")) == 4 for line in data.decode("utf-8").split("\n")[1:-1])
+
+
+def test_a_record_made_with_no_slot_known_stays_pending_and_is_written_when_the_slot_is_known(world):
+    w = world
+    w.set_slot(0)                                           # no slot is known yet
+    name = "Pendleton Wilhelmina Alexandrina"
+    stored = adopt(w, name)
+    assert stored.endswith(b"...") and len(stored) <= 18, "a short form is still made (not a plain cut)"
+    assert w.names_file(2) not in w.fs and not any(k.endswith(".txt") for k in w.fs), "nothing could be written"
+    assert vf1_text.decode(full_of(w, stored)) == name, "the whole name is already shown"
+    second = adopt(w, "Pendleton Wilhelmina Alexandra")  # another name starting alike: its own short form
+    assert second != stored and second.startswith(b"2...") or second != stored
+    w.set_slot(3)                                           # the slot becomes known
+    w.ticks += 5000
+    w.draw(stored)                                          # the next draw retries
+    entries = names_in(w, 3)
+    assert [e.full for e in entries][:1] == [name] and len(entries) == 2
+    assert counter(w, "VF1Text_NamesFailed") == 0 and not names_in(w, 2)
+
+
+def test_a_write_that_failed_is_retried_at_a_draw_not_more_than_every_two_seconds(world):
+    w = world
+    w.write_fails = True
+    name = "Pendleton Wilhelmina Alexandrina"
+    stored = adopt(w, name)
+    assert w.names_file(2) not in w.fs and counter(w, "VF1Text_NamesFailed") >= 1
+    failed = counter(w, "VF1Text_NamesFailed")
+    assert vf1_text.decode(full_of(w, stored)) == name, "the record is kept in memory"
+    w.write_fails = False
+    w.ticks += 500
+    w.draw(stored)
+    assert w.names_file(2) not in w.fs, "less than 2 seconds since the last try"
+    w.ticks += 2500
+    w.draw(b"x")                                            # no short form in it: nothing to retry for
+    w.draw(stored)
+    entries = names_in(w, 2)
+    assert [e.full for e in entries] == [name]
+    assert counter(w, "VF1Text_NamesWritten") >= 1 and counter(w, "VF1Text_NamesFailed") == failed
+    written = len(w.fs[w.names_file(2)])
+    w.ticks += 9000
+    w.draw(stored)
+    assert len(w.fs[w.names_file(2)]) == written, "a written book is not written again"
+
+
+def test_a_failed_write_never_loses_the_records_already_in_the_file(world):
+    w = world
+    first = adopt(w, "Alexandrina Maximiliana Theodora")
+    assert len(names_in(w, 2)) == 1
+    before = w.fs[w.names_file(2)]
+    w.write_fails = True
+    adopt(w, "Bartholomew Christopher Jones")
+    assert w.fs[w.names_file(2)] == before, "the old file is untouched by the failed write"
+    w.write_fails = False
+    w.ticks += 3000
+    w.draw(first)
+    assert [e.full for e in names_in(w, 2)] == ["Alexandrina Maximiliana Theodora", "Bartholomew Christopher Jones"]
+
+
 # --------------------------------------------------------------------------- the patcher's side
 def test_names_file_round_trip(tmp_path):
     entries = [vf1_names.Entry("Alexandrina Ma...", 18, FULL),

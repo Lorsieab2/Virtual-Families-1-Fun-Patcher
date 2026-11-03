@@ -12,8 +12,11 @@ slot menu's names 20, a family member's name 18 as typed (GetText(.., 0x13) at 0
   their name (the parents' names of their children, the family tree's records, a death), and the stock game (or
   the patch off) loads, plays and shows it as it is;
 * the whole name is kept in the save's Names file, "Virtual Families 1 Patcher Data\\Names\\Virtual
-  Families<N>.ldw.txt" (one per save slot N), one line per short form: ``short<TAB>room<TAB>name``, where room is
-  the field's bytes it was made for. The game itself (vf1text.dll / vf1font.dll, either Unicode setting) writes
+  Families<N>.ldw.txt" (one per save slot N), header ``VF1 Names 2`` and one line per short form:
+  ``short<TAB>room<TAB>name<TAB>CRC``, where room is the field's bytes it was made for and CRC is the CRC-32 of
+  everything before the last tab, as 8 upper-case hex digits (a record that is cut short or merged with another fails
+  it and is skipped; a ``VF1 Names 1`` file, whose lines have no CRC, is still read, and the next write makes it
+  version 2). The game itself (vf1text.dll / vf1font.dll, either Unicode setting) writes
   it when a name is typed, and draws the whole name wherever its short form is drawn; the patcher's readers and
   tools read and write it here, by the same rule.
 
@@ -25,6 +28,7 @@ from __future__ import annotations
 
 import os
 import uuid
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,7 +37,8 @@ import vf1_text
 NAME_BOX_BYTES = vf1_text.NAME_BOX_BYTES
 MARK = vf1_text.NAME_MARK
 FOLDER = "Names"
-HEADER = "VF1 Names 1"
+HEADER = "VF1 Names 2"            # what is written: every record carries its CRC-32
+HEADER_V1 = "VF1 Names 1"         # still read: records without a CRC
 PATCHER_DATA = "Virtual Families 1 Patcher Data"
 
 FAMILY_ROOM = 19          # theGameState+0x1B12C: GetText(.., 0x14) keeps 19 bytes
@@ -76,15 +81,18 @@ def parse(data: bytes) -> list[Entry]:
     except UnicodeDecodeError:
         return []
     lines = text.split("\n")
-    if not lines or lines[0].rstrip("\r") != HEADER:
+    if not lines or lines[0].rstrip("\r") not in (HEADER, HEADER_V1):
         return []
+    version2 = lines[0].rstrip("\r") == HEADER
     out: list[Entry] = []
     seen: set[str] = set()
     for line in lines[1:]:
         line = line.rstrip("\r")
         parts = line.split("\t")
-        if len(parts) != 3 or not parts[1].isdigit():
+        if len(parts) != (4 if version2 else 3) or not parts[1].isdigit():
             continue
+        if version2 and parts[3] != record_crc("\t".join(parts[:3])):
+            continue                                  # cut short, merged with another record, or damaged
         short, room, full = parts[0], int(parts[1]), parts[2]
         if (short in seen or not short or not short.endswith(MARK) or name_problem(full) is not None
                 or not 1 <= room < NAME_BOX_BYTES or len(vf1_text.encode(short)) > room):
@@ -94,8 +102,19 @@ def parse(data: bytes) -> list[Entry]:
     return out
 
 
+def record_crc(body: str) -> str:
+    """The CRC-32 of a record's text before its last tab (``short<TAB>room<TAB>whole``, as UTF-8), as 8 upper-case
+    hex digits."""
+    return f"{zlib.crc32(body.encode('utf-8')) & 0xFFFFFFFF:08X}"
+
+
+def render_record(e: Entry) -> str:
+    body = f"{e.short}\t{e.room}\t{e.full}"
+    return f"{body}\t{record_crc(body)}"
+
+
 def render(entries: list[Entry]) -> bytes:
-    return ("\n".join([HEADER] + [f"{e.short}\t{e.room}\t{e.full}" for e in entries]) + "\n").encode("utf-8")
+    return ("\n".join([HEADER] + [render_record(e) for e in entries]) + "\n").encode("utf-8")
 
 
 def read(path: Path) -> list[Entry]:

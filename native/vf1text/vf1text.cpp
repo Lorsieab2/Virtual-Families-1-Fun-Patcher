@@ -781,7 +781,7 @@ static void __fastcall GetText(void *control, void *, char *buffer, int size) {
             }
         int slot = 0;
         for (unsigned i = 0; i < sizeof NameSites / sizeof NameSites[0]; ++i)
-            if (NameSites[i].ret == ret) slot = NameSites[i].slot < 0 ? CurrentSlot() : NameSites[i].slot;
+            if (NameSites[i].ret == ret) slot = NameSites[i].slot < 0 ? SlotNow() : NameSites[i].slot;
         char out[VF1_NAME_BOX_BYTES + 1];
         int keep = ShortFor(text, n, size - 1, slot, out);      // by the write rule, the short form too
         int i = 0;
