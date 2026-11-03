@@ -164,3 +164,28 @@ def test_the_tree_pictures_ship_byte_for_byte(bundle):
     for name in shipped:
         assert (folder / "tree_pictures" / name).read_bytes() == (ROOT / "patcher" / "tree_pictures" / name).read_bytes()
         assert f"  {name}\r\n" in log or f"  {name}\n" in log
+
+
+def test_test_translations_never_ship(bundle, tmp_path):
+    """A "(TEST)" translation (translations/fr.tsv, "(TEST) - French AI Translation") stays in the repository's
+    translations/ folder: no file in the zip is one, the French file's bytes are nowhere in it, and the packager
+    leaves a "(TEST)" file out of a folder it ships while it keeps an accepted one."""
+    folder, names = bundle
+    assert not any("(TEST)" in n or n.endswith("/fr.tsv") for n in names)
+    with zipfile.ZipFile(tmp_path / "zip" / f"{TOP}.zip") as z:
+        for n in names:
+            data = z.read(n)
+            assert b"(TEST)" not in data or n.endswith(".py"), n          # the packager's own module names the mark
+    french = ROOT / "translations" / "fr.tsv"
+    if french.is_file():
+        assert package_release.is_test_translation(french)
+    shelf = tmp_path / "shelf"
+    shelf.mkdir()
+    head = "Key\tEnglish\tTranslation\tNotes\r\n@format\t1\t1\r\n@game\tVirtual Families\t\r\n"
+    (shelf / "Virtual Families - Deutsch.txt").write_text(head + "@language\tEnglish\tDeutsch\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Test.txt").write_text(
+        head + "@language\tEnglish\t(TEST) - French AI Translation\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Credit.txt").write_text(
+        head + "@language\tEnglish\tFrançais\r\n@translator\t\t(TEST) AI translation\r\n", encoding="utf-8")
+    (shelf / "(TEST) Virtual Families - Español.txt").write_text(head, encoding="utf-8")
+    assert [p.name for p in package_release.shipped_translations(shelf)] == ["Virtual Families - Deutsch.txt"]

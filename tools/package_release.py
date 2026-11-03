@@ -56,6 +56,28 @@ def write_transparency_log() -> Path:
     return TRANSPARENCY_LOG
 
 
+TEST_MARK = "(TEST)"
+
+
+def is_test_translation(path: Path) -> bool:
+    """A "(TEST)" translation (for example translations/fr.tsv, "(TEST) - French AI Translation"): it lives in the
+    repository's translations/ folder for trying out and never ships in a release. Marked in its file name, its
+    language name (@language) or its credit (@translator)."""
+    if TEST_MARK in path.name:
+        return True
+    try:
+        head = path.read_bytes()[:4096].decode("utf-8", "replace")
+    except OSError:
+        return False
+    return any(line.split("\t", 1)[0].strip() in ("@language", "@translator") and TEST_MARK in line
+               for line in head.splitlines())
+
+
+def shipped_translations(folder: Path) -> list[Path]:
+    """The accepted translations in a folder that a release ships: every one but the "(TEST)" ones."""
+    return [p for p in sorted(folder.glob("*.txt")) if not is_test_translation(p)]
+
+
 def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = None) -> Path:
     top = f"Virtual-Families-1-Fun-Patcher-{version}"
     manifest = load_manifest()
@@ -99,7 +121,7 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
     # left modules out (v1.7's first build shipped without vf1_game_art and the Picture Maker could not open).
     for path in sorted((ROOT / "patcher").glob("*.py")):
         files[path.name] = path.read_bytes()
-    for path in sorted((ROOT / "patcher" / "translations" / "vf1").glob("*.txt")):   # accepted on GitHub
+    for path in shipped_translations(ROOT / "patcher" / "translations" / "vf1"):   # accepted on GitHub
         files[f"translations/vf1/{path.name}"] = path.read_bytes()
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
