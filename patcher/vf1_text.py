@@ -5,13 +5,19 @@ name at theGameState+0x1B12C, the slot menu's names, each person's name and pare
 docs/vf1-save-format.md). The stock game only ever writes printable ASCII there: its text box drops any typed
 character that is not one byte (SDL_TEXTINPUT at 0x4049BB) and any byte from 0x80 (0x40DB0F).
 
-With the patch on, a name may hold any Unicode text, stored like this:
+With the patch on, a name may hold any Unicode text, stored like this (the shared Unicode spec's per-character
+write rule and per-sequence read rule, the Virtual Villagers Fun Patcher's):
 
 * ASCII stays exactly as it is, byte for byte;
-* everything else is stored as UTF-8 inside the same byte field (nothing is added to the game's records);
-* reading: a string that is valid UTF-8 is UTF-8; a string that is not is read the old single-byte way,
-  each byte one character (Windows-1252, with the five bytes Windows-1252 leaves unassigned read as
-  Latin-1), so an old or hand-edited save reads exactly as before;
+* WRITING, per character: a character Windows-1252 has is its one byte, any other character is UTF-8, in the same
+  string ("Zo\u00eb \u65e5\u672c" keeps a stock-readable \u00eb beside the Japanese). If the mixed bytes would read back
+  as different text (a Windows-1252 "\u00c3" followed by "\u00a9" spells the UTF-8 sequence of "\u00e9"), every non-ASCII
+  character of that string is written as UTF-8 instead. Nothing is added to the game's records;
+* READING, per sequence: each well-formed UTF-8 sequence (shortest form, no surrogate, nothing past U+10FFFF) is its
+  character, and every other byte is read the old single-byte way, one character (Windows-1252, with the five
+  bytes Windows-1252 leaves unassigned read as Latin-1). So an old or hand-edited save reads exactly as before, a
+  pure UTF-8 name (every name this patcher wrote before the rule) reads as it always did, and a mixed string reads
+  right;
 * a name is cut at a byte limit only between whole characters (grapheme clusters: a letter with its
   accents, an emoji with its skin tone, joiners and variation selectors, a flag's two letters), never inside
   one.
@@ -72,14 +78,48 @@ def is_utf8(data: bytes) -> bool:
     return True
 
 
+def _sequence_length(lead: int) -> int:
+    if 0xC2 <= lead <= 0xDF:
+        return 2
+    if 0xE0 <= lead <= 0xEF:
+        return 3
+    if 0xF0 <= lead <= 0xF4:
+        return 4
+    return 0
+
+
+def decode_bytes(data: bytes) -> str:
+    """``data`` (no NUL handling) by the per-sequence read rule: each well-formed UTF-8 sequence is its character,
+    every other byte is its Windows-1252 character."""
+    if data.isascii():
+        return data.decode("ascii")
+    out: list[str] = []
+    i, n = 0, len(data)
+    while i < n:
+        b = data[i]
+        if b < 0x80:
+            out.append(chr(b))
+            i += 1
+            continue
+        k = _sequence_length(b)
+        if k and i + k <= n:
+            try:
+                out.append(data[i:i + k].decode("utf-8"))
+                i += k
+                continue
+            except UnicodeDecodeError:
+                pass
+        out.append(single_byte_char(b))
+        i += 1
+    return "".join(out)
+
+
 def decode(data: bytes) -> str:
     """The text of a game string (the bytes up to its first NUL, if any), by the one rule above."""
     end = data.find(b"\0")
     if end >= 0:
         data = data[:end]
-    if is_utf8(data):
-        return data.decode("utf-8")
-    return "".join(single_byte_char(b) for b in data)
+    return decode_bytes(data)
 
 
 def decode_lines(data: bytes) -> str:
@@ -89,10 +129,38 @@ def decode_lines(data: bytes) -> str:
                      for line in data.split(b"\n"))
 
 
+_CP1252_BYTE = {cp: byte for byte, cp in _CP1252_HIGH.items()}
+_LATIN1_CONTROLS = (0x81, 0x8D, 0x8F, 0x90, 0x9D)      # the five bytes Windows-1252 leaves unassigned
+
+
+def single_byte_of(ch: str) -> int | None:
+    """The one byte that reads back as ``ch`` (Windows-1252, the five unassigned bytes as the Latin-1 control with
+    the same number), or None when ``ch`` has no byte."""
+    cp = ord(ch)
+    if cp < 0x80 or 0xA0 <= cp <= 0xFF:
+        return cp
+    if cp in _CP1252_BYTE:
+        return _CP1252_BYTE[cp]
+    if cp in _LATIN1_CONTROLS:
+        return cp
+    return None
+
+
 def encode(text: str) -> bytes:
-    """``text`` as the patch stores it: UTF-8 (ASCII unchanged). NUL cannot be stored."""
+    """``text`` as the patch stores it, by the per-character write rule: a Windows-1252 character is its one byte,
+    any other character UTF-8, in the same string; every non-ASCII character is UTF-8 when the mixed bytes would
+    read back as different text. ASCII is unchanged. NUL cannot be stored."""
     if "\0" in text:
         raise ValueError("a game string cannot hold NUL")
+    if text.isascii():
+        return text.encode("ascii")
+    out = bytearray()
+    for ch in text:
+        b = single_byte_of(ch)
+        out += bytes((b,)) if b is not None else ch.encode("utf-8")
+    mixed = bytes(out)
+    if decode_bytes(mixed) == text:
+        return mixed
     return text.encode("utf-8")
 
 
@@ -224,21 +292,24 @@ def char_count(text: str) -> int:
 
 
 def cut_to_bytes(text: str, max_bytes: int) -> str:
-    """The longest start of ``text`` whose UTF-8 fits in ``max_bytes``, cut between whole characters."""
-    out: list[str] = []
-    used = 0
-    for cluster in clusters(text):
-        size = len(cluster.encode("utf-8"))
-        if used + size > max_bytes:
-            break
-        out.append(cluster)
-        used += size
-    return "".join(out)
+    """The longest start of ``text`` whose stored bytes (``encode``) fit in ``max_bytes``, cut between whole
+    characters. (The stored length of a start never shrinks as the start grows, so a search finds it.)"""
+    parts = clusters(text)
+    if text.isascii():
+        return text[:max(0, max_bytes)]
+    lo, hi = 0, len(parts)                       # the largest count whose bytes fit
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if len(encode("".join(parts[:mid]))) <= max_bytes:
+            lo = mid
+        else:
+            hi = mid - 1
+    return "".join(parts[:lo])
 
 
 def encode_field(text: str, field_size: int) -> bytes:
-    """``text`` for a fixed field of ``field_size`` bytes: UTF-8 cut between whole characters so that it
-    and its NUL fit, padded with NULs to the field size."""
+    """``text`` for a fixed field of ``field_size`` bytes: stored by the per-character rule, cut between whole
+    characters so that it and its NUL fit, padded with NULs to the field size."""
     if field_size < 1:
         raise ValueError("a field holds at least its NUL")
     data = encode(cut_to_bytes(text, field_size - 1))

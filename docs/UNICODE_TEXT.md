@@ -65,13 +65,23 @@ after checking each site's stock bytes:
 | 0x409660 DrawString | the stock draw, one whole character at a time |
 | 0x409450 counted draw | the same; a character the count would cut is not drawn |
 | 0x40D740 GetText | the stock copy, never cutting inside a character |
-| 0x40DA70 text box handler | the stock rules, plus whole code points (posted as 0x40000000 + code point) added as UTF-8 when they fit, and Backspace deleting a whole character |
+| 0x40DA70 text box handler | the stock rules, plus whole code points (posted as 0x40000000 + code point) added by the write rule (below) when they fit, and Backspace deleting a whole character |
 | 0x4049BB SDL_TEXTINPUT | one byte goes on as before; longer text is posted a character at a time |
 
-**Storage: UTF-8 in the game's own fields** (the same approach as the Virtual Villagers patcher). ASCII is
-unchanged; any other character is UTF-8 inside the same byte field, which is never made bigger. A string that
-is valid UTF-8 is UTF-8; any other string is read one byte per character (Windows-1252; its five unassigned bytes
-as Latin-1), so an old or hand-edited save reads as before. A name is cut only between whole characters (grapheme
+**Storage in the game's own fields: a Windows-1252 letter is one byte, any other letter UTF-8** (the shared Unicode
+spec's per-character write rule and per-sequence read rule, the Virtual Villagers patcher's). ASCII is unchanged. *Write,
+per character:* a character Windows-1252 has is stored as its one byte, any other character as UTF-8, in the same
+string, inside the same byte field, which is never made bigger; "Zoë 日本" keeps a stock-readable ë beside the Japanese
+and an old Latin-1 name keeps its bytes. If the mixed bytes would read back as different text (a Windows-1252 "Ã"
+followed by "©" spells the UTF-8 sequence of "é"), every non-ASCII character of that string is stored as UTF-8.
+*Read, per sequence:* each well-formed UTF-8 sequence (shortest form, no surrogate, nothing past U+10FFFF) is its
+character, and every other byte is read one byte per character (Windows-1252; its five unassigned bytes as Latin-1).
+So an old or hand-edited save reads as before, a name every earlier version stored (pure UTF-8) reads as it always
+did, and a mixed string reads right. The one change from the earlier whole-string reading is a string that is not
+valid UTF-8 as a whole but holds a valid sequence (for example the bytes of "Zoë" followed by the two bytes of "é"):
+it now reads its sequence as that letter instead of two Latin-1 letters. A box holds its text in this stored form, so
+its 1,200 bytes are bytes as stored: a character is added by the rule (the whole text is stored again when a neighbour's
+form must change), and Backspace stores the rest again. A name is cut only between whole characters (grapheme
 clusters: a letter with its marks, emoji with skin tones, joiners and variation selectors, a flag's two letters).
 The patcher's readers share one rule, `patcher/vf1_text.py` (the save reader, the Family Tree and genealogy, the
 Family History log reader, Rename Family, Copy Player Slot, the Game Text tool); the DLL uses the same cluster
@@ -152,12 +162,12 @@ start again.
 ## Names in vf1fun.dll's own windows
 
 The Upgrades menu's windows (the Family page, Spawn Child, Adopt Outside Child, Villager Cheats, Clothing and
-Hairstyles, Services) read every name by the same one rule (`native/vf1fun/text_names.inc`: UTF-8, else one byte
-per character, Windows-1252) and store a typed name as UTF-8 in the 24 bytes the game gives it, cut only between
+Hairstyles, Services) read every name by the same one rule (`native/vf1fun/text_names.inc`: per sequence, UTF-8 or one byte
+per character, Windows-1252) and store a typed name by the write rule in the 24 bytes the game gives it, cut only between
 whole characters (the same cluster table, `native/vf1text/extenders.inc`); control characters and unpaired
 surrogates are never stored. Before, they used the system code page, so a name like "日本" could become
-"??". This holds whichever of the two Unicode settings is on, or neither (the stock game then shows the UTF-8 as
-Latin-1 letters, as for any such name). `tests/test_vf1fun_names.py` runs the DLL's own code for both rules in
+"??". This holds whichever of the two Unicode settings is on, or neither (the stock game then shows each UTF-8 byte as a
+Latin-1 letter, as for any such name; a Windows-1252 letter it shows as itself). `tests/test_vf1fun_names.py` runs the DLL's own code for both rules in
 Unicorn and compares with `vf1_text`.
 
 **Showing every script (VERIFIED on Windows 11, offscreen).** The windows use Segoe UI 9. With it, Windows' font
@@ -219,7 +229,7 @@ name or code point and labels each character "(game)", "(patcher-made)", "(drawn
 
 * `tests/test_vf1_game_fonts.py`: the four fonts and tables are found in the exe; every box, place, width
   and pixel of DrawString / GetWidth / the counted draw (ASCII and Latin-1, every font) equals the tool's; tint is
-  the AND; the stock game draws UTF-8 names as Latin-1 letters without harm.
+  the AND; the stock game draws such names, UTF-8 bytes as Latin-1 letters, without harm.
 * `tests/test_vf1_unicode_text.py` (the real DLL on the real exe): all six sites or none; names in French,
   German, Turkish, Polish, Vietnamese, Greek, Russian and with typographic quotes and € drawn and measured as the
   tool draws them, in every font; tint and see-through as the game's; old single-byte names unchanged; the
@@ -318,13 +328,13 @@ and goes no further; with none, it goes on exactly as before.
 **Paste rules.** CR, LF and Tab become one space each; other control characters and unpaired surrogates are dropped;
 a numbers-only box keeps digits (and a first '-', as the stock box allows). With vf1text.dll or vf1font.dll installed
 (asked of the DLL: `VF1Text_UnicodeTextActive`, nonzero only once all ten hooks are in, not merely that the file is
-loaded) the text is UTF-8 cut between whole characters at the box's limit (a name box 1,200 bytes with no character cap,
+loaded) the text is stored by the write rule, cut between whole characters at the box's limit (a name box 1,200 bytes with no character cap,
 any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
 With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
 U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. Nothing is ever
 written past the box's buffer (limit + 1 bytes); the game is told the text changed (0xC, 0x401EA0) as after a typed
 letter. (A Latin-1 name pasted with both settings off is read by the one rule as Windows-1252, except in the rare
-case its bytes also happen to form valid UTF-8, such as "Ã©", which then reads as "é".)
+case its bytes also form a valid UTF-8 sequence, such as "Ã©", which then reads as "é".)
 
 **vf1fun's own windows** are standard edit boxes: Ctrl+C, Ctrl+V, Ctrl+X and the right-click menu are their own,
 and nothing in vf1fun blocks them (#62).
@@ -391,7 +401,7 @@ SetEditable / SetText with limit + 1 bytes). Its pointer is read only by the box
 0x40D370, SetText 0x40D430, its auto-size 0x40CFD0 (measures only), its Draw 0x40D140 (measures and draws; it would
 cut the text, see below), GetTextLength 0x40D710 (its two callers, 0x41C10F and 0x41C6EC, only test for empty),
 GetText 0x40D740, HandleMessage 0x40DA70 and the destructor 0x40D921. Every copy of a name into a fixed buffer goes
-through GetText, which now gives the game only the short form: at most `size - 1` bytes, valid UTF-8, never more
+through GetText, which now gives the game only the short form: at most `size - 1` bytes, stored by the write rule, never more
 than the stock game could store. The game's own copies after it (the strcpy / strncpy above, ChangeName's 0x19)
 see only that. The full text goes only to the Names file and to the drawing hooks.
 
@@ -421,7 +431,7 @@ any slot (a family name's short form shows in the slot menu beside the others). 
 family member: it follows them wherever the game copies their name (their children's parents' names, the Family
 Tree's records, their death), through Copy Player Slot, Back Up / Restore Saves and a rename.
 
-**The Names file**: `<saves>\Virtual Families 1 Patcher Data\Names\Virtual Families<N>.ldw.txt`, UTF-8 lines
+**The Names file**: `<saves>\Virtual Families 1 Patcher Data\Names\Virtual Families<N>.ldw.txt`, UTF-8 text (the file's names are text, never the game's mixed bytes; the DLL converts) in lines
 `VF1 Names 1`, then `short<TAB>room<TAB>whole name` (room: the field's bytes it was made for). Written through a
 temporary file and MoveFileEx. A line is never removed: a short form no longer in the save is harmless (a new one
 is never made equal to it), and the older autosave copies `<N+20>` / `<N+40>` stay readable. A line that is not
@@ -487,8 +497,7 @@ nothing. A name box is now also editable (+0x24, which only SetEditable sets; th
 
 Every fixed spot where the game draws a family member's name has its real room in the DLL, found in the vanilla exe
 and its layout run in the emulator. A name (whole names for short forms first, as before) wider than its spot's room
-is drawn as its longest start of whole characters (grapheme clusters), trailing spaces dropped, then "…" (U+2026; in
-a name read one byte per character, the Windows-1252 byte 0x85, which is the same letter), measured with the
+is drawn as its longest start of whole characters (grapheme clusters), trailing spaces dropped, then "…" (U+2026, as UTF-8), measured with the
 letters the DLL draws (the game's, patcher-made or Windows', or Use Unicode Font's). A name that fits is drawn
 exactly as before. The spot is told by return address: DrawString 0x409660 and GetWidth 0x402320 use the game's
 call site (their own return address, or, when they are called from inside the right-aligned 0x409CD0 or centred

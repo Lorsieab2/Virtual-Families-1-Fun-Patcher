@@ -73,9 +73,8 @@ static bool NoSpaceLetter(unsigned cp) {
 // Returns whether the text has any such letter.
 static bool BreaksFor(const unsigned char *text, int n, unsigned char *out) {
     for (int b = 0; b <= n; ++b) out[b] = 0;
-    if (!IsUtf8(text, n)) return false;                  // one byte per character: Windows-1252 has no such letter
     Run run;
-    if (!DecodeRun(&run, (const char *)text, n, 1)) return false;
+    if (!DecodeRun(&run, (const char *)text, n)) return false;
     bool any = false;
     for (int i = 0; i < run.n; ++i) if (NoSpaceLetter(run.cps[i]) || run.cps[i] == 0x200B) { any = true; break; }
     if (!any) { FreeRun(&run); return false; }
@@ -174,7 +173,7 @@ struct WrapPiece { int start, len, width; bool glued; };
 // The longest start of text[start, start+len) in whole characters no wider than `room` (at least one character).
 static int EmergencyCut(void *impl, const char *text, int start, int len, int room, unsigned colour, void *font) {
     Run run;
-    if (!DecodeRun(&run, text + start, len, IsUtf8((const unsigned char *)text, (int)Len(text)) ? 1 : 0)) return len;
+    if (!DecodeRun(&run, text + start, len)) return len;
     int used = 0, best = 0;
     for (int i = 0; i < run.n;) {
         int j = ClusterEnd(run.cps, run.n, i);

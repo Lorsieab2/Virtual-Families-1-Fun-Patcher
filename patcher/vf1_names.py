@@ -62,9 +62,10 @@ def name_problem(full: str) -> str | None:
             return "A name cannot hold control characters (tabs, line breaks)."
         if 0xD800 <= cp <= 0xDFFF:
             return "A name cannot hold a lone surrogate."
-    if len(full.encode("utf-8")) > NAME_BOX_BYTES:
-        return (f"A name is too long: at most {NAME_BOX_BYTES:,} bytes (this one is "
-                f"{len(full.encode('utf-8')):,}); some characters, such as joined emoji, take many bytes.")
+    stored = len(vf1_text.encode(full))
+    if stored > NAME_BOX_BYTES:
+        return (f"A name is too long: at most {NAME_BOX_BYTES:,} bytes as stored (this one is "
+                f"{stored:,}); some characters, such as joined emoji, take many bytes.")
     return None
 
 
@@ -86,7 +87,7 @@ def parse(data: bytes) -> list[Entry]:
             continue
         short, room, full = parts[0], int(parts[1]), parts[2]
         if (short in seen or not short or not short.endswith(MARK) or name_problem(full) is not None
-                or not 1 <= room < NAME_BOX_BYTES or len(short.encode("utf-8")) > room):
+                or not 1 <= room < NAME_BOX_BYTES or len(vf1_text.encode(short)) > room):
             continue
         seen.add(short)
         out.append(Entry(short, room, full))
@@ -133,9 +134,9 @@ def short_form(full: str, room: int, taken: dict[str, str]) -> str:
     * else the longest start that fits with the mark (trailing spaces dropped) + "...", then + "2...", "3...", ...
       until one is not taken."""
     for short, name in taken.items():
-        if name == full and len(short.encode("utf-8")) <= room:
+        if name == full and len(vf1_text.encode(short)) <= room:
             return short
-    if len(full.encode("utf-8")) <= room and full not in taken:
+    if len(vf1_text.encode(full)) <= room and full not in taken:
         return full
     n = 1
     while True:

@@ -19,6 +19,8 @@ import pytest
 
 from conftest import ROOT
 
+import vf1_text
+
 SOURCE = ROOT / "native" / "vf1fun" / "vf1fun.cpp"
 CPP = SOURCE.read_text(encoding="utf-8").replace("\r\n", "\n")
 INC = (ROOT / "native" / "vf1fun" / "clipboard.inc").read_text(encoding="utf-8").replace("\r\n", "\n")
@@ -326,7 +328,7 @@ def test_the_clipboard_asks_the_text_dll_whether_it_is_installed_not_whether_it_
     installed = Game(harness_dll, unicode=1)
     box = installed.box(1200)
     installed.paste(box, "Zo\u00eb \u65e5\u672c")
-    assert installed.text(box) == "Zo\u00eb \u65e5\u672c".encode("utf-8")
+    assert installed.text(box) == vf1_text.encode("Zo\u00eb \u65e5\u672c")      # by the write rule
 
 
 def test_the_active_function_is_asked_by_name_and_stored_by_the_loader():
@@ -346,7 +348,7 @@ def test_the_active_function_is_asked_by_name_and_stored_by_the_loader():
      ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 66).encode()),
     ("CR, LF and Tab become spaces", "Ann\r\nMarie\tLee", b"Ann  Marie Lee"),
     ("control characters and lone surrogates are dropped", "Zo\u0001e\x7f\ud800\U0001F4A9", "Zoe\U0001F4A9".encode()),
-    ("accents, Japanese, Cuneiform", "Zoë 日本 𒂍", "Zoë 日本 𒂍".encode()),
+    ("accents, Japanese, Cuneiform", "Zoë 日本 𒂍", vf1_text.encode("Zoë 日本 𒂍")),
 ])
 def test_paste_into_a_name_box(uni, label, clip, expect):
     g = uni
@@ -373,10 +375,14 @@ def test_paste_adds_after_the_typed_text_and_stops_at_the_limit(uni):
 def test_paste_at_the_byte_limit_and_one_past(uni):
     g = uni
     box = g.box(1200, ("\U0001F4A9" * 299).encode())
-    g.paste(box, "é")                           # 1,198 bytes: room for 2
-    assert g.text(box) == ("\U0001F4A9" * 299 + "é").encode()
-    g.paste(box, "\U0001F4A9")                   # 4 more would be 1,202: refused whole
-    assert len(g.text(box)) == 1198
+    g.paste(box, "é")                           # 1,196 bytes: a Windows-1252 letter is one byte, room for 4
+    assert g.text(box) == ("\U0001F4A9" * 299).encode() + b"\xe9"
+    g.paste(box, "\U0001F4A9")                   # 4 more would be 1,201: refused whole
+    assert len(g.text(box)) == 1197
+    g.paste(box, "日")                           # 3 more is 1,200: the limit
+    assert len(g.text(box)) == 1200
+    g.paste(box, "x")                                # one past
+    assert len(g.text(box)) == 1200
     assert g.guard_ok(box)
 
 

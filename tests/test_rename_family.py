@@ -99,13 +99,13 @@ def add_history(folder: Path, slot: int, *numbers: int, text="Smith history\r\n"
                                   # one limit for every name box: 1,200 bytes as stored, no character cap (a
                                   # longer name than the field is kept as a short form, the whole name in its Names file)
                                   "x" * 20, "\u00e9" * 10, "\u4e2d" * 7, "x" * 300, "\U0001F600" * 300,
-                                  "x" * 1200, "\u00e9" * 600, "\u4e2d" * 400])
+                                  "x" * 1200, "\u00e9" * 1200, "\u4e2d" * 400])
 def test_names_the_game_can_store_are_accepted(name):
     assert rf.name_problem(name) is None
 
 
 @pytest.mark.parametrize("name,words", [
-    ("", "Type a name"), ("x" * 1201, "too long"), ("   ", "only spaces"), ("\u00e9" * 601, "too long"),
+    ("", "Type a name"), ("x" * 1201, "too long"), ("   ", "only spaces"), ("\u00e9" * 1201, "too long"),
     ("Tab\there", "characters"), ("Line\nbreak", "characters"), ("\u4e2d" * 401, "too long"),
     ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 67, "1,200 bytes"),
     ("Bad\x85", "characters"),

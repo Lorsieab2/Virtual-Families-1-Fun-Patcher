@@ -163,7 +163,7 @@ def test_combining_marks_count_only_as_bytes(world):
     w = world
     ctl, impl = name_box(w)
     w.type_text(impl, "a" * (BOX - 6) + "e\u0301\u0302")             # 2 + 2 + 2 more bytes: 1,200 exactly
-    assert w.box_bytes(impl).decode() == "a" * (BOX - 6) + "e\u0301\u0302" and len(w.box_bytes(impl)) == BOX - 1
+    assert vf1_text.decode(w.box_bytes(impl)) == "a" * (BOX - 6) + "e\u0301\u0302" and len(w.box_bytes(impl)) == BOX - 1
     w.type_text(impl, "z")
     assert len(w.box_bytes(impl)) == BOX
     w.type_text(impl, "y")
@@ -176,7 +176,7 @@ def test_backspace_removes_one_whole_character(world):
     w.type_text(impl, "Ana e\u0301\U0001F44D\U0001F3FD\U0001F1EF\U0001F1F5")
     for expect in ("Ana e\u0301\U0001F44D\U0001F3FD", "Ana e\u0301", "Ana ", "Ana"):
         w.press(impl, 8)
-        assert w.box_bytes(impl).decode() == expect
+        assert vf1_text.decode(w.box_bytes(impl)) == expect
 
 
 @pytest.mark.parametrize("site,limit,what", NOT_NAMES)
@@ -188,6 +188,63 @@ def test_other_boxes_keep_their_stock_limit(world, site, limit, what):
     w.e.write(impl + 0x25, b"\x01")
     w.type_text(impl, "x" * (limit + 5))
     assert w.box_bytes(impl) == b"x" * limit
+
+
+# --------------------------------------------------------------------------- the per-character write rule
+def test_a_box_stores_what_the_write_rule_stores(world):
+    """A Windows-1252 letter is its one byte, any other letter UTF-8, in one string (vf1_text.encode)."""
+    w = world
+    ctl, impl = name_box(w)
+    w.type_text(impl, "Zo\u00eb \u65e5\u672c \u20ac\u201c\U0001F600")
+    assert w.box_bytes(impl) == vf1_text.encode("Zo\u00eb \u65e5\u672c \u20ac\u201c\U0001F600")
+    assert w.box_bytes(impl)[:3] == b"Zo\xeb"
+
+
+def test_typing_never_turns_two_letters_into_one(world):
+    """A Windows-1252 "A tilde" then "copyright" would read back as the UTF-8 sequence of e acute: the box then keeps
+    every non-ASCII letter as UTF-8 (the rule), and a backspace puts the rest back to bytes."""
+    w = world
+    ctl, impl = name_box(w)
+    w.type_text(impl, "\u00c3")
+    assert w.box_bytes(impl) == b"\xc3"
+    w.type_text(impl, "\u00a9")
+    assert w.box_bytes(impl) == "\u00c3\u00a9".encode("utf-8") and vf1_text.decode(w.box_bytes(impl)) == "\u00c3\u00a9"
+    w.press(impl, 8)
+    assert w.box_bytes(impl) == b"\xc3", "the remaining letter is a byte again"
+    w.type_text(impl, "\u00e9")
+    assert w.box_bytes(impl) == b"\xc3\xe9" and vf1_text.decode(w.box_bytes(impl)) == "\u00c3\u00e9"
+    assert w.guards_intact()
+
+
+def test_the_limit_counts_bytes_as_stored(world):
+    w = world
+    ctl, impl = name_box(w)
+    w.type_text(impl, "\u00e9" * BOX)                    # a Windows-1252 letter is one byte: 1,200 of them fit
+    assert w.box_bytes(impl) == b"\xe9" * BOX
+    w.type_text(impl, "\u00e9")
+    w.type_text(impl, "\u65e5")
+    assert w.box_bytes(impl) == b"\xe9" * BOX and w.guards_intact()
+    ctl, impl = name_box(w)
+    w.type_text(impl, "\u65e5" * 401)                    # three bytes each: 400 fit
+    assert w.box_bytes(impl) == "\u65e5".encode() * 400 and w.guards_intact()
+
+
+def test_a_save_written_before_the_rule_still_shows_the_whole_name(dll, vanilla_dir):
+    """An older save keeps a short form with its accented letters as UTF-8 ("Zoe" with e diaeresis = C3 AB); the
+    Names file is UTF-8 text. The rule now stores that letter as one byte, but the older bytes are matched too."""
+    full = "Zo\u00eb Ch\u00e2telet de la Haute-Marne"
+    short = "Zo\u00eb Ch\u00e2telet..."
+    w = make_world(dll, vanilla_dir, gdi=True)
+    w.fs[w.names_file(2)] = vf1_names.render([vf1_names.Entry(short, 24, full)])
+    w2 = make_world(dll, vanilla_dir, fs=w.fs, gdi=True)
+    old = short.encode("utf-8")                          # the older bytes
+    new = vf1_text.encode(short)                         # the rule's bytes
+    assert old != new
+    assert w2.draw(old) == w2.draw(new)
+    full_old = w2.e.call(w2.e.dll_export("VF1Text_FullName"), (w2.cstr(old),))
+    full_new = w2.e.call(w2.e.dll_export("VF1Text_FullName"), (w2.cstr(new),))
+    assert vf1_text.decode(w2.e.read(full_old, 100).split(b"\0", 1)[0]) == full
+    assert vf1_text.decode(w2.e.read(full_new, 100).split(b"\0", 1)[0]) == full
 
 
 # --------------------------------------------------------------------------- the game's copies
@@ -204,6 +261,9 @@ def member_text_cases():
         ("300 four-byte characters (1,200 bytes)", "\U0001F600" * FOUR),
         ("300 accented characters", "\u00e9" * SAMPLE),
         ("1,200 plain characters (the byte cap)", "a" * BOX),
+        ("Windows-1252 letters beside Japanese", "Zo\u00eb \u65e5\u672c\u8a9e\u306e\u9577\u3044\u540d\u524d\u30c6\u30ad\u30b9\u30c8"),
+        ("a lead-byte letter before a continuation-like one", "\u00c3\u00a9 " * 12),
+        ("Windows-1252 letters only, more than the field", "\u00c9milie-Fran\u00e7oise \u00c0 \u00c7a Va Tr\u00e8s Bien"),
     ]
 
 
@@ -226,7 +286,7 @@ def test_adoption_stores_the_short_form_and_the_whole_name(world, label, name):
     w = world
     ctl, impl = name_box(w, 0x435AFB, 0x12)
     w.type_text(impl, name)
-    assert w.box_bytes(impl).decode() == name
+    assert vf1_text.decode(w.box_bytes(impl)) == name
     dlg = w.e.alloc(0x100)
     w.e.w32(dlg + 0x54, ctl)
     villager = w.e.alloc(0x2C00, fill=0xCC)
@@ -234,14 +294,14 @@ def test_adoption_stores_the_short_form_and_the_whole_name(world, label, name):
     w.run_window(0x43681A, 0x43684D, {K.UC_X86_REG_ECX: w.gs, K.UC_X86_REG_EBP: dlg, K.UC_X86_REG_ESI: villager,
                                        K.UC_X86_REG_EDI: 7}, esp=base)
     expect = stored_for(name, 18)
-    raw = expect.encode()
+    raw = vf1_text.encode(expect)
     assert w.e.read(base + 0x14, 0x13) == raw + b"\0" * (0x13 - len(raw))      # GetText's local, zero-padded
     assert w.e.read(base + 0x14 + 0x13, 0x40) == b"\xCC" * 0x40, "nothing past the 0x13-byte local"
     field = w.e.read(villager + 0x2A44, 0x19)
     assert field == raw + b"\0" * (0x19 - len(raw))
     assert w.e.read(villager, 0x2A44) == b"\xCC" * 0x2A44
     assert w.e.read(villager + 0x2A44 + 0x19, 0x100) == b"\xCC" * 0x100
-    assert len(raw) <= 18 and vf1_text.is_utf8(raw)
+    assert len(raw) <= 18 and vf1_text.encode(vf1_text.decode(raw)) == raw       # stored by the write rule
     check_names_file(w, 2, expect, name, 18)
     assert w.guards_intact()
 
@@ -258,12 +318,12 @@ def test_a_new_baby_stores_the_short_form(world, label, name):
     villager = w.e.alloc(0x2C00, fill=0xCC)
     base = w.frame()
     w.run_window(0x438291, 0x4382BF, {K.UC_X86_REG_EBX: dlg, K.UC_X86_REG_EBP: villager}, esp=base)
-    raw = stored_for(name, 18).encode()
+    raw = vf1_text.encode(stored_for(name, 18))
     assert w.e.read(base + 0x18, 0x13) == raw + b"\0" * (0x13 - len(raw))
     assert w.e.read(base + 0x18 + 0x13, 0x40) == b"\xCC" * 0x40
     assert w.e.read(villager + 0x2A44, 0x19) == raw + b"\0" * (0x19 - len(raw))
     assert w.e.read(villager + 0x2A44 + 0x19, 0x100) == b"\xCC" * 0x100
-    check_names_file(w, 2, raw.decode(), name, 18)
+    check_names_file(w, 2, vf1_text.decode(raw), name, 18)
 
 
 @pytest.mark.parametrize("start,stop", [(0x44BCD2, 0x44BD13), (0x44BDCF, 0x44BE10)])
@@ -283,7 +343,7 @@ def test_renaming_a_member_stores_the_short_form(world, start, stop, label, name
     if start == 0x44BDCF:
         regs[K.UC_X86_REG_ECX] = 0
     w.run_window(start, stop, regs, esp=base)
-    raw = stored_for(name, 18).encode()
+    raw = vf1_text.encode(stored_for(name, 18))
     assert w.e.read(base + 8, 0x13) == raw + b"\0" * (0x13 - len(raw))
     assert w.e.read(base + 8 + 0x13, 0x40) == b"\xCC" * 0x40
     assert w.change_names == [raw]
@@ -309,7 +369,7 @@ def test_the_first_family_name_stores_the_short_form(world, label, name):
     w.e.write(w.gs + 0x1B100, b"\xCC" * 0x200)
     base = w.frame()
     w.run_window(0x41C71F, 0x41C74C, {K.UC_X86_REG_EBP: dlg, K.UC_X86_REG_ESI: w.gs}, esp=base)
-    raw = stored_for(name, 19).encode()
+    raw = vf1_text.encode(stored_for(name, 19))
     assert len(raw) <= 19
     after = w.e.read(w.gs + 0x1B100, 0x200)
     fam = 0x1B12C - 0x1B100
@@ -319,7 +379,7 @@ def test_the_first_family_name_stores_the_short_form(world, label, name):
     assert after[:fam] == b"\xCC" * fam
     assert after[fam + 0x14:menu] == b"\xCC" * (menu - fam - 0x14)
     assert after[menu + len(raw) + 1:] == b"\xCC" * (0x200 - menu - len(raw) - 1), "nothing past slot 1's 21 bytes"
-    check_names_file(w, 1, raw.decode(), name, 19)
+    check_names_file(w, 1, vf1_text.decode(raw), name, 19)
 
 
 @pytest.mark.parametrize("slot,start,stop,setup",
@@ -338,7 +398,7 @@ def test_new_player_in_each_slot_stores_the_short_form(world, slot, start, stop,
     w.e.write(w.gs + 0x1B100, b"\xCC" * 0x200)
     base = w.frame()
     w.run_window(start, stop, {K.UC_X86_REG_ESI: dlg, K.UC_X86_REG_EDI: ctl, K.UC_X86_REG_EBX: 0}, esp=base)
-    raw = stored_for(name, 19).encode()
+    raw = vf1_text.encode(stored_for(name, 19))
     after = w.e.read(w.gs + 0x1B100, 0x200)
     menu = 0x1B192 + 0x15 * (slot - 1) - 0x1B100
     fam = 0x1B12C - 0x1B100
@@ -346,7 +406,7 @@ def test_new_player_in_each_slot_stores_the_short_form(world, slot, start, stop,
     assert after[fam:fam + len(raw) + 1] == raw + b"\0"
     keep = set(range(menu, menu + 0x14)) | set(range(fam, fam + len(raw) + 1))
     assert all(after[i] == 0xCC for i in range(0x200) if i not in keep), "nothing else of theGameState"
-    check_names_file(w, slot, raw.decode(), name, 19)
+    check_names_file(w, slot, vf1_text.decode(raw), name, 19)
 
 
 # --------------------------------------------------------------------------- the short form
@@ -369,7 +429,7 @@ def test_short_forms_are_unique_and_match_the_patcher(world):
         base = w.frame()
         w.run_window(0x43681A, 0x43684D, {K.UC_X86_REG_ECX: w.gs, K.UC_X86_REG_EBP: dlg,
                                            K.UC_X86_REG_ESI: villager, K.UC_X86_REG_EDI: 0}, esp=base)
-        assert w.e.read(villager + 0x2A44, 0x19).split(b"\0", 1)[0].decode() == stored, name
+        assert vf1_text.decode(w.e.read(villager + 0x2A44, 0x19).split(b"\0", 1)[0]) == stored, name
         if stored != name:
             taken.setdefault(stored, name)
     entries = names_in(w, 2)
@@ -401,10 +461,10 @@ def test_a_rename_box_opens_with_the_whole_name(world):
     ctl, impl = w.control()
     w.set_text(ctl, b"Alexandrina Ma...")
     w.set_editable_from(0x44A6DE, ctl, 0x12)
-    assert w.box_bytes(impl).decode() == FULL
+    assert vf1_text.decode(w.box_bytes(impl)) == FULL
     # and SetText on a box that is already a name box
     w.set_text(ctl, b"Alexandrina Ma...")
-    assert w.box_bytes(impl).decode() == FULL
+    assert vf1_text.decode(w.box_bytes(impl)) == FULL
     assert w.guards_intact()
 
 
@@ -491,7 +551,7 @@ def test_opening_and_closing_details_keeps_a_sidecar_name(dll, vanilla_dir, labe
     before = w.e.read(villager, 0x2C00)
     ctl, impl = details_box(w)
     dlg = open_details(w, villager, ctl)
-    assert w.box_bytes(impl).decode() == name, "the box opens with the whole name"
+    assert vf1_text.decode(w.box_bytes(impl)) == name, "the box opens with the whole name"
     w.draw_box(impl)
     close_details(w, 0x44BCD2, 0x44BD13, dlg, villager)
     assert w.change_names == []
@@ -512,12 +572,12 @@ def test_a_changed_details_name_is_still_stored(world):
     w.press(impl, 8)
     w.type_text(impl, "s")
     edited = "Bartholomew Christophes"
-    assert w.box_bytes(impl).decode() == edited
+    assert vf1_text.decode(w.box_bytes(impl)) == edited
     close_details(w, 0x44BCD2, 0x44BD13, dlg, villager)
-    stored = vf1_names.short_form(edited, 18, {}).encode()
+    stored = vf1_text.encode(vf1_names.short_form(edited, 18, {}))
     assert w.change_names == [stored]
     assert w.e.read(villager + 0x2A44, 0x19) == stored + b"\0" * (0x19 - len(stored))
-    check_names_file(w, 2, stored.decode(), edited, 18)
+    check_names_file(w, 2, vf1_text.decode(stored), edited, 18)
 
 
 # The other name boxes: each GetText room equals what its field keeps, so a stored name at the field's full size, or
@@ -568,17 +628,17 @@ def test_every_other_name_box_keeps_its_name(dll, vanilla_dir, what, site, limit
         full = "Wilhelmina Theodora Alexandrina of the Long Name"
         stored = vf1_names.short_form(full, room, {})
         w.fs[w.names_file(slot)] = vf1_names.render([vf1_names.Entry(stored, room, full)])
-    assert len(stored.encode()) == room or kind == "sidecar"
+    assert len(vf1_text.encode(stored)) == room or kind == "sidecar"
     files = dict(w.fs)
     ctl, impl = w.control()
     w.set_editable_from(site, ctl, limit)
     w.e.write(impl + 0x2C, b"\x01")
     w.e.w32(impl + 0x10, 120)
-    w.set_text(ctl, stored.encode())
+    w.set_text(ctl, vf1_text.encode(stored))
     for typing in (0, 1):
         w.e.write(impl + 0x25, bytes([typing]))
         w.draw_box(impl)
-    assert read_back(w, what, ctl, slot) == stored.encode()
+    assert read_back(w, what, ctl, slot) == vf1_text.encode(stored)
     assert w.fs == files
     assert w.guards_intact()
 
@@ -649,7 +709,7 @@ def test_a_long_name_scrolls_in_its_box_and_is_never_cut(world):
     w.type_text(impl, FULL)
     w.e.write(impl + 0x26, b"\x00")
     blits = w.draw_box(impl)
-    assert w.box_bytes(impl).decode() == FULL, "the box's text is whole"
+    assert vf1_text.decode(w.box_bytes(impl)) == FULL, "the box's text is whole"
     tail = FULL
     while w.width(tail.encode()) + 4 > 200:
         tail = tail[1:]
@@ -662,7 +722,7 @@ def test_a_long_name_scrolls_in_its_box_and_is_never_cut(world):
             break
         head += ch
     assert blits == w.draw((head + "\u2026").encode(), x=4)
-    assert w.box_bytes(impl).decode() == FULL
+    assert vf1_text.decode(w.box_bytes(impl)) == FULL
     assert w.guards_intact()
 
 
@@ -680,7 +740,7 @@ def test_the_names_file_is_read_again_after_a_restart(dll, vanilla_dir):
     w2 = make_world(dll, vanilla_dir, fs=w.fs)
     assert w2.draw(stored) == w2.draw(fitted(w2, FULL, 18).encode())
     full = w2.e.call(w2.e.dll_export("VF1Text_FullName"), (w2.cstr(stored),))
-    assert w2.e.cstr(full).encode("latin-1").decode() == FULL
+    assert vf1_text.decode(w2.e.cstr(full).encode("latin-1")) == FULL
 
 
 def full_of(w, stored: bytes) -> bytes:

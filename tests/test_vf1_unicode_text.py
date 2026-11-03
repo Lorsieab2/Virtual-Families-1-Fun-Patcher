@@ -160,13 +160,23 @@ def test_old_single_byte_names_read_as_before(world, fonts, vanilla_dir):
 
 def test_the_counted_draw_never_draws_part_of_a_letter(world, fonts):
     f = fonts.font("SegoeUiBold18")
-    data = vf1_text.encode("Zo\u00eb!")                    # Z o (2 bytes) !
+    data = vf1_text.encode("Zo\u0141!")                    # Z o (2 bytes) then a letter UTF-8 stores in 2 bytes, then !
+    assert data == b"Zo\xc5\x81!"
     width, blits = world.draw_n(data, 3)
     assert width == f.width("Zo") and len(blits) == 2      # the half letter is not drawn
     width, blits = world.draw_n(data, 4)
-    assert width == f.width("Zo\u00eb") and len(blits) == 3
+    assert width == f.width("Zo\u0141") and len(blits) == 3
     width, blits = world.draw_n(data, 5, measure=True)
-    assert width == f.width("Zo\u00eb!") and blits == []
+    assert width == f.width("Zo\u0141!") and blits == []
+    # a Windows-1252 letter is one byte: nothing to cut
+    one = vf1_text.encode("Zo\u00eb!")
+    assert one == b"Zo\xeb!"
+    width, blits = world.draw_n(one, 3)
+    assert width == f.width("Zo\u00eb") and len(blits) == 3
+    # the count is a piece of a longer string: a byte that would start a sequence only if the string went on is read
+    # with what follows it
+    width, blits = world.draw_n(b"Zo\xc3\xa9!", 3)
+    assert width == f.width("Zo") and len(blits) == 2
 
 
 # --------------------------------------------------------------------------- typing
@@ -214,7 +224,7 @@ def test_four_byte_characters_typed_through_sdl_reach_the_box(world, vanilla_dir
     texts = windows_types(world, keys, box, text)
     halves = [t for t in texts if t[:1] == b"\xed"]
     assert len(halves) == 2 * sum(1 for ch in text if ord(ch) > 0xFFFF), "SDL sends each half alone"
-    assert world.box_text(box) == text.encode(), label
+    assert world.box_text(box) == vf1_text.encode(text), label           # by the write rule
     assert not world.overrun(box)
 
 
@@ -242,20 +252,31 @@ def test_the_family_name_box_at_its_limit_and_one_past(world):
     """The new-family box: limit 20 (0x41C67C), GetText(buffer, 0x14) (0x41C72B). Every character fits whole or
     not at all; nothing is ever written past the box's buffer (limit + 1 bytes) or the 20-byte name buffer."""
     box = world.text_box(20)
-    type_into(world, box, "\u00e9" * 10)                   # exactly 20 bytes: the limit
-    assert world.box_text(box) == "\u00e9".encode() * 10 and not world.overrun(box)
-    type_into(world, box, "\u00e9")                        # limit + 1: refused whole
-    assert world.box_text(box) == "\u00e9".encode() * 10 and not world.overrun(box)
+    type_into(world, box, "\u00e9" * 20)                   # a Windows-1252 letter is one byte: 20 bytes, the limit
+    assert world.box_text(box) == b"\xe9" * 20 and not world.overrun(box)
+    type_into(world, box, "\u00e9")                        # limit + 1: refused
+    assert world.box_text(box) == b"\xe9" * 20 and not world.overrun(box)
     type_into(world, box, "a")
-    assert world.box_text(box) == "\u00e9".encode() * 10
-    stored = world.get_text(box, 0x14)                     # 19 bytes kept: 9 whole letters, never half of one
-    assert stored == "\u00e9".encode() * 9 + b"\0\0"
+    assert world.box_text(box) == b"\xe9" * 20
+    stored = world.get_text(box, 0x14)                     # 19 bytes kept
+    assert stored == b"\xe9" * 19 + b"\0"
+    box = world.text_box(20)
+    type_into(world, box, "\u65e5" * 6)                    # three bytes each: 18
+    assert world.box_text(box) == "\u65e5".encode() * 6
+    type_into(world, box, "\u65e5")                        # 21 bytes: refused whole
+    assert world.box_text(box) == "\u65e5".encode() * 6 and not world.overrun(box)
+    assert world.get_text(box, 0x14) == "\u65e5".encode() * 6 + b"\0\0"      # 18 bytes fit in the 19 kept
     box = world.text_box(20)
     type_into(world, box, "a" * 18 + "\u65e5")             # 18 + 3 = 21 bytes: refused whole
     assert world.box_text(box) == b"a" * 18
+    type_into(world, box, "\u00e9")                        # 19
+    assert world.box_text(box) == b"a" * 18 + b"\xe9" and not world.overrun(box)
     type_into(world, box, "\u00e9")                        # 20
-    assert world.box_text(box) == b"a" * 18 + "\u00e9".encode() and not world.overrun(box)
-    assert world.get_text(box, 0x14) == b"a" * 18 + b"\0\0"
+    assert world.get_text(box, 0x14) == b"a" * 18 + b"\xe9" + b"\0"
+    box = world.text_box(20)
+    type_into(world, box, "a" * 17 + "\u65e5")             # 17 + 3 = 20 bytes: the limit
+    assert world.box_text(box) == b"a" * 17 + "\u65e5".encode()
+    assert world.get_text(box, 0x14) == b"a" * 17 + b"\0\0\0"          # 19 bytes kept: never half of the letter
     box = world.text_box(20)
     type_into(world, box, "x" * 25)                        # the stock rule for plain letters is unchanged
     assert world.box_text(box) == b"x" * 20 and world.get_text(box, 0x14) == b"x" * 19 + b"\0"
@@ -273,6 +294,7 @@ def test_backspace_deletes_a_whole_character(world):
     assert vf1_text.decode(world.box_text(box)) == "Zo\u00eb\U0001f44d\U0001f3fd"
     world.key(box, 8)
     assert vf1_text.decode(world.box_text(box)) == "Zo\u00eb"
+    assert world.box_text(box) == b"Zo\xeb"                # a Windows-1252 letter is one byte
     world.key(box, 8)
     assert world.box_text(box) == b"Zo"
 

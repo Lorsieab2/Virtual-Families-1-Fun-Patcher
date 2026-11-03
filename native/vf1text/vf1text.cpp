@@ -145,54 +145,7 @@ static bool SameNoCase(const wchar_t *a, const wchar_t *b) {
     }
 }
 
-// ================================================================ the one text rule (patcher/vf1_text.py)
-static const unsigned short Cp1252High[32] = {
-    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039, 0x0152,
-    0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, 0x02DC, 0x2122,
-    0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
-};
-
-// One UTF-8 sequence at s (n bytes left): its code point and length, or length 0 when malformed.
-static int Utf8At(const unsigned char *s, int n, unsigned *cp) {
-    if (n <= 0) return 0;
-    unsigned c = s[0];
-    if (c < 0x80) { *cp = c; return 1; }
-    int len; unsigned min;
-    if (c >= 0xC2 && c <= 0xDF) { len = 2; c &= 0x1F; min = 0x80; }
-    else if (c >= 0xE0 && c <= 0xEF) { len = 3; c &= 0x0F; min = 0x800; }
-    else if (c >= 0xF0 && c <= 0xF4) { len = 4; c &= 0x07; min = 0x10000; }
-    else return 0;
-    if (n < len) return 0;
-    for (int i = 1; i < len; ++i) {
-        if ((s[i] & 0xC0) != 0x80) return 0;
-        c = (c << 6) | (s[i] & 0x3F);
-    }
-    if (c < min || c > 0x10FFFF || (c >= 0xD800 && c <= 0xDFFF)) return 0;
-    *cp = c;
-    return len;
-}
-
-static bool IsUtf8(const unsigned char *s, int n) {
-    for (int i = 0; i < n;) {
-        unsigned cp;
-        int k = Utf8At(s + i, n - i, &cp);
-        if (!k) return false;
-        i += k;
-    }
-    return true;
-}
-
-static int Utf8Put(unsigned cp, unsigned char *out) {
-    if (cp < 0x80) { out[0] = (unsigned char)cp; return 1; }
-    if (cp < 0x800) { out[0] = (unsigned char)(0xC0 | (cp >> 6)); out[1] = (unsigned char)(0x80 | (cp & 0x3F)); return 2; }
-    if (cp < 0x10000) {
-        out[0] = (unsigned char)(0xE0 | (cp >> 12)); out[1] = (unsigned char)(0x80 | ((cp >> 6) & 0x3F));
-        out[2] = (unsigned char)(0x80 | (cp & 0x3F)); return 3;
-    }
-    out[0] = (unsigned char)(0xF0 | (cp >> 18)); out[1] = (unsigned char)(0x80 | ((cp >> 12) & 0x3F));
-    out[2] = (unsigned char)(0x80 | ((cp >> 6) & 0x3F)); out[3] = (unsigned char)(0x80 | (cp & 0x3F));
-    return 4;
-}
+#include "text_rule.inc"
 
 static bool IsExtender(unsigned cp) {
     int lo = 0, hi = (int)(sizeof ExtenderRanges / sizeof ExtenderRanges[0]) - 1;
@@ -205,31 +158,6 @@ static bool IsExtender(unsigned cp) {
     return false;
 }
 static bool Regional(unsigned cp) { return cp >= 0x1F1E6 && cp <= 0x1F1FF; }
-
-// A string as code points, by the one rule. Returns the count; the caller gives room for n code points.
-// utf8: -1 decides from these n bytes; 1 says the whole string they start is UTF-8 (the counted draw: a
-// character cut by the count is left out, never read as single bytes); 0 reads single bytes.
-static int Decode(const unsigned char *s, int n, unsigned *out, unsigned char *widths, int utf8 = -1) {
-    int count = 0;
-    if (utf8 < 0) utf8 = IsUtf8(s, n) ? 1 : 0;
-    if (utf8) {
-        for (int i = 0; i < n;) {
-            unsigned cp;
-            int k = Utf8At(s + i, n - i, &cp);
-            if (!k) break;                        // only a cut last character
-            out[count] = cp; widths[count] = (unsigned char)k; ++count;
-            i += k;
-        }
-    } else {
-        for (int i = 0; i < n; ++i) {
-            unsigned b = s[i];
-            out[count] = (b >= 0x80 && b < 0xA0) ? Cp1252High[b - 0x80] : b;
-            widths[count] = 1;
-            ++count;
-        }
-    }
-    return count;
-}
 
 // Where the cluster starting at code point i ends (vf1_text.clusters).
 static int ClusterEnd(const unsigned *cps, int n, int i) {
@@ -523,7 +451,7 @@ struct Run {
     unsigned char wbuf[256];
 };
 
-static bool DecodeRun(Run *run, const char *text, int bytes, int utf8 = -1) {
+static bool DecodeRun(Run *run, const char *text, int bytes, int whole = -1) {
     run->cps = run->buf; run->widths = run->wbuf;
     if (bytes > 256) {
         run->cps = (unsigned *)Alloc(sizeof(unsigned) * bytes);
@@ -534,7 +462,7 @@ static bool DecodeRun(Run *run, const char *text, int bytes, int utf8 = -1) {
             return false;
         }
     }
-    run->n = Decode((const unsigned char *)text, bytes, run->cps, run->widths, utf8);
+    run->n = Decode((const unsigned char *)text, bytes, run->cps, run->widths, whole);
     return true;
 }
 static void FreeRun(Run *run) {
@@ -626,8 +554,8 @@ static int __fastcall DrawStringN(void *window, void *, const char *text, int co
     while (bytes < count && text[bytes]) ++bytes;
     FontExtra *f = ExtraFor(impl);
     Run run;
-    // the rule is the whole string's (word wrapping hands over pieces of a longer string)
-    if (!DecodeRun(&run, text, bytes, IsUtf8((const unsigned char *)text, (int)Len(text)) ? 1 : 0)) return 0;
+    // word wrapping hands over pieces of a longer string: read the whole string, draw the characters in the piece
+    if (!DecodeRun(&run, text, bytes, (int)Len(text))) return 0;
     int startX = x;
     for (int i = 0; i < run.n;) {
         int j = ClusterEnd(run.cps, run.n, i);
@@ -695,42 +623,96 @@ static int __fastcall FontGetWidth(void *font, void *, const char *text, float s
 }
 
 // ================================================================ typing
-// The bytes of the last whole character (cluster) of a valid UTF-8 string of n bytes.
-static int LastCharBytes(const unsigned char *s, int n) {
-    if (n <= 0) return 0;
-    if (!IsUtf8(s, n)) return 1;
+// The text a box holds is stored text (text_rule.inc): the game's string is what the box shows, and a typed character
+// is added by the write rule, so a box's 1,200 bytes are bytes as stored.
+
+// `s` (n bytes, in any form: UTF-8, stored, mixed) as canonical stored bytes on the heap (*out, NUL-terminated); the
+// byte count, or -1 when memory is short.
+static int CanonStored(const unsigned char *s, int n, unsigned char **out) {
+    *out = 0;
     Run run;
-    if (!DecodeRun(&run, (const char *)s, n)) return 1;
-    int start = 0, last = 0;
-    for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
-        int bytes = 0;
-        for (int k = i; k < j; ++k) bytes += run.widths[k];
-        last = bytes;
-        start += bytes;
-        i = j;
-    }
+    if (!DecodeRun(&run, (const char *)s, n)) return -1;
+    unsigned char *buf = (unsigned char *)Alloc((unsigned)run.n * 4 + 4);
+    if (!buf) { FreeRun(&run); return -1; }
+    int m = EncodeStored(run.cps, run.n, buf);
+    buf[m] = 0;
     FreeRun(&run);
-    return last ? last : 1;
+    *out = buf;
+    return m;
 }
 
-// The longest start of s (n bytes) that fits in `room` bytes without cutting a character, when s is UTF-8.
-static int FitBytes(const unsigned char *s, int n, int room) {
-    if (n <= room) return n;
-    if (!IsUtf8(s, n)) return room;
+// `s` (n bytes of stored text) as UTF-8 into out (room for 4 * n + 1 bytes); the byte count.
+static int StoredToUtf8(const unsigned char *s, int n, char *out) {
     Run run;
-    if (!DecodeRun(&run, (const char *)s, n)) return room;
-    int used = 0;
-    for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
-        int bytes = 0;
-        for (int k = i; k < j; ++k) bytes += run.widths[k];
-        if (used + bytes > room) break;
-        used += bytes;
-        i = j;
+    int m = 0;
+    if (DecodeRun(&run, (const char *)s, n)) {
+        for (int i = 0; i < run.n; ++i) m += Utf8Put(run.cps[i], (unsigned char *)out + m);
+        FreeRun(&run);
     }
+    out[m] = 0;
+    return m;
+}
+
+// Adds code point cp to the text in buf (len bytes) by the write rule; false, with buf as it was, when the stored text
+// would pass `limit` bytes. (The whole text is written again: a character can change how its neighbours must be stored.)
+static bool AppendStored(char *buf, int len, int limit, unsigned cp) {
+    Run run;
+    if (!DecodeRun(&run, buf, len)) return false;
+    unsigned *cps = (unsigned *)Alloc(sizeof(unsigned) * (unsigned)(run.n + 1));
+    unsigned char *out = (unsigned char *)Alloc((unsigned)(run.n + 1) * 4 + 4);
+    bool ok = false;
+    if (cps && out) {
+        for (int i = 0; i < run.n; ++i) cps[i] = run.cps[i];
+        cps[run.n] = cp;
+        int m = EncodeStored(cps, run.n + 1, out);
+        if (m <= limit) { Copy(buf, out, (unsigned)m); buf[m] = 0; ok = true; }
+    }
+    Free(cps);
+    Free(out);
     FreeRun(&run);
-    return used;
+    return ok;
+}
+
+// Removes the last whole character (cluster) of the text in buf (len bytes), the rest stored again by the rule.
+static void DropLastCluster(char *buf, int len) {
+    Run run;
+    if (len <= 0) return;
+    if (!DecodeRun(&run, buf, len)) { buf[len - 1] = 0; return; }
+    int last = 0;
+    for (int i = 0; i < run.n;) { last = i; i = ClusterEnd(run.cps, run.n, i); }
+    unsigned char *out = (unsigned char *)Alloc((unsigned)run.n * 4 + 4);
+    if (!out) { FreeRun(&run); buf[len - 1] = 0; return; }
+    int m = EncodeStored(run.cps, last, out);
+    Copy(buf, out, (unsigned)m);
+    buf[m] = 0;
+    Free(out);
+    FreeRun(&run);
+}
+
+// The longest start of s (n bytes of stored text) in whole characters whose stored bytes fit in `room`: written to
+// out (room bytes at most, no NUL); the byte count. (A start's stored length never shrinks as it grows, so the cut is
+// found by halving.)
+static int FitStored(const unsigned char *s, int n, int room, unsigned char *out) {
+    if (room <= 0) return 0;
+    Run run;
+    if (!DecodeRun(&run, (const char *)s, n)) return 0;
+    int *ends = (int *)Alloc(sizeof(int) * (unsigned)(run.n + 1));
+    unsigned char *tmp = (unsigned char *)Alloc((unsigned)run.n * 4 + 4);
+    int m = 0;
+    if (ends && tmp) {
+        int count = 0;
+        for (int i = 0; i < run.n;) { i = ClusterEnd(run.cps, run.n, i); ends[count++] = i; }
+        int lo = 0, hi = count;
+        while (lo < hi) {
+            int mid = (lo + hi + 1) / 2;
+            if (EncodeStored(run.cps, ends[mid - 1], tmp) <= room) lo = mid; else hi = mid - 1;
+        }
+        if (lo) { m = EncodeStored(run.cps, ends[lo - 1], tmp); Copy(out, tmp, (unsigned)m); }
+    }
+    Free(ends);
+    Free(tmp);
+    FreeRun(&run);
+    return m;
 }
 
 struct TextControl {               // ldwTextControlImpl, the fields the stock handler uses
@@ -743,13 +725,6 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 #include "names.inc"
 #include "wrap.inc"
 
-// A name box takes a character while the text stays within its VF1_NAME_BOX_BYTES bytes (there is no separate
-// character cap).
-static bool NameBoxTakes(TextControl *c, const char *, int len, const unsigned char *, int n) {
-    if (!IsNameBox(c)) return true;
-    return len + n <= VF1_NAME_BOX_BYTES;
-}
-
 // 0x40DA70 ldwTextControlImpl::HandleMessage(message, a, b), ret 0xC: the stock rules, plus a whole code
 // point posted as (5, 0, 0x40000000 | cp) is added in UTF-8 when it fits, and backspace deletes a whole
 // character of a UTF-8 text.
@@ -761,8 +736,7 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
     int len = TC_B(c, 0x2F) ? TC_I(c, 0x34) : (int)Len(buf);
     if (ch == 8) {
         if (len > 0) {
-            int drop = TC_B(c, 0x2F) ? 1 : LastCharBytes((unsigned char *)buf, len);
-            buf[len - drop] = 0;
+            if (TC_B(c, 0x2F)) buf[len - 1] = 0; else DropLastCluster(buf, len);
             PostChanged(Messages(), 0xC, TC_I(c, 4));
         }
         return true;
@@ -775,19 +749,14 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
         if (TC_B(c, 0x2D) || TC_B(c, 0x2F) || cp < 0x20 || (cp >= 0x7F && cp < 0xA0) || cp > 0x10FFFF ||
             (cp >= 0xD800 && cp <= 0xDFFF))
             return true;
-        unsigned char u[4];
-        int n = Utf8Put(cp, u);
-        if (len + n > TC_I(c, 0x28) || !NameBoxTakes(c, buf, len, u, n)) return true;
-        Copy(buf + len, u, (unsigned)n);
-        buf[len + n] = 0;
+        if (!AppendStored(buf, len, TC_I(c, 0x28), cp)) return true;        // 1,200 bytes as stored at most
         PostChanged(Messages(), 0xC, TC_I(c, 4));
         return true;
     }
     bool numeric = TC_B(c, 0x2D) != 0;
     bool ok = (!numeric && ch > 0x1F && ch <= 0xFF) || (numeric && ch >= 0x30 && ch <= 0x39) || (len == 0 && ch == 0x2D);
     if (!ok) return true;
-    unsigned char one = (unsigned char)ch;
-    if (!NameBoxTakes(c, buf, len, &one, 1)) return true;
+    if (IsNameBox(c) && len + 1 > VF1_NAME_BOX_BYTES) return true;
     buf[len] = (char)ch;
     buf[len + 1] = 0;
     PostChanged(Messages(), 0xC, TC_I(c, 4));
@@ -814,15 +783,19 @@ static void __fastcall GetText(void *control, void *, char *buffer, int size) {
         for (unsigned i = 0; i < sizeof NameSites / sizeof NameSites[0]; ++i)
             if (NameSites[i].ret == ret) slot = NameSites[i].slot < 0 ? CurrentSlot() : NameSites[i].slot;
         char out[VF1_NAME_BOX_BYTES + 1];
-        int keep = ShortFor(text, n, size - 1, slot, out);
+        int keep = ShortFor(text, n, size - 1, slot, out);      // by the write rule, the short form too
         int i = 0;
         for (; i < keep; ++i) buffer[i] = out[i];
         for (; i < size; ++i) buffer[i] = 0;
         return;
     }
-    int keep = FitBytes((const unsigned char *)text, n, size - 1);
-    int i = 0;
-    for (; i < keep; ++i) buffer[i] = text[i];
+    int keep = n;
+    if (n > size - 1) {                           // too long: its start in whole characters (stored again by the rule)
+        keep = FitStored((const unsigned char *)text, n, size - 1, (unsigned char *)buffer);
+    } else {
+        for (int k = 0; k < n; ++k) buffer[k] = text[k];
+    }
+    int i = keep;
     for (; i < size; ++i) buffer[i] = 0;          // strncpy pads with NULs
 }
 
