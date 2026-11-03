@@ -4987,8 +4987,8 @@
    ]
   },
   {
-   "id": "vf1fun.buy_60hs_for_d",
-   "english": "Buy %.60hs for $%d?",
+   "id": "vf1fun.buy_ls_for_d",
+   "english": "Buy %ls for $%d?",
    "room": 80,
    "drawn_by_game": false,
    "format": true,
@@ -4999,8 +4999,8 @@
   {
    "id": "vf1fun.this_item",
    "english": "this item",
-   "room": 60,
-   "drawn_by_game": true,
+   "room": 80,
+   "drawn_by_game": false,
    "format": false,
    "where": [
     "native/vf1fun/vf1fun.cpp:709"
@@ -5017,8 +5017,8 @@
    ]
   },
   {
-   "id": "vf1fun.purchased_60hs",
-   "english": "Purchased: %.60hs.",
+   "id": "vf1fun.purchased_ls",
+   "english": "Purchased: %ls.",
    "room": 80,
    "drawn_by_game": false,
    "format": true,
@@ -5029,8 +5029,8 @@
   {
    "id": "vf1fun.item",
    "english": "item",
-   "room": 60,
-   "drawn_by_game": true,
+   "room": 80,
+   "drawn_by_game": false,
    "format": false,
    "where": [
     "native/vf1fun/vf1fun.cpp:720"

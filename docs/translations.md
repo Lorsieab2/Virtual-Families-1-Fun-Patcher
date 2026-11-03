@@ -140,7 +140,7 @@ vf1tr.dll passes the text on as UTF-8, which they draw, so Turkish, Polish, Russ
 
 ### Not translated
 
-The patcher's own windows and the Upgrades pages of vf1fun.dll are not part of the file; names the player types, and the
+The patcher program's own windows are not part of the file (the Upgrades menu and pages in the game are: below); names the player types, and the
 game's pictures (with their words), stay as they are.
 
 ## The patches' own text
@@ -151,6 +151,13 @@ Services, Family, Clothing and Hairstyles, Flea Market, Patcher Achievements), e
 achievements and services, and the Behavior Label Variants captions under a villager. Their keys start with `patch/`
 (for example `patch/vf1fun.no_money~...`); a line you leave empty shows its English. Each has its room: a caption the
 game draws under a villager at most 39 letters, a window's text three times its English (at least 80, at most 600).
+
+Each of these lines is shown through its own key, never as a copy of a game line: a page's title and controls, the
+lists, the descriptions, every message and question, the captions and the Upgrades button are translated where
+they are shown; a game line that appears in a patch window (an item's name in the Flea Market) is the game's own line,
+translated by its own key and shown as the same characters the game draws. `tests/test_patch_text_sentinel.py`
+translates every patch line to a numbered sentinel and follows it to the page, list, message, caption or button
+(the real vf1tr.dll for every key, and vf1fun.dll's own code with the game's own caption call sites in Unicorn).
 
 The Family History log's words ("Male", "Female", the causes of death, "New Generation", "Nursing"...) are translated
 in the game; the log file itself stays in English, because the Family Tree Maker reads it back. The likes and dislikes
