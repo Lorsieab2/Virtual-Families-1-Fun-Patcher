@@ -19,6 +19,14 @@ added (below). In short:
   (the CLDR plural categories of the file's language, plus ``=N``);
 * any bad row falls back to English and is reported; nothing ever raises out of ``parse``.
 
+PERCENT SIGNS.  Only the tokens that appear in a line's own English are placeholders (its printf
+conversions, and ``%%`` when the English has it).  Any other ``%`` is plain text: French "2 %",
+"2\u00a0%", "2\u202f%" and "50 % de r\u00e9duction" are all fine, although "% d" alone would be a printf
+conversion (the space flag).  When the program uses the line as a printf FORMAT (``Entry.is_format``,
+from the game's own sprintf calls and the patches' swprintf calls), such a plain ``%`` is written as
+``%%`` in the text handed to it (``runtime_text``), so it shows one ``%``; in any other line it is
+handed on as it is.  The extra bytes count toward the line's room (``measure``).
+
 VIRTUAL FAMILIES 1.  The game fills some of its lines itself (theStringManager::
 GetStringFromNameGenderTemplate 0x44FDD0): ``{name}`` and ``{name2}`` are family members' names,
 ``{award}`` a number, and ``{he/she}`` (``{his/her}``, ``{He/She}``...) is the game's own choice by
@@ -395,11 +403,100 @@ class Template:
     conversions: list[Conversion] = field(default_factory=list)
     variables: set[str] = field(default_factory=set)
     selects: list[Select] = field(default_factory=list)
-    lone_percent: bool = False
+    lone_percent: bool = False          # a '%' that is no placeholder (plain text)
+    double_percent: bool = False        # a "%%" token (an English, or a translation whose English has one)
     errors: list[str] = field(default_factory=list)
 
 
-def _parse_select_body(text: str, start: int, subject: str, template: Template) -> int:
+@dataclass(frozen=True)
+class Source:
+    """The placeholders a line's English has: a translation's '%' is a placeholder only when it is one of
+    these (english_source)."""
+    conversions: tuple = ()
+    double_percent: bool = False
+
+    def token_at(self, text: str, i: int):
+        """The placeholder at text[i] ('%'): ("%%", None), (its text, the Conversion), or None (a plain '%')."""
+        if self.double_percent and text.startswith("%%", i):
+            return "%%", None
+        match = CONVERSION_RE.match(text, i)
+        if not match:
+            return None
+        found = match.group(0)
+        conv = Conversion(found, match.group("type"), match.group("length") or "",
+                          (match.group("width") == "*") + (match.group("precision") == "*"))
+        if any(c.text == found for c in self.conversions):
+            return found, conv
+        # the same kind of value with another width or precision (%d -> %3d), never by the space flag alone
+        if " " not in (match.group("flags") or "") and any(c.signature == conv.signature for c in self.conversions):
+            return found, conv
+        return None
+
+
+def _space_flag(conv: Conversion) -> bool:
+    match = CONVERSION_RE.match(conv.text)
+    return bool(match and " " in (match.group("flags") or ""))
+
+
+def english_source(english: str, is_format: bool | None = None) -> Source:
+    """The placeholders of a line's English. A line the program does not use as a printf format has none (every
+    '%' in it is plain text). Unknown (None): its conversions without the space flag ("95% of" is "% o" only
+    to printf), and its "%%"."""
+    if is_format is False:
+        return Source()
+    eng = parse_template(english)
+    convs = tuple(eng.conversions) if is_format else tuple(c for c in eng.conversions if not _space_flag(c))
+    return Source(convs, eng.double_percent)
+
+
+def line_is_format(english: str, is_format: bool | None = None) -> bool:
+    """Whether a line goes through printf: as declared, else when its English has a placeholder (english_source)."""
+    if is_format is not None:
+        return is_format
+    source = english_source(english, None)
+    return bool(source.conversions or source.double_percent)
+
+
+def runtime_text(translation: str, english: str, is_format: bool | None = None) -> str:
+    """The translation with every '%' that is no placeholder of the English written as "%%" when the line is a
+    printf format (so it shows one '%'); unchanged otherwise. vf1tr.c (tt_escape_percent) does the same."""
+    if "%" not in translation or not line_is_format(english, is_format):
+        return translation
+    source = english_source(english, is_format)
+    out: list[str] = []
+    i = 0
+    while i < len(translation):
+        if translation[i] != "%":
+            out.append(translation[i])
+            i += 1
+            continue
+        token = source.token_at(translation, i)
+        if token is None:
+            out.append("%%")
+            i += 1
+        else:
+            out.append(token[0])
+            i += len(token[0])
+    return "".join(out)
+
+
+# The program's "is this line a printf format", by key (vf1_translation_strings registers it); None: unknown.
+_FORMAT_LOOKUP = None
+
+
+def set_format_lookup(lookup) -> None:
+    global _FORMAT_LOOKUP
+    _FORMAT_LOOKUP = lookup
+
+
+def format_of(key: str) -> bool | None:
+    try:
+        return _FORMAT_LOOKUP(key) if _FORMAT_LOOKUP is not None else None
+    except Exception:       # noqa: BLE001 -- a lookup never stops a file from being read
+        return None
+
+
+def _parse_select_body(text: str, start: int, subject: str, template: Template, source: Source | None = None) -> int:
     """Parse a select's branches from `start` (just after the ':') to its closing brace.
     Returns the index after the '}'; errors go to the template."""
     branches: list[tuple[str, str]] = []
@@ -441,6 +538,18 @@ def _parse_select_body(text: str, start: int, subject: str, template: Template) 
                 template.variables.add(inner.strip(WS))
             current.append(text[i:end + 1])
             i = end + 1
+            continue
+        if ch == "%" and source is not None:
+            token = source.token_at(text, i)
+            if token is None:
+                template.lone_percent = True
+                current.append(ch)
+                i += 1
+                continue
+            if token[1] is not None:
+                template.errors.append(f"'{token[0]}' inside a choice; put the number outside the braces")
+            current.append(token[0])
+            i += len(token[0])
             continue
         if ch == "%":
             if text.startswith("%%", i):
@@ -487,8 +596,11 @@ def _parse_select_body(text: str, start: int, subject: str, template: Template) 
     return i
 
 
-def parse_template(text: str) -> Template:
-    """Split a text into its printf conversions, {variables} and {SUBJECT: ...} choices."""
+def parse_template(text: str, source: Source | None = None) -> Template:
+    """Split a text into its printf conversions, {variables} and {SUBJECT: ...} choices.
+
+    `source` (a translation's English, english_source): only its placeholders count; any other '%' is plain
+    text (lone_percent). Without it (an English) every printf conversion counts."""
     template = Template()
     i = 0
     while i < len(text):
@@ -496,8 +608,23 @@ def parse_template(text: str) -> Template:
         if text.startswith("{{", i) or text.startswith("}}", i):
             i += 2
             continue
+        if ch == "%" and source is not None:
+            token = source.token_at(text, i)
+            if token is None:
+                template.lone_percent = True
+                i += 1
+            elif token[1] is None:
+                template.double_percent = True
+                i += 2
+            else:
+                if token[1].type == "n":
+                    template.errors.append("'%n' is never allowed")
+                template.conversions.append(token[1])
+                i += len(token[0])
+            continue
         if ch == "%":
             if text.startswith("%%", i):
+                template.double_percent = True
                 i += 2
                 continue
             match = CONVERSION_RE.match(text, i)
@@ -534,7 +661,7 @@ def parse_template(text: str) -> Template:
             subject = text[i + 1:colon].strip(WS)
             if not subject:
                 template.errors.append("a choice has no subject before ':'")
-            i = _parse_select_body(text, colon + 1, subject, template)
+            i = _parse_select_body(text, colon + 1, subject, template, source)
             continue
         if ch == "}":
             template.errors.append("a '}' that closes nothing (write }} for a brace)")
@@ -558,18 +685,24 @@ def subject_kind(subject: str, english: Template, declared: dict[str, str] | Non
 
 
 def check_translation(english: str, translation: str, code: str = "en",
-                      declared: dict[str, str] | None = None) -> tuple[list[str], list[str]]:
-    """(errors, warnings) for one translated line. Any error means the line shows English."""
+                      declared: dict[str, str] | None = None,
+                      is_format: bool | None = None) -> tuple[list[str], list[str]]:
+    """(errors, warnings) for one translated line. Any error means the line shows English.
+
+    is_format: whether the program uses the line as a printf format (None: unknown, see english_source). A '%'
+    that is not one of the English's placeholders is plain text, never an error."""
     errors: list[str] = []
     warnings: list[str] = []
     if translation == "":
         return errors, warnings
     declared = DECLARED if declared is None else declared
     eng = parse_template(english)
-    tra = parse_template(translation)
+    source = english_source(english, is_format)
+    eng.conversions = list(source.conversions)
+    tra = parse_template(translation, source)
     errors.extend(tra.errors)
-    if tra.lone_percent and not eng.lone_percent:
-        errors.append("a '%' that is not a placeholder; write %% for a percent sign")
+    if "%%" in translation and not source.double_percent and "%%" not in english:
+        warnings.append("'%%' shows as two percent signs here; write a single % for a percent sign")
     a = [c.signature for c in eng.conversions]
     b = [c.signature for c in tra.conversions]
     if a != b:
@@ -883,7 +1016,7 @@ def parse_text(text: str, game: str | None = None) -> TranslationFile:
     for row in tf.rows:
         if any(p.key == row.key and p.severity == "error" for p in tf.problems):
             continue
-        errors, warnings = check_translation(row.english, row.translation, code)
+        errors, warnings = check_translation(row.english, row.translation, code, is_format=format_of(row.key))
         for message in errors:
             tf.problems.append(Problem(row.line, "error", message + "; this line shows English", row.key))
         for message in warnings:
@@ -947,6 +1080,7 @@ class Entry:
     max_length: int | None = None     # the translation may not be longer (see too_long)
     wide: bool = False                # counted in UTF-16 units (a Windows popup's text), not UTF-8 bytes
     items: bool = False               # a comma-separated list the program picks from by position (items_problem)
+    is_format: bool | None = None     # the program uses it as a printf format (None: unknown; runtime_text)
 
 
 ITEMS_MESSAGE = ("this list must keep every item, in order, separated by commas, each no longer than its English; "
@@ -1092,7 +1226,8 @@ def validate(tf: TranslationFile, entries: list[Entry] | None = None) -> Report:
         if row.key in known:
             entry = known[row.key]
             if row.translation and row.key not in bad:
-                if entry.max_length is not None and too_long(row.translation, entry.max_length, entry.wide):
+                if entry.max_length is not None and too_long(row.translation, entry.max_length, entry.wide,
+                                                             entry.english, entry.is_format):
                     errors.append(Problem(row.line, "error", too_long_message(entry.max_length), row.key))
                 elif entry.items and items_problem(entry.english, row.translation):
                     errors.append(Problem(row.line, "error", ITEMS_MESSAGE, row.key))
@@ -1110,12 +1245,13 @@ def validate(tf: TranslationFile, entries: list[Entry] | None = None) -> Report:
     return Report(tf, len(entries), translated, errors, warnings, changed, unknown)
 
 
-def game_text(translation: str) -> str:
+def game_text(translation: str, english: str | None = None, is_format: bool | None = None) -> str:
     """The translation as vf1tr.dll hands it to the game: a person choice in the game's own form
-    ({il/elle}, {il/2/elle}), a number choice at its other branch, {{ }} made single."""
+    ({il/elle}, {il/2/elle}), a number choice at its other branch, {{ }} made single; given its English, a
+    printf format's plain '%' as "%%" (runtime_text)."""
     out: list[str] = []
     i = 0
-    text = translation
+    text = runtime_text(translation, english, is_format) if english is not None else translation
     while i < len(text):
         if text.startswith("{{", i) or text.startswith("}}", i):
             out.append(text[i])
@@ -1147,18 +1283,23 @@ def game_text(translation: str) -> str:
     return "".join(out)
 
 
-def measure(translation: str, wide: bool = False) -> int:
+def measure(translation: str, wide: bool = False, english: str | None = None, is_format: bool | None = None) -> int:
     """A translation's size as the runtime measures it: the larger of each choice at its longest
-    branch and the text the game is handed (game_text), in UTF-8 bytes (UTF-16 units if wide)."""
+    branch and the text the game is handed (game_text), in UTF-8 bytes (UTF-16 units if wide).
+    Given its English: a printf format's plain '%' counts as the "%%" it is handed (runtime_text)."""
+    if english is not None:
+        translation = runtime_text(translation, english, is_format)
     sizes = []
     for text in (evaluate(translation, longest=True), game_text(translation)):
         sizes.append(len(text.encode("utf-16-le")) // 2 if wide else len(text.encode("utf-8")))
     return max(sizes)
 
 
-def too_long(translation: str, max_length: int, wide: bool = False) -> bool:
-    """Past a line's room (measure): a letter with an accent counts 2 in UTF-8."""
-    return measure(translation, wide) > max_length
+def too_long(translation: str, max_length: int, wide: bool = False, english: str | None = None,
+             is_format: bool | None = None) -> bool:
+    """Past a line's room (measure): a letter with an accent counts 2 in UTF-8; a printf format's plain '%'
+    counts 2 ("%%")."""
+    return measure(translation, wide, english, is_format) > max_length
 
 
 def too_long_message(max_length: int) -> str:

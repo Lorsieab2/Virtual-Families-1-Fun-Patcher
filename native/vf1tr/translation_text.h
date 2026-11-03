@@ -186,7 +186,7 @@ static unsigned int tt_next_cp(const char *s, int n, int *at) {
 #define TT_MAX_SELECTS 16
 #define TT_MAX_BRANCHES 12
 
-typedef struct tt_conv { char type; char length[4]; int stars; int number; } tt_conv;
+typedef struct tt_conv { char type; char length[4]; int stars; int number; int space; const char *s; int n; } tt_conv;
 
 typedef struct tt_branch { tt_span key; tt_span text; } tt_branch;
 
@@ -204,14 +204,15 @@ typedef struct tt_template {
     tt_conv conv[TT_MAX_CONV];
     tt_span vars[TT_MAX_VARS];
     tt_select select[TT_MAX_SELECTS];
-    int lone_percent;
+    int lone_percent;               /* a '%' that is no placeholder: plain text */
+    int pct2;                       /* a "%%" token */
     int errors;
 } tt_template;
 
 /* A printf conversion at s[i] ('%'); its length, or 0 when it is none (a lone '%'). */
 static int tt_conversion(const char *s, int n, int i, tt_conv *out) {
-    int j = i + 1, stars = 0, l = 0;
-    while (j < n && (s[j] == '-' || s[j] == '+' || s[j] == ' ' || s[j] == '#' || s[j] == '0')) ++j;
+    int j = i + 1, stars = 0, l = 0, space = 0;
+    while (j < n && (s[j] == '-' || s[j] == '+' || s[j] == ' ' || s[j] == '#' || s[j] == '0')) { if (s[j] == ' ') space = 1; ++j; }
     if (j < n && s[j] == '*') { ++stars; ++j; }
     else while (j < n && tt_is_digit((unsigned char)s[j])) ++j;
     if (j < n && s[j] == '.') {
@@ -238,12 +239,66 @@ static int tt_conversion(const char *s, int n, int i, tt_conv *out) {
             if (s[j] == types[k]) {
                 out->type = s[j] == 'i' ? 'd' : s[j];
                 out->stars = stars;
+                out->space = space;
+                out->s = s + i;
+                out->n = j + 1 - i;
                 out->number = s[j] == 'd' || s[j] == 'i' || s[j] == 'o' || s[j] == 'u' || s[j] == 'x' || s[j] == 'X';
                 return j + 1 - i;
             }
         }
     }
     return 0;
+}
+
+static int tt_conv_same(const tt_conv *a, const tt_conv *b) {
+    return a->type == b->type && a->stars == b->stars && a->length[0] == b->length[0] && a->length[1] == b->length[1]
+        && a->length[2] == b->length[2];
+}
+
+/* A placeholder of a translation at s[i] ('%'), judged by its English `src` (translation_format.Source.token_at):
+   "%%" when the English has one (2, conv->n = 0), one of the English's conversions -- the same text, or the same
+   kind of value with another width or precision but never by the space flag alone -- (its length), or 0: a plain
+   '%'.  A line that is no printf format has no placeholders (tt_translation_ok), so all its '%' are plain. */
+static int tt_source_token(const tt_template *src, const char *s, int n, int i, tt_conv *conv) {
+    int len, k, j;
+    conv->n = 0;
+    if (src->pct2 && i + 1 < n && s[i + 1] == '%') return 2;
+    len = tt_conversion(s, n, i, conv);
+    if (len == 0) return 0;
+    for (k = 0; k < src->nconv; ++k) {
+        if (src->conv[k].n != len) continue;
+        for (j = 0; j < len && src->conv[k].s[j] == s[i + j]; ++j) {}
+        if (j == len) return len;
+    }
+    if (!conv->space) for (k = 0; k < src->nconv; ++k) if (tt_conv_same(&src->conv[k], conv)) return len;
+    return 0;
+}
+
+/* The text handed to printf for a FORMAT line: every '%' that is no placeholder of the English `src` written as
+   "%%" (translation_format.runtime_text).  Returns the length written to out (cap bytes), or -1. */
+static int tt_escape_percent(const char *s, int n, const tt_template *src, char *out, int cap) {
+    int i = 0, o = 0;
+    while (i < n) {
+        if (s[i] == '%') {
+            tt_conv conv;
+            int len = tt_source_token(src, s, n, i, &conv), k;
+            if (len == 0) {
+                if (o + 2 >= cap) return -1;
+                out[o++] = '%';
+                out[o++] = '%';
+                ++i;
+                continue;
+            }
+            if (o + len >= cap) return -1;
+            for (k = 0; k < len; ++k) out[o++] = s[i + k];
+            i += len;
+            continue;
+        }
+        if (o + 1 >= cap) return -1;
+        out[o++] = s[i++];
+    }
+    out[o] = 0;
+    return o;
 }
 
 static int tt_is_name(tt_span t) {
@@ -315,7 +370,7 @@ static int tt_branch_parse(tt_span raw, tt_branch *out) {
 }
 
 /* A select's body from s[i] (after ':') to its '}'; returns the index after it. */
-static int tt_select_body(const char *s, int n, int i, tt_template *t, tt_select *sel) {
+static int tt_select_body(const char *s, int n, int i, tt_template *t, tt_select *sel, const tt_template *src) {
     int start = i, closed = 0, k, person = 1, number = 1;
     tt_span raws[TT_MAX_BRANCHES + 1];
     int nraw = 0;
@@ -340,6 +395,14 @@ static int tt_select_body(const char *s, int n, int i, tt_template *t, tt_select
             if (tt_find(inner.s, inner.n, 0, ':') != -1) { t->errors++; return n; }
             if (!tt_is_name(tt_strip(inner))) t->errors++; else tt_add_var(t, tt_strip(inner));
             i = end + 1;
+            continue;
+        }
+        if (c == '%' && src != 0) {
+            tt_conv conv;
+            int len = tt_source_token(src, s, n, i, &conv);
+            if (len == 0) { t->lone_percent = 1; ++i; continue; }
+            if (conv.n > 0) t->errors++;                                   /* a placeholder inside a choice */
+            i += len;
             continue;
         }
         if (c == '%') {
@@ -408,16 +471,27 @@ static int tt_native_choice(const char *s, int open, int close, tt_template *t) 
     return 1;
 }
 
-static void tt_parse_template(const char *s, int n, tt_template *t) {
+/* `src`: a translation's English (only its placeholders count; any other '%' is plain text), or 0 for an English. */
+static void tt_parse_template(const char *s, int n, tt_template *t, const tt_template *src) {
     int i = 0;
-    t->nconv = t->nvars = t->nselects = t->lone_percent = t->errors = 0;
+    t->nconv = t->nvars = t->nselects = t->lone_percent = t->pct2 = t->errors = 0;
     while (i < n) {
         char c = s[i];
         if (i + 1 < n && ((c == '{' && s[i + 1] == '{') || (c == '}' && s[i + 1] == '}'))) { i += 2; continue; }
+        if (c == '%' && src != 0) {
+            tt_conv conv;
+            int len = tt_source_token(src, s, n, i, &conv);
+            if (len == 0) { t->lone_percent = 1; ++i; continue; }
+            if (conv.n == 0) { t->pct2 = 1; i += 2; continue; }
+            if (conv.type == 'n') t->errors++;
+            if (t->nconv < TT_MAX_CONV) t->conv[t->nconv++] = conv; else t->errors++;
+            i += len;
+            continue;
+        }
         if (c == '%') {
             tt_conv conv;
             int len;
-            if (i + 1 < n && s[i + 1] == '%') { i += 2; continue; }
+            if (i + 1 < n && s[i + 1] == '%') { t->pct2 = 1; i += 2; continue; }
             len = tt_conversion(s, n, i, &conv);
             if (len > 0) {
                 if (conv.type == 'n') t->errors++;
@@ -450,7 +524,7 @@ static void tt_parse_template(const char *s, int n, tt_template *t) {
                 if (sel->subject.n == 0) t->errors++;
                 sel->start = i;
                 sel->native = 0;
-                i = tt_select_body(s, n, colon + 1, t, sel);
+                i = tt_select_body(s, n, colon + 1, t, sel, src);
                 if (sel != &dummy) t->nselects++;
             }
             continue;
@@ -460,18 +534,15 @@ static void tt_parse_template(const char *s, int n, tt_template *t) {
     }
 }
 
-static int tt_conv_same(const tt_conv *a, const tt_conv *b) {
-    return a->type == b->type && a->stars == b->stars && a->length[0] == b->length[0] && a->length[1] == b->length[1]
-        && a->length[2] == b->length[2];
-}
-
-/* 1 when the translation keeps the English's placeholders (the row may be used). */
-static int tt_translation_ok(const char *eng, int en, const char *tra, int tn, tt_template *te, tt_template *tt) {
+/* 1 when the translation keeps the English's placeholders (the row may be used).  `is_format`: the program uses
+   the line as a printf format; any other line has no placeholders (every '%' in it is plain text). */
+static int tt_translation_ok(const char *eng, int en, const char *tra, int tn, tt_template *te, tt_template *tt,
+                             int is_format) {
     int k, j;
-    tt_parse_template(eng, en, te);
-    tt_parse_template(tra, tn, tt);
+    tt_parse_template(eng, en, te, 0);
+    if (!is_format) te->nconv = te->pct2 = 0;
+    tt_parse_template(tra, tn, tt, te);
     if (tt->errors) return 0;
-    if (tt->lone_percent && !te->lone_percent) return 0;
     if (te->nconv != tt->nconv) return 0;
     for (k = 0; k < te->nconv; ++k) if (!tt_conv_same(&te->conv[k], &tt->conv[k])) return 0;
     for (k = 0; k < te->nvars; ++k) {

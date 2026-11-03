@@ -188,14 +188,23 @@ Selecting never changes the game's language; only "Language in the game" does.
 Export... saves a copy of each selected translation, one file each. Delete...
 asks once, listing the files (No does nothing), and moves them to the Windows
 Recycle Bin, so you can restore them. English (original) is never deleted. A
-translation that came with the patcher comes back with the next update.
+translation that came with the patcher comes back with the next update, and
+any translation on GitHub can be downloaded again with Download from GitHub....
 Deleting the language the game uses puts it back in English from its next
 start.
+
+Download from GitHub... lists the translations in the public translations
+folder on the patcher's GitHub page: language, credit, when it last changed,
+and "Update available" when yours differs. Pick one or more and press
+Download; each is checked before it is added. No account is needed and
+nothing about you is sent.
 
 Share on GitHub... sends your translation to the patcher's public GitHub page
 (you need a free GitHub account). It asks first; No does nothing. You type the
 credit name yourself. Email addresses are never saved and are rejected from
-translation files. docs/translations.md explains the file format.
+translation files. Every shared file is scanned by VirusTotal (its partners
+can see files sent to it) and checked before the owner adds it to the public
+translations folder. docs/translations.md explains the file format.
 
 How to patch
 ------------

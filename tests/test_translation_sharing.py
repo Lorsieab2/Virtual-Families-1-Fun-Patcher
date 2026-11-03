@@ -95,6 +95,10 @@ def test_no_email_address_anywhere_in_the_feature():
     files = [ROOT / "patcher" / f for f in ("vf1_translations_window.py", "vf1_translations.py",
                                             "translation_format.py", "vf1_translation_strings.py")]
     files += [WORKFLOW, TEMPLATE, ROOT / "scripts" / "accept_translation.py", ROOT / "docs" / "translations.md"]
+    files += [ROOT / "patcher" / "vf1_translations_github.py", ROOT / "scripts" / "virustotal_scan.py",
+              ROOT / "scripts" / "translation_pr_check.py", ROOT / "translations" / "README.md",
+              ROOT / ".github" / "workflows" / "translations-check.yml",
+              ROOT / ".github" / "workflows" / "translations-rescan.yml"]
     for path in files:
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"[\w.+-]+@[\w-]+\.[A-Za-z]{2,}", text), path
@@ -134,33 +138,49 @@ def flow():
 
 
 def test_minimal_permissions():
+    """Nothing at the top; the scan reads and comments; only the accepting job writes, after the scan."""
     f = flow()
-    assert f["permissions"] == {"contents": "write", "pull-requests": "write", "issues": "write"}
-    assert "permissions" not in f["jobs"]["accept"]
+    assert f["permissions"] == {}
+    assert f["jobs"]["scan"]["permissions"] == {"contents": "read", "issues": "write"}
+    assert f["jobs"]["accept"]["permissions"] == {"contents": "write", "pull-requests": "write", "issues": "write"}
 
 
 def test_runs_only_on_the_owners_label():
     f = flow()
     on = f[True] if True in f else f["on"]          # YAML 1.1 reads "on" as True
     assert on == {"issues": {"types": ["labeled"]}}
-    condition = f["jobs"]["accept"]["if"]
+    condition = f["jobs"]["scan"]["if"]
     assert "github.event.label.name == 'accept-translation'" in condition
     assert "'translation'" in condition
+    assert f["jobs"]["accept"]["needs"] == "scan"                   # VirusTotal first, the validator only after
 
 
 def test_no_issue_field_in_any_shell_command():
     f = flow()
     text = WORKFLOW.read_text(encoding="utf-8")
-    for step in f["jobs"]["accept"]["steps"]:
-        assert "${{" not in step.get("run", ""), step.get("name")
-    assert f["jobs"]["accept"]["env"]["ISSUE_NUMBER"] == "${{ github.event.issue.number }}"
+    for job in f["jobs"].values():
+        for step in job["steps"]:
+            assert "${{" not in step.get("run", ""), step.get("name")
+        assert job["env"]["ISSUE_NUMBER"] == "${{ github.event.issue.number }}"
     for field in ("issue.body", "issue.title", "comment.body", "issue.user"):
         assert field not in text
 
 
+def test_the_virustotal_key_is_only_a_secret_in_the_scanning_steps_environment():
+    f = flow()
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert text.count("secrets.VT_API_KEY") == 1
+    scan = next(s for s in f["jobs"]["scan"]["steps"] if s.get("id") == "scan")
+    assert scan["env"] == {"VT_API_KEY": "${{ secrets.VT_API_KEY }}"}
+    assert "VT_API_KEY" not in scan["run"] and "$VT_API_KEY" not in text      # never echoed or passed on
+    assert not re.search(r"(echo|printf|cat)[^\n]*VT_API_KEY", text)
+    assert f["jobs"]["accept"]["env"]["EXPECTED_SHA256"] == "${{ needs.scan.outputs.sha256 }}"
+
+
 def test_checks_as_data_and_commits_as_the_bot():
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert 'python -I scripts/accept_translation.py "$GITHUB_EVENT_PATH"' in text
+    assert 'python -I scripts/accept_translation.py scan "$GITHUB_EVENT_PATH"' in text
+    assert 'python -I scripts/accept_translation.py accept "$GITHUB_EVENT_PATH"' in text
     assert 'git config user.name "github-actions[bot]"' in text
     assert 'git config user.email ""' in text
     assert at.MAX_BYTES == 2 * 1024 * 1024
@@ -198,8 +218,8 @@ def run_event(text: str, data: bytes = b""):
 def test_accepted_with_only_the_typed_credit():
     result, work, path, root = run_event(body(), translation("someone else"))
     assert result == "accepted"
-    assert path.parent == root / "patcher" / "translations" / "vf1"
-    assert path.name == "Virtual Families - Français.txt"
+    assert path.parent == root / "translations"                        # the public folder
+    assert path.name == "fr.tsv"
     parsed = tfmt.parse_bytes(path.read_bytes(), "vf1")
     assert parsed.translator == "Ann Lee"
     pr = (work / "pr_body.md").read_text(encoding="utf-8")
@@ -254,3 +274,81 @@ def test_form_fields():
     assert fields["game"] == "Virtual Families"
     assert fields["coverage"] == ""
     assert at.attachment_url(fields["translation file"]) == URL
+
+
+# ---------------------------------------------------------------------------------------------- the public folder
+
+
+@pytest.mark.parametrize("credit,taken,want", [
+    ("Ann Lee", [], "fr.tsv"),                                                   # the language's own name
+    ("Ann Lee", ["fr.tsv"], "fr-ann-lee.tsv"),                                   # a collision: the credit
+    ("Ann Lee", ["FR.tsv", "fr-ann-lee.tsv"], "fr-ann-lee-2.tsv"),               # a second one: a number
+    ("Ann Lee", ["fr.tsv", "fr-ann-lee.tsv", "fr-ann-lee-2.tsv"], "fr-ann-lee-3.tsv"),
+    ("Zoë Müller-Łukasz", ["fr.tsv"], "fr-zoe-muller-ukasz.tsv"),                # non-ASCII: ASCII only
+    ("日本語の名前", ["fr.tsv"], "fr-translator.tsv"),                              # nothing ASCII at all
+    ("A" * 80, ["fr.tsv"], "fr-" + "a" * 40 + ".tsv"),                           # at most 40 letters
+])
+def test_the_public_file_name_never_overwrites(credit, taken, want):
+    assert at.target_name("fr", credit, taken) == want
+    slug = at.credit_slug(credit)
+    assert re.fullmatch(r"[a-z0-9-]{1,40}", slug) and not slug.startswith("-") and not slug.endswith("-")
+
+
+def test_a_second_translation_of_a_language_goes_beside_the_first():
+    work, root = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+    (root / "translations").mkdir()
+    (root / "translations" / "fr.tsv").write_bytes(b"already here")
+    fetch = mock.Mock(return_value=translation())
+    assert at.accept({"issue": {"number": 8, "body": body(credit="Zoë Ann")}}, work, fetch=fetch, root=root) == "accepted"
+    assert (work / "target.txt").read_text(encoding="utf-8") == "translations/fr-zoe-ann.tsv"
+    assert (root / "translations" / "fr.tsv").read_bytes() == b"already here"
+    with pytest.raises(at.Refused):
+        at.target_name("../x", "Ann", [])
+
+
+def test_the_accepted_file_must_be_the_scanned_one():
+    data = translation()
+    result, work, path, _root = run_event(body(), data)
+    assert result == "accepted"
+    work, root = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+    fetch = mock.Mock(return_value=data)
+    good = __import__("hashlib").sha256(data).hexdigest()
+    assert at.accept({"issue": {"number": 7, "body": body()}}, work, fetch=fetch, root=root,
+                     expected_sha256=good) == "accepted"
+    for wrong in ("0" * 64, "", "not a hash"):
+        work = Path(tempfile.mkdtemp())
+        assert at.accept({"issue": {"number": 7, "body": body()}}, work, fetch=fetch, root=Path(tempfile.mkdtemp()),
+                         expected_sha256=wrong) == "refused"
+        assert "VirusTotal scanned" in (work / "comment.md").read_text(encoding="utf-8")
+
+
+class FakeScanner:
+    def __init__(self, status="clean", engines=()):
+        self.status, self.engines, self.seen = status, list(engines), []
+
+    def scan(self, name, data):
+        import virustotal_scan as vt
+        self.seen.append(name)
+        return vt.Verdict(name, __import__("hashlib").sha256(data).hexdigest(), self.status, self.engines,
+                          "VirusTotal could not be reached" if self.status == "not scanned" else "")
+
+
+def test_the_issue_scan_job_refuses_flagged_and_unscanned_files():
+    data = translation()
+    work = Path(tempfile.mkdtemp())
+    scanner = FakeScanner()
+    assert at.scan({"issue": {"number": 7, "body": body()}}, work, fetch=mock.Mock(return_value=data),
+                   scanner=scanner) == "clean"
+    assert (work / "sha256.txt").read_text(encoding="utf-8") == __import__("hashlib").sha256(data).hexdigest()
+    for scanner, why in ((FakeScanner("flagged", ["EngineA (malicious)"]), "EngineA (malicious)"),
+                         (FakeScanner("not scanned"), "NOT SCANNED")):
+        work = Path(tempfile.mkdtemp())
+        assert at.scan({"issue": {"number": 7, "body": body()}}, work, fetch=mock.Mock(return_value=data),
+                       scanner=scanner) == "refused"
+        assert why in (work / "comment.md").read_text(encoding="utf-8")
+        assert not (work / "sha256.txt").exists()
+    work = Path(tempfile.mkdtemp())                                              # not UTF-8: never sent
+    scanner = FakeScanner()
+    assert at.scan({"issue": {"number": 7, "body": body()}}, work, fetch=mock.Mock(return_value=b"\xff\xfe\x00bad"),
+                   scanner=scanner) == "refused"
+    assert scanner.seen == []

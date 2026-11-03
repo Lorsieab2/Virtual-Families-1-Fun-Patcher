@@ -164,3 +164,43 @@ def test_the_tree_pictures_ship_byte_for_byte(bundle):
     for name in shipped:
         assert (folder / "tree_pictures" / name).read_bytes() == (ROOT / "patcher" / "tree_pictures" / name).read_bytes()
         assert f"  {name}\r\n" in log or f"  {name}\n" in log
+
+
+def test_test_translations_never_ship(bundle, tmp_path):
+    """The owner: "Only exclude TEST files". The release ships the accepted translations of the public translations/
+    folder (and of patcher/translations/vf1/), but never a "(TEST)" one: its display name (@language) or its credit
+    (@translator) starts with "(TEST)", or, as a backstop, its file name says "(TEST)"."""
+    _folder, names = bundle
+    assert not any("(TEST)" in n.upper() for n in names)
+    for name in names:                                                  # the real folders: no (TEST) file shipped
+        if "/translations/vf1/" in name:
+            source = next(p for f in package_release.TRANSLATION_FOLDERS for p in [f / name.rsplit("/", 1)[1]]
+                          if p.is_file())
+            assert not package_release.is_test_translation(source), name
+    french = ROOT / "translations" / "fr.tsv"
+    if french.is_file() and "(TEST)" in french.read_text(encoding="utf-8-sig")[:2000]:
+        assert package_release.is_test_translation(french)
+    shelf = tmp_path / "shelf"
+    shelf.mkdir()
+    head = "Key\tEnglish\tTranslation\tNotes\r\n@format\t1\t1\r\n@game\tVirtual Families\t\r\n"
+    (shelf / "Virtual Families - Deutsch.txt").write_text(head + "@language\tEnglish\tDeutsch\r\n", encoding="utf-8")
+    (shelf / "de.tsv").write_text(head + "@language\tEnglish\tDeutsch\r\n@translator\t\tBob\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Test.txt").write_text(
+        head + "@language\tEnglish\t(TEST) - French AI Translation\r\n", encoding="utf-8")
+    (shelf / "Virtual Families - Credit.txt").write_text(
+        head + "@language\tEnglish\tFrançais\r\n@translator\t\t(TEST) AI translation\r\n", encoding="utf-8")
+    (shelf / "fr.tsv").write_text("﻿" + head + "@language\tEnglish\t(test) Français\r\n", encoding="utf-8")
+    (shelf / "(TEST) Virtual Families - Español.txt").write_text(head, encoding="utf-8")
+    assert sorted(p.name for p in package_release.shipped_translations(shelf)) == ["Virtual Families - Deutsch.txt",
+                                                                                  "de.tsv"]
+    dll = tmp_path / "vf1fun.dll"
+    dll.write_bytes(b"MZ stand-in")
+    payload = tmp_path / "payload2"
+    for setting in package_release.load_manifest()["settings"]:
+        for row in setting.get("files", []):
+            (payload / row["source"]).parent.mkdir(parents=True, exist_ok=True)
+            (payload / row["source"]).write_bytes(b"stand-in")
+    zip_path = package_release.build(VERSION, dll, tmp_path / "zip2", payload, translation_roots=[shelf])
+    with zipfile.ZipFile(zip_path) as z:
+        shipped = sorted(n.rsplit("/", 1)[1] for n in z.namelist() if "/translations/vf1/" in n)
+    assert shipped == ["Virtual Families - Deutsch.txt", "de.tsv"]       # an accepted one ships, no (TEST) one

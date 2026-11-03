@@ -11,7 +11,10 @@ A line a player sees is marked in the C/C++ source with one of vf1fun's translat
     TR_NA(room, "...")   the same, only marked (a static table)
 
 `python tools/vf1_patch_text.py` writes data/vf1_patch_strings.json (shipped beside the patcher), which
-patcher/vf1_translation_strings.py adds to the "Make a translation" template under the key source "patch".
+patcher/vf1_translation_strings.py adds to the "Make a translation" template under the key source "patch", and
+native/vf1tr/vf1tr_patch_formats.h. A line is a printf FORMAT ("format": true) when its TR(...) is the format
+argument of a printf call (swprintf(buffer, size, TR(L"..."), ...)): only its own conversions are placeholders, and
+vf1tr.dll hands vf1fun.dll a plain '%' of its translation as "%%" (translation_format.runtime_text).
 tests/test_patch_text_coverage.py fails when a literal a player can see is not marked, when the JSON is out of
 date, or when a DLL that shows no text starts calling a function that shows some.
 """
@@ -29,6 +32,10 @@ import translation_format as tfmt  # noqa: E402
 
 NATIVE = ROOT / "native"
 OUTPUT = ROOT / "data" / "vf1_patch_strings.json"
+FORMATS_H = ROOT / "native" / "vf1tr" / "vf1tr_patch_formats.h"
+# printf-like calls and the position of their format argument
+FORMAT_ARGUMENT = {"swprintf": 2, "_snwprintf": 2, "snprintf": 2, "_snprintf": 2, "swprintf_s": 2,
+                   "sprintf": 1, "wsprintfW": 1, "wsprintfA": 1}
 
 # The DLLs, and whether each one shows text to the player (Windows dialogs or the game's own drawing).
 DLLS = {
@@ -96,7 +103,13 @@ class Literal:
     marker: str = ""        # "TR", "TR_N", "TR_A", "TR_NA" or ""
     room: int = 0           # TA / NA: the most it may hold, in bytes
     call: str = ""          # the function the literal is an argument of, if any
+    argument: int = -1      # its position among that call's arguments (0 = the first)
     raw_context: str = field(default="", repr=False)
+
+    @property
+    def is_format(self) -> bool:
+        """The format argument of a printf call (marked TR: translated where it is used)."""
+        return self.marker == "TR" and FORMAT_ARGUMENT.get(self.call, -2) == self.argument
 
 
 _ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "\\": "\\", "'": "'", '"': '"', "0": "\0", "a": "\a", "?": "?"}
@@ -184,7 +197,13 @@ def _tokens(source: str):
 
 def _enclosing_call(code: str, start: int) -> str:
     """The name of the call whose argument list holds position `start`, if any (same statement)."""
+    return _call_and_argument(code, start)[0]
+
+
+def _call_and_argument(code: str, start: int) -> tuple[str, int]:
+    """(the call whose argument list holds position `start`, the argument's position in it), ("", -1) if none."""
     depth = 0
+    commas = 0
     i = start - 1
     while i >= 0:
         c = code[i]
@@ -194,14 +213,17 @@ def _enclosing_call(code: str, start: int) -> str:
             if depth == 0:
                 m = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*$", code[max(0, i - 80):i])
                 if m and m.group(1) in ("TR", "TR_N", "TR_A", "TR_NA"):   # the marker: the call around it
+                    commas = 0
                     i -= 1
                     continue
-                return m.group(1) if m else ""
+                return (m.group(1), commas) if m else ("", -1)
             depth -= 1
+        elif c == "," and depth == 0:
+            commas += 1
         elif c in ";{}" and depth == 0:
-            return ""
+            return "", -1
         i -= 1
-    return ""
+    return "", -1
 
 
 def literals(dll: str) -> list[Literal]:
@@ -221,8 +243,9 @@ def literals(dll: str) -> list[Literal]:
             if m:
                 marker = m.group(1) or m.group(2)
                 room = int(m.group(3) or 0)
+            call, argument = _call_and_argument(code, start)
             out.append(Literal(dll, path.relative_to(ROOT).as_posix(), source.count("\n", 0, start) + 1, text,
-                               kind == "wstr", marker, room, _enclosing_call(code, start), code[line_start:end]))
+                               kind == "wstr", marker, room, call, argument, code[line_start:end]))
     return out
 
 
@@ -285,9 +308,11 @@ def strings() -> list[dict]:
             if lit.text in seen:
                 seen[lit.text]["room"] = min(seen[lit.text]["room"], room)
                 seen[lit.text]["where"].append(f"{lit.path}:{lit.line}")
+                seen[lit.text]["format"] = seen[lit.text]["format"] or lit.is_format
                 continue
             seen[lit.text] = {"id": key_id(lit), "english": lit.text, "room": min(room, MAX_LINE),
-                              "drawn_by_game": lit.marker in ("TR_A", "TR_NA"), "where": [f"{lit.path}:{lit.line}"]}
+                              "drawn_by_game": lit.marker in ("TR_A", "TR_NA"), "format": lit.is_format,
+                              "where": [f"{lit.path}:{lit.line}"]}
     ids: dict[str, int] = {}
     for row in seen.values():                       # two different lines with the same first words
         n = ids.get(row["id"], 0)
@@ -302,6 +327,23 @@ def render() -> str:
     return json.dumps(data, indent=1, ensure_ascii=False) + "\n"
 
 
+def render_formats_h() -> str:
+    """native/vf1tr/vf1tr_patch_formats.h: the patch lines vf1fun.dll uses as a printf format, by the hash in their
+    key (the first 8 hex digits of the SHA-256 of the English): vf1tr.dll writes a plain '%' of their translation
+    as "%%"."""
+    hashes = sorted({tfmt.key_hash(row["english"]) for row in strings() if row["format"]})
+    body = "\n".join(f"    0x{h}u," for h in hashes)
+    return "\n".join([
+        "/* Written by tools/vf1_patch_text.py from native/; do not edit. */",
+        "#pragma once",
+        "/* The patches' lines vf1fun.dll hands swprintf as its FORMAT, by the hash in their key: a plain '%' of their",
+        "   translation is written as \"%%\" (translation_format.runtime_text). */",
+        f"#define VF1TR_PATCH_FORMAT_COUNT {len(hashes)}",
+        "static const unsigned int VF1TR_PATCH_FORMAT[] = {\n" + body + "\n    0u\n};",
+        "",
+    ])
+
+
 def main() -> int:
     problems = unmarked()
     for dll, shown in DLLS.items():
@@ -312,6 +354,7 @@ def main() -> int:
             print("not marked for translation:", p, file=sys.stderr)
         return 1
     OUTPUT.write_text(render(), encoding="utf-8", newline="\n")
+    FORMATS_H.write_text(render_formats_h(), encoding="utf-8", newline="\n")
     print(f"{OUTPUT.relative_to(ROOT)}: {len(strings())} lines")
     return 0
 
