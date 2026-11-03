@@ -258,7 +258,7 @@ def test_without_icu_the_built_in_table_wraps(dll, vanilla_dir, fonts, ratio):
     f = fonts.font("SegoeUiBold18")
     for text in UNICODE_TEXTS[:2] + UNICODE_TEXTS[4:]:
         data = vf1_text.encode(text)
-        got, blits = w.wrap(data, 160, limit=50_000_000)
+        got, blits = w.wrap(data, 160, limit=400_000_000)     # the first CJK text reads the word list once
         want, draws = lb.wrap(f, text, 0, 0, 160, ratio, use_icu=False)
         assert got == want and world_blits(blits) == model_blits(f, draws), text
         check_lines(f, text, draws, 160, use_icu=False)

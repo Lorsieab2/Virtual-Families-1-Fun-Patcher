@@ -509,6 +509,15 @@ them skips with its reason: CI checks the manifest, engine, GUI, release
 bundle and source-level tests, and the patched-executable, emulated-DLL and
 native-build tests are checked only by a local run with the vanilla copy.
 
+## Credits
+
+- **Word lists for line breaking** (Thai, Lao, Khmer, Burmese, Chinese and Japanese, used only when Windows has no
+  `icu.dll`): the ICU 77-1 dictionaries, shared by the owner's four Fun Patchers and shipped unchanged in
+  `Virtual Families 1 Patcher Files\Unicode Text\Word Lists` (or `Unicode Font\Word Lists`) with their licence, `ICU-LICENSE.txt` (Unicode License V3 and
+  third-party notices): ICU's Thai and Khmer dictionaries (IBM and others), the Lao word list by Brian Eugene Wilson
+  and Robert Martin Campbell, the Myanmar Karen Word Lists, and Libtabe (Chinese) and IPADIC (Japanese) as
+  combined by ICU.
+
 ## Related projects
 
 - [Virtual Families 2 Restoration/Addition Patcher](https://github.com/Lorsieab2/Virtual-Families-2-Restoration-Addition-Patcher)

@@ -624,6 +624,14 @@ The wrapper hook of the one name limit (0x409D70, whole names first) now ends in
    are drawn as one). A piece wider than the whole line is cut after the longest start of whole characters that
    fits (`EmergencyCut`), at least one character.
 
+**Word lists without ICU (`native/vf1text/wordlists.inc` = `vf1_line_break.dictionary_inside`).** On a Windows
+without `icu.dll`, Thai, Lao, Khmer, Burmese, Chinese and Japanese runs are cut into words by longest match with the
+shared ICU 77-1 word lists (unicode-audit `word-lists`, copied unchanged into `patcher/payload/WordLists` and
+installed in `Unicode Text\Word Lists` / `Unicode Font\Word Lists` with `ICU-LICENSE.txt`), and the built-in table
+may then break a line only between two words. A list is read the first time text of its script is wrapped (never
+when icu.dll is there); a missing list leaves the built-in table's breaks. `tests/test_word_lists.py` checks every
+file's SHA-256 and runs the real DLLs without icu.dll against the model.
+
 The patcher's `vf1_line_break.wrap(font, text, x, y, width, justify ratio, patched=...)` is the same algorithm over
 `vf1_game_fonts`' letters: `patched=False` is the stock code (the tests prove it against the stock code's own
 layout) and `patched=True` the DLL's.

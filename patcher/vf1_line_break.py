@@ -19,6 +19,7 @@ from __future__ import annotations
 import ctypes
 import struct
 import sys
+from pathlib import Path
 
 import vf1_text
 
@@ -139,6 +140,114 @@ def no_space_letter(cp: int, use_icu: bool = True) -> bool:
     return fallback_class(cp) == IDEOGRAPHIC
 
 
+# --------------------------------------------------------------------------- the shared word lists (wordlists.inc)
+# Without icu.dll, Thai, Lao, Khmer, Burmese, Chinese and Japanese runs are cut into words by longest match with the
+# shared ICU 77-1 word lists (payload/WordLists, unicode-audit/word-lists, copied unchanged; their SHA-256s are
+# checked by tests/test_word_lists.py), and a line breaks only between two words. Each list is read the first time
+# it is needed.
+WORD_LIST_DIR = Path(__file__).resolve().parent / "payload" / "WordLists"
+WORD_LIST_FILES = ("thaidict.txt", "laodict.txt", "khmerdict.txt", "burmesedict.txt", "cjdict.txt")
+THAI, LAO, KHMER, BURMESE, CJ = range(5)
+WORD_LIST_SHA256 = {
+    "thaidict.txt": "3166abde40c0f44ab91c28f5ce96d7d1472cb7882e1c0bda0a72f8f69dba4274",
+    "laodict.txt": "3c876934a3fa81031d2333525eafaca6a7c9f842e3b98f18c38880420afb5d36",
+    "khmerdict.txt": "87bee2d17cd5148aa36957eb05409eefc124de8ad519b81b789298ef3e60b5d9",
+    "burmesedict.txt": "61d8abc3d9102b2f9bf0c9f44db0d7ab89b18172d8cd26832e4c83174bd8673b",
+    "cjdict.txt": "e73fd72048981d0cc13e9dc436a7eaba07ffb6eff58c8a59dc75c1df746663a0",
+    "ICU-LICENSE.txt": "451167c55c0fa447cc2d5632714f5e3c567fe4f1e1badefab2c1333852198aca",
+}
+_word_lists: dict[int, tuple[frozenset, int] | None] = {}
+word_list_dir = WORD_LIST_DIR          # tests point this elsewhere
+
+
+def word_list_for(cp: int) -> int:
+    """Which list a letter's words are in, or -1 (wordlists.inc WordListFor)."""
+    if 0x0E00 <= cp <= 0x0E7F:
+        return THAI
+    if 0x0E80 <= cp <= 0x0EFF:
+        return LAO
+    if 0x1780 <= cp <= 0x17FF or 0x19E0 <= cp <= 0x19FF:
+        return KHMER
+    if 0x1000 <= cp <= 0x109F or 0xA9E0 <= cp <= 0xA9FF or 0xAA60 <= cp <= 0xAA7F:
+        return BURMESE
+    if ((0x3041 <= cp <= 0x30FF and cp != 0x30FB) or 0x31F0 <= cp <= 0x31FF or 0x3400 <= cp <= 0x4DBF
+            or 0x4E00 <= cp <= 0x9FFF or 0xF900 <= cp <= 0xFAFF or 0xFF66 <= cp <= 0xFF9F
+            or 0x20000 <= cp <= 0x3FFFF or cp == 0x3005):
+        return CJ
+    return -1
+
+
+def parse_word_list(data: bytes) -> tuple[frozenset, int]:
+    """(the words, the longest word's length in code points) of a list file, read as wordlists.inc reads it."""
+    if data.startswith(b"\xef\xbb\xbf"):
+        data = data[3:]
+    words = set()
+    for line in data.split(b"\n"):
+        end = len(line)
+        for stop in (b"\t", b" ", b"\r"):
+            at = line.find(stop)
+            if 0 <= at < end:
+                end = at
+        word = line[:end]
+        if word and not word.startswith(b"#"):
+            words.add(word.decode("utf-8", "surrogateescape"))
+    return frozenset(words), max((len(w) for w in words), default=0)
+
+
+def word_list(k: int) -> tuple[frozenset, int] | None:
+    if k not in _word_lists:
+        try:
+            _word_lists[k] = parse_word_list((Path(word_list_dir) / WORD_LIST_FILES[k]).read_bytes())
+        except OSError:
+            _word_lists[k] = None
+    return _word_lists[k]
+
+
+def dictionary_inside(text: str) -> set[int]:
+    """Code point indices a line must not break before because they lie inside a word of a list (wordlists.inc
+    DictionaryInside): in each run of letters of one list's script, the longest word starting at each place (ending
+    at a piece end), else one piece."""
+    starts, at = [], 0
+    for piece in vf1_text.clusters(text, draw=True):
+        starts.append(at)
+        at += len(piece)
+    n = len(text)
+    ends = {s: e for s, e in zip(starts, starts[1:] + [n])}
+    out: set[int] = set()
+    i = 0
+    while i < n:
+        k = word_list_for(ord(text[i]))
+        if k < 0:
+            i = ends[i]
+            continue
+        run_end = i
+        while run_end < n and word_list_for(ord(text[run_end])) == k:
+            run_end = ends[run_end]
+        lst = word_list(k)
+        if lst is None:
+            i = run_end
+            continue
+        words, longest = lst
+        p = i
+        while p < run_end:
+            best = 0
+            e = ends[p]
+            while e <= run_end:
+                if e - p > longest:
+                    break
+                if text[p:e] in words:
+                    best = e
+                if e == run_end:
+                    break
+                e = ends[e]
+            if not best:
+                best = ends[p]
+            out.update(range(p + 1, best))
+            p = best
+        i = run_end
+    return out
+
+
 def break_points(text: str, use_icu: bool = True) -> tuple[set[int], bool]:
     """(code point indices where a word may be cut, whether the text has a letter of a script written without
     spaces) -- wrap.inc BreaksFor."""
@@ -157,6 +266,7 @@ def break_points(text: str, use_icu: bool = True) -> tuple[set[int], bool]:
         for b in icu_boundaries(units):
             if b == 0 or b == n or unit_cp[b - 1] != unit_cp[b]:
                 allowed.add(unit_cp[b])
+    inside = dictionary_inside(text) if allowed is None else set()   # without ICU: the word lists' words
     out: set[int] = set()
     i, prev = 0, -1
     for cluster in vf1_text.clusters(text, draw=True):
@@ -166,6 +276,8 @@ def break_points(text: str, use_icu: bool = True) -> tuple[set[int], bool]:
                   and (no_space_letter(before, use_icu) or no_space_letter(after, use_icu) or last == 0x200B))
             if ok:
                 ok = (i in allowed) if allowed is not None else (last == 0x200B or fallback_may_break(before, after))
+            if ok and i in inside:
+                ok = False
             if ok:
                 out.add(i)
         prev = i

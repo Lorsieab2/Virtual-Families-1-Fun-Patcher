@@ -1,0 +1,2 @@
+# The shared ICU word lists are kept byte for byte (their SHA-256s are checked: tests/test_word_lists.py)
+patcher/payload/WordLists/** -text
