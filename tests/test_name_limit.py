@@ -1,5 +1,5 @@
-"""One character limit for every name box: patcher/vf1_text.NAME_LETTERS (300), the box buffer at the LDW engine's
-own cap (1,200 bytes), the short form in the save and the whole name in the save's Names file (patcher/vf1_names.py,
+"""One limit for every name box: patcher/vf1_text.NAME_BOX_BYTES (1,200 bytes as stored, the LDW engine's own cap, with
+NO separate character cap), the short form in the save and the whole name in the save's Names file (patcher/vf1_names.py,
 native/vf1text/names.inc).
 
 The game's side is proved with the REAL vf1text.dll and vf1font.dll on the REAL vanilla executable in Unicorn
@@ -23,8 +23,9 @@ pytest.importorskip("unicorn")
 
 VCVARS = Path(r"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars32.bat")
 UNICODE_KEY = 0x40000000
-LETTERS = vf1_text.NAME_LETTERS
 BOX = vf1_text.NAME_BOX_BYTES
+FOUR = BOX // 4          # the worst case: four-byte characters that fill a box exactly
+SAMPLE = 300             # the length of the sample names below (not a limit)
 
 # (SetEditable call site, the stock limit it passes, what the box is)
 NAME_BOXES = [
@@ -92,13 +93,16 @@ def names_in(w, slot):
 
 # --------------------------------------------------------------------------- the constant
 def test_the_limit_is_one_constant_in_one_place():
-    assert (LETTERS, BOX, vf1_text.NAME_MARK) == (300, 1200, "...")
-    assert vf1_names.NAME_LETTERS is LETTERS
+    assert (BOX, vf1_text.NAME_MARK) == (1200, "...")
+    assert not hasattr(vf1_text, "NAME_LETTERS") and not hasattr(vf1_names, "NAME_LETTERS"), "no character cap"
     r = subprocess.run(["python", str(ROOT / "scripts" / "build_vf1_text_tables.py"), "--check"], capture_output=True,
                        text=True)
     assert r.returncode == 0, r.stdout
     inc = (ROOT / "native" / "vf1text" / "extenders.inc").read_text(encoding="utf-8")
-    assert f"#define VF1_NAME_LETTERS {LETTERS} " in inc and f"#define VF1_NAME_BOX_BYTES {BOX} " in inc
+    assert f"#define VF1_NAME_BOX_BYTES {BOX} " in inc and "VF1_NAME_LETTERS" not in inc
+    for src in (ROOT / "native").rglob("*.*"):
+        if src.suffix in (".c", ".cpp", ".inc", ".h"):
+            assert "VF1_NAME_LETTERS" not in src.read_text(encoding="utf-8", errors="replace"), src.name
     # nothing else in the DLL sources spells the number
     for src in (ROOT / "native" / "vf1text").glob("*.*"):
         if src.name != "extenders.inc":
@@ -127,14 +131,14 @@ def test_every_name_box_takes_the_limit_and_refuses_one_more(dll, vanilla_dir, s
     assert w.e.r32(impl + 0x28) == BOX, what
     buf, size = w.news[-1]
     assert size == BOX + 1 and w.box_buffer(impl) == buf
-    w.type_text(impl, "a" * LETTERS)
-    assert w.box_bytes(impl) == b"a" * LETTERS
+    w.type_text(impl, "a" * BOX)
+    assert w.box_bytes(impl) == b"a" * BOX, "1,200 plain letters: no character cap before the byte cap"
     w.type_text(impl, "b")
-    assert w.box_bytes(impl) == b"a" * LETTERS, "the 301st character is refused"
+    assert w.box_bytes(impl) == b"a" * BOX, "the 1,201st byte is refused"
     # 300 four-byte characters fill the whole buffer exactly; the next one is refused
     ctl, impl = name_box(w, site, limit)
-    w.type_text(impl, "\U0001F600" * LETTERS)
-    assert w.box_bytes(impl) == ("\U0001F600" * LETTERS).encode()
+    w.type_text(impl, "\U0001F600" * FOUR)
+    assert w.box_bytes(impl) == ("\U0001F600" * FOUR).encode()
     w.press(impl, UNICODE_KEY | 0xE9)
     w.press(impl, ord("x"))
     assert len(w.box_bytes(impl)) == BOX
@@ -154,13 +158,16 @@ def test_the_byte_cap_stops_heavy_characters_first(world):
     assert w.guards_intact()
 
 
-def test_combining_marks_do_not_count_as_characters(world):
+def test_combining_marks_count_only_as_bytes(world):
+    """No character cap: a letter with marks goes in whole while its bytes fit, and the 1,201st byte is refused."""
     w = world
     ctl, impl = name_box(w)
-    w.type_text(impl, "a" * (LETTERS - 1) + "e\u0301\u0302")
-    assert w.box_bytes(impl).decode() == "a" * (LETTERS - 1) + "e\u0301\u0302"
+    w.type_text(impl, "a" * (BOX - 6) + "e\u0301\u0302")             # 2 + 2 + 2 more bytes: 1,200 exactly
+    assert w.box_bytes(impl).decode() == "a" * (BOX - 6) + "e\u0301\u0302" and len(w.box_bytes(impl)) == BOX - 1
     w.type_text(impl, "z")
-    assert vf1_text.char_count(w.box_bytes(impl).decode()) == LETTERS
+    assert len(w.box_bytes(impl)) == BOX
+    w.type_text(impl, "y")
+    assert len(w.box_bytes(impl)) == BOX and w.guards_intact()
 
 
 def test_backspace_removes_one_whole_character(world):
@@ -185,8 +192,8 @@ def test_other_boxes_keep_their_stock_limit(world, site, limit, what):
 
 # --------------------------------------------------------------------------- the game's copies
 LONG = "Alexandrina Maximiliana Theodora Wilhelmina " * 7          # 308 characters
-MEMBER = (LONG[:LETTERS - 1] + "Z")
-FULL = LONG[:LETTERS].strip()               # 299 characters
+MEMBER = (LONG[:SAMPLE - 1] + "Z")
+FULL = LONG[:SAMPLE].strip()               # 299 characters
 
 
 def member_text_cases():
@@ -194,8 +201,9 @@ def member_text_cases():
         ("fits exactly (18 bytes)", "a" * 18),
         ("one past the field (19 bytes)", "a" * 19),
         ("300 plain characters", MEMBER),
-        ("300 four-byte characters (1,200 bytes)", "\U0001F600" * LETTERS),
-        ("300 accented characters", "\u00e9" * LETTERS),
+        ("300 four-byte characters (1,200 bytes)", "\U0001F600" * FOUR),
+        ("300 accented characters", "\u00e9" * SAMPLE),
+        ("1,200 plain characters (the byte cap)", "a" * BOX),
     ]
 
 
@@ -285,7 +293,8 @@ def test_renaming_a_member_stores_the_short_form(world, start, stop, label, name
 
 
 FAMILY_CASES = [("fits exactly (19 bytes)", "b" * 19), ("one past the field (20 bytes)", "b" * 20),
-                ("300 characters", LONG[:LETTERS]), ("1,200 bytes", "\U0001F600" * LETTERS)]
+                ("300 characters", LONG[:SAMPLE]), ("1,200 bytes", "\U0001F600" * FOUR),
+                ("1,200 plain characters", "a" * BOX)]
 
 
 @pytest.mark.parametrize("label,name", FAMILY_CASES)
@@ -701,9 +710,10 @@ def test_names_file_round_trip(tmp_path):
 
 
 def test_name_problem():
-    assert vf1_names.name_problem("a" * LETTERS) is None
-    assert "300" in vf1_names.name_problem("a" * (LETTERS + 1))
-    assert vf1_names.name_problem("\U0001F600" * LETTERS) is None
+    assert vf1_names.name_problem("a" * BOX) is None, "1,200 plain letters: no character cap"
+    assert "1,200" in vf1_names.name_problem("a" * (BOX + 1))
+    assert vf1_names.name_problem("\U0001F600" * FOUR) is None
+    assert "1,200" in vf1_names.name_problem("\U0001F600" * (FOUR + 1))
     assert "1,200" in vf1_names.name_problem("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 67)
     assert vf1_names.name_problem("a\tb") is not None
     assert vf1_names.name_problem("") is not None

@@ -702,7 +702,7 @@ def _keys() -> list[Fact]:
         Fact(g, with_patcher("CopyPasteInTextBoxes", "patcher keys, only while one of the game's own text boxes has "
                              "the typing cursor: Ctrl+V or Shift+Insert pastes the clipboard's text at the end of the "
                              "box (a line break or tab becomes a space; other control characters are dropped; it is "
-                             "cut, between whole characters, at the box's limit: a name box's 300 characters with a "
+                             "cut, between whole characters, at the box's limit: a name box's 1,200 bytes with a "
                              "Unicode setting on, else the box's own length and only the letters the game's fonts "
                              "have); Ctrl+C or Ctrl+Insert copies the box's whole text, a long name whole; Ctrl+X "
                              "copies it and empties the box. Anywhere else these keys reach the game exactly as in "

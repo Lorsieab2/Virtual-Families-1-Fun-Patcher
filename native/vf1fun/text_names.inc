@@ -66,11 +66,10 @@ static const wchar_t *NameW(const char *bytes, int cap = 64) {
     return out;
 }
 
-// `name` as UTF-8 in at most `room` bytes (plus a NUL) and VF1_NAME_LETTERS characters, cut only between whole
-// characters (vf1_text.cut_to_bytes).
+// `name` as UTF-8 in at most `room` bytes (plus a NUL), cut only between whole characters (vf1_text.cut_to_bytes).
 static int FitNameUtf8(const wchar_t *name, char *out, int room) {
     static unsigned cps[VF1_NAME_BOX_BYTES + 8];
-    int n = 0, letters = 0;
+    int n = 0;
     for (int i = 0; name && name[i] && n < VF1_NAME_BOX_BYTES + 8; ++i) {
         unsigned c = name[i];
         if (c >= 0xD800 && c <= 0xDBFF && name[i + 1] >= 0xDC00 && name[i + 1] <= 0xDFFF) {
@@ -105,10 +104,9 @@ static int FitNameUtf8(const wchar_t *name, char *out, int room) {
                 piece[bytes++] = (char)(0x80 | ((c >> 6) & 0x3F)); piece[bytes++] = (char)(0x80 | (c & 0x3F));
             }
         }
-        if (used + bytes > room || letters == VF1_NAME_LETTERS) break;
+        if (used + bytes > room) break;
         memcpy(out + used, piece, bytes);
         used += bytes;
-        ++letters;
         i = j;
     }
     out[used] = 0;

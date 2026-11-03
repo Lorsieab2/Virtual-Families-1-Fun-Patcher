@@ -1,6 +1,6 @@
 """Names longer than their save field: the short form in the save, the whole name in the save's Names file.
 
-Every name box takes up to ``vf1_text.NAME_LETTERS`` characters (300; see vf1_text for why), but the save keeps
+Every name box takes up to ``vf1_text.NAME_BOX_BYTES`` bytes (1,200; see vf1_text for why), but the save keeps
 each name in a fixed field: the family name 19 bytes (theGameState+0x1B12C, GetText(.., 0x14) at 0x41C72B), the
 slot menu's names 20, a family member's name 18 as typed (GetText(.., 0x13) at 0x43682A, 0x43829D, 0x44BCE1,
 0x44BDDE) in a 25-byte field. The save format is never changed, so:
@@ -30,7 +30,6 @@ from pathlib import Path
 
 import vf1_text
 
-NAME_LETTERS = vf1_text.NAME_LETTERS
 NAME_BOX_BYTES = vf1_text.NAME_BOX_BYTES
 MARK = vf1_text.NAME_MARK
 FOLDER = "Names"
@@ -53,8 +52,8 @@ def names_path(folder: Path, slot: int) -> Path:
 
 
 def name_problem(full: str) -> str | None:
-    """Why ``full`` cannot be a name (None when it can): 1..NAME_LETTERS characters, at most NAME_BOX_BYTES bytes,
-    no control characters."""
+    """Why ``full`` cannot be a name (None when it can): at least one character, at most NAME_BOX_BYTES bytes (there
+    is no separate character cap), no control characters."""
     if not full:
         return "A name needs at least one character."
     for ch in full:
@@ -63,10 +62,8 @@ def name_problem(full: str) -> str | None:
             return "A name cannot hold control characters (tabs, line breaks)."
         if 0xD800 <= cp <= 0xDFFF:
             return "A name cannot hold a lone surrogate."
-    if vf1_text.char_count(full) > NAME_LETTERS:
-        return f"A name can be at most {NAME_LETTERS} characters."
     if len(full.encode("utf-8")) > NAME_BOX_BYTES:
-        return (f"A name can be at most {NAME_BOX_BYTES:,} bytes of UTF-8 (this one is "
+        return (f"A name is too long: at most {NAME_BOX_BYTES:,} bytes (this one is "
                 f"{len(full.encode('utf-8')):,}); some characters, such as joined emoji, take many bytes.")
     return None
 
