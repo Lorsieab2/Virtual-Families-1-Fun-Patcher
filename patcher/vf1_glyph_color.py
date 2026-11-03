@@ -7,15 +7,18 @@ vf1_emoji.is_colour_emoji) is drawn here instead, in colour, exactly as vf1text.
 game (native/vf1text/glyph_color.inc is the same steps in C, and tests/test_colour_emoji.py runs the DLL's own copy
 through 32-bit rundll32 and compares every pixel):
 
-1. DirectWrite lays the character out in Segoe UI Emoji at the font's weight and em size (CreateTextFormat,
-   CreateTextLayout, no wrapping); a joined sequence, a skin tone and a keycap come out as the one picture the font
-   has for them (flags: Segoe UI Emoji has no flag pictures and shows the two letters, as everywhere in Windows);
+1. DirectWrite lays the character out in its colour face (vf1_glyph_gdi.Renderer.colour_face_for: an emoji's first
+   colour font of the chain, Segoe UI Emoji then Noto Color Emoji; any other letter whose chain face is a colour
+   font) at the regular weight and the font's em (CreateTextFormat, CreateTextLayout, no wrapping); a joined
+   sequence, a skin tone and a keycap come out as the one picture the font has for them;
 2. Direct2D draws it with D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT and grayscale anti-aliasing on a software DC
    render target bound to a 32-bit top-down DIB of the cell's height, transparent, the layout's baseline on the
    font's baseline row (y = baseline - the line's baseline) and x = pad;
 3. the box: from min(pad, first inked column) to max(pad + advance, last inked column + 1), the advance being the
    layout's width rounded to the nearest pixel (the same rule as the black-and-white letters);
-4. the pixels, premultiplied by Direct2D, are made straight (colour x 255 / alpha, rounded).
+4. the pixels, premultiplied by Direct2D, are made straight (colour x 255 / alpha, rounded); a drawing with no
+   colour (has_colour: a flag's two letters, which Segoe UI Emoji has no pictures for) is not kept, and GDI draws
+   it, tinted as any letter.
 
 The picture keeps its own colours: the game's tint (its colour ANDed with every pixel) is not applied to it, as
 Windows does not recolour emoji; a see-through colour still makes it see-through. Without DirectWrite (or without
@@ -142,7 +145,7 @@ def factories():
 
 def draw(text: str, weight: int, em: int, baseline: int, height: int, face: str = EMOJI_FACE) -> pi.Image | None:
     """`text` (one whole character) in colour, the cell's height high: straight RGBA pixels, or None when Windows
-    cannot draw it in colour (no DirectWrite, or no such face)."""
+    cannot draw it in colour (no DirectWrite, no such face, or a drawing with no colour: has_colour)."""
     made = factories()
     if made is None:
         return None
@@ -205,7 +208,21 @@ def draw(text: str, weight: int, em: int, baseline: int, height: int, face: str 
             gdi32.DeleteObject(bmp)
         if dc:
             gdi32.DeleteDC(dc)
+    if not has_colour(raw):
+        return None
     return _boxed(raw, width, height, pad, advance)
+
+
+def has_colour(raw: bytes) -> bool:
+    """Whether a premultiplied B, G, R, A drawing has colour (Fish and Plant Tycoon's raster_colour, and the DLLs: the
+    same test): white ink has B = G = R = A, so some pixel at least 16 opaque with a channel 16 below its alpha is the
+    font's own colour. A letter a colour font draws only in the brush's white (a flag's two letters) has none, and is
+    drawn by GDI instead, tinted by the game's colour as any letter."""
+    for i in range(0, len(raw), 4):
+        a = raw[i + 3]
+        if a >= 16 and (raw[i] + 16 < a or raw[i + 1] + 16 < a or raw[i + 2] + 16 < a):
+            return True
+    return False
 
 
 def _boxed(raw: bytes, width: int, height: int, pad: int, advance: int) -> pi.Image:

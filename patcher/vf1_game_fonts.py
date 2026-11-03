@@ -354,11 +354,14 @@ class GameFont:
         if self.colour_emoji and vf1_emoji.is_colour_emoji(letter):
             # a colour emoji, before the patcher-made and the game's letters (the DLL's LetterFor: the same); when
             # Windows cannot draw it in colour, Windows' black-and-white letter, as before
-            made = self._colour(letter) or self._runtime(letter)
+            made = self._colour(letter, True) or self._runtime(letter)
         if made is None and self.glyphs is not None and self.override is None:
             image = self.glyphs.letter(letter, self.height)
             if image is not None:
                 made = Glyph(image, image.width, "patcher-made")
+        if made is None and self.colour_emoji:
+            # a letter whose chain face is a colour font (the DLL's MakeLetter: MakeColourLetter first)
+            made = self._colour(letter, False)
         if made is None:
             made = self._runtime(letter)
         self._made[letter] = made
@@ -366,18 +369,27 @@ class GameFont:
 
     colour_emoji: bool = True      # emoji as colour pictures (settings.ini [UnicodeText] ColourEmoji=0 turns it off)
 
-    def _colour(self, letter: str) -> Glyph | None:
-        """The colour picture of an emoji (vf1_glyph_color), at the font's em (Use Unicode Font: the fitted em) and
-        baseline, or None when Windows cannot draw it in colour."""
+    def _colour(self, letter: str, emoji: bool) -> Glyph | None:
+        """The colour picture of `letter` (vf1_glyph_color), from vf1_glyph_gdi.Renderer.colour_face_for's face, at
+        the font's em (Use Unicode Font: the fitted em) and baseline, or None when there is no colour face or Windows
+        cannot draw it in colour."""
         s = self.style
         if s is None:
             return None
         import vf1_glyph_color
+        import vf1_glyph_gdi
+        r = self.renderer()
+        if r is not None:
+            face = r.colour_face_for(letter, emoji)
+        else:
+            face = vf1_glyph_gdi.COLOUR_EMOJI_FACE if emoji else None
+        if face is None:
+            return None
         em = self.override[1] if self.override is not None else s.em
-        image = vf1_glyph_color.draw(letter, vf1_glyph_color.EMOJI_WEIGHT, em, s.baseline, self.height)
+        image = vf1_glyph_color.draw(letter, vf1_glyph_color.EMOJI_WEIGHT, em, s.baseline, self.height, face)
         if image is None or image.width == 0:
             return None
-        return Glyph(image, image.width, "colour emoji", vf1_glyph_color.EMOJI_FACE, colour=True)
+        return Glyph(image, image.width, "colour emoji", face, colour=True)
 
     def _runtime(self, letter: str) -> Glyph:
         import vf1_glyph_gdi

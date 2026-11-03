@@ -4,11 +4,14 @@
 // real Direct2D).
 //
 // GDI draws in one colour. A whole character that is an emoji shown as a picture (emoji.inc, IsColourEmoji: the
-// same rule as patcher/vf1_emoji.is_colour_emoji) is laid out by DirectWrite in Segoe UI Emoji (regular weight: a
-// picture is never emboldened) at the font's em, and drawn by Direct2D with D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
+// same rule as patcher/vf1_emoji.is_colour_emoji), or any character whose chain face is a colour font (COLR, CBDT,
+// sbix or SVG: ColourFace, the shared Unicode spec's rule and Fish and Plant Tycoon's), is laid out by DirectWrite in
+// that face (an emoji: the first colour font of the chain that has it, Segoe UI Emoji, then Noto Color Emoji; regular
+// weight: a picture is never emboldened) at the font's em, and drawn by Direct2D with D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT
 // and grayscale anti-aliasing on a software DC render target bound to a 32-bit DIB the cell's height high: the
 // layout's baseline on the font's baseline row, x = pad. Its box is the black-and-white letters' rule; its pixels
-// are made straight (colour x 255 / alpha). It is kept on a colour page of the font that the game's tint never
+// are made straight (colour x 255 / alpha). It is kept only when it has colour (a flag's two letters, drawn in the
+// brush's white, go to GDI and are tinted as any letter). It is kept on a colour page of the font that the game's tint never
 // touches (Windows does not recolour emoji); a see-through colour still makes it see-through. Without Direct2D,
 // DirectWrite or Segoe UI Emoji, or with settings.ini [UnicodeText] ColourEmoji=0, the character is drawn by GDI in
 // black and white, as before.
@@ -161,7 +164,12 @@ extern "C" __declspec(dllexport) __declspec(noinline) int __cdecl VF1Text_Colour
         Target->DrawTextLayout(origin, layout, Brush, D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
         if (FAILED(Target->EndDraw())) break;
         GdiFlush();
-        ok = 1;
+        // kept only when the drawing has colour (FP's raster_colour: white ink has B = G = R = A; any other colour is
+        // the font's): a letter a colour font draws in the brush's one colour (a flag's two letters) is drawn by
+        // GDI instead, so the game's colour tints it as any letter
+        for (int i = 0; i < width * height * 4 && !ok; i += 4)
+            if (px[i + 3] >= 16 && (px[i] + 16 < px[i + 3] || px[i + 1] + 16 < px[i + 3] || px[i + 2] + 16 < px[i + 3]))
+                ok = 1;
         break;
     }
     if (ok) {
@@ -237,9 +245,24 @@ static Extra *PlaceColourLetter(FontExtra *f, const unsigned char *rows, int w, 
     return e;
 }
 
-// A colour emoji on a colour page, or 0 (the caller then draws it black and white as before).
+// The face a whole character is drawn in colour from (patcher/vf1_glyph_gdi.Renderer.colour_face_for: the same), or
+// 0: an emoji (IsColourEmoji) from the first face of the chain that is a colour font and has it (Segoe UI Emoji, then
+// Noto Color Emoji when installed), else Segoe UI Emoji; any other character from the face the chain picks for it
+// when that face is a colour font (COLR, CBDT, sbix or SVG), as Fish and Plant Tycoon's DLL does.
+static const wchar_t *ColourFace(const Style &s, const unsigned *cps, int n) {
+    if (IsColourEmoji(cps, n)) {
+        GdiFace *g = ChooseFace(s, cps, n, true);
+        return g ? g->face : EmojiFace;
+    }
+    GdiFace *g = ChooseFace(s, cps, n);
+    return g && g->colour ? g->face : 0;
+}
+
+// A colour picture on a colour page, or 0 (the caller then draws it black and white as before).
 static Extra *MakeColourLetter(FontExtra *f, const unsigned *cps, int n, const unsigned char *key, unsigned keyLen) {
-    if (!WantColour() || !IsColourEmoji(cps, n)) return 0;
+    if (!WantColour()) return 0;
+    const wchar_t *face = ColourFace(f->style, cps, n);
+    if (!face) return 0;
     wchar_t text[64];
     int units = 0;
     for (int i = 0; i < n && units < 60; ++i) {
@@ -250,7 +273,7 @@ static Extra *MakeColourLetter(FontExtra *f, const unsigned *cps, int n, const u
     text[units] = 0;
     unsigned char *rows = 0;
     int w = 0;
-    if (!VF1Text_ColourLetter(EmojiFace, 400, f->style.em, f->style.baseline, f->height, text, units, &rows, &w) || !rows)
+    if (!VF1Text_ColourLetter(face, 400, f->style.em, f->style.baseline, f->height, text, units, &rows, &w) || !rows)
         return 0;
     Extra *e = w > 0 ? PlaceColourLetter(f, rows, w, key, keyLen) : 0;
     Free(rows);

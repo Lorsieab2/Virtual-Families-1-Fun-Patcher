@@ -29,17 +29,20 @@ from functools import lru_cache
 import vf1_picture_image as pi
 import vf1_text
 
-# The fallback chain after the font's own face (the owner's order, 2026-11-01), then other Windows script
-# fonts, then Noto when installed.
+# The fallback chain after the font's own face: the shared Unicode spec's chain (row 3; the owner's order of
+# 2026-11-01 extended to the union of the four patchers' chains), Noto last; a face not installed is skipped.
 FALLBACK_FACES = (
     "Segoe UI Historic", "Segoe UI Symbol", "Segoe UI Emoji",
-    "Yu Gothic", "Microsoft YaHei", "Malgun Gothic",
-    "Nirmala UI", "Ebrima",
-    "Microsoft JhengHei", "Leelawadee UI", "Gadugi", "Myanmar Text", "Javanese Text", "Mongolian Baiti",
+    "Yu Gothic", "Meiryo", "Microsoft YaHei", "Microsoft JhengHei", "Malgun Gothic", "SimSun-ExtB",
+    "Nirmala UI", "Ebrima", "Gadugi", "Leelawadee UI", "Myanmar Text", "Javanese Text", "Mongolian Baiti",
     "Microsoft Himalaya", "Microsoft Yi Baiti", "Microsoft New Tai Lue", "Microsoft Tai Le",
     "Microsoft PhagsPa", "Sylfaen", "Cambria Math",
-    "Noto Sans", "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans CJK JP", "Noto Sans Math",
+    "Noto Sans", "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans CJK JP", "Noto Sans CJK SC",
+    "Noto Sans Math", "Noto Sans Cuneiform", "Noto Color Emoji",
 )
+# A colour font has one of these tables (GetFontData tags): COLR, CBDT, sbix, "SVG ".
+COLOUR_TABLES = (0x524C4F43, 0x54444243, 0x78696273, 0x20475653)
+COLOUR_EMOJI_FACE = "Segoe UI Emoji"     # an emoji no colour font of the chain has: DirectWrite's own fallback
 PAD_FACTOR = 1          # the drawing starts `height` pixels in, so overhangs on either side are kept
 
 
@@ -172,6 +175,7 @@ class _Face:
     def __init__(self, dc, face: str, em: int, weight: int):
         self.font = gdi32.CreateFontW(-em, 0, 0, 0, weight, 0, 0, 0, 1, 7, 0, 4, 0, face)
         self.ok = False
+        self.colour = False      # a colour font (COLOUR_TABLES): vf1_glyph_color draws its letters in colour
         self.covers = lambda cp: False
         if not self.font:
             return
@@ -185,6 +189,7 @@ class _Face:
                 if gdi32.GetFontData(dc, CMAP_TAG, 0, data, size) == size:
                     self.covers = cmap_covers(data.raw)
                     self.ok = True
+            self.colour = any(gdi32.GetFontData(dc, tag, 0, None, 0) != 0xFFFFFFFF for tag in COLOUR_TABLES)
         gdi32.SelectObject(dc, old)
 
 
@@ -216,6 +221,23 @@ class Renderer:
             if face.ok and all(face.covers(cp) for cp in needed):
                 return name
         return None
+
+    def colour_face_for(self, letter: str, emoji: bool) -> str | None:
+        """The face `letter` is drawn in colour from (vf1_glyph_color), or None (vf1text.dll's ColourFace: the same).
+        An emoji (vf1_emoji.is_colour_emoji): the first face of the chain that is a colour font and has it (Segoe UI
+        Emoji, then Noto Color Emoji when installed), else Segoe UI Emoji. Any other letter: the face the chain picks
+        for it when that face is a colour font (COLR, CBDT, sbix or SVG), as Fish and Plant Tycoon's DLL does."""
+        if not AVAILABLE:
+            return COLOUR_EMOJI_FACE if emoji else None
+        if emoji:
+            needed = [ord(c) for c in letter if not not_needed(ord(c))]
+            for name in self.faces:
+                face = self._face(name)
+                if face.ok and face.colour and all(face.covers(cp) for cp in needed):
+                    return name
+            return COLOUR_EMOJI_FACE
+        name = self.face_for(letter)
+        return name if name is not None and self._face(name).colour else None
 
     def draw(self, letter: str) -> tuple[pi.Image, str]:
         """(white letter with coverage alpha, the face's name or "" for the missing-letter box)."""

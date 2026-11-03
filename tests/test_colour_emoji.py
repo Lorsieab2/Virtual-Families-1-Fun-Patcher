@@ -108,14 +108,19 @@ def test_the_dll_draws_each_emoji_as_the_patcher_does(dll, tmp_path, font):
     theirs = dll_colours(dll, tmp_path, gc.EMOJI_FACE, 400, style.em, style.baseline, height, EMOJI)
     for letter, (w, h, drawn, rows) in zip(EMOJI, theirs):
         image = gc.draw(letter, 400, style.em, style.baseline, height)
+        if letter == EMOJI[3]:
+            # a country flag: Segoe UI Emoji has no flag pictures and draws the two letters in the brush's white,
+            # which has no colour, so neither side keeps it (GDI draws it, tinted, as the Virtual Villagers patcher)
+            assert image is None and (w, drawn, rows) == (0, 0, b""), letter
+            continue
         assert image is not None, letter
         assert (w, h, drawn) == (image.width, image.height, 1), letter
         assert rows == bytes(image.data), letter                   # every R, G, B, A byte
-        # a picture, in colour: not every inked pixel is grey (a flag is its two white letters, as everywhere in
-        # Windows: Segoe UI Emoji has no flag pictures)
+        # a picture, in colour: not every inked pixel is white (the Scotland tag flag is the font's black flag)
         inked = [image.data[i:i + 3] for i in range(0, len(image.data), 4) if image.data[i + 3]]
         assert inked, letter
-        if letter not in (EMOJI[3], EMOJI[7]):
+        assert any(px != b"\xff\xff\xff" for px in inked), letter
+        if letter != EMOJI[7]:
             assert any(len(set(px)) > 1 for px in inked), letter
         assert image.width > 0 and image.width <= height * 3
 
@@ -160,6 +165,9 @@ def test_the_patchers_fonts_draw_emoji_in_colour_untinted(vanilla_dir):
         f = fonts.font(font)
         for letter in EMOJI:
             glyph = f.glyph(letter)
+            if letter == EMOJI[3]:      # a country flag: its two letters, by GDI, tinted as any letter
+                assert glyph.kind == "drawn by Windows" and not glyph.colour, (font, letter)
+                continue
             assert glyph.kind == "colour emoji" and glyph.colour and glyph.face == gc.EMOJI_FACE, (font, letter)
         assert f.glyph("❤").kind != "colour emoji"
         # the tint leaves the picture's colours alone; a see-through colour still thins it
@@ -251,6 +259,60 @@ def test_the_wrapper_and_the_counted_draw_use_the_same_pictures(world, vanilla_d
     for piece, x, y in draws:
         layout += f.layout(piece, x, y)
     same_pixels(world, blits, layout)
+
+
+NEWER_EMOJI = "\U0001fa89"      # harp (Unicode 16): not in the 15.1 table, but Segoe UI Emoji has it
+
+
+def test_a_country_flag_takes_the_text_colour(world):
+    """A flag's two letters have no colour of their own (Segoe UI Emoji has no flag pictures), so they are drawn by
+    GDI on the tinted pages, in the text's colour, as any letter (FP's raster_colour; VV shows them as letters)."""
+    blits = world.draw(vf1_text.encode(EMOJI[3]), "SegoeUiBold18", colour=0xFF0000FF)       # red
+    assert blits
+    import vf1_picture_image as pi
+    for kind, surface, box, _ in blits:
+        info = world.surfaces[surface]
+        piece = pi.Image(info["w"], info["h"], world.surface_pixels(surface)).sub(*box)
+        inked = [piece.data[i:i + 3] for i in range(0, len(piece.data), 4) if piece.data[i + 3]]
+        assert inked and all(px == b"\xff\x00\x00" for px in inked)
+
+
+@pytest.mark.parametrize("font", ["SegoeUiBold18", "SegoeUi33"])
+def test_any_letter_from_a_colour_font_is_in_colour(world, vanilla_dir, font):
+    """FP's rule, the shared spec's: a letter whose chain face is a colour font is drawn in its own colours even when
+    the emoji table does not list it (a newer emoji), in the game as in the tool, untinted."""
+    import vf1_emoji
+    assert not vf1_emoji.is_colour_emoji(NEWER_EMOJI)
+    f = gf.Fonts(vanilla_dir).font(font)
+    glyph = f.glyph(NEWER_EMOJI)
+    assert glyph.kind == "colour emoji" and glyph.colour and glyph.face == gc.EMOJI_FACE
+    name = "Mia " + NEWER_EMOJI
+    for colour in (0xFFFFFFFF, 0xFF2040C0):
+        same_pixels(world, world.draw(vf1_text.encode(name), font, colour=colour), f.layout(name))
+    assert any(c[5] == NEWER_EMOJI for c in world.colour_calls)
+
+
+def test_the_colour_test_is_fps():
+    white = bytes((200, 200, 200, 200)) * 4                     # premultiplied white ink
+    assert not gc.has_colour(white)
+    assert not gc.has_colour(bytes((0, 0, 0, 15)))              # too faint to count
+    assert gc.has_colour(white + bytes((0, 0, 0, 255)))          # black: the font's own colour
+    assert gc.has_colour(bytes((10, 120, 200, 200)))
+
+
+def test_the_fallback_chain_is_the_shared_spec_in_both():
+    import re
+    spec = ("Segoe UI Historic", "Segoe UI Symbol", "Segoe UI Emoji", "Yu Gothic", "Meiryo", "Microsoft YaHei",
+            "Microsoft JhengHei", "Malgun Gothic", "SimSun-ExtB", "Nirmala UI", "Ebrima", "Gadugi", "Leelawadee UI",
+            "Myanmar Text", "Javanese Text", "Mongolian Baiti", "Microsoft Himalaya", "Microsoft Yi Baiti",
+            "Microsoft New Tai Lue", "Microsoft Tai Le", "Microsoft PhagsPa", "Sylfaen", "Cambria Math", "Noto Sans",
+            "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans CJK JP", "Noto Sans CJK SC", "Noto Sans Math",
+            "Noto Sans Cuneiform", "Noto Color Emoji")
+    src = (ROOT / "native" / "vf1text" / "glyph_gdi.inc").read_text(encoding="utf-8")
+    table = src[src.index("FallbackFaces[] = {"):]
+    table = table[:table.index("};")]
+    assert tuple(re.findall(r'L"([^"]+)"', table)) == g.FALLBACK_FACES == spec
+    assert g.UNICODE_FONT_FALLBACKS == ("Segoe UI",) + spec
 
 
 def test_switched_off_in_settings_ini_the_emoji_are_black_and_white(dll, vanilla_dir):

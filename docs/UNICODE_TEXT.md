@@ -94,11 +94,14 @@ same AND tint, the same advance):
    letters, Latin Extended-A and -B, IPA, Greek and Greek Extended, Cyrillic, Vietnamese, punctuation, currency,
    letter-like symbols, number forms, arrows, maths, shapes, symbols and dingbats);
 3. a letter Windows draws on the spot in the font's style, kept for the session (16 pages of 1024 x 16 bands per
-   font): the first face of Segoe UI, Segoe UI Historic, Segoe UI Symbol, Segoe UI Emoji, Yu Gothic, Microsoft
-   YaHei, Malgun Gothic, Nirmala UI, Ebrima, Microsoft JhengHei, Leelawadee UI, Gadugi, Myanmar Text, Javanese
-   Text, Mongolian Baiti, Microsoft Himalaya, Microsoft Yi Baiti, Microsoft New Tai Lue, Microsoft Tai Le,
-   Microsoft PhagsPa, Sylfaen, Cambria Math, Noto Sans (and Symbols, Symbols 2, CJK JP, Math) whose character map
-   has every character of it;
+   font): the first face of the shared Unicode spec's chain (2026-11-03) whose character map has every character
+   of it: Segoe UI, Segoe UI Historic, Segoe UI Symbol, Segoe UI Emoji, Yu Gothic, Meiryo, Microsoft YaHei,
+   Microsoft JhengHei, Malgun Gothic, SimSun-ExtB, Nirmala UI, Ebrima, Gadugi, Leelawadee UI, Myanmar Text,
+   Javanese Text, Mongolian Baiti, Microsoft Himalaya, Microsoft Yi Baiti, Microsoft New Tai Lue, Microsoft Tai Le,
+   Microsoft PhagsPa, Sylfaen, Cambria Math, Noto Sans, Noto Sans Symbols, Noto Sans Symbols 2, Noto Sans CJK JP,
+   Noto Sans CJK SC, Noto Sans Math, Noto Sans Cuneiform, Noto Color Emoji (a face not installed is skipped;
+   `FallbackFaces[]` = `vf1_glyph_gdi.FALLBACK_FACES`); when that face is a colour font, the letter is drawn in
+   colour ("Colour emoji" below);
 4. else the missing-letter box.
 A letter with combining marks is first composed (NormalizeString C); one that does not compose is drawn whole.
 
@@ -627,7 +630,9 @@ layout) and `patched=True` the DLL's.
 
 > **Emoji in colour.** With Render Unicode with In-Game Fonts or Use Unicode Font on, an emoji in a name or a
 > sentence is drawn as the colour picture Windows shows for it (Segoe UI Emoji): a skin tone, a joined family (👨‍👩‍👧)
-> or a keycap (1️⃣) is one picture; a flag shows as its two letters, as everywhere in Windows. The picture is the
+> or a keycap (1️⃣) is one picture, and any letter from a colour font (Noto Color Emoji when installed, an emoji
+> newer than the patcher's list) is in its own colours too; a country flag shows as its two letters in the text's
+> colour, as everywhere in Windows. The picture is the
 > text's size, sits on its baseline and keeps its own colours whatever colour the text is drawn in (a see-through
 > colour still makes it see-through). The Game Text tool previews the same pictures. Add `ColourEmoji=0` under
 > `[UnicodeText]` in `Virtual Families 1 Patcher Files\settings.ini` to have emoji black and white as before, which
@@ -650,15 +655,34 @@ letters. `EMOJI_PRESENTATION_RANGES` is Unicode 15.1's property read from Window
 `scripts/build_vf1_text_tables.py` writes `emoji.inc` from it (`tests/test_vf1_text.py` checks it is up to date,
 `tests/test_colour_emoji.py` that it equals ICU's answer).
 
+### The face, and any letter of a colour font (the shared Unicode spec, row 3; Fish and Plant Tycoon's rule)
+
+`ColourFace` (glyph_color.inc) = `vf1_glyph_gdi.Renderer.colour_face_for`:
+
+* a colour emoji (the rule above) is drawn from the first face of the chain that is a colour font and has every
+  character of it: Segoe UI Emoji, then Noto Color Emoji when installed (a CBDT font); if none has it, Segoe UI
+  Emoji (DirectWrite's own fallback then finds a face);
+* any other character is drawn in colour when the face the chain picks for it is a colour font: a face with a COLR,
+  CBDT, sbix or SVG table (`GdiFace.colour` / `_Face.colour`, from `GetFontData`). So an emoji newer than the
+  Unicode 15.1 list that Segoe UI Emoji already has (for example U+1FA89 harp, Unicode 16) is a colour picture,
+  and with Use Unicode Font set to a colour font its coloured letters keep their colours.
+
+Either way the drawing is **kept only when it has colour**, Fish and Plant Tycoon's `raster_colour` test: some pixel
+at least 16 opaque with a premultiplied B, G or R 16 below its alpha (white ink from the brush has B = G = R = A;
+black, as in 🖤 or the black flag, counts as a colour). A letter a colour font draws only in the brush's white, a
+country flag's two letters, is drawn by GDI instead and tinted by the game's colour as any letter.
+
 ### How a picture is made (`native/vf1text/glyph_color.inc` = `patcher/vf1_glyph_color.py`, both DLLs)
 
-`VF1Text_ColourLetter(face, weight, em, baseline, height, text)`: DirectWrite lays the character out in Segoe UI
-Emoji at the font's em (Use Unicode Font: the fitted em) and the regular weight (a picture is never emboldened),
+`VF1Text_ColourLetter(face, weight, em, baseline, height, text)`: DirectWrite lays the character out in that face
+at the font's em (Use Unicode Font: the fitted em) and the regular weight (a picture is never emboldened),
 no wrapping; Direct2D draws it with `ENABLE_COLOR_FONT` and grayscale anti-aliasing on a software DC render
 target bound to a 32-bit top-down DIB the cell's height high, transparent, the layout's baseline on the font's
 baseline row (y = baseline - the line's baseline), x = pad. Its box is the black-and-white letters' rule (from
 min(pad, first inked column) to max(pad + advance, last inked column + 1), the advance the layout's width rounded);
-its premultiplied pixels are made straight (colour x 255 / alpha). `d2d1.dll` and `dwrite.dll` are loaded from
+its premultiplied pixels are made straight (colour x 255 / alpha). Direct2D draws every colour format Windows
+knows this way (COLR/CPAL, and CBDT, sbix and SVG on Windows 10 1607 and later), the path Fish and Plant Tycoon's
+`raster_colour` uses. `d2d1.dll` and `dwrite.dll` are loaded from
 System32 once; `D2D1CreateFactory` / `DWriteCreateFactory` need no COM initialisation.
 
 In the DLLs (`LetterFor`), such a character is kept under its own cache key (a leading 0x01 before its UTF-8, so a
@@ -679,9 +703,11 @@ line and its picker ("colour emoji: Segoe UI Emoji") show what the game shows; i
 The Virtual Villagers Fun Patcher's in-game Unicode text and Picture Studio draw emoji in full colour from Segoe UI
 Emoji's COLR/CPAL layers, untinted, one picture per ZWJ sequence, skin tone, keycap or tag sequence, at the line's
 size (its `docs/picture-studio-text.md`, "Emoji, in full colour"). VF1 draws the same layers through DirectWrite and
-Direct2D. **Flags:** Segoe UI Emoji has no country-flag pictures, so the Virtual Villagers patcher shows a country
-flag as its two letters, and so does VF1 (both as Windows itself draws them); a tag flag such as Scotland's is the
-font's plain black flag in both.
+Direct2D, as Fish and Plant Tycoon does, which the shared spec names the strongest form (it covers CBDT, sbix and
+SVG too; VV's own COLR renderer is the spec's accepted equal for COLR fonts). **Flags:** Segoe UI Emoji has no
+country-flag pictures, so the Virtual Villagers patcher shows a country flag as its two letters, and so does VF1
+(both as Windows itself draws them), in the text's colour; a tag flag such as Scotland's is the font's plain black
+flag in both.
 
 ### Proved (`tests/test_colour_emoji.py`)
 
@@ -689,7 +715,12 @@ font's plain black flag in both.
   A, é, 日, ❤, ☃, ☹, 1, 😀︎ (U+FE0E) and e + U+0301 are not; the DLLs' table equals the patcher's and ICU's.
 * The DLL's own `VF1Text_ColourLetter` through 32-bit rundll32 gives, for each of those in all four fonts' styles,
   the same width, height and every R, G, B, A byte as `vf1_glyph_color.draw`, and the picture is in colour (not
-  every inked pixel grey).
+  every inked pixel white); for 🇯🇵 both keep nothing (white letters only, no colour).
+* A country flag in the game is drawn on the tinted pages in the text's colour (red text: every inked pixel red).
+* A letter the list does not call an emoji whose chain face is a colour font (U+1FA89, Segoe UI Emoji) is a colour
+  picture in the tool and in the game, pixel for pixel, untinted, in two fonts.
+* The colour test is FP's (white ink, a faint pixel, black, a colour); the chain in `FallbackFaces[]` equals
+  `vf1_glyph_gdi.FALLBACK_FACES` and the spec's list, in order.
 * Size and baseline, in each of the four fonts: the colour picture's first and last inked rows are within 2 pixels
   of GDI's black-and-white Segoe UI Emoji glyph at the same em and baseline, and its width within 3.
 * Text without a colour emoji (accents, Japanese, Korean, Thai, Greek, Cyrillic, Cuneiform, the text-style ❤ and
@@ -716,6 +747,8 @@ font's plain black flag in both.
 2. Add `[UnicodeText]` / `ColourEmoji=0` to `Virtual Families 1 Patcher Files\settings.ini`, start the game: the
    same emoji are black and white as before.
 3. Use Unicode Font with Comic Sans MS: the emoji are still Segoe UI Emoji pictures at Comic Sans' fitted size.
+4. With Noto Color Emoji installed (a CBDT font), an emoji Segoe UI Emoji lacks is drawn from it in colour; with
+   red or dark text, "🇯🇵" shows "JP"-style letters in the text's colour, not white.
 4. Frame rate in the house with several emoji names on screen (each picture is made once).
 
 ## Not in this part (the rest of the stage-3 work)

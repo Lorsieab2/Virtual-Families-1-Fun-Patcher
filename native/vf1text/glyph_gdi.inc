@@ -1,14 +1,16 @@
 // vf1text.dll: letters drawn by Windows in a font's style -- the same steps as patcher/vf1_glyph_gdi.py
 // (tests/test_vf1_glyph_gdi.py runs this copy through 32-bit rundll32 and compares every pixel).
 
+// The shared Unicode spec's fallback chain (row 3), after the font's own face (and, with Use Unicode Font, the
+// chosen face and Segoe UI); a face that is not installed is skipped.
 static const wchar_t *const FallbackFaces[] = {
     L"Segoe UI Historic", L"Segoe UI Symbol", L"Segoe UI Emoji",
-    L"Yu Gothic", L"Microsoft YaHei", L"Malgun Gothic",
-    L"Nirmala UI", L"Ebrima",
-    L"Microsoft JhengHei", L"Leelawadee UI", L"Gadugi", L"Myanmar Text", L"Javanese Text", L"Mongolian Baiti",
+    L"Yu Gothic", L"Meiryo", L"Microsoft YaHei", L"Microsoft JhengHei", L"Malgun Gothic", L"SimSun-ExtB",
+    L"Nirmala UI", L"Ebrima", L"Gadugi", L"Leelawadee UI", L"Myanmar Text", L"Javanese Text", L"Mongolian Baiti",
     L"Microsoft Himalaya", L"Microsoft Yi Baiti", L"Microsoft New Tai Lue", L"Microsoft Tai Le",
     L"Microsoft PhagsPa", L"Sylfaen", L"Cambria Math",
-    L"Noto Sans", L"Noto Sans Symbols", L"Noto Sans Symbols 2", L"Noto Sans CJK JP", L"Noto Sans Math",
+    L"Noto Sans", L"Noto Sans Symbols", L"Noto Sans Symbols 2", L"Noto Sans CJK JP", L"Noto Sans CJK SC",
+    L"Noto Sans Math", L"Noto Sans Cuneiform", L"Noto Color Emoji",
 };
 
 struct GdiFace {
@@ -17,6 +19,7 @@ struct GdiFace {
     int em, weight;
     HFONT font;
     bool ok;
+    bool colour;              // a colour font: a COLR, CBDT, sbix or SVG table (glyph_color.inc)
     unsigned char *cmap;
     unsigned cmapSize;
     unsigned sub12, sub4;     // offsets of the subtables used (0 = none)
@@ -116,6 +119,10 @@ static GdiFace *FaceFor(const wchar_t *face, int em, int weight) {
                     g->ok = true;
                 }
             }
+            static const DWORD ColourTables[4] = { 0x524C4F43 /* COLR */, 0x54444243 /* CBDT */,
+                                                   0x78696273 /* sbix */, 0x20475653 /* SVG  */ };
+            for (int t = 0; t < 4 && !g->colour; ++t)
+                g->colour = GetFontData(GlyphDC, ColourTables[t], 0, 0, 0) != GDI_ERROR;
         }
         SelectObject(GlyphDC, old);
     }
@@ -128,14 +135,15 @@ static bool NotNeeded(unsigned cp) {
     return cp == 0x200C || cp == 0x200D || (cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0xE0000 && cp <= 0xE01EF);
 }
 
-static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n) {
+static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n, bool colourOnly = false) {
     // the font's own face; with Use Unicode Font, the chosen font and then Segoe UI; then the chain
+    // (colourOnly: the first such face that is a colour font)
     for (int k = -2; k < (int)(sizeof FallbackFaces / sizeof FallbackFaces[0]); ++k) {
         const wchar_t *name = k == -2 ? s.face : k == -1 ? L"Segoe UI" : FallbackFaces[k];
         if (k == -1 && (!FontMode || SameNoCase(name, s.face))) continue;
         if (k >= 0 && SameNoCase(name, s.face)) continue;
         GdiFace *g = FaceFor(name, s.em, s.weight);
-        if (!g || !g->ok) continue;
+        if (!g || !g->ok || (colourOnly && !g->colour)) continue;
         bool all = true;
         for (int i = 0; i < n && all; ++i)
             if (!NotNeeded(cps[i]) && !Covers(g, cps[i])) all = false;
