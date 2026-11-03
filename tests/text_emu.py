@@ -30,6 +30,8 @@ GLYPHS = ROOT / "patcher" / "payload" / "UnicodeText"
 DLL_PATH = "C:\\Game\\Virtual Families 1 Patcher Files\\vf1text.dll"
 FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Text\\"
 FONT_FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Font\\"   # vf1font.dll's
+WORD_FOLDERS = (FOLDER + "Word Lists\\", FONT_FOLDER + "Word Lists\\")   # the shared word lists (wordlists.inc)
+WORD_LISTS = ROOT / "patcher" / "payload" / "WordLists"
 SETTINGS_INI = "C:\\Game\\Virtual Families 1 Patcher Files\\settings.ini"
 FONT_CTORS = {   # name: (table, spacing) -- found by vf1_game_fonts.find_game_fonts
     "SegoeUi33": 0x4EB6F0, "SegoeUiBold17": 0x4EC610, "SegoeUiBold18": 0x4ED538, "SegoeUiBold24": 0x4EE460,
@@ -59,6 +61,8 @@ class TextWorld:
         self.handles = 0x500
         self.gdi_calls: list[str] = []
         self.normalize = True
+        self.word_lists = WORD_LISTS               # where the emulated "Word Lists\" folder is
+        self.word_list_opens: list[str] = []
         self._seams()
         self.screen = self.surface(16, 16)
         self.window = e.alloc(0x80)
@@ -71,6 +75,7 @@ class TextWorld:
 
     # ------------------------------------------------------------------ memory
     PIXELS, PIXELS_SIZE = 0x42000000, 0x0C000000      # the sheets' pixels (kids_emu's heap is 16 MB)
+    BIG, BIG_SIZE = 0x80000000, 0x08000000            # VirtualAlloc's blocks (the word lists)
 
     def pixel_alloc(self, n: int) -> int:
         if not getattr(self, "_pixel_next", 0):
@@ -212,6 +217,15 @@ class TextWorld:
 
         def create_file(em):
             path = em.wstr(em.arg(0))
+            word = next((f for f in WORD_FOLDERS if path.startswith(f)), None)
+            if word is not None:
+                self.word_list_opens.append(path[len(word):])
+                local = Path(self.word_lists) / path[len(word):]
+                if not local.is_file():
+                    return 0xFFFFFFFF, 28
+                self.handles += 4
+                self.files[self.handles] = [local.read_bytes(), 0]
+                return self.handles, 28
             prefix = next((f for f in (FOLDER, FONT_FOLDER) if path.startswith(f)), None)
             if prefix is None:
                 return 0xFFFFFFFF, 28
@@ -234,6 +248,17 @@ class TextWorld:
             if got:
                 em.w32(got, len(piece))
             return 1, 20
+
+        def virtual_alloc(em):                  # big blocks (the word lists) in their own region
+            size = (em.arg(1) + 0xFFFF) & ~0xFFFF
+            if not getattr(self, "_big_next", 0):
+                self._big_next = self.BIG
+                em.uc.mem_map(self.BIG, self.BIG_SIZE)
+            p = self._big_next
+            if p + size > self.BIG + self.BIG_SIZE:
+                return 0, 16
+            self._big_next += size
+            return p, 16
 
         def virtual_protect(em):
             if em.arg(3):
@@ -282,6 +307,7 @@ class TextWorld:
             "CloseHandle": lambda em: (1, 4), "GetProcessHeap": lambda em: (heap, 0),
             "HeapAlloc": lambda em: (em.alloc(max(4, em.arg(2))), 12),
             "HeapFree": lambda em: (1, 12), "VirtualProtect": virtual_protect,
+            "VirtualAlloc": virtual_alloc, "VirtualFree": lambda em: (1, 12),
             "FlushInstructionCache": lambda em: (1, 12), "GetCurrentProcess": lambda em: (0xFFFFFFFF, 0),
             "LoadLibraryW": load_library, "LoadLibraryExW": load_library_ex,
             "GetPrivateProfileStringW": profile_string,

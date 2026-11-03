@@ -24,6 +24,7 @@
 // text is laid out exactly as before, pixel for pixel.
 
 #include "linebreak.inc"
+#include "wordlists.inc"
 
 typedef int (__thiscall *GetHeightFn)(void *font, void *scale);
 static const GetHeightFn GetHeight = (GetHeightFn)0x4023F0;
@@ -110,6 +111,18 @@ static bool BreaksFor(const unsigned char *text, int n, unsigned char *out) {
         }
         if (it) UbrkClose(it);
     }
+    // without ICU: the words of the shared word lists (wordlists.inc) are never cut
+    unsigned char *inside = 0;
+    if (!useIcu) {
+        int *ends = (int *)Alloc(sizeof(int) * (unsigned)(run.n + 1));
+        inside = (unsigned char *)Alloc((unsigned)run.n + 1);
+        if (ends && inside) {
+            for (int i = 0; i < run.n; ++i) ends[i] = DrawEnd(run.cps, run.n, i);
+            ends[run.n] = run.n;
+            DictionaryInside(run.cps, run.n, ends, inside);
+        }
+        Free(ends);
+    }
     int prev = -1;                                      // where the cluster before starts
     for (int i = 0; i < run.n;) {
         int j = DrawEnd(run.cps, run.n, i);
@@ -118,12 +131,13 @@ static bool BreaksFor(const unsigned char *text, int n, unsigned char *out) {
             bool ok = before != ' ' && before != '\n' && after != ' ' && after != '\n' &&
                       (NoSpaceLetter(before) || NoSpaceLetter(after) || last == 0x200B);
             if (ok) ok = useIcu ? icu[i] != 0 : (last == 0x200B || FallbackMayBreak(before, after));   // LB8: after U+200B
+            if (ok && inside && inside[i]) ok = false;
             if (ok) out[at[i]] = 1;
         }
         prev = i;
         i = j;
     }
-    Free(at); Free(icu); Free(units); Free(unitCp);
+    Free(at); Free(icu); Free(units); Free(unitCp); Free(inside);
     FreeRun(&run);
     return true;
 }
