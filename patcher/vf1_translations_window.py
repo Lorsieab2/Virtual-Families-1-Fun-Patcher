@@ -18,9 +18,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 import webbrowser
 
+import threading
+
 import translation_format as tfmt
 import vf1_translation_strings as tstr
 import vf1_translations as tr
+import vf1_translations_github as ghub
 
 TITLE = "Translations"
 GAME = "vf1"
@@ -50,10 +53,14 @@ HELP = (
         "The list takes several at once: click one, Ctrl+click to add or remove one, Shift+click for a range, "
         "Ctrl+A or Select All for everything. Selecting never changes the game's language: that is only "
         "\"Language in the game\" at the top.",
+        "Download from GitHub... lists the translations in the public translations folder on the patcher's "
+        "GitHub page (language, credit, when it last changed, and \"Update available\" when yours differs): "
+        "select one or more and press Download. No account is needed and nothing about you is sent.",
         "Export... saves a copy of each selected translation (one file each). Delete... moves the selected "
         "files to the Windows Recycle Bin, after one Yes/No (No does nothing), so you can restore them from "
         "there. \"English (original)\" is part of the game and is never deleted. A translation that came with "
-        "the patcher comes back with the next patcher update. Deleting the language the game uses puts the "
+        "the patcher comes back with the next patcher update, and any translation on GitHub can be downloaded "
+        "again with Download from GitHub.... Deleting the language the game uses puts the "
         "game back in English from its next start, as choosing English does.",
         "The template has every text the patches add too: the Upgrades menu and its pages, their messages, the "
         "captions under a villager. The Family History log file stays in English. Any Unicode letter can be used.",
@@ -217,6 +224,7 @@ class TranslationsWindow:
         buttons.pack(fill="x", pady=(6, 0))
         ttk.Button(buttons, text="Select All", command=self.select_all).pack(side="left")
         ttk.Button(buttons, text="Delete...", command=self.delete).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Download from GitHub...", command=self.download).pack(side="left", padx=(8, 0))
         self.drop_hint = tk.StringVar(master=win, value="")
         ttk.Label(group, textvariable=self.drop_hint, foreground="#666666").pack(anchor="w", pady=(4, 0))
 
@@ -245,7 +253,7 @@ class TranslationsWindow:
     def refresh(self) -> None:
         game = self.game
         self.items = tr.installed(game, self.folder)
-        labels = [ENGLISH] + [i.label + ("  (came with the patcher)" if i.shipped else "") for i in self.items]
+        labels = [ENGLISH] + [i.label + ("  (from GitHub)" if i.shipped else "") for i in self.items]
         self.language_box.configure(values=labels)
         chosen = tr.chosen_path(game, tr.load_choices(self.choices_path), self.folder)
         index = next((n + 1 for n, i in enumerate(self.items) if chosen and i.path.resolve() == chosen.resolve()), 0)
@@ -253,7 +261,7 @@ class TranslationsWindow:
         self.listbox.delete(0, "end")
         self.listbox.insert("end", f"{ENGLISH}   (part of the game)")
         for item in self.items:
-            self.listbox.insert("end", f"{item.label}   [{item.path.name}]" + ("   (came with the patcher)" if item.shipped else ""))
+            self.listbox.insert("end", f"{item.label}   [{item.path.name}]" + ("   (from GitHub)" if item.shipped else ""))
         copies = tr.game_copies(game, self.game_folders(game))
         if copies:
             self.choice_status.set(f"Applies from the next game start ({len(copies)} copy/copies of {GAMES[game]} "
@@ -481,10 +489,12 @@ class TranslationsWindow:
         lines = [f"Delete {'this translation' if len(items) == 1 else f'these {len(items)} translations'}? "
                  "The files go to the Windows Recycle Bin, so you can restore them from there.", ""]
         for item in items:
-            lines.append(f"    {item.label}   [{item.path.name}]" + ("   (came with the patcher)" if item.shipped else ""))
+            lines.append(f"    {item.label}   [{item.path.name}]" + ("   (from GitHub)" if item.shipped else ""))
         notes: list[str] = []
         if any(item.shipped for item in items):
             notes.append("A translation that came with the patcher comes back with the next patcher update.")
+        notes.append("Any translation on the patcher's GitHub page can also be downloaded again with "
+                     "Download from GitHub....")
         active = next((i for i in items if chosen is not None and i.path.resolve() == chosen.resolve()), None)
         if active is not None:
             notes.append(f"{active.label} is the language in the game now: the game goes back to {ENGLISH} from "
@@ -524,6 +534,10 @@ class TranslationsWindow:
             self.language_var.set(ENGLISH)
             self.choose()
         return paths
+
+    def download(self) -> "DownloadDialog":
+        """Download from GitHub...: the public translations folder's files, to pick and install."""
+        return DownloadDialog(self.window, self.folder, on_installed=self.refresh)
 
     def open_folder(self) -> None:
         self.folder.mkdir(parents=True, exist_ok=True)
@@ -597,6 +611,100 @@ class TranslationsWindow:
             editor.save()
         self.drop.remove()
         self.window.destroy()
+
+
+class DownloadDialog:
+    """Download from GitHub...: the translations in the patcher's GitHub repository's public translations/ folder
+    (vf1_translations_github): language, credit, last change and status; several at once (click, Ctrl+click,
+    Shift+click, Select All); Download checks each as data before it is installed. The list is read in the
+    background; `http` is the downloader (tests pass a stand-in) and `background` False reads it at once."""
+
+    COLUMNS = (("language", "Language", 200), ("credit", "Credit", 150), ("changed", "Last changed", 100),
+               ("status", "Status", 130))
+
+    def __init__(self, master, folder: Path, on_installed=None, http=None, background: bool = True) -> None:
+        self.folder = folder
+        self.on_installed = on_installed
+        self.http = http or ghub.fetch
+        self.remotes: list[ghub.Remote] = []
+        win = self.window = tk.Toplevel(master)
+        win.title("Download from GitHub")
+        win.geometry("660x420")
+        frame = ttk.Frame(win, padding=12)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Translations in the public translations folder on the patcher's GitHub page. Select "
+                              "one or more (Ctrl+click, Shift+click) and press Download. No account is needed and "
+                              "nothing about you is sent.", wraplength=620).pack(anchor="w")
+        self.tree = ttk.Treeview(frame, columns=[c for c, _t, _w in self.COLUMNS], show="headings",
+                                 selectmode="extended", height=10)
+        for column, title, width in self.COLUMNS:
+            self.tree.heading(column, text=title)
+            self.tree.column(column, width=width, anchor="w")
+        self.tree.pack(fill="both", expand=True, pady=(8, 0))
+        self.status = tk.StringVar(master=win, value="Reading the list from GitHub...")
+        ttk.Label(frame, textvariable=self.status, wraplength=620, foreground="#245a9a").pack(anchor="w", pady=(6, 0))
+        row = ttk.Frame(frame)
+        row.pack(fill="x", pady=(8, 0))
+        ttk.Button(row, text="Select All", command=self.select_all).pack(side="left")
+        self.download_button = ttk.Button(row, text="Download", command=self.download)
+        self.download_button.pack(side="left", padx=(8, 0))
+        ttk.Button(row, text="Close", command=win.destroy).pack(side="right")
+        win.bind("<Escape>", lambda _e: win.destroy())
+        if background:
+            threading.Thread(target=self._read_in_background, daemon=True).start()
+        else:
+            self.show(*self._read())
+
+    def _read(self) -> tuple[list, str]:
+        try:
+            return ghub.list_remote(self.folder, self.http), ""
+        except ghub.GitHubError as exc:
+            return [], str(exc)
+
+    def _read_in_background(self) -> None:
+        remotes, problem = self._read()
+        try:
+            self.window.after(0, lambda: self.show(remotes, problem))
+        except (tk.TclError, RuntimeError):
+            pass                                    # the dialog was closed meanwhile
+
+    def show(self, remotes: list, problem: str = "") -> None:
+        self.remotes = list(remotes)
+        self.tree.delete(*self.tree.get_children())
+        for n, (remote, label) in enumerate(zip(self.remotes, ghub.labels(self.remotes))):
+            status = remote.problem and f"Cannot be used: {remote.problem}" or remote.status
+            self.tree.insert("", "end", iid=str(n), values=(label, remote.translator, remote.changed or "?", status))
+        if problem:
+            self.status.set(problem)
+        elif not self.remotes:
+            self.status.set("There are no translations on GitHub yet.")
+        else:
+            updates = sum(1 for r in self.remotes if r.status == ghub.UPDATE)
+            self.status.set(f"{len(self.remotes)} translation(s) on GitHub" + (f", {updates} with an update." if updates
+                                                                              else "."))
+
+    def select_all(self) -> None:
+        self.tree.selection_set(self.tree.get_children())
+
+    def selected(self) -> list:
+        return [self.remotes[int(iid)] for iid in self.tree.selection()]
+
+    def download(self) -> list:
+        chosen = [r for r in self.selected() if not r.problem]
+        if not chosen:
+            self.status.set("Select the translations to download first.")
+            return []
+        results = ghub.install(chosen, self.folder, self.http)
+        done = [r for r, path, _p in results if path is not None]
+        failed = [f"{r.name}: {p}" for r, path, p in results if path is None]
+        self.show(self.remotes)
+        message = f"Downloaded {len(done)} translation(s); choose one under \"Language in the game\"."
+        if failed:
+            message += " Not downloaded: " + "; ".join(failed)
+        self.status.set(message)
+        if done and self.on_installed is not None:
+            self.on_installed()
+        return done
 
 
 class CreditDialog:

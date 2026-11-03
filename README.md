@@ -303,11 +303,16 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     game's language stays the separate box above), **Export...** (one file each), **Delete...** (one Yes/No listing
     the files, No by default; to the Recycle Bin through `SHFileOperationW` with `FOF_ALLOWUNDO`, nothing deleted if
     that fails; English (original) is never deleted; a translation that came with the patcher comes back with the
-    next update; deleting the language in use goes back to English) and **Share on GitHub...** (the owner's
-    confirmation, No by
+    next update, and any file on GitHub can be downloaded again; deleting the language in use goes back to English),
+    **Download from GitHub...** (the public [`translations/`](translations/README.md) folder through GitHub's
+    read-only API, no login: language, credit, last change, "Update available", several at once, each checked as
+    data before it is installed) and **Share on GitHub...** (the owner's confirmation, No by
     default; a credit name typed by hand, never filled in; email addresses are refused everywhere). The owner accepts
-    a shared file with the `accept-translation` label: `.github/workflows/accept-translation.yml` checks it as data
-    only (`scripts/accept_translation.py`) and opens a pull request as the bot. Every patch's own text (the Upgrades menu and its pages, messages, captions; `native/vf1fun/translate.inc`, `tools/vf1_patch_text.py`, `data/vf1_patch_strings.json`) is in the template too, with its room; the Family History log stays in English. Modules `patcher/vf1_translations*.py`,
+    a shared file with the `accept-translation` label: `.github/workflows/accept-translation.yml` first scans it with
+    VirusTotal (`scripts/virustotal_scan.py`, failing closed), then checks it as data only
+    (`scripts/accept_translation.py`) and opens a pull request as the bot adding `translations/<code>.tsv`. Pull
+    requests that add files to `translations/` directly are scanned and validated by
+    `.github/workflows/translations-check.yml`; releases ship every accepted file except "(TEST)" ones. Every patch's own text (the Upgrades menu and its pages, messages, captions; `native/vf1fun/translate.inc`, `tools/vf1_patch_text.py`, `data/vf1_patch_strings.json`) is in the template too, with its room; the Family History log stays in English. Modules `patcher/vf1_translations*.py`,
     `patcher/translation_format.py`, `patcher/vf1_translation_strings.py`; see `docs/translations.md`.
   - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
     save* lists a save's family members (at home, then those who left home) and the outfits in the store and the
