@@ -408,7 +408,7 @@ class GameFont:
 
     # -- the game's drawing
     def letters(self, text: str) -> list[str]:
-        return vf1_text.clusters(text)
+        return vf1_text.clusters(text, draw=True)
 
     def width(self, text: str, scale: float = 1.0) -> int:
         """ldwFont::GetWidth (0x402320), one whole character at a time."""

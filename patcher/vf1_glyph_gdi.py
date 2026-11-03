@@ -398,4 +398,4 @@ def font_file_family(data: bytes) -> str | None:
 
 
 def letters(text: str) -> list[str]:
-    return vf1_text.clusters(text)
+    return vf1_text.clusters(text, draw=True)

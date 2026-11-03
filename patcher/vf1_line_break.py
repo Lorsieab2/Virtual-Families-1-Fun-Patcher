@@ -159,7 +159,7 @@ def break_points(text: str, use_icu: bool = True) -> tuple[set[int], bool]:
                 allowed.add(unit_cp[b])
     out: set[int] = set()
     i, prev = 0, -1
-    for cluster in vf1_text.clusters(text):
+    for cluster in vf1_text.clusters(text, draw=True):
         if prev >= 0:
             before, after, last = cps[prev], cps[i], cps[i - 1]
             ok = (before not in (0x20, 0x0A) and after not in (0x20, 0x0A)
@@ -233,7 +233,7 @@ def stock_words_fit(font, s: str, width: int) -> bool:
 
 def _emergency(font, piece: str, room: int) -> int:
     used = best = 0
-    for cluster in vf1_text.clusters(piece):
+    for cluster in vf1_text.clusters(piece, draw=True):
         used += len(cluster)
         if best and advance(font, piece[:used]) > room:
             break

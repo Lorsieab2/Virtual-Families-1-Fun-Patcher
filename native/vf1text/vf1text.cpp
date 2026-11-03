@@ -159,17 +159,26 @@ static bool IsExtender(unsigned cp) {
 }
 static bool Regional(unsigned cp) { return cp >= 0x1F1E6 && cp <= 0x1F1FF; }
 
-// Where the cluster starting at code point i ends (vf1_text.clusters).
+// Where the cluster starting at code point i ends (vf1_text.clusters): CR LF is one character, and a zero width
+// joiner joins the next character unless that is CR or LF.
 static int ClusterEnd(const unsigned *cps, int n, int i) {
     int j = i + 1;
-    if (Regional(cps[i]) && j < n && Regional(cps[j])) ++j;
+    if (cps[i] == '\r' && j < n && cps[j] == '\n') ++j;
+    else if (Regional(cps[i]) && j < n && Regional(cps[j])) ++j;
     while (j < n) {
         unsigned cp = cps[j];
-        if (cp == 0x200D) { ++j; if (j < n) ++j; continue; }
+        if (cp == 0x200D) { ++j; if (j < n && cps[j] != '\r' && cps[j] != '\n') ++j; continue; }
         if (IsExtender(cp)) { ++j; continue; }
         break;
     }
     return j;
+}
+
+// The piece the draw and measure loops take at code point i (vf1_text.clusters(draw=True)): the cluster, except
+// that CR LF is CR and then LF, so a line break is drawn exactly as before (a lone "\n" goes to the next line).
+static int DrawEnd(const unsigned *cps, int n, int i) {
+    if (cps[i] == '\r' && i + 1 < n && cps[i + 1] == '\n') return i + 1;
+    return ClusterEnd(cps, n, i);
 }
 
 // ================================================================ letters the patch adds
@@ -516,7 +525,7 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
     if (!DecodeRun(&run, text, (int)Len(text))) { Free(owned); return; }
     int startX = x;
     for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             y += *(int *)((char *)impl + 4);   // GetHeight(NULL) 0x4023F0
             x = startX;
@@ -558,7 +567,7 @@ static int __fastcall DrawStringN(void *window, void *, const char *text, int co
     if (!DecodeRun(&run, text, bytes, (int)Len(text))) return 0;
     int startX = x;
     for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             y += *(int *)((char *)impl + 4);
             x = startX;
@@ -588,7 +597,7 @@ static int Measure(void *impl, FontExtra *f, const char *text, int bytes, float 
     if (!DecodeRun(&run, text, bytes)) return 0;
     int widest = 0, line = 0;
     for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             if (line && line > widest) widest = line;
             line = 0;

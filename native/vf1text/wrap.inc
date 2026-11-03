@@ -112,7 +112,7 @@ static bool BreaksFor(const unsigned char *text, int n, unsigned char *out) {
     }
     int prev = -1;                                      // where the cluster before starts
     for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         if (prev >= 0) {
             unsigned before = run.cps[prev], after = run.cps[i], last = run.cps[i - 1];
             bool ok = before != ' ' && before != '\n' && after != ' ' && after != '\n' &&
@@ -176,7 +176,7 @@ static int EmergencyCut(void *impl, const char *text, int start, int len, int ro
     if (!DecodeRun(&run, text + start, len)) return len;
     int used = 0, best = 0;
     for (int i = 0; i < run.n;) {
-        int j = ClusterEnd(run.cps, run.n, i);
+        int j = DrawEnd(run.cps, run.n, i);
         for (int k = i; k < j; ++k) used += run.widths[k];
         if (best && PieceWidth(impl, text, start, used, colour, font) > room) break;
         best = used;

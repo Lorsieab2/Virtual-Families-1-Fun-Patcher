@@ -167,7 +167,8 @@ def encode(text: str) -> bytes:
 # --------------------------------------------------------------------------- grapheme clusters
 # A simplified extended grapheme cluster, the same one vf1text.dll uses: a cluster is one character plus
 # every following extender (combining marks Mn/Mc/Me, variation selectors, emoji skin tones, tag characters,
-# ZERO WIDTH JOINER and the character after it), and two regional indicators make one flag.
+# ZERO WIDTH JOINER and the character after it unless that is CR or LF), two regional indicators make one flag, and
+# CR LF is one character.
 _ZWJ = 0x200D
 _EXTRA_EXTENDERS = (
     (0x200C, 0x200C),          # ZERO WIDTH NON-JOINER
@@ -262,19 +263,31 @@ def _regional(cp: int) -> bool:
     return 0x1F1E6 <= cp <= 0x1F1FF
 
 
-def clusters(text: str) -> list[str]:
-    """``text`` split into whole characters as a player sees them."""
+def clusters(text: str, *, draw: bool = False) -> list[str]:
+    """``text`` split into whole characters as a player sees them (the shared Unicode spec's cluster rule, the same
+    as the Virtual Families 2 patcher's): CR LF is one character, and a ZERO WIDTH JOINER joins the next character
+    unless that is CR or LF.
+
+    ``draw=True`` gives the pieces the game's draw and measure loops take one at a time: the same, except that CR LF
+    is CR and then LF, so a line break inside text is drawn exactly as before (the draw goes to the next line on a
+    lone "\\n", vf1text.dll's ``DrawEnd``)."""
     out: list[str] = []
     i, n = 0, len(text)
     while i < n:
         j = i + 1
-        if _regional(ord(text[i])) and j < n and _regional(ord(text[j])):
+        if text[i] == "\r" and j < n and text[j] == "\n":
+            if draw:
+                out.append("\r")
+                i = j
+                continue
+            j += 1
+        elif _regional(ord(text[i])) and j < n and _regional(ord(text[j])):
             j += 1
         while j < n:
             cp = ord(text[j])
             if cp == _ZWJ:
                 j += 1
-                if j < n:
+                if j < n and text[j] not in "\r\n":
                     j += 1          # the joined character belongs to the cluster
                 continue
             if cp in _EXTENDER_SET:
@@ -295,7 +308,7 @@ def cut_to_bytes(text: str, max_bytes: int) -> str:
     """The longest start of ``text`` whose stored bytes (``encode``) fit in ``max_bytes``, cut between whole
     characters. (The stored length of a start never shrinks as the start grows, so a search finds it.)"""
     parts = clusters(text)
-    if text.isascii():
+    if text.isascii() and "\r\n" not in text:
         return text[:max(0, max_bytes)]
     lo, hi = 0, len(parts)                       # the largest count whose bytes fit
     while lo < hi:
