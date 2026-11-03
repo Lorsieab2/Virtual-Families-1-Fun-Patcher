@@ -2142,11 +2142,11 @@ patch/vf1fun.random_look~57ab6f6a	Random look	Apparence aléatoire	vf1fun: a pat
 patch/vf1fun.pick_everyone_to_change_everybody_at_once~a76a1ea8	Pick Everyone to change everybody at once.	Choisissez « Tout le monde » pour modifier tout le monde d’un coup.	vf1fun: a patcher window or message in the game; at most 126 letters
 patch/vf1fun.money_0f~6c865fe5	Money: $%.0f	Argent : %.0f $	vf1fun: a patcher window or message in the game; %1 (%.0f); at most 80 letters
 patch/vf1fun.pick_an_item_first~c48f9991	Pick an item first.	Choisissez d’abord un objet.	vf1fun: a patcher window or message in the game; at most 80 letters
-patch/vf1fun.buy_60hs_for_d~d2ea6ccf	Buy %.60hs for $%d?	Acheter %.60hs pour %d $ ?	vf1fun: a patcher window or message in the game; %1 (%.60hs) %2 (%d); at most 80 letters
-patch/vf1fun.this_item~54536246	this item	cet objet	vf1fun: drawn by the game; at most 60 letters
+patch/vf1fun.buy_ls_for_d~61425cf1	Buy %ls for $%d?	Acheter %ls pour %d $ ?	vf1fun: a patcher window or message in the game; %1 (%ls) %2 (%d); at most 80 letters
+patch/vf1fun.this_item~54536246	this item	cet objet	vf1fun: a patcher window or message in the game; at most 80 letters
 patch/vf1fun.your_item_tray_is_full_use_or_sell_something_first~db2b41ca	Your item tray is full. Use or sell something first.	Votre plateau d’objets est plein. Utilisez ou vendez d’abord quelque chose.	vf1fun: a patcher window or message in the game; at most 156 letters
-patch/vf1fun.purchased_60hs~5b7a9b1c	Purchased: %.60hs.	Acheté : %.60hs.	vf1fun: a patcher window or message in the game; %1 (%.60hs); at most 80 letters
-patch/vf1fun.item~4a33eacd	item	objet	vf1fun: drawn by the game; at most 60 letters
+patch/vf1fun.purchased_ls~8c391c32	Purchased: %ls.	Acheté : %ls.	vf1fun: a patcher window or message in the game; %1 (%ls); at most 80 letters
+patch/vf1fun.item~4a33eacd	item	objet	vf1fun: a patcher window or message in the game; at most 80 letters
 patch/vf1fun.flea_market~743a8481	Flea Market	Marché aux puces	vf1fun: a patcher window or message in the game; at most 80 letters
 patch/vf1fun.get_for_free~431053fb	Get for free	Obtenir gratuitement	vf1fun: a patcher window or message in the game; at most 80 letters
 patch/vf1fun.roll_the_dice_free_a_popup_event_now~b27ffb51	Roll the Dice (free): a Popup Event now	Lancer les dés (gratuit) : un événement surprise tout de suite	vf1fun: a patcher window or message in the game; at most 117 letters

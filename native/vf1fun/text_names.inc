@@ -77,6 +77,23 @@ static const wchar_t *NameW(const char *bytes, int cap = 64) {
     return out;
 }
 
+// A line of the game's own text (its string table: an item's name, translated or not) as text for a window, by the
+// same one rule as names (UTF-8 when a Unicode setting is on, else Windows-1252), at most cap UTF-16 units and never
+// half a surrogate pair. (swprintf's %hs would read it in the C locale: a translated name as mojibake.) The result lives
+// until four more have been read.
+static const wchar_t *GameTextW(const char *bytes, int cap = 60) {
+    static wchar_t ring[4][256];
+    static int next;
+    wchar_t *out = ring[next];
+    next = (next + 1) & 3;
+    out[0] = 0;
+    if (!bytes) return out;
+    int n = 0;
+    while (n < 1024 && bytes[n]) ++n;
+    DecodeStoredW(bytes, n, out, cap < 255 ? cap : 255);
+    return out;
+}
+
 // `name` stored by the write rule in at most `room` bytes (plus a NUL), cut only between whole characters
 // (vf1_text.cut_to_bytes: a start's stored length never shrinks as it grows, so the cut is found by halving).
 static int FitNameStored(const wchar_t *name, char *out, int room) {

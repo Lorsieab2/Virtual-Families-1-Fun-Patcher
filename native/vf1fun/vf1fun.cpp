@@ -706,7 +706,7 @@ static void BuyItem(HWND dlg, bool free) {
     const char *itemName = GetString(StringsGet(), Item(id)->shortDesc);
     wchar_t text[200];
     if (!free) {
-        swprintf(text, 200, TR(L"Buy %.60hs for $%d?"), itemName ? itemName : TR_A(60, "this item"), price);
+        swprintf(text, 200, TR(L"Buy %ls for $%d?"), itemName ? GameTextW(itemName) : TR(L"this item"), price);
         if (!Confirm(dlg, text)) return;
     }
     // Same calls the store makes when you buy (theStoreScene::Buy 0x449A70),
@@ -717,7 +717,7 @@ static void BuyItem(HWND dlg, bool free) {
     }
     if (!free) {
         MoneyAdjust(Money, (float)-price, false);
-        swprintf(text, 200, TR(L"Purchased: %.60hs."), itemName ? itemName : TR_A(60, "item"));
+        swprintf(text, 200, TR(L"Purchased: %ls."), itemName ? GameTextW(itemName) : TR(L"item"));
         Message(dlg, text);
     }
     RefreshFleaMoney(dlg);
@@ -736,7 +736,7 @@ static INT_PTR CALLBACK FleaProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             const ItemRecord *r = Item(id);
             const char *name = GetString(strings, r->shortDesc);
             wchar_t line[160];
-            swprintf(line, 160, L"%hs\t$%d", name ? name : "?", r->price);
+            swprintf(line, 160, L"%ls\t$%d", name ? GameTextW(name, 120) : L"?", r->price);
             int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
             SendMessageW(list, LB_SETITEMDATA, row, id);
         }
