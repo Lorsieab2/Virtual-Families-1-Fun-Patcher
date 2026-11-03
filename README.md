@@ -166,7 +166,10 @@ Six settings change the base game on their own (plus the optional ones below):
   font's style (`payload\UnicodeText`, made by `scripts/build_vf1_glyphs.py`: accented letters built from the
   game's own letters and accents, the rest drawn by Windows in the font's face, size and coverage; about 3,000
   per font), else a letter Windows draws on the spot (Segoe UI, Segoe UI Historic, Symbol, Emoji, Yu Gothic,
-  Microsoft YaHei, Malgun Gothic, Nirmala UI, Ebrima ... Noto), else a box. The stock game, or the setting off,
+  Meiryo, Microsoft YaHei ... Noto Color Emoji: the shared Unicode spec's chain), else a box. Emoji (with Use
+  Unicode Font too) are colour pictures drawn by DirectWrite and Direct2D (`native/vf1text/glyph_color.inc`), never
+  tinted by the text's colour, as is any letter from a colour font; a country flag is its two letters; without
+  Direct2D or with `settings.ini [UnicodeText] ColourEmoji=0`, black and white. The stock game, or the setting off,
   loads, shows and saves such a save without harm, showing each byte as a Latin-1 letter ("Zoë" as "ZoÃ«").
   Its own DLL, `vf1text.dll`; all of it is run on the real exe in the emulator, including letters drawn by the
   machine's own GDI. **Not live tested yet** -- see `docs/UNICODE_TEXT.md`.

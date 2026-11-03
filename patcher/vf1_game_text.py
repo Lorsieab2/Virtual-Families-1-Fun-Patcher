@@ -109,8 +109,8 @@ def describe(font: gf.GameFont, cp: int) -> str:
     name = unicodedata.name(ch, "(no name)")
     glyph = font.glyph(ch)
     kind = glyph.kind
-    if kind == "drawn by Windows":
-        kind = f"drawn by Windows: {glyph.face}"
+    if kind in ("drawn by Windows", "colour emoji"):
+        kind = f"{kind}: {glyph.face}"
     shown = ch if unicodedata.category(ch)[0] not in "CZ" else " "
     return f"U+{cp:04X}  {shown}  {name.title()}  ({kind})"
 
@@ -232,6 +232,7 @@ class GameTextWindow:
         self.stock_var = tk.BooleanVar(master=self.window, value=False)
         self.unicode_var = tk.BooleanVar(master=self.window, value=False)
         self.unicode_face_var = tk.StringVar(master=self.window, value="Segoe UI")
+        self.colour_emoji_var = tk.BooleanVar(master=self.window, value=True)
         self._overrides: dict = {}
         self.size_var = tk.StringVar(master=self.window, value="1x")
         self.width_var = tk.StringVar(master=self.window)
@@ -314,6 +315,8 @@ class GameTextWindow:
         faces.pack(side="left", padx=4)
         faces.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
         faces.bind("<Return>", lambda _e: self.refresh())
+        ttk.Checkbutton(override, text="Colour emoji (Segoe UI Emoji; off: black and white, as with ColourEmoji=0)",
+                        variable=self.colour_emoji_var, command=self._colour_emoji_changed).pack(side="left", padx=(12, 0))
         holder = ttk.Frame(left)
         holder.pack(fill="both", expand=True, pady=(6, 0))
         holder.rowconfigure(0, weight=1)
@@ -441,6 +444,15 @@ class GameTextWindow:
             return vf1_unicode_font.installed_faces()
         except Exception:
             return ["Segoe UI"]
+
+    def _colour_emoji_changed(self) -> None:
+        """Colour emoji on or off for every font the preview has made (the pictures are made again)."""
+        on = bool(self.colour_emoji_var.get())
+        fonts = list(self.fonts._fonts.values()) if self.fonts else []
+        for f in fonts + list(self._overrides.values()):
+            f.colour_emoji = on
+            f._made.clear()
+        self.refresh()
 
     # ---------------------------------------------------------------- colour
     def _colour_chosen(self) -> None:

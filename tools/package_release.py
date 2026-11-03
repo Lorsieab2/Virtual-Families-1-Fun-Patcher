@@ -25,8 +25,8 @@ patcher's "Virtual Villagers Fun Patcher Files"), holding the rest, which the tw
   Maker (vf1_genealogy.py, vf1_family_history.py, vf1_tree_memory.py, vf1_family_tree*.py,
   vf1_member_info.py, vf1_relationships.py, vf1_line_colours.py, vf1_tree_editor_tools.py, vf1_gdiplus.py, and its backgrounds
   and logos in tree_pictures/), the Game Text tool and Render Unicode with In-Game Fonts' shared text rule
-  (vf1_text.py, vf1_names.py -- the whole names of the one name limit --, vf1_game_fonts.py, vf1_glyph_gdi.py, vf1_glyph_maker.py, vf1_game_text.py, vf1_unicode_font.py, and
-  payload/UnicodeText), stub.json, payload/vf1fun.dll
+  (vf1_text.py, vf1_names.py -- the whole names of the one name limit --, vf1_game_fonts.py, vf1_glyph_gdi.py, vf1_glyph_maker.py, vf1_game_text.py, vf1_unicode_font.py,
+  vf1_emoji.py and vf1_glyph_color.py -- colour emoji --, and payload/UnicodeText), stub.json, payload/vf1fun.dll
 
 manifest.json gets the version and the SHA-256 and size of every payload
 file, which the patcher checks before it installs them. No game files.

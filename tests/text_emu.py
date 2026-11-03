@@ -290,8 +290,33 @@ class TextWorld:
                      "GetTextExtentPoint32W", "GetTextMetricsW", "CreateDIBSection", "SetBkMode", "SetTextColor",
                      "TextOutW", "GdiFlush", "DeleteObject"):
             e.imports[name] = gdi(name)
+        self.direct2d = True              # False: the DLL is told Windows cannot draw emoji in colour
+        self.colour_calls: list[tuple] = []
         if self.real_gdi:
             RealGdi(self).bind()
+            e.seam_live(e.dll_export("VF1Text_ColourLetter"), self._colour_letter)
+
+    def _colour_letter(self, em):
+        """vf1text.dll's VF1Text_ColourLetter (glyph_color.inc: the only place the DLL uses Direct2D), carried out
+        by this machine's real DirectWrite and Direct2D through the patcher's vf1_glyph_color (the same steps;
+        tests/test_colour_emoji.py proves the DLL's own copy equal to it through rundll32): the picture is written
+        into the emulated heap. With self.direct2d False the DLL is told Windows cannot draw it in colour."""
+        import vf1_glyph_color as gc
+        face, weight, size, baseline, height, text, units, out, out_w = (em.arg(i) for i in range(9))
+        em.w32(out, 0)
+        em.w32(out_w, 0)
+        if not self.direct2d:
+            return 0, 0
+        letter = em.read(text, 2 * units).decode("utf-16-le", "surrogatepass")
+        self.colour_calls.append((em.wstr(face), weight, size, baseline, height, letter))
+        image = gc.draw(letter, weight, size, baseline, height, em.wstr(face))
+        if image is None:
+            return 0, 0
+        p = em.alloc(len(image.data) + 4)
+        em.write(p, bytes(image.data))
+        em.w32(out, p)
+        em.w32(out_w, image.width)
+        return 1, 0
 
     def _bind_icu(self):
         """Windows' ICU (icu.dll) as the DLL finds it through GetProcAddress: each call made by this machine's real

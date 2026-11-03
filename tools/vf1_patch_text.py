@@ -52,7 +52,8 @@ SHOWS_TEXT = re.compile(r"\b(MessageBox[AW]?|DialogBox\w*|CreateDialog\w*|SetWin
 
 # Those calls where they draw no text of the DLL's own.
 SHOWS_NOTHING_OF_ITS_OWN = {
-    "vf1text": {"glyph_gdi.inc: TextOutW"},       # draws one letter of the game's own text into a glyph bitmap
+    # each draws one letter of the game's own text into a glyph bitmap (black and white; a colour emoji)
+    "vf1text": {"glyph_gdi.inc: TextOutW", "glyph_color.inc: DrawTextLayout"},
 }
 
 MARKERS = re.compile(r"\b(TR|TR_N)\(\s*$|\b(TR_A|TR_NA)\(\s*(\d+)\s*,\s*$")

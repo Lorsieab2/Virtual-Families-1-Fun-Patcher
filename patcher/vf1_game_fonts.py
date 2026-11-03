@@ -41,6 +41,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import vf1_emoji
 import vf1_picture_image as pi
 import vf1_text
 
@@ -231,10 +232,11 @@ def load_glyph_file(name: str, folder: Path = GLYPH_DIR) -> GlyphFile | None:
 # --------------------------------------------------------------------------- one font
 @dataclass
 class Glyph:
-    image: pi.Image          # white letter, alpha = coverage, the font's height high
+    image: pi.Image          # white letter, alpha = coverage, the font's height high (a colour emoji: its colours)
     width: int               # the box's width (the game moves on by width + spacing)
-    kind: str                # "game", "patcher-made", "drawn by Windows", "missing"
+    kind: str                # "game", "patcher-made", "drawn by Windows", "colour emoji", "missing"
     face: str = ""
+    colour: bool = False     # a picture in its own colours: the game's tint leaves it alone (vf1_glyph_color)
 
 
 class GameFont:
@@ -349,14 +351,45 @@ class GameFont:
         if letter in self._made:
             return self._made[letter]
         made = None
-        if self.glyphs is not None and self.override is None:
+        if self.colour_emoji and vf1_emoji.is_colour_emoji(letter):
+            # a colour emoji, before the patcher-made and the game's letters (the DLL's LetterFor: the same); when
+            # Windows cannot draw it in colour, Windows' black-and-white letter, as before
+            made = self._colour(letter, True) or self._runtime(letter)
+        if made is None and self.glyphs is not None and self.override is None:
             image = self.glyphs.letter(letter, self.height)
             if image is not None:
                 made = Glyph(image, image.width, "patcher-made")
+        if made is None and self.colour_emoji:
+            # a letter whose chain face is a colour font (the DLL's MakeLetter: MakeColourLetter first)
+            made = self._colour(letter, False)
         if made is None:
             made = self._runtime(letter)
         self._made[letter] = made
         return made
+
+    colour_emoji: bool = True      # emoji as colour pictures (settings.ini [UnicodeText] ColourEmoji=0 turns it off)
+
+    def _colour(self, letter: str, emoji: bool) -> Glyph | None:
+        """The colour picture of `letter` (vf1_glyph_color), from vf1_glyph_gdi.Renderer.colour_face_for's face, at
+        the font's em (Use Unicode Font: the fitted em) and baseline, or None when there is no colour face or Windows
+        cannot draw it in colour."""
+        s = self.style
+        if s is None:
+            return None
+        import vf1_glyph_color
+        import vf1_glyph_gdi
+        r = self.renderer()
+        if r is not None:
+            face = r.colour_face_for(letter, emoji)
+        else:
+            face = vf1_glyph_gdi.COLOUR_EMOJI_FACE if emoji else None
+        if face is None:
+            return None
+        em = self.override[1] if self.override is not None else s.em
+        image = vf1_glyph_color.draw(letter, vf1_glyph_color.EMOJI_WEIGHT, em, s.baseline, self.height, face)
+        if image is None or image.width == 0:
+            return None
+        return Glyph(image, image.width, "colour emoji", face, colour=True)
 
     def _runtime(self, letter: str) -> Glyph:
         import vf1_glyph_gdi
@@ -418,7 +451,7 @@ class GameFont:
         height = self.height * self.lines(text)
         out = pi.Image(width, height)
         for g, x, y in self.layout(text):
-            paint(out, g.image, x, y, colour)
+            paint(out, g.image, x, y, colour, keep_colours=g.colour)
         return out
 
 
@@ -455,13 +488,17 @@ def tint_pixel(px: bytes, colour: int) -> bytes:
     return bytes((px[0] & r, px[1] & g, px[2] & b, px[3]))
 
 
-def paint(out: pi.Image, letter: pi.Image, x: int, y: int, colour: int = DEFAULT_COLOUR) -> None:
+def paint(out: pi.Image, letter: pi.Image, x: int, y: int, colour: int = DEFAULT_COLOUR, *,
+          keep_colours: bool = False) -> None:
     """One letter's pixels into `out` at (x, y), tinted for `colour` (alpha 0 = the default colour); a
-    colour alpha below 255 lowers each pixel's alpha as BlitRectWithAlpha 0x404C30 does."""
+    colour alpha below 255 lowers each pixel's alpha as BlitRectWithAlpha 0x404C30 does. keep_colours: a colour
+    emoji, whose own colours the tint leaves alone (vf1text.dll's colour pages are never tinted)."""
     if (colour >> 24) == 0:
         colour = DEFAULT_COLOUR
     alpha = (colour >> 24) & 0xFF
     r, g, b = colour & 0xFF, (colour >> 8) & 0xFF, (colour >> 16) & 0xFF
+    if keep_colours:
+        r = g = b = 0xFF
     weight = None
     if alpha != 0xFF:
         weight = int(alpha / 255.0 * 255.0 + 0.5)
