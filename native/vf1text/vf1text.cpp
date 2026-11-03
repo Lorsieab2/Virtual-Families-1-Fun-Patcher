@@ -653,24 +653,27 @@ static int StoredToUtf8(const unsigned char *s, int n, char *out) {
     return m;
 }
 
-// Adds code point cp to the text in buf (len bytes) by the write rule; false, with buf as it was, when the stored text
-// would pass `limit` bytes. (The whole text is written again: a character can change how its neighbours must be stored.)
-static bool AppendStored(char *buf, int len, int limit, unsigned cp) {
+// The text in buf (len bytes) with code point cp added, stored by the write rule, on the heap and NUL-terminated
+// (*m bytes), or 0 when memory is short. (The whole text is stored again: a character can change how its neighbours
+// must be stored.) The caller frees it.
+static unsigned char *AppendedText(const char *buf, int len, unsigned cp, int *m) {
     Run run;
-    if (!DecodeRun(&run, buf, len)) return false;
+    *m = 0;
+    if (!DecodeRun(&run, buf, len)) return 0;
     unsigned *cps = (unsigned *)Alloc(sizeof(unsigned) * (unsigned)(run.n + 1));
     unsigned char *out = (unsigned char *)Alloc((unsigned)(run.n + 1) * 4 + 4);
-    bool ok = false;
     if (cps && out) {
         for (int i = 0; i < run.n; ++i) cps[i] = run.cps[i];
         cps[run.n] = cp;
-        int m = EncodeStored(cps, run.n + 1, out);
-        if (m <= limit) { Copy(buf, out, (unsigned)m); buf[m] = 0; ok = true; }
+        *m = EncodeStored(cps, run.n + 1, out);
+        out[*m] = 0;
+    } else {
+        Free(out);
+        out = 0;
     }
     Free(cps);
-    Free(out);
     FreeRun(&run);
-    return ok;
+    return out;
 }
 
 // Removes the last whole character (cluster) of the text in buf (len bytes), the rest stored again by the rule.
@@ -725,9 +728,57 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 #include "names.inc"
 #include "wrap.inc"
 
+// A mark typed right after a character that was refused belongs to that character and is refused too: it must never
+// land on the box's last character. RefusedState 1: the last typed character was refused (a following extender is
+// refused); 2: a zero width joiner was refused (the character after it joins it, so that is refused as well).
+static TextControl *RefusedBox;
+static int RefusedState;
+static bool JoinsRefused(TextControl *c, unsigned cp) {
+    if (RefusedBox != c) return false;
+    return RefusedState == 2 || IsExtender(cp);
+}
+static bool Refuse(TextControl *c, unsigned cp) {
+    RefusedBox = c;
+    RefusedState = cp == 0x200D ? 2 : 1;
+    return true;
+}
+static void Accepted(TextControl *c) {
+    if (RefusedBox == c) { RefusedBox = 0; RefusedState = 0; }
+}
+
+// A box that is not a name box never gets wider than its stock text could be: a typed character that would make the
+// text wider than its byte limit times the widest plain letter of its font is refused. (A name box scrolls instead.)
+static bool WiderThanStock(TextControl *c, const char *text) {
+    void *font = *(void **)(c->raw + 0x3C);
+    if (!font) {
+        void *window = *(void **)0x500668;
+        font = window ? *(void **)((char *)*(void **)window + 0x5C) : 0;
+    }
+    if (!font) return false;
+    float scale = *(float *)(c->raw + 0x58);
+    int widest = 0;
+    for (char ch = 0x21; ch <= 0x7E; ++ch) {
+        char one[2] = { ch, 0 };
+        int w = GameGetWidth(font, one, scale);
+        if (w > widest) widest = w;
+    }
+    return GameGetWidth(font, text, scale) > TC_I(c, 0x28) * widest;
+}
+
+// Adds code point cp to the box's text; false (the text as it was) when it would pass the box's bytes as stored, or,
+// in a box that is not a name box, the widest stock text.
+static bool AppendToBox(TextControl *c, char *buf, int len, unsigned cp) {
+    int m;
+    unsigned char *out = AppendedText(buf, len, cp, &m);
+    bool ok = out && m <= TC_I(c, 0x28) && (IsNameBox(c) || !WiderThanStock(c, (const char *)out));
+    if (ok) { Copy(buf, out, (unsigned)m); buf[m] = 0; }
+    Free(out);
+    return ok;
+}
+
 // 0x40DA70 ldwTextControlImpl::HandleMessage(message, a, b), ret 0xC: the stock rules, plus a whole code
-// point posted as (5, 0, 0x40000000 | cp) is added in UTF-8 when it fits, and backspace deletes a whole
-// character of a UTF-8 text.
+// point posted as (5, 0, 0x40000000 | cp) is added by the write rule when it fits, and backspace deletes a whole
+// character.
 static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, int ch) {
     if (!TC_B(c, 0x25) || !*((char *)TC_P(c, 0x1C) + 8)) return false;
     if (message == 6) return a != 0x3E8;
@@ -735,6 +786,7 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
     char *buf = TC_P(c, 0x30);
     int len = TC_B(c, 0x2F) ? TC_I(c, 0x34) : (int)Len(buf);
     if (ch == 8) {
+        RefusedBox = 0;
         if (len > 0) {
             if (TC_B(c, 0x2F)) buf[len - 1] = 0; else DropLastCluster(buf, len);
             PostChanged(Messages(), 0xC, TC_I(c, 4));
@@ -742,23 +794,26 @@ static bool __fastcall TextMessage(TextControl *c, void *, int message, int a, i
         return true;
     }
     if (ch == 0xD || ch == 9) { EndEdit(c); return true; }
-    if (len >= TC_I(c, 0x28)) return true;
+    unsigned typed = (ch & UnicodeKey) ? ((unsigned)ch & 0x1FFFFF) : (unsigned)ch;
     if (ch & UnicodeKey) {
-        unsigned cp = (unsigned)ch & 0x1FFFFF;
         // a numbers-only box, a box in its other mode, or a control character: not typed
-        if (TC_B(c, 0x2D) || TC_B(c, 0x2F) || cp < 0x20 || (cp >= 0x7F && cp < 0xA0) || cp > 0x10FFFF ||
-            (cp >= 0xD800 && cp <= 0xDFFF))
+        if (TC_B(c, 0x2D) || TC_B(c, 0x2F) || typed < 0x20 || (typed >= 0x7F && typed < 0xA0) || typed > 0x10FFFF ||
+            (typed >= 0xD800 && typed <= 0xDFFF))
             return true;
-        if (!AppendStored(buf, len, TC_I(c, 0x28), cp)) return true;        // 1,200 bytes as stored at most
+        if (len >= TC_I(c, 0x28) || JoinsRefused(c, typed) || !AppendToBox(c, buf, len, typed))   // bytes as stored
+            return Refuse(c, typed);
+        Accepted(c);
         PostChanged(Messages(), 0xC, TC_I(c, 4));
         return true;
     }
     bool numeric = TC_B(c, 0x2D) != 0;
     bool ok = (!numeric && ch > 0x1F && ch <= 0xFF) || (numeric && ch >= 0x30 && ch <= 0x39) || (len == 0 && ch == 0x2D);
+    if (len >= TC_I(c, 0x28)) return ok ? Refuse(c, typed) : true;
     if (!ok) return true;
-    if (IsNameBox(c) && len + 1 > VF1_NAME_BOX_BYTES) return true;
+    if (JoinsRefused(c, typed) || (IsNameBox(c) && len + 1 > VF1_NAME_BOX_BYTES)) return Refuse(c, typed);
     buf[len] = (char)ch;
     buf[len + 1] = 0;
+    Accepted(c);
     PostChanged(Messages(), 0xC, TC_I(c, 4));
     return true;
 }

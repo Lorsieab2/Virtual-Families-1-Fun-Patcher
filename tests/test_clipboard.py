@@ -212,8 +212,12 @@ class Game:
             em.write(p, self.clipboard.encode("utf-16-le", "surrogatepass") + b"\0\0")
             return p, 0
 
+        self.clip_ok = True                     # False: the clipboard refuses the copy
+
         def clip_write(em):
             text = em.wstr(em.arg(0))
+            if not self.clip_ok:
+                return 0, 0
             self.writes.append(text)
             self.clipboard = text
             return 1, 0
@@ -271,7 +275,7 @@ class Game:
     def guard_ok(self, impl: int) -> bool:
         return self.e.read(self.e.r32(impl + 0x30) + self.e.r32(impl + 0x28) + 1, 16) == b"\xCC" * 16
 
-    def key(self, sym: int, mod: int = 0):
+    def key(self, sym: int, mod: int = 0, repeat: int = 0):
         """The event loop's SDL_KEYDOWN case from 0x404826, the key's code and modifiers in the event, to 0x404A87."""
         K, e = self.K, self.e
         frame = e.sp_top - 0x400
@@ -279,6 +283,7 @@ class Game:
         e.w32(frame + 0x24, 0x300)
         e.w32(frame + 0x38, sym)
         e.w32(frame + 0x3C, mod)
+        e.write(frame + 0x31, bytes([repeat]))               # SDL_KeyboardEvent.repeat
         e.setreg(K.UC_X86_REG_ESP, frame)
         e.setreg(K.UC_X86_REG_EAX, 0x300)
         e.setreg(K.UC_X86_REG_EBX, 0)
@@ -346,7 +351,9 @@ def test_the_active_function_is_asked_by_name_and_stored_by_the_loader():
     ("301 four-byte characters: one past the bytes", "\U0001208D" * 301, ("\U0001208D" * 300).encode()),
     ("joined emoji stop at whole ones", "\U0001F469\u200D\U0001F469\u200D\U0001F467" * 70,
      ("\U0001F469\u200D\U0001F469\u200D\U0001F467" * 66).encode()),
-    ("CR, LF and Tab become spaces", "Ann\r\nMarie\tLee", b"Ann  Marie Lee"),
+    ("CR LF is one space, a lone CR, LF and Tab one each", "Ann\r\nMarie\tLee", b"Ann Marie Lee"),
+    ("a lone CR, a lone LF, LF CR (two) and CR CR LF", "a\rb\nc\n\rd\r\r\ne", b"a b c  d  e"),
+    ("composed with a Unicode setting on (NFC)", "Zoe\u0308 Cafe\u0301", vf1_text.encode("Zo\u00eb Caf\u00e9")),
     ("control characters and lone surrogates are dropped", "Zo\u0001e\x7f\ud800\U0001F4A9", "Zoe\U0001F4A9".encode()),
     ("accents, Japanese, Cuneiform", "Zoë 日本 𒂍", vf1_text.encode("Zoë 日本 𒂍")),
 ])
@@ -389,7 +396,7 @@ def test_paste_at_the_byte_limit_and_one_past(uni):
 def test_paste_never_splits_a_mark_from_its_letter(uni):
     g = uni
     box = g.box(1200, b"a" * 1199)
-    g.paste(box, "e\u0301")                      # 3 bytes, one character: does not fit whole
+    g.paste(box, "x\u0301")                      # 3 bytes, one character (no precomposed form): does not fit whole
     assert g.text(box) == b"a" * 1199
     assert g.guard_ok(box)
 
@@ -476,6 +483,53 @@ def test_cut_copies_then_empties(uni):
     assert g.text(box) == b""
     assert g.changed == [0xC]
     assert g.guard_ok(box)
+
+
+# ---- held keys, and a failed copy
+def test_a_held_keys_repeats_are_swallowed(uni):
+    g = uni
+    box = g.box(1200, b"x")
+    g.clipboard = "ab"
+    g.key(ord("v"), CTRL)                       # the press
+    assert g.text(box) == b"xab"
+    for _ in range(5):
+        g.key(ord("v"), CTRL, repeat=1)         # auto-repeats: used, and nothing happens
+    assert g.text(box) == b"xab" and g.changed == [0xC]
+    g.key(ord("v"), CTRL)                       # a new press
+    assert g.text(box) == b"xabab"
+    g.key(INSERT, SHIFT, repeat=1)
+    g.key(ord("x"), CTRL, repeat=1)             # a held Ctrl+X does not copy or empty either
+    assert g.text(box) == b"xabab" and g.writes == []
+    assert g.guard_ok(box)
+
+
+def test_a_repeat_with_no_box_focused_goes_on_to_the_game(harness_dll):
+    stock = Game(harness_dll, unicode=True, install=False)
+    patched = Game(harness_dll, unicode=True)
+    for g in (stock, patched):
+        g.box(1200, b"idle", editing=False)
+        g.key(INSERT, SHIFT, repeat=1)
+        g.key(ord("v"), CTRL, repeat=1)
+    assert patched.scene_got == stock.scene_got and patched.writes == [] and patched.changed == []
+
+
+def test_cut_empties_the_box_only_after_the_copy_succeeded(uni):
+    g = uni
+    box = g.box(1200, "Hanako".encode())
+    g.clip_ok = False
+    g.key(ord("x"), CTRL)
+    assert g.text(box) == b"Hanako" and g.changed == [] and g.writes == []      # the copy failed: nothing lost
+    g.clip_ok = True
+    g.key(ord("x"), CTRL)
+    assert g.text(box) == b"" and g.writes == ["Hanako"]
+    assert g.guard_ok(box)
+
+
+def test_nfc_applies_with_both_unicode_settings_off_too(plain):
+    g = plain
+    box = g.box(0x14)
+    g.paste(box, "Zoe\u0308 Cafe\u0301")
+    assert g.text(box) == "Zo\u00eb Caf\u00e9".encode("latin-1")
 
 
 # ---- nowhere else
