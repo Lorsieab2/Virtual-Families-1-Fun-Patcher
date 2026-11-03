@@ -168,6 +168,8 @@ language already has a file (`fr-ann-lee.tsv`, then `fr-ann-lee-2.tsv`: ASCII, l
 letters; nothing is ever overwritten). The content is the same format as above (only the name and the `.tsv`
 extension differ). The older `patcher/translations/vf1/*.txt` place is still read. A release ships every accepted
 file except a "(TEST)" one (its language name or credit starts with "(TEST)", or its file name says it).
+`translations/fr.tsv`, "(TEST) - French AI Translation" (credit "(TEST) AI translation"), is one: an AI translation of
+every line, the game's and the patches', for trying out.
 
 - **Download from GitHub...** (Translations window) lists that folder on the default branch with GitHub's read-only
   public API (only `api.github.com` and `raw.githubusercontent.com`, only this repository's `translations/`, no
