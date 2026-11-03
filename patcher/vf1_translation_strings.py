@@ -12,7 +12,9 @@ A line's key is "strings/<id>~<hash of its English>".  Its room (Entry.max_lengt
 * where it goes through sprintf, strncat or a byte-copy loop: its English length ("english_length"), so every
   buffer holds at most what it holds in the English game;
 * every line: at most MAX_LINE.
-The lines in "never" are never translated (the decimal point). The likes and dislikes lists (ITEM_LISTS) keep every
+A line is a printf FORMAT ("format": the game hands it to sprintf as the format; Entry.is_format) or not: only a
+format's own conversions are placeholders, and a plain '%' in its translation is handed to the game as "%%"
+(translation_format.runtime_text). The lines in "never" are never translated (the decimal point). The likes and dislikes lists (ITEM_LISTS) keep every
 item, each no longer than its English (Entry.items).
 
 After the game's lines come the patches' own (key source "patch"): every line a player can see that vf1fun.dll adds
@@ -60,6 +62,7 @@ def limits() -> dict:
         "strncpy_room": {int(k): int(v) for k, v in data["strncpy_room"].items()},
         "english_length": {int(v) for v in data["english_length"]},
         "never": {int(k): v for k, v in data["never"].items()},
+        "format": {int(v) for v in data.get("format", ())},
     }
 
 
@@ -139,6 +142,8 @@ def entries_for(exe: bytes) -> list[tfmt.Entry]:
         max_length = room(sid, english)
         notes = [name]
         template = tfmt.parse_template(english)
+        is_format = sid in lim["format"]
+        template.conversions = list(tfmt.english_source(english, is_format).conversions)
         if template.variables or template.selects:
             notes.append("the game fills " + ", ".join(sorted("{" + v + "}" for v in template.variables))
                          if template.variables else "the game fills it")
@@ -153,7 +158,7 @@ def entries_for(exe: bytes) -> list[tfmt.Entry]:
             notes.append(f"a list of {english.count(',') + 1} items: keep every one, in order, separated by commas, "
                          "each no longer than its English")
         out.append(tfmt.Entry(tfmt.make_key("strings", str(sid), english), english, "; ".join(notes), max_length,
-                              items=items))
+                              items=items, is_format=is_format))
     return out + patch_entries()
 
 
@@ -174,12 +179,39 @@ def patch_entries() -> list[tfmt.Entry]:
         where = row["id"].split(".", 1)[0]
         notes = [f"{where}: " + ("drawn by the game" if row.get("drawn_by_game")
                                  else "a patcher window or message in the game")]
-        template = tfmt.parse_template(english)
-        if template.conversions:
-            notes.append(" ".join(f"%{n} ({c.text})" for n, c in enumerate(template.conversions, 1)))
+        is_format = bool(row.get("format"))
+        conversions = tfmt.english_source(english, is_format).conversions
+        if conversions:
+            notes.append(" ".join(f"%{n} ({c.text})" for n, c in enumerate(conversions, 1)))
         notes.append(f"at most {room} letters")
-        out.append(tfmt.Entry(tfmt.make_key("patch", row["id"], english), english, "; ".join(notes), room))
+        out.append(tfmt.Entry(tfmt.make_key("patch", row["id"], english), english, "; ".join(notes), room,
+                              is_format=is_format))
     return out
+
+
+def is_format_key(key: str) -> bool | None:
+    """Whether the line with this key is a printf format: True for a game line the game hands sprintf as its format
+    (data/vf1_translation_limits.json "format"), else None -- its English decides (translation_format.
+    english_source; without the game, the English in a file cannot be checked against it); a patch's line by its
+    id and English (data/vf1_patch_strings.json "format"); None for any other key. Needs no game: the GitHub
+    Action's validator uses it on a submitted file."""
+    parts = tfmt.split_key(key)
+    if not parts:
+        return None
+    source, ident, digest = parts
+    if source == "strings":
+        try:
+            return True if int(ident) in limits()["format"] else None
+        except (ValueError, OSError, KeyError):
+            return None
+    if source == "patch":
+        for row in _patch_rows():
+            if row.get("id") == ident and tfmt.key_hash(row.get("english", "")) == digest:
+                return bool(row.get("format"))
+    return None
+
+
+tfmt.set_format_lookup(is_format_key)
 
 
 def is_game_exe(path: Path) -> bool:

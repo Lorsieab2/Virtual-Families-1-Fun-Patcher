@@ -372,6 +372,15 @@
  "never": {
   "2": "the decimal point (eString_Decimal): numbers are written with it"
  },
+ "format": [
+  39,
+  59,
+  460,
+  1063,
+  1064,
+  1124,
+  1125
+ ],
  "unresolved": [
   {
    "at": "0x41AE4E",

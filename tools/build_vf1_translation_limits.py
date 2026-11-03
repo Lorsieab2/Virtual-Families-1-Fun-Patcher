@@ -16,6 +16,11 @@ For every `call 0x44FD90` in .text this finds:
   English does), sprintf 0x4985BB, strncat 0x498660 or an inline byte-copy loop (the line may not be longer than
   the English: then every buffer holds at most what it holds in the English game).
 
+A line whose text is pushed as sprintf's FORMAT (the GetString result is the call's second-to-last push: the
+format, just before the destination) is listed in "format": only its own conversions are placeholders, and vf1tr.dll
+hands the game a plain '%' of its translation as "%%" (translation_format.runtime_text). A line sprintf only copies
+(an argument, after a format of the code's own) is no format: every '%' in it is plain text.
+
 A copy whose id cannot be told (the id comes from data: an item, an event, a caller's table) is listed in
 "unresolved" with the copying call; vf1tr.dll redirects each of those calls through a guard that hands the copy a
 translated line cut to its English length (at a whole letter), so the copy never holds more than in the English
@@ -72,6 +77,7 @@ def scan(exe: bytes) -> dict:
             sites.append(at)
     limit: dict[int, int] = {}
     english_only: set[int] = set()
+    formats: set[int] = set()
     unresolved: list[str] = []
     copies = 0
 
@@ -127,7 +133,7 @@ def scan(exe: bytes) -> dict:
 
     for at in sites:
         after = list(md.disasm(img[at - base:at - base + 6 * WINDOW], at))[1:WINDOW]
-        kind, count, copy_at = None, None, None
+        kind, count, copy_at, is_format = None, None, None, False
         pushed: list = []
         for k, i in enumerate(after):
             if i.mnemonic in ("ret", "int3"):
@@ -148,6 +154,8 @@ def scan(exe: bytes) -> dict:
                     break
                 if target in (SPRINTF, STRNCAT):
                     kind = "english"
+                    # sprintf(dst, GetString(id), ...): pushed are [the line, dst] -- the line is the format
+                    is_format = target == SPRINTF and len(pushed) == 2 and pushed[0] == "eax"
                     break
                 if target == GET_STRING or k > 12:
                     pushed = []
@@ -167,6 +175,8 @@ def scan(exe: bytes) -> dict:
                                "target": f"0x{copy_at[1]:X}" if copy_at and copy_at[1] else None})
             continue
         for sid in ids:
+            if is_format:
+                formats.add(sid)
             if kind == "strncpy":
                 limit[sid] = min(limit.get(sid, 1 << 30), count - 1)
             else:
@@ -179,6 +189,7 @@ def scan(exe: bytes) -> dict:
         "strncpy_room": {str(k): v for k, v in sorted(limit.items())},
         "english_length": sorted(english_only),
         "never": {str(k): v for k, v in sorted(NEVER.items())},
+        "format": sorted(formats),
         "unresolved": unresolved,
     }
 
@@ -201,6 +212,8 @@ def header(data: dict) -> str:
         f"static const vf1tr_room VF1TR_STRNCPY_ROOM[] = {{\n" + "\n".join(rows) + "\n    { 0, 0 }\n};",
         f"static const unsigned short VF1TR_ENGLISH_LENGTH[] = {{ {english}, 0 }};",
         f"static const unsigned short VF1TR_NEVER[] = {{ {never}, 0 }};",
+        "/* The lines the game hands sprintf as its FORMAT: a plain '%' of their translation is written as \"%%\". */",
+        f"static const unsigned short VF1TR_FORMAT[] = {{ {', '.join(str(v) for v in data['format'])}, 0 }};",
         "",
     ])
 
@@ -219,7 +232,8 @@ def main() -> int:
     OUT_JSON.write_text(text, encoding="utf-8", newline="\n")
     OUT_H.write_text(header(data), encoding="utf-8", newline="\n")
     print(f"{data['get_string_calls']} GetString calls, {data['copies']} copies, {len(data['strncpy_room'])} strncpy "
-          f"lines, {len(data['english_length'])} English-length lines, {len(data['unresolved'])} unresolved: "
+          f"lines, {len(data['english_length'])} English-length lines, {len(data['format'])} formats "
+          f"{data['format']}, {len(data['unresolved'])} unresolved: "
           f"{data['unresolved'][:20]}")
     return 0
 

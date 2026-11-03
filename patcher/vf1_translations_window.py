@@ -760,9 +760,11 @@ class TranslationEditor:
             return "changed" if tfmt.base_key(row.key) in self.bases else "old"
         if not row.translation:
             return "new"
-        errors, _w = tfmt.check_translation(row.english, row.translation, self.file.code)
         entry = self.entries.get(row.key)
-        if errors or (entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide)) \
+        is_format = entry.is_format if entry else tfmt.format_of(row.key)
+        errors, _w = tfmt.check_translation(row.english, row.translation, self.file.code, is_format=is_format)
+        if errors or (entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide,
+                                                                    entry.english, entry.is_format)) \
                 or (entry and entry.items and tfmt.items_problem(entry.english, row.translation)):
             return "error"
         return "done"
@@ -812,6 +814,9 @@ class TranslationEditor:
         for child in self.insert_row.winfo_children():
             child.destroy()
         template = tfmt.parse_template(row.english)
+        entry = self.entries.get(row.key)
+        template.conversions = list(tfmt.english_source(
+            row.english, entry.is_format if entry else tfmt.format_of(row.key)).conversions)
         tokens = [c.text for c in template.conversions] + ["{" + v + "}" for v in sorted(template.variables)]
         for token in tokens:
             ttk.Button(self.insert_row, text=f"Insert {token}", command=lambda t=token: self.insert(t)).pack(side="left", padx=(0, 4))
@@ -831,7 +836,15 @@ class TranslationEditor:
     def _mark(self, widget: tk.Text) -> None:
         widget.tag_remove("placeholder", "1.0", "end")
         text = widget.get("1.0", "end-1c")
+        row = getattr(self, "current", None)
+        source = None
+        if row is not None:
+            entry = self.entries.get(row.key)
+            source = tfmt.english_source(row.english, entry.is_format if entry else tfmt.format_of(row.key))
         for match in PLACEHOLDER_RE.finditer(text):
+            # a '%' is a placeholder only when it is one of the English's own ("50 % de" is plain text)
+            if match.group(0).startswith("%") and source is not None and source.token_at(text, match.start()) is None:
+                continue
             widget.tag_add("placeholder", f"1.0+{match.start()}c", f"1.0+{match.end()}c")
 
     def insert(self, token: str) -> None:
@@ -871,9 +884,11 @@ class TranslationEditor:
         row = self.current
         if row is None:
             return []
-        errors, warnings = tfmt.check_translation(row.english, row.translation, self.file.code)
         entry = self.entries.get(row.key)
-        if row.translation and entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide):
+        is_format = entry.is_format if entry else tfmt.format_of(row.key)
+        errors, warnings = tfmt.check_translation(row.english, row.translation, self.file.code, is_format=is_format)
+        if row.translation and entry and entry.max_length and tfmt.too_long(row.translation, entry.max_length, entry.wide,
+                                                                            entry.english, entry.is_format):
             errors.append(tfmt.too_long_message(entry.max_length))
         if row.translation and entry and entry.items and tfmt.items_problem(entry.english, row.translation):
             errors.append(tfmt.ITEMS_MESSAGE)

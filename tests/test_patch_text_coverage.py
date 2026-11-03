@@ -79,6 +79,17 @@ def test_every_visible_kind_of_text_is_marked():
 
 def test_the_json_is_up_to_date():
     assert pt.OUTPUT.read_text(encoding="utf-8") == pt.render(), "run python tools/vf1_patch_text.py"
+    assert pt.FORMATS_H.read_text(encoding="utf-8") == pt.render_formats_h(), "run python tools/vf1_patch_text.py"
+
+
+def test_the_printf_formats_are_the_tr_lines_handed_to_swprintf_as_the_format():
+    """A TR(L"...") that is swprintf's format argument is a format; one passed as an argument is not."""
+    rows = {r["english"]: r for r in json.loads(pt.OUTPUT.read_text(encoding="utf-8"))["strings"]}
+    assert rows["Store prices: %dx"]["format"] and rows["There is no family yet."]["format"]
+    assert not rows["  (owned)"]["format"]                                  # swprintf(..., L"%s\t$%d%s", ..., TR(...))
+    assert not rows["Interest rate %"]["format"]
+    h = pt.FORMATS_H.read_text(encoding="utf-8")
+    assert f"0x{tfmt.key_hash('Store prices: %dx')}u" in h and f"0x{tfmt.key_hash('Interest rate %')}u" not in h
 
 
 # ---------------------------------------------------------------------------------------------- the template

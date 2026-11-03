@@ -80,7 +80,12 @@ strings/679~b3b0dc0a	{name} finally got a promotion! {He/She} worked so hard for
 
 - **Names and numbers the game fills:** `{name}` and `{name2}` are family members' names, `{award}` a number. Keep each
   one; any order.
-- **printf conversions** (`%d`): keep the same ones in the same order. Write `%%` for a percent sign.
+- **printf conversions** (`%d`): keep the same ones in the same order.
+- **Percent signs:** only the placeholders the line's English has count as placeholders. Any other `%` is plain text,
+  so write a percent sign as you normally would: `2 %`, `2 %` (no-break space), `50 % de réduction`. Where the
+  game or a patch formats the line with printf, the patcher hands it each such `%` as `%%`, so it shows one `%`
+  (the extra byte counts toward the line's room); anywhere else it is shown as you wrote it. `%%` shows as two
+  percent signs unless the English has `%%` itself.
 - `{{` and `}}` are literal braces.
 
 ### Choosing words by person
