@@ -46,7 +46,15 @@ HELP = (
         "language, e.g. {il/elle}, or {name: m=prêt | f=prête}. Numbers: {award: one=pièce | other=pièces} "
         "(the game shows its other form). docs/translations.md explains everything.",
         "Add translation file... (or drag a .txt file onto this window) checks a file you were sent and adds "
-        "it to the list. Export translation... saves a copy anywhere.",
+        "it to the list.",
+        "The list takes several at once: click one, Ctrl+click to add or remove one, Shift+click for a range, "
+        "Ctrl+A or Select All for everything. Selecting never changes the game's language: that is only "
+        "\"Language in the game\" at the top.",
+        "Export... saves a copy of each selected translation (one file each). Delete... moves the selected "
+        "files to the Windows Recycle Bin, after one Yes/No (No does nothing), so you can restore them from "
+        "there. \"English (original)\" is part of the game and is never deleted. A translation that came with "
+        "the patcher comes back with the next patcher update. Deleting the language the game uses puts the "
+        "game back in English from its next start, as choosing English does.",
         "After a patcher update, new lines appear untranslated in the editor and your translation keeps "
         "working; a line whose English changed shows the new English until you translate it again.",
         tr.SHARE_INVITE + " " + tr.SHARE_HOW + " You need a free GitHub account (" + tr.SIGNUP_URL + "). "
@@ -185,16 +193,28 @@ class TranslationsWindow:
 
         group = ttk.LabelFrame(frame, text="Translations in the patcher", padding=10)
         group.pack(fill="both", expand=True, pady=(10, 0))
-        self.listbox = tk.Listbox(group, height=7, activestyle="none")
+        # Several at once: click, Ctrl+click, Shift+click (Tk's "extended" mode), Ctrl+A and Select All.
+        # Selecting here never changes the game's language; that is only the box above.
+        self.listbox = tk.Listbox(group, height=7, activestyle="none", selectmode="extended", exportselection=False)
         self.listbox.pack(fill="both", expand=True)
         self.listbox.bind("<Double-Button-1>", lambda _e: self.edit())
+        for sequence in ("<Control-a>", "<Control-A>", "<<SelectAll>>"):
+            self.listbox.bind(sequence, self._select_all_key)
+            win.bind(sequence, self._select_all_key)
+        ttk.Label(group, text="Click to select; Ctrl+click or Shift+click to select more; Ctrl+A or Select All for "
+                              "everything. The language the game uses is chosen above, under \"Language in the game\".",
+                  wraplength=700, foreground="#666666").pack(anchor="w", pady=(4, 0))
         buttons = ttk.Frame(group)
         buttons.pack(fill="x", pady=(6, 0))
         ttk.Button(buttons, text="Add translation file...", command=self.add_dialog).pack(side="left")
         ttk.Button(buttons, text="Edit...", command=self.edit).pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Check", command=self.check).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Export translation...", command=self.export).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Export...", command=self.export).pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Open folder", command=self.open_folder).pack(side="left", padx=(8, 0))
+        buttons = ttk.Frame(group)
+        buttons.pack(fill="x", pady=(6, 0))
+        ttk.Button(buttons, text="Select All", command=self.select_all).pack(side="left")
+        ttk.Button(buttons, text="Delete...", command=self.delete).pack(side="left", padx=(8, 0))
         self.drop_hint = tk.StringVar(master=win, value="")
         ttk.Label(group, textvariable=self.drop_hint, foreground="#666666").pack(anchor="w", pady=(4, 0))
 
@@ -229,6 +249,7 @@ class TranslationsWindow:
         index = next((n + 1 for n, i in enumerate(self.items) if chosen and i.path.resolve() == chosen.resolve()), 0)
         self.language_var.set(labels[index])
         self.listbox.delete(0, "end")
+        self.listbox.insert("end", f"{ENGLISH}   (part of the game)")
         for item in self.items:
             self.listbox.insert("end", f"{item.label}   [{item.path.name}]" + ("   (came with the patcher)" if item.shipped else ""))
         copies = tr.game_copies(game, self.game_folders(game))
@@ -242,13 +263,28 @@ class TranslationsWindow:
     def game_folders(self, game: str) -> list[str]:
         return self.folders.get(game, [])
 
+    def selected_items(self) -> list[tr.Installed]:
+        """The selected translations, in list order (row 0 is "English (original)", not a file)."""
+        return [self.items[n - 1] for n in self.listbox.curselection() if 0 < n <= len(self.items)]
+
+    def english_selected(self) -> bool:
+        return 0 in self.listbox.curselection()
+
     def selected(self) -> tr.Installed | None:
-        chosen = self.listbox.curselection()
-        if chosen:
-            return self.items[chosen[0]]
-        if len(self.items) == 1:
+        """The one translation Edit, Check and Share work on: the only one selected, or the only one there is."""
+        items = self.selected_items()
+        if len(items) == 1:
+            return items[0]
+        if not self.listbox.curselection() and len(self.items) == 1:
             return self.items[0]
         return None
+
+    def select_all(self) -> None:
+        self.listbox.selection_set(0, "end")
+
+    def _select_all_key(self, _event=None) -> str:
+        self.select_all()
+        return "break"
 
     # ---------------------------------------------------------------- choosing
     def choose(self) -> list[Path]:
@@ -314,7 +350,7 @@ class TranslationsWindow:
     def edit(self) -> None:
         item = self.selected()
         if item is None:
-            messagebox.showinfo(TITLE, "Choose a translation in the list first.", parent=self.window)
+            messagebox.showinfo(TITLE, "Choose one translation in the list first.", parent=self.window)
             return
         if item.shipped and not messagebox.askyesno(
                 TITLE, "This translation came with the patcher. Edit a copy of it as your own?", parent=self.window):
@@ -384,23 +420,108 @@ class TranslationsWindow:
     def check(self) -> str:
         item = self.selected()
         if item is None:
-            messagebox.showinfo(TITLE, "Choose a translation in the list first.", parent=self.window)
+            messagebox.showinfo(TITLE, "Choose one translation in the list first.", parent=self.window)
             return ""
         parsed = tfmt.parse_bytes(item.path.read_bytes(), self.game)
         summary = tfmt.validate(parsed, self.entries(self.game, ask=False)).summary()
         messagebox.showinfo(TITLE, summary[:6000], parent=self.window)
         return summary
 
-    def export(self) -> Path | None:
-        item = self.selected()
-        if item is None:
-            messagebox.showinfo(TITLE, "Choose a translation in the list first.", parent=self.window)
-            return None
-        name = filedialog.asksaveasfilename(parent=self.window, title="Export translation", initialfile=item.path.name,
-                                            defaultextension=".txt", filetypes=(("Translation files", "*.txt"),))
-        if not name:
-            return None
-        return tr.export_file(item.path, Path(name))
+    def export(self) -> list[Path]:
+        """Export...: a copy of each selected translation, one file each. One selected: saved where and as
+        the player says; several: into a folder the player chooses, each under its own name."""
+        items = self.selected_items()
+        if not items and not self.listbox.curselection() and len(self.items) == 1:
+            items = list(self.items)
+        if not items:
+            messagebox.showinfo(TITLE, "Choose the translations to export in the list first (\"English (original)\" "
+                                       "is part of the game, not a file).", parent=self.window)
+            return []
+        if len(items) == 1:
+            name = filedialog.asksaveasfilename(parent=self.window, title="Export translation",
+                                                initialfile=items[0].path.name, defaultextension=".txt",
+                                                filetypes=(("Translation files", "*.txt"),))
+            return [tr.export_file(items[0].path, Path(name))] if name else []
+        folder = filedialog.askdirectory(parent=self.window, title=f"Export {len(items)} translations to")
+        if not folder:
+            return []
+        targets: list[Path] = []
+        for item in items:
+            target = Path(folder) / item.path.name
+            number = 2
+            while target in targets:                # a shipped file and the player's copy share a name
+                target = Path(folder) / f"{item.path.stem} ({number}){item.path.suffix}"
+                number += 1
+            targets.append(target)
+        existing = [t for t in targets if t.exists()]
+        if existing and not messagebox.askyesno(
+                TITLE, "These files are already there:\n\n" + "\n".join(t.name for t in existing)
+                + "\n\nReplace them? (No skips them.)", default="no", parent=self.window):
+            pairs = [(i, t) for i, t in zip(items, targets) if t not in existing]
+        else:
+            pairs = list(zip(items, targets))
+        written: list[Path] = []
+        problems: list[str] = []
+        for item, target in pairs:
+            try:
+                written.append(tr.export_file(item.path, target))
+            except OSError as exc:
+                problems.append(f"{item.path.name}: {exc.strerror or exc}")
+        message = f"Exported {len(written)} translation(s) to {folder}."
+        if problems:
+            message += "\n\nNot exported:\n" + "\n".join(problems)
+        messagebox.showinfo(TITLE, message, parent=self.window)
+        return written
+
+    # ---------------------------------------------------------------- deleting
+    def delete_prompt(self, items: list[tr.Installed], english: bool, chosen: Path | None) -> str:
+        """The one Yes/No question Delete... asks: every file, and what happens."""
+        lines = [f"Delete {'this translation' if len(items) == 1 else f'these {len(items)} translations'}? "
+                 "The files go to the Windows Recycle Bin, so you can restore them from there.", ""]
+        for item in items:
+            lines.append(f"    {item.label}   [{item.path.name}]" + ("   (came with the patcher)" if item.shipped else ""))
+        notes: list[str] = []
+        if any(item.shipped for item in items):
+            notes.append("A translation that came with the patcher comes back with the next patcher update.")
+        active = next((i for i in items if chosen is not None and i.path.resolve() == chosen.resolve()), None)
+        if active is not None:
+            notes.append(f"{active.label} is the language in the game now: the game goes back to {ENGLISH} from "
+                         "its next start.")
+        if english:
+            notes.append(f"{ENGLISH} is part of the game and cannot be deleted: it is skipped.")
+        return "\n".join(lines + ([""] + notes if notes else []))
+
+    def delete(self) -> list[Path]:
+        """Delete...: the selected translations to the Recycle Bin after one Yes/No (No by default; No does
+        nothing). English (original) is skipped. When the Recycle Bin fails, nothing is deleted. Deleting the
+        language the game uses chooses English, exactly as choosing it in the box does."""
+        items = self.selected_items()
+        english = self.english_selected()
+        if not items:
+            messagebox.showinfo(TITLE, f"{ENGLISH} is part of the game and cannot be deleted." if english else
+                                "Choose the translations to delete in the list first.", parent=self.window)
+            return []
+        game = self.game
+        chosen = tr.chosen_path(game, tr.load_choices(self.choices_path), self.folder)
+        if not messagebox.askyesno("Delete translations", self.delete_prompt(items, english, chosen), default="no",
+                                   icon="warning", parent=self.window):
+            return []
+        paths = [item.path for item in items]
+        try:
+            tr.recycle(paths)
+        except OSError as exc:
+            messagebox.showerror(TITLE, f"Nothing was deleted: {exc}", parent=self.window)
+            self.refresh()
+            return []
+        gone = {p.resolve() for p in paths}
+        for editor in [e for e in self.editors if e.path.resolve() in gone]:
+            editor.discard()                        # an open editor must not save the file back
+            self.editors.remove(editor)
+        self.refresh()
+        if chosen is not None and chosen.resolve() in gone:
+            self.language_var.set(ENGLISH)
+            self.choose()
+        return paths
 
     def open_folder(self) -> None:
         self.folder.mkdir(parents=True, exist_ok=True)
@@ -831,6 +952,18 @@ class TranslationEditor:
     def close(self) -> None:
         self.save()
         self.window.destroy()
+
+    def discard(self) -> None:
+        """Its file was deleted: close without saving (saving would bring the file back)."""
+        self.dirty = False
+        if self._after is not None:
+            try:
+                self.window.after_cancel(self._after)
+            except tk.TclError:
+                pass
+            self._after = None
+        if self.window.winfo_exists():
+            self.window.destroy()
 
 
 def open_window(master, folders: list) -> TranslationsWindow:

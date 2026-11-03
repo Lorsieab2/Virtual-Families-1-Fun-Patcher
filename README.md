@@ -299,7 +299,12 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     translation...** (a built-in two-column editor: search, untranslated only, progress, placeholders in colour with
     Insert buttons, `{il/elle}` and plural choices checked as you type, a preview in the game's own font, autosave,
     lines whose English changed marked), **Add translation file...** (or drag a `.txt` onto the window,
-    WM_DROPFILES), **Check**, **Export translation...** and **Share on GitHub...** (the owner's confirmation, No by
+    WM_DROPFILES), **Check**, a multi-select list (click, Ctrl+click, Shift+click, Ctrl+A, **Select All**; the
+    game's language stays the separate box above), **Export...** (one file each), **Delete...** (one Yes/No listing
+    the files, No by default; to the Recycle Bin through `SHFileOperationW` with `FOF_ALLOWUNDO`, nothing deleted if
+    that fails; English (original) is never deleted; a translation that came with the patcher comes back with the
+    next update; deleting the language in use goes back to English) and **Share on GitHub...** (the owner's
+    confirmation, No by
     default; a credit name typed by hand, never filled in; email addresses are refused everywhere). The owner accepts
     a shared file with the `accept-translation` label: `.github/workflows/accept-translation.yml` checks it as data
     only (`scripts/accept_translation.py`) and opens a pull request as the bot. Modules `patcher/vf1_translations*.py`,

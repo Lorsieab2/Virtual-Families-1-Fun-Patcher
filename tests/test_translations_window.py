@@ -207,15 +207,15 @@ def test_drop_and_button_share_one_handler(window):
 
 
 def test_export(window):
-    window.listbox.selection_set(0)
+    window.listbox.selection_set(1)                                        # row 0 is English (original)
     target = window.test["tmp"] / "exported.txt"
     with mock.patch.object(tw.filedialog, "asksaveasfilename", return_value=str(target)):
-        assert window.export() == target
+        assert window.export() == [target]
     assert target.read_bytes() == window.test["path"].read_bytes()
 
 
 def test_share_no_does_nothing(window):
-    window.listbox.selection_set(0)
+    window.listbox.selection_set(1)
     with mock.patch.object(tw.messagebox, "askyesno", return_value=False) as ask, \
             mock.patch.object(tw.webbrowser, "open") as browser, \
             mock.patch.object(tw.TranslationsWindow, "_show_in_folder") as shown, \
@@ -230,7 +230,7 @@ def test_share_no_does_nothing(window):
 
 
 def test_share_yes_credit_typed_then_export_and_github(window):
-    window.listbox.selection_set(0)
+    window.listbox.selection_set(1)
     seen = {}
 
     def answer(dialog):
@@ -302,3 +302,263 @@ def test_editor_marks_new_and_changed_lines_after_an_update(window):
     assert old.translation == "Terminé"
     assert editor.STATUS["changed"] == "English changed"
     editor.close()
+
+
+# ---------------------------------------------------------------------------------------------- several at once
+
+
+def more_translations(window):
+    """Rows: 0 English (original), 1 Français (by Zed) (came with the patcher), 2 Deutsch (by Bob), 3 Français (by Ann)."""
+    folder = window.test["folder"]
+    (folder / "vf1").mkdir()
+    shipped = write_translation(folder / "vf1", "Français", "Zed")
+    deutsch = write_translation(folder, "Deutsch", "Bob")
+    window.refresh()
+    window.window.update()
+    assert [i.label for i in window.items] == ["Français (by Zed)", "Deutsch (by Bob)", "Français (by Ann)"]
+    return shipped, deutsch, window.test["path"]
+
+
+def click(listbox, row, modifier=""):
+    """A synthetic Tk click on a row (Tk's own Listbox bindings do the selecting; the real mouse never moves)."""
+    listbox.update()
+    x, y, width, height = listbox.bbox(row)
+    for event in (f"<{modifier}Button-1>", f"<{modifier}ButtonRelease-1>"):
+        listbox.event_generate(event, x=x + width // 2, y=y + height // 2)
+    listbox.update()
+
+
+def button(window, text):
+    def walk(widget):
+        yield widget
+        for child in widget.winfo_children():
+            yield from walk(child)
+    return next(w for w in walk(window.window) if w.winfo_class() == "TButton" and w.cget("text") == text)
+
+
+def test_the_list_is_multi_select_click_ctrl_and_shift(window):
+    more_translations(window)
+    box = window.listbox
+    assert box.cget("selectmode") == "extended" and not int(box.cget("exportselection"))
+    assert box.get(0).startswith("English (original)")
+    click(box, 1)
+    assert box.curselection() == (1,)
+    click(box, 3, "Shift-")                                                # a range
+    assert box.curselection() == (1, 2, 3)
+    click(box, 2, "Control-")                                              # Ctrl+click takes one out...
+    assert box.curselection() == (1, 3)
+    click(box, 0, "Control-")                                              # ...and puts one in
+    assert box.curselection() == (0, 1, 3)
+    assert [i.label for i in window.selected_items()] == ["Français (by Zed)", "Français (by Ann)"]
+    assert window.english_selected()
+    assert window.selected() is None                                       # Edit and Check want one
+    click(box, 2)                                                          # a plain click selects only that one
+    assert box.curselection() == (2,)
+    assert window.selected().label == "Deutsch (by Bob)"
+    assert window.language_var.get() == "English (original)"               # selecting never chooses the language
+
+
+def test_select_all_button_and_ctrl_a(window):
+    more_translations(window)
+    box = window.listbox
+    button(window, "Select All").invoke()
+    assert box.curselection() == (0, 1, 2, 3)
+    box.selection_clear(0, "end")
+    for sequence in ("<Control-a>", "<Control-A>"):
+        assert box.bind(sequence) and window.window.bind(sequence)
+    box.focus_force()
+    box.update()
+    box.event_generate("<Control-a>")
+    box.update()
+    if box.curselection() != (0, 1, 2, 3):                                 # no keyboard focus on this desktop
+        assert window._select_all_key() == "break"
+    assert box.curselection() == (0, 1, 2, 3)
+    assert window.language_var.get() == "English (original)"
+
+
+def test_delete_prompt_lists_the_files_and_no_does_nothing(window):
+    shipped, deutsch, francais = more_translations(window)
+    window.select_all()
+    with mock.patch.object(tw.messagebox, "askyesno", return_value=False) as ask, \
+            mock.patch.object(tr, "recycle") as recycle:
+        assert window.delete() == []
+    recycle.assert_not_called()
+    assert shipped.exists() and deutsch.exists() and francais.exists()
+    assert ask.call_count == 1
+    assert ask.call_args[1]["default"] == "no"
+    text = ask.call_args[0][1]
+    assert text.startswith("Delete these 3 translations?") and "Windows Recycle Bin" in text
+    for name in ("Français (by Zed)", "Deutsch (by Bob)", "Français (by Ann)", deutsch.name, francais.name):
+        assert name in text
+    assert "comes back with the next patcher update" in text               # one came with the patcher
+    assert "English (original) is part of the game and cannot be deleted: it is skipped." in text
+    assert "language in the game now" not in text                          # English is the language
+    assert len(window.items) == 3 and window.listbox.curselection() == (0, 1, 2, 3)
+
+
+def test_delete_without_shipped_or_english_says_neither(window):
+    _shipped, deutsch, _francais = more_translations(window)
+    window.listbox.selection_set(2)
+    with mock.patch.object(tw.messagebox, "askyesno", return_value=False) as ask:
+        window.delete()
+    text = ask.call_args[0][1]
+    assert text.startswith("Delete this translation?") and deutsch.name in text
+    assert "patcher update" not in text and "cannot be deleted" not in text
+
+
+def test_delete_english_only_asks_nothing(window):
+    window.listbox.selection_set(0)
+    with mock.patch.object(tw.messagebox, "askyesno") as ask, mock.patch.object(tw.messagebox, "showinfo") as info, \
+            mock.patch.object(tr, "recycle") as recycle:
+        assert window.delete() == []
+    ask.assert_not_called()
+    recycle.assert_not_called()
+    assert "cannot be deleted" in info.call_args[0][1]
+
+
+def recycled(paths):
+    for path in paths:
+        Path(path).unlink()                    # stands in for the Recycle Bin
+
+
+def test_delete_yes_recycles_exactly_the_selected_files_and_skips_english(window):
+    shipped, deutsch, francais = more_translations(window)
+    window.listbox.selection_set(0)
+    window.listbox.selection_set(1)
+    window.listbox.selection_set(2)
+    with mock.patch.object(tw.messagebox, "askyesno", return_value=True), \
+            mock.patch.object(tr, "recycle", side_effect=recycled) as recycle:
+        assert window.delete() == [shipped, deutsch]
+    recycle.assert_called_once_with([shipped, deutsch])                    # English (original) is not a file
+    assert not shipped.exists() and not deutsch.exists() and francais.exists()
+    assert [i.label for i in window.items] == ["Français (by Ann)"]
+    assert window.listbox.get(0).startswith("English (original)") and window.listbox.size() == 2
+
+
+def test_deleting_the_language_in_the_game_goes_back_to_english(window):
+    _shipped, _deutsch, francais = more_translations(window)
+    window.language_var.set("Français (by Ann)")
+    copy = window.test["copy"]
+    assert window.choose() == [copy.resolve()]
+    assert (copy / FOLDER / "Translation.ini").exists()
+    editor = window.open_editor(francais)
+    window.listbox.selection_set(3)
+    with mock.patch.object(tw.messagebox, "askyesno", return_value=True) as ask, \
+            mock.patch.object(tr, "recycle", side_effect=recycled):
+        assert window.delete() == [francais]
+    assert "Français (by Ann) is the language in the game now: the game goes back to English (original) from its " \
+           "next start." in ask.call_args[0][1]
+    assert window.language_var.get() == "English (original)"
+    assert tr.load_choices(window.choices_path)["vf1"] == ""               # as choosing English does
+    assert not (copy / FOLDER / "Translation.ini").exists() and not (copy / FOLDER / "Translation.txt").exists()
+    assert "English" in window.choice_status.get() and "next start" in window.choice_status.get()
+    assert editor not in window.editors and not editor.window.winfo_exists()
+    window.close()
+    assert not francais.exists()                                           # the closed editor did not save it back
+
+
+def test_recycle_bin_failure_deletes_nothing(window):
+    shipped, deutsch, francais = more_translations(window)
+    window.language_var.set("Français (by Ann)")
+    window.choose()
+    window.select_all()
+    with mock.patch.object(tw.messagebox, "askyesno", return_value=True), \
+            mock.patch.object(tw.messagebox, "showerror") as error, \
+            mock.patch.object(tr, "recycle", side_effect=OSError("The Recycle Bin is not available.")):
+        assert window.delete() == []
+    assert "Nothing was deleted" in error.call_args[0][1] and "Recycle Bin is not available" in error.call_args[0][1]
+    assert shipped.exists() and deutsch.exists() and francais.exists()
+    assert len(window.items) == 3
+    assert window.language_var.get() == "Français (by Ann)"
+    assert tr.load_choices(window.choices_path)["vf1"] == francais.name
+    assert (window.test["copy"] / FOLDER / "Translation.ini").exists()
+
+
+def test_export_several_one_file_each(window):
+    shipped, deutsch, francais = more_translations(window)
+    window.select_all()                                                    # English (original) is not exported
+    out = window.test["tmp"] / "out"
+    out.mkdir()
+    with mock.patch.object(tw.filedialog, "askdirectory", return_value=str(out)) as folder, \
+            mock.patch.object(tw.filedialog, "asksaveasfilename") as save_as, \
+            mock.patch.object(tw.messagebox, "showinfo") as info:
+        written = window.export()
+    folder.assert_called_once()
+    save_as.assert_not_called()
+    assert written == [out / shipped.name, out / deutsch.name, out / "Virtual Families - Français (2).txt"]
+    assert [p.read_bytes() for p in written] == [shipped.read_bytes(), deutsch.read_bytes(), francais.read_bytes()]
+    assert sorted(p.name for p in out.iterdir()) == sorted(p.name for p in written)
+    assert "Exported 3 translation(s)" in info.call_args[0][1]
+    assert shipped.exists() and deutsch.exists() and francais.exists()     # exporting copies
+
+
+def test_export_several_asks_before_replacing(window):
+    _shipped, deutsch, francais = more_translations(window)
+    window.listbox.selection_set(2, 3)
+    out = window.test["tmp"] / "out"
+    out.mkdir()
+    (out / deutsch.name).write_bytes(b"mine")
+    with mock.patch.object(tw.filedialog, "askdirectory", return_value=str(out)), \
+            mock.patch.object(tw.messagebox, "askyesno", return_value=False) as ask, \
+            mock.patch.object(tw.messagebox, "showinfo"):
+        assert window.export() == [out / francais.name]
+    assert ask.call_args[1]["default"] == "no" and deutsch.name in ask.call_args[0][1]
+    assert (out / deutsch.name).read_bytes() == b"mine"
+
+
+def test_the_help_explains_selecting_deleting_and_exporting():
+    text = " ".join(tw.HELP[1])
+    for words in ("Ctrl+click", "Shift+click", "Ctrl+A", "Select All", "Export...", "Delete...", "Recycle Bin",
+                  "No does nothing", "comes back with the next patcher update", "back in English"):
+        assert words in text, words
+
+
+# ---------------------------------------------------------------------------------------------- the Recycle Bin
+
+
+def test_recycle_uses_shfileoperation_with_allow_undo(tmp_path):
+    import ctypes
+    files = [tmp_path / "a b.txt", tmp_path / "Français.txt"]
+    for f in files:
+        f.write_bytes(b"x")
+    seen = {}
+
+    def operation(pointer):
+        op = pointer._obj
+        seen["func"], seen["flags"] = op.wFunc, op.fFlags
+        size = sum(len(str(f.resolve())) + 1 for f in files) + 1
+        seen["from"] = ctypes.wstring_at(op.pFrom, size)
+        seen["to"] = op.pTo
+        for f in files:
+            f.unlink()
+        return 0
+    tr.recycle(files, operation)
+    assert seen["func"] == tr.FO_DELETE == 3
+    assert seen["flags"] & tr.FOF_ALLOWUNDO and seen["flags"] & tr.FOF_NOCONFIRMATION
+    assert seen["from"] == "\0".join(str(f.resolve()) for f in files) + "\0\0"    # full paths, double-null ended
+    assert not seen["to"]
+    source = tr.recycle.__code__.co_names
+    assert "unlink" not in source and "remove" not in source and "rmtree" not in source   # never a hard delete
+
+
+@pytest.mark.parametrize("result, aborted, message", [(2, 0, "error 0x2"), (0, 1, "cancelled")])
+def test_recycle_reports_a_failure(tmp_path, result, aborted, message):
+    path = tmp_path / "t.txt"
+    path.write_bytes(b"x")
+
+    def operation(pointer):
+        pointer._obj.fAnyOperationsAborted = aborted
+        return result
+    with pytest.raises(OSError, match=message):
+        tr.recycle([path], operation)
+    assert path.exists()
+
+
+def test_recycle_a_missing_file_touches_nothing(tmp_path):
+    here = tmp_path / "here.txt"
+    here.write_bytes(b"x")
+    operation = mock.Mock(return_value=0)
+    with pytest.raises(OSError, match="gone.txt"):
+        tr.recycle([here, tmp_path / "gone.txt"], operation)
+    operation.assert_not_called()
+    assert here.exists()

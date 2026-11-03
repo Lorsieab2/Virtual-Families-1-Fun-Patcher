@@ -175,8 +175,18 @@ translation on the right, with a preview in the game's own font, and saves by
 itself. Keep the placeholders such as {name} and %d (they are coloured). In a
 line about a person, {he/she} is that person's sex: write it in your language,
 for example {il/elle}. Add translation file... (or drag a .txt file onto the
-window) adds a translation you were sent; Export translation... saves a copy.
-Lines whose English changed after a patcher update are marked.
+window) adds a translation you were sent. Lines whose English changed after a
+patcher update are marked.
+
+The list of translations takes several at once: click one, Ctrl+click to add
+or remove one, Shift+click for a range, Ctrl+A or Select All for everything.
+Selecting never changes the game's language; only "Language in the game" does.
+Export... saves a copy of each selected translation, one file each. Delete...
+asks once, listing the files (No does nothing), and moves them to the Windows
+Recycle Bin, so you can restore them. English (original) is never deleted. A
+translation that came with the patcher comes back with the next update.
+Deleting the language the game uses puts it back in English from its next
+start.
 
 Share on GitHub... sends your translation to the patcher's public GitHub page
 (you need a free GitHub account). It asks first; No does nothing. You type the

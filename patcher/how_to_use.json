@@ -444,7 +444,8 @@
         "Plays the game in another language, or makes a translation: Language in the game (each language by its own name) applies from the next game start; Translations must be ticked and patched once.",
         "Make a translation... opens the built-in editor: the English on the left, your translation on the right, a preview in the game's own font, and it saves by itself.",
         "Keep the placeholders ({name}, %d): the editor colours them and says when one is missing. {he/she} is the person's sex: write it in your language, for example {il/elle}.",
-        "Add translation file... (or drag a .txt file onto the window) adds a translation you were sent; Export translation... saves a copy. Lines whose English changed are marked.",
+        "Add translation file... (or drag a .txt file onto the window) adds one you were sent. Ctrl+click, Shift+click or Select All picks several.",
+        "Export... saves each one picked; Delete... asks once (No does nothing) and moves them to the Recycle Bin.",
         "Share on GitHub... asks first (No does nothing) and needs a GitHub account and a credit name you type. Email addresses are never saved and are rejected from translation files."
       ]
     }

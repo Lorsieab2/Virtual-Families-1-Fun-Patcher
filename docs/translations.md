@@ -40,7 +40,16 @@ The file is plain UTF-8 text, so Notepad works too, and so does a spreadsheet (o
 tab-separated text or "Unicode Text").
 
 **Add translation file...** (or drag a `.txt` file onto the window) checks a file you were sent and adds it; **Check**
-shows coverage, errors and warnings with line numbers; **Export translation...** saves a copy.
+shows coverage, errors and warnings with line numbers.
+
+The list of translations takes several at once: click one, Ctrl+click to add or remove one, Shift+click for a range,
+Ctrl+A or **Select All** for everything. Selecting never changes the game's language; only "Language in the game" at
+the top does. **Export...** saves a copy of each selected translation (one file each; several go into a folder you
+choose). **Delete...** asks one Yes/No question listing the files (No is the default and does nothing) and moves them
+to the Windows Recycle Bin (`SHFileOperationW` with `FOF_ALLOWUNDO`), so you can restore them; if the Recycle Bin
+refuses, nothing is deleted. "English (original)" is part of the game and is never deleted. A translation that came
+with the patcher comes back with the next patcher update. Deleting the language the game uses puts the game back in
+English from its next start, exactly as choosing English does.
 
 After a patcher update, open your file in the editor: new lines appear untranslated, a line whose English changed is
 marked "English changed" and comes back untranslated with your old translation kept beside it, and everything else

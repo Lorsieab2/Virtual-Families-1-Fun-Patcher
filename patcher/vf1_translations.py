@@ -149,6 +149,65 @@ def export_file(source: Path, destination: Path) -> Path:
     return destination
 
 
+# --------------------------------------------------------------------------- deleting (to the Recycle Bin)
+
+FO_DELETE = 0x0003
+FOF_SILENT = 0x0004
+FOF_NOCONFIRMATION = 0x0010
+FOF_ALLOWUNDO = 0x0040                # to the Recycle Bin, never a hard delete
+FOF_NOERRORUI = 0x0400
+FOF_WANTNUKEWARNING = 0x4000          # Windows asks before a file that cannot go to the Recycle Bin is removed
+RECYCLE_FLAGS = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI | FOF_WANTNUKEWARNING
+
+
+def _shfileopstruct():
+    import ctypes
+    from ctypes import wintypes
+
+    class SHFILEOPSTRUCTW(ctypes.Structure):
+        # shellapi.h packs it to 1 byte on 32-bit Windows and 8 on 64-bit.
+        _pack_ = 1 if ctypes.sizeof(ctypes.c_void_p) == 4 else 8
+        _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", ctypes.c_void_p),
+                    ("pTo", ctypes.c_void_p), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+    return SHFILEOPSTRUCTW
+
+
+def recycle(paths: list[Path], operation=None) -> None:
+    """Send files to the Windows Recycle Bin (SHFileOperationW, FO_DELETE with FOF_ALLOWUNDO): the player can
+    restore them from there. Raises OSError, before anything is touched, when a file is missing, and when
+    Windows reports a failure or the operation was cancelled. `operation` is SHFileOperationW (tests pass a
+    stand-in)."""
+    import ctypes
+
+    paths = [Path(p).resolve() for p in paths]
+    if not paths:
+        return
+    missing = [p.name for p in paths if not p.is_file()]
+    if missing:
+        raise OSError("Not found: " + ", ".join(missing))
+    if operation is None:
+        shell32 = ctypes.WinDLL("shell32")
+        operation = shell32.SHFileOperationW
+        operation.argtypes = [ctypes.c_void_p]
+        operation.restype = ctypes.c_int
+    names = ctypes.create_unicode_buffer("\0".join(str(p) for p in paths) + "\0\0")   # double-null terminated
+    op = _shfileopstruct()()
+    op.hwnd = None
+    op.wFunc = FO_DELETE
+    op.pFrom = ctypes.addressof(names)
+    op.pTo = None
+    op.fFlags = RECYCLE_FLAGS
+    result = operation(ctypes.byref(op))
+    if result != 0:
+        raise OSError(f"Windows could not move the files to the Recycle Bin (error {result:#x}).")
+    if op.fAnyOperationsAborted:
+        raise OSError("Moving the files to the Recycle Bin was cancelled.")
+    left = [p.name for p in paths if p.exists()]
+    if left:
+        raise OSError("Windows did not move these to the Recycle Bin: " + ", ".join(left))
+
+
 # --------------------------------------------------------------------------- the choice
 
 
