@@ -38,8 +38,8 @@ byte: "\n" goes to the next line (y += height, x back); a box 0 wide is skipped;
 (0x407E60) and drawn with SDL_UpperBlit (colour alpha 255) or BlitRectWithAlpha 0x404C30 (alpha/255), and x moves
 by the box width plus the spacing. `ldwFont::GetWidth` 0x402320(text, scale) adds trunc((width + spacing) x scale)
 per byte and takes the widest line, minus the spacing. 0x409450 is the same draw for the first n bytes, with a
-measure-only flag; the justified word wrapper (0x409DA9..0x40A0B9) splits text at spaces and measures each word
-with it. `tests/test_vf1_game_fonts.py` runs these on every font and compares every box, place, width and pixel
+measure-only flag; the justified word wrapper (0x409D70, 0x409DA9..0x40A0B9) splits text at spaces and measures each word
+with it (see "Line breaking for every script" below for its whole algorithm). `tests/test_vf1_game_fonts.py` runs these on every font and compares every box, place, width and pixel
 with `patcher/vf1_game_fonts.py`.
 
 **Typing (VERIFIED).** SDL2 delivers typed text as SDL_TEXTINPUT (UTF-8, after dead keys, Alt codes and an input
@@ -400,7 +400,7 @@ site's stock bytes; each runs the stock code for everything it does not change:
 | 0x40D370 SetEditable | called from one of the ten name-box calls (its return address): the limit is 1,200 bytes |
 | 0x40D430 SetText | a name box given a short form opens with the whole name |
 | 0x40D140 the box's Draw | the stock draw deletes bytes from the end of the box's text until it fits (0x40D2B7); a name box draws a copy instead -- the end that fits while it is typed into, its start with "…" otherwise -- so its text is never cut |
-| 0x409D70 the word wrapper | whole names for short forms before the stock wrapping |
+| 0x409D70 the word wrapper | whole names for short forms before the stock wrapping (and, since 2026-11-02, line breaks for every script: "Line breaking for every script" below) |
 
 and the first part's hooks do more: HandleMessage counts characters in a name box (300) and its bytes (1,200);
 GetText of a name box gives the short form (`ShortFor`, the rule of `vf1_names.short_form`) and records the whole
@@ -508,6 +508,8 @@ Looked at and left as they are:
 * Names inside sentences drawn by the word wrapper 0x409D70 (event pop-ups and e-mails, 0x419E43, 0x41ACxx,
   0x41AE92): the wrapper breaks lines at spaces, its lines (0x1B0 = 432 pixels for the event dialog) are wider than
   any 24-byte name (at most 24 "W", 384 pixels in SegoeUiBold18; a short form's whole name is fitted into the same).
+  (A name in a script written without spaces may now also break between its letters: "Line breaking for every
+  script" below.)
 * The other screens' status lines (labels made for three spaces, centred on x = 400 at y = 572: 0x4359E7, 0x437844,
   0x44A636; SetText 0x436378, 0x43731E, 0x43814E): they have the whole screen width.
 * Every other text draw in the exe (all 69 calls of 0x409CC0 / 0x409CD0 / 0x409D20 / 0x409D70 and the 12 of
@@ -542,10 +544,86 @@ other SetText call draws it whole, as the stock game does, and the bottom bar's 
    in the stock game (the label fault above).
 5. Use Unicode Font with Comic Sans MS: the same checks.
 
+## Line breaking for every script (2026-11-02)
+
+### Release note
+
+> **Japanese, Chinese, Korean, Thai and emoji text now wraps.** With Render Unicode with In-Game Fonts or Use
+> Unicode Font on, a sentence in a script written without spaces breaks onto the next line where the Unicode
+> line-breaking rules allow (no line starts with 。、」 or a small kana; none ends with 「), never inside a
+> character. Text in any other script is laid out exactly as before, pixel for pixel. A single word wider than the
+> whole line, which made the stock game hang for good, is cut between characters instead.
+
+### The stock wrapper (VERIFIED in the exe, run in the emulator)
+
+`0x409D70` (text, x, y, width, colour, font, measure only; ret 0x1C; its frame is 0x4DC bytes) is the game's one
+justified word wrapper (event pop-ups and e-mails, 0x419E43 with width 0x1B0 = 432, 0x41ACxx, 0x41AE92). It cuts the
+text into "words" (0x409E95..0x409EE3): a run of bytes that stops at a space or a line break, and right after a "."
+not followed by another ".", a "," not followed by a digit, or a "?". It fills a line with whole words, measuring
+each with the counted draw 0x409450 (measure only); between two words lies the width of " " (0x4B27BC), stretched
+to justify the line (free pixels / gaps each, the first `free mod gaps` gaps one more), unless a gap would pass 5/3
+of a space while the line is emptier than the float at 0x4B27B8, or the line is the text's last and ends in "." or
+"?". A line that does not fit (0x409F86) drops its last word to the next line, or, when the overrun is smaller than
+the number of gaps, squeezes every gap by a pixel. At most 100 words a line (its arrays). A wrapped line drops the
+spaces before its first word; spaces at the text's start or after a line break are kept.
+
+Two faults: a script written without spaces (Japanese, Chinese, Korean syllables, Thai, Lao, Khmer, Myanmar, emoji)
+is one long word, so it never wrapped and ran off the dialog; and a word wider than the whole line makes the stock
+code loop for ever (it drops the line's only word and starts the same line again: `test_the_stock_code_loops_for_ever_on_a_word_wider_than_the_line`).
+
+### The patch (`native/vf1text/wrap.inc`, `linebreak.inc`; both DLLs; `patcher/vf1_line_break.py` is the same rule)
+
+The wrapper hook of the one name limit (0x409D70, whole names first) now ends in `WrapText`:
+
+1. `BreaksFor`: the text is read by the one rule; if it has a letter of a script written without spaces (the CJK
+   punctuation blocks, or ICU's line-break classes ID, SA, H2, H3, JL, JT, JV, CJ, EB, EM; without ICU the
+   built-in table's ideographic class) or a zero width space, the places a word may be cut are found: only between
+   whole characters (grapheme clusters), next to such a letter (or after U+200B), never next to a space or a line
+   break, and only where UAX #14 allows -- `ubrk_open(UBRK_LINE)` of Windows' own `icu.dll` (System32, Windows 10
+   1903 and later; it also knows the Thai, Lao, Khmer and Myanmar dictionary words), loaded with
+   `LOAD_LIBRARY_SEARCH_SYSTEM32`; without it the built-in table (`linebreak.inc` = `FALLBACK_RANGES`: ideographic
+   letters, closing marks that never start a line -- 。、」）, the small kana, ー, ゝ --, opening marks that never
+   end one; `test_the_dlls_built_in_table_is_the_patchers`).
+2. If there is no such letter and every word fits the line it starts (`StockWordsFit`), the game's own code runs,
+   untouched: stock text is laid out exactly as before.
+3. Else `OwnWrap`: the stock algorithm step for step (the same word cuts, measuring, gap arithmetic, justify rule,
+   squeeze, 100-word limit, last-line rule), with one change: a word may also be cut at the places found, and its
+   pieces follow each other with no space between them (only the gaps between words are stretched; a word's pieces
+   are drawn as one). A piece wider than the whole line is cut after the longest start of whole characters that
+   fits (`EmergencyCut`), at least one character.
+
+The patcher's `vf1_line_break.wrap(font, text, x, y, width, justify ratio, patched=...)` is the same algorithm over
+`vf1_game_fonts`' letters: `patched=False` is the stock code (the tests prove it against the stock code's own
+layout) and `patched=True` the DLL's.
+
+### Proved (`tests/test_line_break.py`, the REAL vf1text.dll and vf1font.dll on the REAL exe in Unicorn, real GDI and real ICU)
+
+* Stock text exactly as before: five paragraphs (justified lines, line breaks, leading and repeated spaces, "...",
+  "$1,250.00", "1,000,000", ending in "." or "?") at three widths in all four fonts, and every sentence the exe
+  holds (more than 100 printable ASCII strings with a space, release-only) at the event dialog's width: every blit
+  (the same source sheet, box and place: the same pixels) and the returned height equal the stock code's, drawing
+  and measuring; and the patcher's model of the stock code gives the same places.
+* Japanese (with 「」、。 and a small っ and ー), Chinese (with （）), Korean, Thai, emoji (skin tone, flag, a joined
+  family) and mixed English-Japanese text, at 432 and 160 pixels in all four fonts, and with vf1font.dll: the DLL's
+  layout equals the model's letter for letter and pixel for pixel; every piece is whole characters; no line starts
+  with a closing mark; the lines fit; the text did wrap; Thai breaks between dictionary words (สวัสดี ครับ ผม), not
+  letters; joined emoji are never cut at any width; without icu.dll the built-in table wraps the same as the
+  model's table and no ICU call is made.
+* A word wider than the line: the stock code hangs (the emulator's instruction limit), the patched one cuts it
+  between whole characters, in every font, for ASCII, a long run of "W" inside a sentence and 60 "é".
+
+### Live checks (not yet done)
+
+1. Rename Family to a long Japanese sentence (日本語の文章です。「こんにちは」と言った。...) and trigger an event
+   pop-up that names the family, or send an e-mail: the text wraps inside the dialog, no line starts with 。、」, and
+   the English sentences around it look exactly as in the stock game.
+2. The same with a 24-"W" name in a sentence: the dialog shows it (cut between letters where the line is too
+   narrow) instead of freezing the game.
+3. Use Unicode Font with Comic Sans MS: the same two checks.
+
 ## Not in this part (the rest of the stage-3 work)
 
 * Colour emoji (GDI draws them in one colour; DirectWrite would be needed).
-* CJK line breaking (the game's word wrapper only breaks at spaces).
 * Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,
   unshaped.
 * Translations, the Translations window and Share on GitHub.
