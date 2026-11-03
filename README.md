@@ -182,6 +182,17 @@ Six settings change the base game on their own (plus the optional ones below):
   command line (`--enable` of both is refused). Its own DLL, `vf1font.dll`: the same source as `vf1text.dll`
   built with `VF1_FONT_MODE`.
 
+- **Translations** (a Main Patch, on by default): the game in another language, chosen with **Translations...** on
+  the Tools tab; the choice applies from the next game start, with no re-patching. The file format is the one
+  every patcher of this family shares (the Virtual Villagers Fun Patcher's `docs/translation-file-format.md` v1:
+  tab-separated `Key / English / Translation / Notes`, keys `strings/<id>~<sha256-8>`, UTF-8 with a BOM, choices
+  `{SUBJECT: key=text | ...}` with `m`/`f`/`o` and CLDR plurals), plus the game's own person choice `{il/elle}`.
+  Its own DLL, `vf1tr.dll`, loaded last by `vf1fun.dll`: it sets the override pointer of each translated line in the
+  game's static string records, which `GetString` 0x44FD90 and the template filler 0x44FDD0 already honour, so no
+  code of the lookup changes; a missing or bad line stays English, and every line is held to the room the game gives
+  it (a scan of the vanilla code, `tools/build_vf1_translation_limits.py`; eight data-driven copies are guarded).
+  The Family History log keeps its English words. See [docs/translations.md](docs/translations.md).
+
 Players: see [release/How to Use.txt](release/How to Use.txt).
 
 ## The patcher window: Patches and Tools
@@ -283,6 +294,21 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     file (copied into `Virtual Families 1 Patcher Files\Unicode Font`), a preview of the four game fonts as the
     game will draw them, and Save (settings.ini `[UnicodeFont] Face=` and `File=`). Module
     `patcher/vf1_unicode_font.py`.
+  - **Translations...:** the language in the game (each language by its own name; written into every modded copy
+    the patcher knows as `Virtual Families 1 Patcher Files\Translation.ini` and `Translation.txt`), **Make a
+    translation...** (a built-in two-column editor: search, untranslated only, progress, placeholders in colour with
+    Insert buttons, `{il/elle}` and plural choices checked as you type, a preview in the game's own font, autosave,
+    lines whose English changed marked), **Add translation file...** (or drag a `.txt` onto the window,
+    WM_DROPFILES), **Check**, a multi-select list (click, Ctrl+click, Shift+click, Ctrl+A, **Select All**; the
+    game's language stays the separate box above), **Export...** (one file each), **Delete...** (one Yes/No listing
+    the files, No by default; to the Recycle Bin through `SHFileOperationW` with `FOF_ALLOWUNDO`, nothing deleted if
+    that fails; English (original) is never deleted; a translation that came with the patcher comes back with the
+    next update; deleting the language in use goes back to English) and **Share on GitHub...** (the owner's
+    confirmation, No by
+    default; a credit name typed by hand, never filled in; email addresses are refused everywhere). The owner accepts
+    a shared file with the `accept-translation` label: `.github/workflows/accept-translation.yml` checks it as data
+    only (`scripts/accept_translation.py`) and opens a pull request as the bot. Every patch's own text (the Upgrades menu and its pages, messages, captions; `native/vf1fun/translate.inc`, `tools/vf1_patch_text.py`, `data/vf1_patch_strings.json`) is in the template too, with its room; the Family History log stays in English. Modules `patcher/vf1_translations*.py`,
+    `patcher/translation_format.py`, `patcher/vf1_translation_strings.py`; see `docs/translations.md`.
   - **Picture Maker...:** the Fish and Plant Tycoon patcher's Picture Studio for Virtual Families 1. *From my
     save* lists a save's family members (at home, then those who left home) and the outfits in the store and the
     tool tray, and draws each as the game would now: their age, hair and face (head row), outfit (body row) and the

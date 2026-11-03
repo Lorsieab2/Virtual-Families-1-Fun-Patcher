@@ -1,0 +1,65 @@
+name: Accept translation
+
+# When the owner adds the "accept-translation" label to a translation issue
+# (.github/ISSUE_TEMPLATE/translation.yml), this downloads the attached file, checks it as DATA
+# ONLY with the patcher's own validator (scripts/accept_translation.py, patcher/translation_format.py;
+# nothing in the file is ever executed), and opens a pull request adding it to
+# patcher/translations/vf1/, credited to the typed credit name only -- or comments the problems.
+# The commit is made by the bot identity (github-actions[bot]), never by the person who shared it.
+#
+# Everything in the issue is untrusted: no issue field is ever put into a shell command. The
+# script reads the issue from the event file itself; the shell sees only the issue NUMBER.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: accept-translation-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  accept:
+    if: >-
+      github.event.label.name == 'accept-translation'
+      && contains(github.event.issue.labels.*.name, 'translation')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the translation (as data only, at most 2 MB)
+        run: python -I scripts/accept_translation.py "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/translation"
+
+      - name: Open a pull request
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/translation"
+          if [ "$(cat "$work/result.txt")" != "accepted" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body-file "$work/comment.md"
+            exit 0
+          fi
+          case "$ISSUE_NUMBER" in (*[!0-9]*|"") echo "bad issue number"; exit 1;; esac
+          branch="translation/issue-$ISSUE_NUMBER"
+          git config user.name "github-actions[bot]"
+          # No email address anywhere (the owner): the commit's address is left empty.
+          git config user.email ""
+          git checkout -b "$branch"
+          git add -- "$(cat "$work/target.txt")"
+          git commit -m "Translations: add the translation shared in issue #$ISSUE_NUMBER"
+          git push --force origin "$branch"
+          gh pr create --head "$branch" --title "Translation from issue #$ISSUE_NUMBER" --body-file "$work/pr_body.md"

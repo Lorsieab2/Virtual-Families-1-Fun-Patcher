@@ -10,14 +10,14 @@ static void RefreshFamily(HWND dlg) {
     wchar_t s[200];
     int a = FounderSlot(), b = SpouseSlot();
     if (GameOver())
-        swprintf(s, 200, L"Your family has been lost. You can adopt a new person.");
+        swprintf(s, 200, TR(L"Your family has been lost. You can adopt a new person."));
     else if (!CurrentFamily())
-        swprintf(s, 200, L"There is no family yet.");
+        swprintf(s, 200, TR(L"There is no family yet."));
     else
-        swprintf(s, 200, L"Family: %ls%ls%ls        Children: %d of %d%s", a >= 0 ? NameW(VillagerName(a), 0x19) : L"(gone)",
-                 b >= 0 ? L" and " : L"", b >= 0 ? NameW(VillagerName(b), 0x19) : L"",
+        swprintf(s, 200, TR(L"Family: %ls%ls%ls        Children: %d of %d%s"), a >= 0 ? NameW(VillagerName(a), 0x19) : TR(L"(gone)"),
+                 b >= 0 ? TR(L" and ") : L"", b >= 0 ? NameW(VillagerName(b), 0x19) : L"",
                  KidsChildren ? KidsChildren() : 6 - EmptyOffspringSlots(FamilyTree), KidsLimit ? KidsLimit() : 6,
-                 Pregnant(a) || Pregnant(b) ? L"        Expecting" : L"");
+                 Pregnant(a) || Pregnant(b) ? TR(L"        Expecting") : L"");
     SetDlgItemTextW(dlg, ID_FA_STATUS, s);
     CheckDlgButton(dlg, ID_FA_SAMESEX, gVillage.sameSex ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(dlg, ID_FA_REROLL, gVillage.reroll ? BST_CHECKED : BST_UNCHECKED);
@@ -70,8 +70,8 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             break;
         case ID_FA_EMAIL: Message(dlg, ForceMarriageEmail()); break;
         case ID_FA_DIVORCE:
-            if (MessageBoxW(dlg, L"WARNING: this permanently removes the spouse from the Family Tree and the "
-                            L"house. It cannot be undone.\n\nDivorce now?", L"Divorce Spouse",
+            if (MessageBoxW(dlg, TR(L"WARNING: this permanently removes the spouse from the Family Tree and the "
+                            L"house. It cannot be undone.\n\nDivorce now?"), TR(L"Divorce Spouse"),
                             MB_OKCANCEL | MB_ICONWARNING) == IDOK)
                 Report(dlg, DivorceSpouse(), 0);  // the spouse simply goes away: no popup, no life event
             break;
@@ -93,10 +93,10 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
             EndDialog(dlg, 0);
             break;
         case ID_FA_EVICT:
-            if (MessageBoxW(dlg, L"This button will EVICT your current family and RESET the Family Tree. You will "
+            if (MessageBoxW(dlg, TR(L"This button will EVICT your current family and RESET the Family Tree. You will "
                             L"keep all the money, the house, the furnishings and everything you own.\n\nARE YOU SURE "
-                            L"YOU WANT TO EVICT YOUR CURRENT FAMILY?\n\nClick OK to continue. Otherwise, click Cancel.",
-                            L"Evict Family", MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
+                            L"YOU WANT TO EVICT YOUR CURRENT FAMILY?\n\nClick OK to continue. Otherwise, click Cancel."),
+                            TR(L"Evict Family"), MB_OKCANCEL | MB_ICONWARNING) == IDOK) {
                 gFamilyAction = ADOPT_EVICT;
                 EndDialog(dlg, 0);
             }
@@ -115,42 +115,42 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 static Template &FamilyTemplate() {
     static Template t;
     const DWORD check = BS_AUTOCHECKBOX | WS_TABSTOP, radio = BS_AUTORADIOBUTTON, push = BS_PUSHBUTTON | WS_TABSTOP;
-    t.Begin(L"Family: Marriage, Babies and Children", 300, 366);
+    t.Begin(TR_N(L"Family: Marriage, Babies and Children"), 300, 366);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_FA_STATUS, L"");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 24, 288, 62, -1, L"Marriage");
-    t.Item(BUTTON, check, 14, 36, 260, 12, ID_FA_SAMESEX, L"Enable Same-Sex Marriage");
-    t.Item(BUTTON, check, 14, 50, 260, 12, ID_FA_REROLL, L"Allow Reroll of Marriage Candidates (Reject shows another)");
-    t.Item(BUTTON, push, 14, 65, 130, 16, ID_FA_EMAIL, L"Force Marriage Email");
-    t.Item(BUTTON, push, 152, 65, 134, 16, ID_FA_DIVORCE, L"Divorce Spouse (spouse leaves)...");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 90, 288, 74, -1, L"Next pregnancy (stays set until a pregnancy succeeds)");
-    t.Item(BUTTON, check, 14, 102, 200, 12, ID_FA_FORCE, L"Force Successful Pregnancy");
-    t.Item(STATIC, SS_LEFT, 14, 118, 48, 12, -1, L"Babies:");
-    t.Item(BUTTON, radio | WS_GROUP | WS_TABSTOP, 64, 118, 56, 12, ID_FA_ANYGENDER, L"Either");
-    t.Item(BUTTON, radio, 122, 118, 56, 12, ID_FA_MALE, L"Male");
-    t.Item(BUTTON, radio, 180, 118, 60, 12, ID_FA_FEMALE, L"Female");
-    t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 134, 48, 12, -1, L"How many:");
-    t.Item(BUTTON, radio | WS_GROUP | WS_TABSTOP, 64, 134, 50, 12, ID_FA_ANYCOUNT, L"Any");
-    t.Item(BUTTON, radio, 114, 134, 56, 12, ID_FA_SINGLE, L"Singleton");
-    t.Item(BUTTON, radio, 172, 134, 48, 12, ID_FA_TWINS, L"Twins");
-    t.Item(BUTTON, radio, 222, 134, 60, 12, ID_FA_TRIPLETS, L"Triplets");
-    t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 149, 274, 12, -1, L"Twins and triplets need free child places (6 per family).");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 24, 288, 62, -1, TR_N(L"Marriage"));
+    t.Item(BUTTON, check, 14, 36, 260, 12, ID_FA_SAMESEX, TR_N(L"Enable Same-Sex Marriage"));
+    t.Item(BUTTON, check, 14, 50, 260, 12, ID_FA_REROLL, TR_N(L"Allow Reroll of Marriage Candidates (Reject shows another)"));
+    t.Item(BUTTON, push, 14, 65, 130, 16, ID_FA_EMAIL, TR_N(L"Force Marriage Email"));
+    t.Item(BUTTON, push, 152, 65, 134, 16, ID_FA_DIVORCE, TR_N(L"Divorce Spouse (spouse leaves)..."));
+    t.Item(BUTTON, BS_GROUPBOX, 6, 90, 288, 74, -1, TR_N(L"Next pregnancy (stays set until a pregnancy succeeds)"));
+    t.Item(BUTTON, check, 14, 102, 200, 12, ID_FA_FORCE, TR_N(L"Force Successful Pregnancy"));
+    t.Item(STATIC, SS_LEFT, 14, 118, 48, 12, -1, TR_N(L"Babies:"));
+    t.Item(BUTTON, radio | WS_GROUP | WS_TABSTOP, 64, 118, 56, 12, ID_FA_ANYGENDER, TR_N(L"Either"));
+    t.Item(BUTTON, radio, 122, 118, 56, 12, ID_FA_MALE, TR_N(L"Male"));
+    t.Item(BUTTON, radio, 180, 118, 60, 12, ID_FA_FEMALE, TR_N(L"Female"));
+    t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 134, 48, 12, -1, TR_N(L"How many:"));
+    t.Item(BUTTON, radio | WS_GROUP | WS_TABSTOP, 64, 134, 50, 12, ID_FA_ANYCOUNT, TR_N(L"Any"));
+    t.Item(BUTTON, radio, 114, 134, 56, 12, ID_FA_SINGLE, TR_N(L"Singleton"));
+    t.Item(BUTTON, radio, 172, 134, 48, 12, ID_FA_TWINS, TR_N(L"Twins"));
+    t.Item(BUTTON, radio, 222, 134, 60, 12, ID_FA_TRIPLETS, TR_N(L"Triplets"));
+    t.Item(STATIC, SS_LEFT | WS_GROUP, 14, 149, 274, 12, -1, TR_N(L"Twins and triplets need free child places (6 per family)."));
     // Each button that adds or removes a person says how, in brackets (the owner, 2026-11-01). Both Spawn rows
     // put the child straight into the house; no game event, e-mail or popup is shown:
     //   Spawn child in house          the couple's own child (their names as parents, an inherited look)
     //   Spawn outside child in house  a child from outside, adopted (no parents, the game's random look), as the
     //                                 game's own Little Visitor event's "Adopt" choice does, without its popup
-    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 110, -1, L"Add children (age 2-13)");
-    t.Item(STATIC, SS_LEFT, 14, 182, 88, 12, -1, L"Name (optional):");
+    t.Item(BUTTON, BS_GROUPBOX, 6, 168, 288, 110, -1, TR_N(L"Add children (age 2-13)"));
+    t.Item(STATIC, SS_LEFT, 14, 182, 88, 12, -1, TR_N(L"Name (optional):"));
     t.Item(EDIT, ES_LEFT | ES_AUTOHSCROLL | WS_BORDER | WS_TABSTOP | WS_GROUP, 104, 180, 100, 14, ID_FA_NAME, L"");
-    t.Item(STATIC, SS_LEFT, 14, 200, 44, 12, -1, L"Age 2-13:");
+    t.Item(STATIC, SS_LEFT, 14, 200, 44, 12, -1, TR_N(L"Age 2-13:"));
     t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 58, 198, 24, 14, ID_FA_AGE, L"");
-    t.Item(BUTTON, push, 14, 216, 134, 16, ID_FA_CHILD_BOY, L"Spawn child in house (male)");
-    t.Item(BUTTON, push, 152, 216, 134, 16, ID_FA_CHILD_GIRL, L"Spawn child in house (female)");
-    t.Item(BUTTON, push, 14, 236, 272, 16, ID_FA_ADOPT_BOY, L"Spawn outside child in house (male)");
-    t.Item(BUTTON, push, 14, 256, 272, 16, ID_FA_ADOPT_GIRL, L"Spawn outside child in house (female)");
-    t.Item(BUTTON, BS_GROUPBOX, 6, 282, 288, 56, -1, L"Start again");
-    t.Item(BUTTON, push, 14, 296, 272, 16, ID_FA_NEWPERSON, L"Adopt New Person (the game's Adoption screen; after a game over)");
-    t.Item(BUTTON, push, 14, 316, 272, 16, ID_FA_EVICT, L"Evict Family (everyone leaves the house)...");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 344, 75, 16, IDOK, L"Close");    return t;
+    t.Item(BUTTON, push, 14, 216, 134, 16, ID_FA_CHILD_BOY, TR_N(L"Spawn child in house (male)"));
+    t.Item(BUTTON, push, 152, 216, 134, 16, ID_FA_CHILD_GIRL, TR_N(L"Spawn child in house (female)"));
+    t.Item(BUTTON, push, 14, 236, 272, 16, ID_FA_ADOPT_BOY, TR_N(L"Spawn outside child in house (male)"));
+    t.Item(BUTTON, push, 14, 256, 272, 16, ID_FA_ADOPT_GIRL, TR_N(L"Spawn outside child in house (female)"));
+    t.Item(BUTTON, BS_GROUPBOX, 6, 282, 288, 56, -1, TR_N(L"Start again"));
+    t.Item(BUTTON, push, 14, 296, 272, 16, ID_FA_NEWPERSON, TR_N(L"Adopt New Person (the game's Adoption screen; after a game over)"));
+    t.Item(BUTTON, push, 14, 316, 272, 16, ID_FA_EVICT, TR_N(L"Evict Family (everyone leaves the house)..."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 344, 75, 16, IDOK, TR_N(L"Close"));    return t;
 }
 static void ShowFamily(HWND owner) { DialogBoxIndirectParamW(Module, FamilyTemplate().Get(), owner, FamilyProc, 0); }

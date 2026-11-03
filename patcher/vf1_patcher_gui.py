@@ -1708,6 +1708,8 @@ class VF1PatcherGUI:
         self._help_button(family, "game_text").pack(side="left", padx=(3, 0))
         self._link(family, "Unicode Font...", self.unicode_font).pack(side="left", padx=(18, 0))
         self._help_button(family, "unicode_font").pack(side="left", padx=(3, 0))
+        self._link(family, "Translations...", self.translations).pack(side="left", padx=(18, 0))
+        self._help_button(family, "translations").pack(side="left", padx=(3, 0))
 
         guide_box = ttk.LabelFrame(tab, text="How to Use", padding=10)
         guide_box.pack(fill="x", pady=(10, 0))
@@ -1719,6 +1721,16 @@ class VF1PatcherGUI:
         # game line is always current (no Refresh link).
         self.sections.bind("<<NotebookTabChanged>>", lambda _event: self._refresh_saves_found(), add="+")
         self._refresh_saves_found()
+
+    # ------------------------------------------------------------------ Translations
+
+    def translations(self):
+        """The Translations window (vf1_translations_window): the game's language, the built-in editor, adding,
+        exporting and sharing translations. It knows the vanilla folder (the game's English lines and fonts) and the
+        modded copies (where the choice is written)."""
+        import vf1_translations_window
+        folders = [self.game_dir_var.get(), self.output_dir_var.get(), self.output_parent_dir_var.get()]
+        return vf1_translations_window.open_window(self.root, [f for f in folders if f and f.strip()])
 
     # ------------------------------------------------------------------ Family Tree Maker
 

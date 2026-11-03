@@ -89,12 +89,18 @@ def build(version: str, dll: Path, out_dir: Path, payload_root: Path | None = No
         "manifest.json": (json.dumps(manifest, indent=2) + "\n").encode("utf-8"),
         "how_to_use.json": (ROOT / "patcher" / "how_to_use.json").read_bytes(),
         "stub.json": vf1_patcher.STUB.read_bytes(),
+        # Translations (docs/translations.md): the room of the game's lines (the modules ship below)
+        "vf1_translation_limits.json": (ROOT / "data" / "vf1_translation_limits.json").read_bytes(),
+        # ... and the lines the patches add (tools/vf1_patch_text.py), after the game's in the template
+        "vf1_patch_strings.json": (ROOT / "data" / "vf1_patch_strings.json").read_bytes(),
     }
     # Every module in patcher/: the tools import each other, some only when a window opens (the Picture Maker's
     # Every picture tab loads vf1_game_art, vf1_art_*, vf1_jpeg and vf1_small_formats), so a hand-kept list
     # left modules out (v1.7's first build shipped without vf1_game_art and the Picture Maker could not open).
     for path in sorted((ROOT / "patcher").glob("*.py")):
         files[path.name] = path.read_bytes()
+    for path in sorted((ROOT / "patcher" / "translations" / "vf1").glob("*.txt")):   # accepted on GitHub
+        files[f"translations/vf1/{path.name}"] = path.read_bytes()
     for path in sorted(vf1_patcher.TREE_PICTURES.glob("*.png")):   # the Family Tree Maker's own pictures
         files[f"tree_pictures/{path.name}"] = path.read_bytes()
     for rel, path in payload.items():

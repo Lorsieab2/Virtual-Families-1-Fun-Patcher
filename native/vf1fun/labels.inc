@@ -16,325 +16,325 @@
 // owner's choice: VF2's rare Half-Caff coffee and Bubble Bass burger captions.
 
 static const char *const kTV[] = {
-    "Watching a movie",
-    "Watching a TV show",
-    "Watching a documentary",
-    "Watching the news",
-    "Watching the weather channel",
-    "Watching MovieFlix",
-    "Watching cartoons",
-    "Watching anime" };
+    TR_NA(39, "Watching a movie"),
+    TR_NA(39, "Watching a TV show"),
+    TR_NA(39, "Watching a documentary"),
+    TR_NA(39, "Watching the news"),
+    TR_NA(39, "Watching the weather channel"),
+    TR_NA(39, "Watching MovieFlix"),
+    TR_NA(39, "Watching cartoons"),
+    TR_NA(39, "Watching anime") };
 static const char *const kReading[] = {
-    "Reading a novel",
-    "Reading a textbook",
-    "Reading a comic book",
-    "Reading a picture book",
-    "Reading a chapter book",
-    "Reading manga",
-    "Reading a how-to manual" };
+    TR_NA(39, "Reading a novel"),
+    TR_NA(39, "Reading a textbook"),
+    TR_NA(39, "Reading a comic book"),
+    TR_NA(39, "Reading a picture book"),
+    TR_NA(39, "Reading a chapter book"),
+    TR_NA(39, "Reading manga"),
+    TR_NA(39, "Reading a how-to manual") };
 static const char *const kWebBasic[] = {
-    "Browsing LDWForums",
-    "Watching cat videos",
-    "Watching memes",
-    "Making memes",
-    "Posting memes online" };
+    TR_NA(39, "Browsing LDWForums"),
+    TR_NA(39, "Watching cat videos"),
+    TR_NA(39, "Watching memes"),
+    TR_NA(39, "Making memes"),
+    TR_NA(39, "Posting memes online") };
 static const char *const kWeb13Plus[] = {
-    "Buying stuff online" };
+    TR_NA(39, "Buying stuff online") };
 static const char *const kWebAdult[] = {
-    "Browsing Fakebook",
-    "Browsing social media",
-    "Browsing VideoTube",
-    "Browsing ClipTok",
-    "Browsing Picstagram",
-    "Posting on Fakebook",
-    "Posting on social media",
-    "Posting on VideoTube",
-    "Posting on ClipTok",
-    "Posting on Picstagram" };
+    TR_NA(39, "Browsing Fakebook"),
+    TR_NA(39, "Browsing social media"),
+    TR_NA(39, "Browsing VideoTube"),
+    TR_NA(39, "Browsing ClipTok"),
+    TR_NA(39, "Browsing Picstagram"),
+    TR_NA(39, "Posting on Fakebook"),
+    TR_NA(39, "Posting on social media"),
+    TR_NA(39, "Posting on VideoTube"),
+    TR_NA(39, "Posting on ClipTok"),
+    TR_NA(39, "Posting on Picstagram") };
 static const char *const kGame[] = {
-    "Playing Virtual Villagers",
-    "Playing Virtual Town",
-    "Playing Virtual Families",
-    "Playing Little Pocket Pet",
-    "Playing Fish Tycoon",
-    "Playing Plant Tycoon",
-    "Playing the Sims",
-    "Playing BlockCraft",
-    "Playing Earth-rarria",
-    "Playing Farmdew Valley",
-    "Playing Poptropicals",
-    "Playing Club Puffle",
-    "Playing PetKinz" };
+    TR_NA(39, "Playing Virtual Villagers"),
+    TR_NA(39, "Playing Virtual Town"),
+    TR_NA(39, "Playing Virtual Families"),
+    TR_NA(39, "Playing Little Pocket Pet"),
+    TR_NA(39, "Playing Fish Tycoon"),
+    TR_NA(39, "Playing Plant Tycoon"),
+    TR_NA(39, "Playing the Sims"),
+    TR_NA(39, "Playing BlockCraft"),
+    TR_NA(39, "Playing Earth-rarria"),
+    TR_NA(39, "Playing Farmdew Valley"),
+    TR_NA(39, "Playing Poptropicals"),
+    TR_NA(39, "Playing Club Puffle"),
+    TR_NA(39, "Playing PetKinz") };
 static const char *const kGameTeen[] = {
-    "Playing The Older Scrolls",
-    "Playing RimWorld" };
+    TR_NA(39, "Playing The Older Scrolls"),
+    TR_NA(39, "Playing RimWorld") };
 static const char *const kNapDream[] = {
-    "Dreaming of Isola",
-    "Dreaming of family",
-    "Dreaming of pets",
-    "Dreaming of friends",
-    "Dreaming of the future",
-    "Dreaming of the beach",
-    "Dreaming of snow",
-    "Dreaming of holidays",
-    "Dreaming of vacations",
-    "Dreaming of roller coasters",
-    "Dreaming of climbing mountains",
-    "Dreaming of camping",
-    "Dreaming of family trips",
-    "Dreaming of the countryside",
-    "Dreaming of LDW games",
-    "Dreaming of the city",
-    "Dreaming of the forest",
-    "Dreaming of unicorns",
-    "Dreaming of fish",
-    "Dreaming of jungles",
-    "Dreaming of tropical islands",
-    "Dreaming of skyscrapers",
-    "Dreaming of floating in space",
-    "Dreaming of treasure",
-    "Dreaming of getting rich",
-    "Dreaming of adventures",
-    "Dreaming of swimming",
-    "Dreaming of flying",
-    "Dreaming of falling",
-    "Dreaming of discovering something" };
+    TR_NA(39, "Dreaming of Isola"),
+    TR_NA(39, "Dreaming of family"),
+    TR_NA(39, "Dreaming of pets"),
+    TR_NA(39, "Dreaming of friends"),
+    TR_NA(39, "Dreaming of the future"),
+    TR_NA(39, "Dreaming of the beach"),
+    TR_NA(39, "Dreaming of snow"),
+    TR_NA(39, "Dreaming of holidays"),
+    TR_NA(39, "Dreaming of vacations"),
+    TR_NA(39, "Dreaming of roller coasters"),
+    TR_NA(39, "Dreaming of climbing mountains"),
+    TR_NA(39, "Dreaming of camping"),
+    TR_NA(39, "Dreaming of family trips"),
+    TR_NA(39, "Dreaming of the countryside"),
+    TR_NA(39, "Dreaming of LDW games"),
+    TR_NA(39, "Dreaming of the city"),
+    TR_NA(39, "Dreaming of the forest"),
+    TR_NA(39, "Dreaming of unicorns"),
+    TR_NA(39, "Dreaming of fish"),
+    TR_NA(39, "Dreaming of jungles"),
+    TR_NA(39, "Dreaming of tropical islands"),
+    TR_NA(39, "Dreaming of skyscrapers"),
+    TR_NA(39, "Dreaming of floating in space"),
+    TR_NA(39, "Dreaming of treasure"),
+    TR_NA(39, "Dreaming of getting rich"),
+    TR_NA(39, "Dreaming of adventures"),
+    TR_NA(39, "Dreaming of swimming"),
+    TR_NA(39, "Dreaming of flying"),
+    TR_NA(39, "Dreaming of falling"),
+    TR_NA(39, "Dreaming of discovering something") };
 static const char *const kSitGeneral[] = {
-    "Thinking",
-    "Taking a moment to reflect",
-    "Thinking of family",
-    "Thinking of relatives",
-    "Thinking of friends",
-    "Thinking of pets",
-    "Thinking of vacations",
-    "Thinking of weekend plans",
-    "Thinking of what to watch next",
-    "Resting",
-    "Resting eyes",
-    "Resting feet",
-    "Relaxing for a bit",
-    "Taking a break",
-    "Enjoying life",
-    "Enjoying the scenery",
-    "Texting",
-    "Playing games on phone",
-    "Scrolling on phone",
-    "Checking social media on phone",
-    "Scrapbooking",
-    "Texting friends",
-    "Texting family",
-    "Texting relatives" };
+    TR_NA(39, "Thinking"),
+    TR_NA(39, "Taking a moment to reflect"),
+    TR_NA(39, "Thinking of family"),
+    TR_NA(39, "Thinking of relatives"),
+    TR_NA(39, "Thinking of friends"),
+    TR_NA(39, "Thinking of pets"),
+    TR_NA(39, "Thinking of vacations"),
+    TR_NA(39, "Thinking of weekend plans"),
+    TR_NA(39, "Thinking of what to watch next"),
+    TR_NA(39, "Resting"),
+    TR_NA(39, "Resting eyes"),
+    TR_NA(39, "Resting feet"),
+    TR_NA(39, "Relaxing for a bit"),
+    TR_NA(39, "Taking a break"),
+    TR_NA(39, "Enjoying life"),
+    TR_NA(39, "Enjoying the scenery"),
+    TR_NA(39, "Texting"),
+    TR_NA(39, "Playing games on phone"),
+    TR_NA(39, "Scrolling on phone"),
+    TR_NA(39, "Checking social media on phone"),
+    TR_NA(39, "Scrapbooking"),
+    TR_NA(39, "Texting friends"),
+    TR_NA(39, "Texting family"),
+    TR_NA(39, "Texting relatives") };
 static const char *const kSitAdult[] = {
-    "Thinking of children",
-    "Thinking of grandchildren",
-    "Thinking of spouse",
-    "Texting spouse" };
+    TR_NA(39, "Thinking of children"),
+    TR_NA(39, "Thinking of grandchildren"),
+    TR_NA(39, "Thinking of spouse"),
+    TR_NA(39, "Texting spouse") };
 static const char *const kSitWork[] = {
-    "Thinking of work" };
+    TR_NA(39, "Thinking of work") };
 static const char *const kSitSchool[] = {
-    "Thinking of school" };
+    TR_NA(39, "Thinking of school") };
 static const char *const kSitTeenFemale[] = {
-    "Texting boyfriend" };
+    TR_NA(39, "Texting boyfriend") };
 static const char *const kSitTeenMale[] = {
-    "Texting girlfriend" };
+    TR_NA(39, "Texting girlfriend") };
 static const char *const kPoolGeneral[] = {
-    "Doing laps in the pool",
-    "Practicing swimming lessons",
-    "Practicing diving technique",
-    "Diving underwater",
-    "Cannonball!",
-    "Diving to the bottom of the pool",
-    "Practicing underwater backflips",
-    "Practicing underwater frontflips",
-    "Practicing underwater handstands",
-    "Snorkelling" };
+    TR_NA(39, "Doing laps in the pool"),
+    TR_NA(39, "Practicing swimming lessons"),
+    TR_NA(39, "Practicing diving technique"),
+    TR_NA(39, "Diving underwater"),
+    TR_NA(39, "Cannonball!"),
+    TR_NA(39, "Diving to the bottom of the pool"),
+    TR_NA(39, "Practicing underwater backflips"),
+    TR_NA(39, "Practicing underwater frontflips"),
+    TR_NA(39, "Practicing underwater handstands"),
+    TR_NA(39, "Snorkelling") };
 static const char *const kPoolChild[] = {
-    "Playing mermaids",
-    "Playing pirates",
-    "Playing dolphins",
-    "Playing sharks" };
+    TR_NA(39, "Playing mermaids"),
+    TR_NA(39, "Playing pirates"),
+    TR_NA(39, "Playing dolphins"),
+    TR_NA(39, "Playing sharks") };
 static const char *const kSandbox[] = {
-    "Making sand sculptures",
-    "Digging moats",
-    "Digging to the center of the earth" };
+    TR_NA(39, "Making sand sculptures"),
+    TR_NA(39, "Digging moats"),
+    TR_NA(39, "Digging to the center of the earth") };
 static const char *const kFlower[] = {
-    "Gardening",
-    "Caring for the Magic Plants" };
+    TR_NA(39, "Gardening"),
+    TR_NA(39, "Caring for the Magic Plants") };
 static const char *const kBoard[] = {
-    "Playing chess",
-    "Playing checkers" };
+    TR_NA(39, "Playing chess"),
+    TR_NA(39, "Playing checkers") };
 static const char *const kTeenHomework[] = {
-    "Doing math homework",
-    "Doing geography homework",
-    "Doing biology homework",
-    "Doing literature homework" };
+    TR_NA(39, "Doing math homework"),
+    TR_NA(39, "Doing geography homework"),
+    TR_NA(39, "Doing biology homework"),
+    TR_NA(39, "Doing literature homework") };
 static const char *const kCareer[] = {
-    "Practicing career skills",
-    "Practicing new work techniques",
-    "Working on a job project",
-    "Practicing interview skills",
-    "Learning new job skills",
-    "Practicing a new job skill",
-    "Improving job performance",
-    "Working on a project for a client",
-    "Taking boss' advice on a job project",
-    "Reflecting on recent career performance",
-    "Trying to improve career performance",
-    "Working hard for the next promotion!",
-    "Perfecting skills for career",
-    "Need to meet a job deadline!",
-    "Pursuing further job opportunities",
-    "Pursuing personal career goals",
-    "Busy working!",
-    "Learning new tips and tricks for career",
-    "Updating career portfolio",
-    "Updating resume",
-    "Updating CV" };
+    TR_NA(39, "Practicing career skills"),
+    TR_NA(39, "Practicing new work techniques"),
+    TR_NA(39, "Working on a job project"),
+    TR_NA(39, "Practicing interview skills"),
+    TR_NA(39, "Learning new job skills"),
+    TR_NA(39, "Practicing a new job skill"),
+    TR_NA(39, "Improving job performance"),
+    TR_NA(39, "Working on a project for a client"),
+    TR_NA(39, "Taking boss' advice on a job project"),
+    TR_NA(39, "Reflecting on recent career performance"),
+    TR_NA(39, "Trying to improve career performance"),
+    TR_NA(39, "Working hard for the next promotion!"),
+    TR_NA(39, "Perfecting skills for career"),
+    TR_NA(39, "Need to meet a job deadline!"),
+    TR_NA(39, "Pursuing further job opportunities"),
+    TR_NA(39, "Pursuing personal career goals"),
+    TR_NA(39, "Busy working!"),
+    TR_NA(39, "Learning new tips and tricks for career"),
+    TR_NA(39, "Updating career portfolio"),
+    TR_NA(39, "Updating resume"),
+    TR_NA(39, "Updating CV") };
 // VF2's kids_table group: what a child at the homework table may be doing.
 static const char *const kChildHomework[] = {
-    "Doing arts and crafts",
-    "Making origami",
-    "Coloring in a coloring book",
-    "Making clay sculptures",
-    "Making charm bracelets",
-    "Making necklaces",
-    "Doing homework",
-    "Procrastinating" };
+    TR_NA(39, "Doing arts and crafts"),
+    TR_NA(39, "Making origami"),
+    TR_NA(39, "Coloring in a coloring book"),
+    TR_NA(39, "Making clay sculptures"),
+    TR_NA(39, "Making charm bracelets"),
+    TR_NA(39, "Making necklaces"),
+    TR_NA(39, "Doing homework"),
+    TR_NA(39, "Procrastinating") };
 // VF2 group "drink".
 static const char *const kDrink[] = {
-    "Drinking soda",
-    "Drinking milkshakes",
-    "Drinking milk",
-    "Drinking juice",
-    "Drinking mineral water",
-    "Drinking sparkling water",
-    "Drinking tea",
-    "Drinking an energy drink",
-    "Drinking Hydr-Aid",
-    "Drinking boba tea" };
+    TR_NA(39, "Drinking soda"),
+    TR_NA(39, "Drinking milkshakes"),
+    TR_NA(39, "Drinking milk"),
+    TR_NA(39, "Drinking juice"),
+    TR_NA(39, "Drinking mineral water"),
+    TR_NA(39, "Drinking sparkling water"),
+    TR_NA(39, "Drinking tea"),
+    TR_NA(39, "Drinking an energy drink"),
+    TR_NA(39, "Drinking Hydr-Aid"),
+    TR_NA(39, "Drinking boba tea") };
 // VF2 group "heat_food".
 static const char *const kHeatFood[] = {
-    "Baking a cake",
-    "Heating up leftovers",
-    "Baking a pie",
-    "Baking cookies",
-    "Heating up pizza",
-    "Eating takeout" };
+    TR_NA(39, "Baking a cake"),
+    TR_NA(39, "Heating up leftovers"),
+    TR_NA(39, "Baking a pie"),
+    TR_NA(39, "Baking cookies"),
+    TR_NA(39, "Heating up pizza"),
+    TR_NA(39, "Eating takeout") };
 // VF2 group "snacks".
 static const char *const kSnacks[] = {
-    "Eating a bag of chips",
-    "Eating pretzels",
-    "Eating trail mix",
-    "Eating cookies",
-    "Eating pizza",
-    "Eating popcorn",
-    "Eating candy",
-    "Drinking soda",
-    "Drinking milkshakes",
-    "Drinking milk",
-    "Drinking juice" };
+    TR_NA(39, "Eating a bag of chips"),
+    TR_NA(39, "Eating pretzels"),
+    TR_NA(39, "Eating trail mix"),
+    TR_NA(39, "Eating cookies"),
+    TR_NA(39, "Eating pizza"),
+    TR_NA(39, "Eating popcorn"),
+    TR_NA(39, "Eating candy"),
+    TR_NA(39, "Drinking soda"),
+    TR_NA(39, "Drinking milkshakes"),
+    TR_NA(39, "Drinking milk"),
+    TR_NA(39, "Drinking juice") };
 // VF2 group "meal_prep".
 static const char *const kMealPrep[] = {
-    "Making sushi",
-    "Making Chinese food",
-    "Making Mexican food",
-    "Making American food",
-    "Making vegetarian food",
-    "Making Japanese food",
-    "Making salad",
-    "Making Indian food",
-    "Making Turkish Food",
-    "Making Spanish food",
-    "Making African food",
-    "Making Filipino food",
-    "Making fish and chips",
-    "Making lasagna",
-    "Making pasta",
-    "Making dim sum",
-    "Making pizza",
-    "Making French food",
-    "Making escargot",
-    "Making burgers and fries",
-    "Making tacos",
-    "Making paella",
-    "Making seafood",
-    "Making steak au poivre" };
+    TR_NA(39, "Making sushi"),
+    TR_NA(39, "Making Chinese food"),
+    TR_NA(39, "Making Mexican food"),
+    TR_NA(39, "Making American food"),
+    TR_NA(39, "Making vegetarian food"),
+    TR_NA(39, "Making Japanese food"),
+    TR_NA(39, "Making salad"),
+    TR_NA(39, "Making Indian food"),
+    TR_NA(39, "Making Turkish Food"),
+    TR_NA(39, "Making Spanish food"),
+    TR_NA(39, "Making African food"),
+    TR_NA(39, "Making Filipino food"),
+    TR_NA(39, "Making fish and chips"),
+    TR_NA(39, "Making lasagna"),
+    TR_NA(39, "Making pasta"),
+    TR_NA(39, "Making dim sum"),
+    TR_NA(39, "Making pizza"),
+    TR_NA(39, "Making French food"),
+    TR_NA(39, "Making escargot"),
+    TR_NA(39, "Making burgers and fries"),
+    TR_NA(39, "Making tacos"),
+    TR_NA(39, "Making paella"),
+    TR_NA(39, "Making seafood"),
+    TR_NA(39, "Making steak au poivre") };
 // VF2 group "shower_general".
 static const char *const kShowerGeneral[] = {
-    "Taking a bath",
-    "Taking a bubble bath",
-    "Singing in the shower",
-    "Taking a relaxing bath",
-    "Taking a relaxing bubble bath" };
+    TR_NA(39, "Taking a bath"),
+    TR_NA(39, "Taking a bubble bath"),
+    TR_NA(39, "Singing in the shower"),
+    TR_NA(39, "Taking a relaxing bath"),
+    TR_NA(39, "Taking a relaxing bubble bath") };
 // VF2 group "shower_adult".
 static const char *const kShowerAdult[] = {
-    "Having a spa day" };
+    TR_NA(39, "Having a spa day") };
 // VF2 group "shower_child".
 static const char *const kShowerChild[] = {
-    "Playing with bath toys" };
+    TR_NA(39, "Playing with bath toys") };
 // VF2 group "bathroom_sink_general".
 static const char *const kSinkGeneral[] = {
-    "Putting on face mask",
-    "Trimming nails",
-    "Applying lotion",
-    "Applying sunscreen" };
+    TR_NA(39, "Putting on face mask"),
+    TR_NA(39, "Trimming nails"),
+    TR_NA(39, "Applying lotion"),
+    TR_NA(39, "Applying sunscreen") };
 // VF2 group "bathroom_sink_grooming".
 static const char *const kSinkGrooming[] = {
-    "Painting fingernails",
-    "Painting toenails",
-    "Doing a manicure",
-    "Doing a pedicure",
-    "Putting on makeup" };
+    TR_NA(39, "Painting fingernails"),
+    TR_NA(39, "Painting toenails"),
+    TR_NA(39, "Doing a manicure"),
+    TR_NA(39, "Doing a pedicure"),
+    TR_NA(39, "Putting on makeup") };
 // VF2 group "bathroom_sink_female_teen_plus".
 static const char *const kSinkJewelry[] = {
-    "Putting on jewelry" };
+    TR_NA(39, "Putting on jewelry") };
 // VF2 group "coffee".
 static const char *const kCoffee[] = {
-    "Making espresso",
-    "Making a latte",
-    "Making a matcha latte",
-    "Making a caffe mocha",
-    "Making an americano",
-    "Making a ristretto",
-    "Making a double-shot espresso",
-    "Making black coffee",
-    "Making cappuccino",
-    "Making frozen coffee",
-    "Making iced coffee",
-    "Making a frappe",
-    "Making tea",
-    "Making matcha tea",
-    "Making earl grey tea",
-    "Making jasmine tea",
-    "Making black tea",
-    "Making iced tea" };
+    TR_NA(39, "Making espresso"),
+    TR_NA(39, "Making a latte"),
+    TR_NA(39, "Making a matcha latte"),
+    TR_NA(39, "Making a caffe mocha"),
+    TR_NA(39, "Making an americano"),
+    TR_NA(39, "Making a ristretto"),
+    TR_NA(39, "Making a double-shot espresso"),
+    TR_NA(39, "Making black coffee"),
+    TR_NA(39, "Making cappuccino"),
+    TR_NA(39, "Making frozen coffee"),
+    TR_NA(39, "Making iced coffee"),
+    TR_NA(39, "Making a frappe"),
+    TR_NA(39, "Making tea"),
+    TR_NA(39, "Making matcha tea"),
+    TR_NA(39, "Making earl grey tea"),
+    TR_NA(39, "Making jasmine tea"),
+    TR_NA(39, "Making black tea"),
+    TR_NA(39, "Making iced tea") };
 // VF2 group "coffee_evening".
 static const char *const kCoffeeEvening[] = {
-    "Making chamomile tea" };
+    TR_NA(39, "Making chamomile tea") };
 // VF2 group "telescope".
 static const char *const kTelescope[] = {
-    "Finding constellations",
-    "Finding planets",
-    "Looking for aliens",
-    "Practicing astronomy",
-    "Finding space stations",
-    "Finding the ISS",
-    "Looking for rocket ships",
-    "Looking for meteors",
-    "Trying to find shooting stars",
-    "Looking for comets" };
+    TR_NA(39, "Finding constellations"),
+    TR_NA(39, "Finding planets"),
+    TR_NA(39, "Looking for aliens"),
+    TR_NA(39, "Practicing astronomy"),
+    TR_NA(39, "Finding space stations"),
+    TR_NA(39, "Finding the ISS"),
+    TR_NA(39, "Looking for rocket ships"),
+    TR_NA(39, "Looking for meteors"),
+    TR_NA(39, "Trying to find shooting stars"),
+    TR_NA(39, "Looking for comets") };
 // VF2 group "teen_online_test".
 static const char *const kOnlineTest[] = {
-    "Applying for volunteer opportunities",
-    "Planning career path",
-    "Looking for schools to apply to",
-    "Exploring future career opportunities",
-    "Exploring volunteer opportunities" };
+    TR_NA(39, "Applying for volunteer opportunities"),
+    TR_NA(39, "Planning career path"),
+    TR_NA(39, "Looking for schools to apply to"),
+    TR_NA(39, "Exploring future career opportunities"),
+    TR_NA(39, "Exploring volunteer opportunities") };
 // The two captions VF2 sets for the patio table's drinks (VF2RunMobilePreparingDrinks, VF2RunMobileDrinkAtPatioChair).
 static const char *const kPatioDrinks[] = {
-    "Getting some drinks",
-    "Having a refreshing drink" };
-static const char *const kPrivateRomantic[] = { "Having private adult romantic time" };
+    TR_NA(39, "Getting some drinks"),
+    TR_NA(39, "Having a refreshing drink") };
+static const char *const kPrivateRomantic[] = { TR_NA(39, "Having private adult romantic time") };
 
 struct Cands {
     const char *v[160];
@@ -487,8 +487,9 @@ static char *__cdecl LabelCopy(char *dest, const char *src, size_t n) {
         }
         // VF2ApplyRememberedOrRandomLabel: one roll out of (count + 1); 0 keeps the game's own caption.
         // The private romantic caption is not a variant: it always replaces "Trying to make a baby".
-        if (site->kind == L_TRYBABY) { if (c.n > 0) src = c.v[0]; }
-        else if (c.n > 0) { int r = LabelRandom(c.n + 1); if (r) src = c.v[r - 1]; }
+        // A caption of ours is shown in the chosen translation (translate.inc), at most 39 bytes as the label holds.
+        if (site->kind == L_TRYBABY) { if (c.n > 0) src = TrA(c.v[0], 39); }
+        else if (c.n > 0) { int r = LabelRandom(c.n + 1); if (r) src = TrA(c.v[r - 1], 39); }
     }
     char *r = ((StrncpyFn)0x4993C0)(dest, src, n);
     if (n == 0x27) dest[n] = 0;  // the 40-byte label: 0x27 characters and a terminator (a 39-character caption fills it)

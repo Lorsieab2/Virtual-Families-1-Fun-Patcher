@@ -17,18 +17,18 @@ struct PatcherAchievement { const wchar_t *name; const wchar_t *how; };
 enum { ACH_LUCKY_70, ACH_GREAT_80, ACH_MIGHTY_90, ACH_CENTENARIAN, ACH_OLDEST_IN_HISTORY, ACH_RAINBOW, ACH_SPIKY,
        ACH_BLUES_CLUES, ACH_DECADE_IN_BLUE, ACH_NO_MORE_WORRIES, ACH_WORLD_HUNGER, ACH_EXTRAORDINAIRE, ACH_COUNT };
 static const PatcherAchievement kAchievements[ACH_COUNT] = {
-    { L"Lucky 70's", L"Have a person reach age 70." },
-    { L"Great 80's", L"Have a person reach age 80." },
-    { L"Mighty 90's", L"Have a person reach age 90." },
-    { L"Centenarian", L"Have a person reach age 100 or more." },
-    { L"Oldest Person in History", L"Have a person surpass age 122." },
-    { L"Return of the Rainbow", L"Have a female villager with head value 49 in the family tree." },
-    { L"Spiky!", L"Have a male villager with head value 48 in the family tree." },
-    { L"Blue's Clues", L"Have a male villager with head value 49 in the family tree." },
-    { L"A Decade in Blue", L"Have a female villager with head value 48 in the family tree." },
-    { L"No More Worries", L"Have the maximum amount of coins in the bank account." },
-    { L"Solving World Hunger", L"Have the maximum amount of food in the fridge." },
-    { L"Achiever Extraordinaire", L"Complete every enabled achievement." },
+    { TR_N(L"Lucky 70's"), TR_N(L"Have a person reach age 70.") },
+    { TR_N(L"Great 80's"), TR_N(L"Have a person reach age 80.") },
+    { TR_N(L"Mighty 90's"), TR_N(L"Have a person reach age 90.") },
+    { TR_N(L"Centenarian"), TR_N(L"Have a person reach age 100 or more.") },
+    { TR_N(L"Oldest Person in History"), TR_N(L"Have a person surpass age 122.") },
+    { TR_N(L"Return of the Rainbow"), TR_N(L"Have a female villager with head value 49 in the family tree.") },
+    { TR_N(L"Spiky!"), TR_N(L"Have a male villager with head value 48 in the family tree.") },
+    { TR_N(L"Blue's Clues"), TR_N(L"Have a male villager with head value 49 in the family tree.") },
+    { TR_N(L"A Decade in Blue"), TR_N(L"Have a female villager with head value 48 in the family tree.") },
+    { TR_N(L"No More Worries"), TR_N(L"Have the maximum amount of coins in the bank account.") },
+    { TR_N(L"Solving World Hunger"), TR_N(L"Have the maximum amount of food in the fridge.") },
+    { TR_N(L"Achiever Extraordinaire"), TR_N(L"Complete every enabled achievement.") },
 };
 
 // VF1's head sheets have rows 0-49. Return of the Rainbow is the female sheet's last
@@ -102,11 +102,11 @@ static INT_PTR CALLBACK AchievementsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) 
         for (int i = 0; i < ACH_COUNT; ++i) {
             wchar_t line[200];
             swprintf(line, 200, L"%s %s\t%s", (gVillage.achievements & (1u << i)) ? L"[x]" : L"[  ]",
-                     kAchievements[i].name, kAchievements[i].how);
+                     Tr(kAchievements[i].name), Tr(kAchievements[i].how));
             SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
         }
         wchar_t s[64];
-        swprintf(s, 64, L"%d of %d unlocked", AchievementsUnlocked(), (int)ACH_COUNT);
+        swprintf(s, 64, TR(L"%d of %d unlocked"), AchievementsUnlocked(), (int)ACH_COUNT);
         SetDlgItemTextW(dlg, ID_PA_LIST + 1, s);
         return TRUE;
     }
@@ -122,10 +122,10 @@ static INT_PTR CALLBACK AchievementsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) 
 
 static Template &AchievementsTemplate() {
     static Template t;
-    t.Begin(L"Patcher Achievements", 420, 150);
+    t.Begin(TR_N(L"Patcher Achievements"), 420, 150);
     t.Item(LISTBOX, LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER, 10, 10, 400, 100, ID_PA_LIST, L"");
     t.Item(STATIC, SS_LEFT, 10, 124, 150, 12, ID_PA_LIST + 1, L"");
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 335, 128, 75, 16, IDOK, L"Close");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 335, 128, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowAchievements(HWND owner) {

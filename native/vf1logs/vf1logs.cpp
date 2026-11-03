@@ -211,8 +211,28 @@ static const char *FamilyName() {
     return gs ? (const char *)(gs + LOGS_GAME_STATE_FAMILY_NAME) : "";
 }
 
-// The executable's own words.
+// The Family History log is written in English whatever the game shows (the Translations setting, vf1tr.dll):
+// the Family Tree Maker reads its words back. vf1tr.dll, when loaded, gives a line's English and the English of a
+// title the game showed translated; without it the game's own text is English.
+typedef const char *(__cdecl *TrEnglishFn)(int);
+typedef const char *(__cdecl *TrEnglishOfFn)(const char *);
+static FARPROC TrFunction(const char *name) {
+    HMODULE tr = GetModuleHandleW(L"vf1tr.dll");
+    return tr ? GetProcAddress(tr, name) : 0;
+}
+static const char *EnglishOf(const char *shown) {
+    static TrEnglishOfFn fn;
+    if (!fn) fn = (TrEnglishOfFn)TrFunction("VF1Tr_EnglishOf");
+    return fn && shown ? fn(shown) : shown;
+}
+
+// The executable's own words, in English.
 static const char *Word(int id) {
+    static TrEnglishFn english;
+    if (!english) english = (TrEnglishFn)TrFunction("VF1Tr_English");
+    if (english) {
+        if (const char *e = english(id)) return e;
+    }
     void *strings = ((SingletonFn)LOGS_STRINGS_GET)();
     const char *s = strings ? ((GetStringFn)LOGS_STRINGS_GET_STRING)(strings, id) : 0;
     return s ? s : "";
@@ -999,7 +1019,7 @@ static void __fastcall EventDialogHook(void *dialog, void *, void *parent, int u
     void *event = *(void *const *)(d + LOGS_EVENT_DIALOG_EVENT);
     Text t;
     t.Init(gEventTitle, sizeof(gEventTitle));
-    t.Name(*(const char *const *)(d + LOGS_EVENT_DIALOG_TITLE), sizeof(gEventTitle) - 1);
+    t.Name(EnglishOf(*(const char *const *)(d + LOGS_EVENT_DIALOG_TITLE)), sizeof(gEventTitle) - 1);
     bool email = event && ((ThisBoolFn)(*(void ***)event)[LOGS_EVENT_VSLOT_EMAIL / 4])(event);
     bool choices = event && ((ThisBoolFn)(*(void ***)event)[LOGS_EVENT_VSLOT_HAS_CHOICES / 4])(event);
     gEventKind = email ? "Email Event" : "Popup Event";
