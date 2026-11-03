@@ -333,7 +333,11 @@ a numbers-only box keeps digits (and a first '-', as the stock box allows). With
 loaded) the text is stored by the write rule, cut between whole characters at the box's limit (a name box 1,200 bytes with no character cap,
 any other box its own bytes); a pasted mark that would join the box's last letter and no longer fit is not pasted.
 With both off, only characters the stock fonts can store and draw are kept, one byte each (U+0020..U+007E and
-U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. A held key's auto-repeats (SDL's repeat flag) are
+U+00A2..U+00FF, after composing accents with FoldStringW MAP_PRECOMPOSED), up to the box's own byte limit. (Owner,
+2026-11-03: "what the fonts draw". The set is the glyph tables of the four stock fonts, read from the exe by
+`tests/test_clipboard.py::test_the_set_with_both_off_is_what_the_stock_fonts_draw`: 0x20..0x7F and 0xA2..0xFF in all four;
+DEL is a control character and is never pasted. The stock box itself (0x40DB0F) is stricter, refusing every byte from
+0x80, but the owner's rule is the fonts', so a Latin-1 letter pastes.) A held key's auto-repeats (SDL's repeat flag) are
 swallowed while a box has the typing focus, so one press acts once; Ctrl+X empties the box only after the copy succeeded.
 Nothing is ever
 written past the box's buffer (limit + 1 bytes); the game is told the text changed (0xC, 0x401EA0) as after a typed

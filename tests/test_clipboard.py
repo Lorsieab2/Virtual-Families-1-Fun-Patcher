@@ -485,6 +485,32 @@ def test_cut_copies_then_empties(uni):
     assert g.guard_ok(box)
 
 
+# ---- the set with both Unicode settings off is derived from the stock fonts' own glyph tables (owner, 2026-11-03:
+# "what the fonts draw")
+def test_the_set_with_both_off_is_what_the_stock_fonts_draw(plain, vanilla_dir):
+    pytest.importorskip("pefile")
+    import vf1_game_fonts as gf
+    fonts = gf.Fonts(vanilla_dir)
+    tables = {name: fonts.font(name).native for name in gf.GAME_FONTS}
+    assert len(set(tables.values())) == 1, "the four stock fonts hold the same characters"
+    drawn = set(next(iter(tables.values())))
+    assert drawn == set(range(0x20, 0x80)) | set(range(0xA2, 0x100)), "the stock tables, as the docs say"
+    expected = {b for b in drawn if b != 0x7F}                    # DEL is a control character, never pasted
+    kept = set()
+    g = plain
+    box = g.box(1000)                                             # one box: the keys go to the first one listening
+    for cp in range(0x20, 0x300):
+        before = g.text(box)
+        g.paste(box, chr(cp))
+        added = g.text(box)[len(before):]
+        if added:
+            assert added == bytes([cp]) and cp < 0x100, hex(cp)      # one byte each
+            kept.add(cp)
+    assert kept == expected
+    # and anything past U+00FF, the Windows-1252 extras and the C1 controls are never kept
+    assert all(cp not in kept for cp in list(range(0x80, 0xA2)) + [0x20AC, 0x2026, 0x201C, 0x2122])
+
+
 # ---- held keys, and a failed copy
 def test_a_held_keys_repeats_are_swallowed(uni):
     g = uni
