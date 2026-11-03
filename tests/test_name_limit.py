@@ -935,6 +935,49 @@ def test_a_write_that_failed_is_retried_at_a_draw_not_more_than_every_two_second
     assert len(w.fs[w.names_file(2)]) == written, "a written book is not written again"
 
 
+def test_a_record_is_written_at_once_when_its_slot_is_known(world):
+    """Owner, 2026-11-03: a name stored just before the game quits must be in the Names file. With the slot known the
+    record is written the moment the name leaves its box, with no draw and no clock moving."""
+    w = world
+    name = "Pendleton Wilhelmina Alexandrina"
+    adopt(w, name)
+    assert [e.full for e in names_in(w, 2)] == [name]
+
+
+def test_the_save_hook_flushes_a_pending_or_failed_record_at_once(world):
+    """VF1Text_FlushNames, called by vf1fun.dll's theGameState::Save hook after the game wrote the save: a record
+    whose write failed, and one made while no slot was known, are written at once (no 2-second wait, no draw)."""
+    w = world
+    flush = w.e.dll_export("VF1Text_FlushNames")
+    w.write_fails = True
+    first = "Pendleton Wilhelmina Alexandrina"
+    adopt(w, first)
+    assert w.names_file(2) not in w.fs
+    w.write_fails = False
+    w.e.call(flush)                                         # the game saves right away (the clock has not moved)
+    assert [e.full for e in names_in(w, 2)] == [first]
+    w.set_slot(0)                                           # no slot known when the next name is stored
+    second = "Bartholomew Christopher Jones Esquire"
+    adopt(w, second)
+    assert [e.full for e in names_in(w, 2)] == [first]
+    w.set_slot(2)
+    w.e.call(flush)
+    assert [e.full for e in names_in(w, 2)] == [first, second]
+    written = w.fs[w.names_file(2)]
+    w.e.call(flush)                                         # nothing left to write: the file is not touched
+    assert w.fs[w.names_file(2)] == written
+
+
+def test_vf1fun_flushes_the_names_after_every_save():
+    fun = (ROOT / "native" / "vf1fun" / "vf1fun.cpp").read_text(encoding="utf-8")
+    features = (ROOT / "native" / "vf1fun" / "features.inc").read_text(encoding="utf-8").replace("\r\n", "\n")
+    assert 'TextFlushNames = (TextFlushNamesFn)GetProcAddress(text, "VF1Text_FlushNames");' in fun
+    save = features[features.index("static bool __fastcall GameStateSave("):]
+    save = save[:save.index("\n}\n")]
+    after = save[save.index("bool ok = OriginalGameStateSave(state, slot);"):]
+    assert "if (ok && slot >= 1 && slot <= 5) {" in after and "if (TextFlushNames) TextFlushNames();" in after
+
+
 def test_a_failed_write_never_loses_the_records_already_in_the_file(world):
     w = world
     first = adopt(w, "Alexandrina Maximiliana Theodora")

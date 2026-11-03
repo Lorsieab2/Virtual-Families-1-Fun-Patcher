@@ -1158,6 +1158,7 @@ static void LoadTextCompanion(const wchar_t *name) {
     TextFullName = (TextFullNameFn)GetProcAddress(text, "VF1Text_FullName");
     TextStoreName = (TextStoreNameFn)GetProcAddress(text, "VF1Text_StoreName");
     TextActive = (TextActiveFn)GetProcAddress(text, "VF1Text_UnicodeTextActive");
+    TextFlushNames = (TextFlushNamesFn)GetProcAddress(text, "VF1Text_FlushNames");
 }
 
 // ---------------------------------------------------------------- Translations
