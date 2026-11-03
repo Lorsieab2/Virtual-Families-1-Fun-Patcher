@@ -169,10 +169,14 @@ def test_no_issue_field_in_any_shell_command():
 def test_the_virustotal_key_is_only_a_secret_in_the_scanning_steps_environment():
     f = flow()
     text = WORKFLOW.read_text(encoding="utf-8")
-    assert text.count("secrets.VT_API_KEY") == 1
+    # Two scanning steps: the attachment, then the file written from it (exactly the bytes committed).
+    assert text.count("secrets.VT_API_KEY") == 2
     scan = next(s for s in f["jobs"]["scan"]["steps"] if s.get("id") == "scan")
-    assert scan["env"] == {"VT_API_KEY": "${{ secrets.VT_API_KEY }}"}
-    assert "VT_API_KEY" not in scan["run"] and "$VT_API_KEY" not in text      # never echoed or passed on
+    final = next(s for s in f["jobs"]["accept"]["steps"] if s.get("id") == "final")
+    for step in (scan, final):
+        assert step["env"] == {"VT_API_KEY": "${{ secrets.VT_API_KEY }}"}
+        assert "VT_API_KEY" not in step["run"]
+    assert "$VT_API_KEY" not in text                                          # never echoed or passed on
     assert not re.search(r"(echo|printf|cat)[^\n]*VT_API_KEY", text)
     assert f["jobs"]["accept"]["env"]["EXPECTED_SHA256"] == "${{ needs.scan.outputs.sha256 }}"
 

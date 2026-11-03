@@ -79,9 +79,11 @@ def test_virustotal_runs_first_and_the_validator_needs_it():
 def test_the_virustotal_key_is_a_secret_only_in_one_steps_environment_and_never_echoed(path):
     flow = load(path)
     text = path.read_text(encoding="utf-8")
-    assert text.count("secrets.VT_API_KEY") == 1
+    # accept-translation scans twice: the attachment, then the file written from it (exactly what is committed).
+    steps = 2 if path.name == "accept-translation.yml" else 1
+    assert text.count("secrets.VT_API_KEY") == steps
     holders = [s for job in flow["jobs"].values() for s in job["steps"] if "VT_API_KEY" in (s.get("env") or {})]
-    assert len(holders) == 1 and holders[0]["env"]["VT_API_KEY"] == "${{ secrets.VT_API_KEY }}"
+    assert len(holders) == steps and all(h["env"]["VT_API_KEY"] == "${{ secrets.VT_API_KEY }}" for h in holders)
     assert "$VT_API_KEY" not in text and not re.search(r"(echo|printf|cat|set -x)[^\n]*VT_API_KEY", text)
     for job in flow["jobs"].values():
         assert "VT_API_KEY" not in (job.get("env") or {})
@@ -149,12 +151,15 @@ class FakeGitHub:
         self.listing = listing if listing is not None else [{"filename": n, "status": "added"} for n in files]
         self.comments: list[str] = []
         self.requests: list[tuple[str, str]] = []
+        self.heads: list[str] = []                    # the head each time it is asked again (default: HEAD)
         self.event = {"pull_request": {"number": 12, "author_association": author,
                                        "head": {"sha": HEAD, "repo": {"full_name": "someone/fork"}}}}
 
     def __call__(self, method, url, token, body=None, accept="", limit=0):
         assert url.startswith("https://api.github.com/")
         self.requests.append((method, url))
+        if url.endswith("/pulls/12"):                 # the head, asked again before acting
+            return 200, json.dumps({"head": {"sha": self.heads.pop(0) if self.heads else HEAD}}).encode()
         if "/pulls/12/files" in url:
             return 200, json.dumps(self.listing).encode()
         if method == "POST" and url.endswith("/issues/12/comments"):

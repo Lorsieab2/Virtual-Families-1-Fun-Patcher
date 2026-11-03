@@ -9,7 +9,10 @@ public translations/ folder (translations/README.md), listed and downloaded with
   contents API's git blob SHA against the installed file's), or not installed.
 * Installing: each file is checked as DATA (at most MAX_FILE bytes, its git blob SHA must be the listed one, read
   by translation_format; a file it cannot use or one with an email address is refused) before it is written into
-  the patcher's translations\\vf1 folder under its GitHub name. Nothing in it is ever run.
+  the patcher's translations\\vf1 folder under its GitHub name. Nothing in it is ever run. A file already there
+  under that name is replaced only by its own update (the same language, @code and @translator; the old one goes
+  to the Recycle Bin, never a plain delete); anyone else's is kept and the download gets a name of its own
+  (kept_name, checked against every name in the folders).
 * No network, a timeout or GitHub's hourly limit for anonymous use (60 requests): GitHubError with a message for
   the player; nothing is changed.
 """
@@ -23,6 +26,7 @@ from pathlib import Path
 import re
 import urllib.error
 import urllib.parse
+import unicodedata
 import urllib.request
 from datetime import datetime, timezone
 
@@ -161,14 +165,51 @@ def last_changed(name: str, branch: str, http=fetch) -> str:
         return ""
 
 
-def installed_status(name: str, sha: str, folder: Path, game: str = "vf1") -> str:
-    local = folder / game / name
+def installed_copy(name: str, sha: str, folder: Path, game: str = "vf1") -> Path | None:
+    """The local file that IS this GitHub file (the same git blob SHA), wherever it was saved: under its own
+    name, or under a name of its own when another translator's file already had that name."""
+    place = folder / game
+    exact = place / name
     try:
-        if not local.is_file():
-            return NOT_INSTALLED
-        return INSTALLED if git_blob_sha(local.read_bytes()) == sha else UPDATE
+        others = sorted(p for p in place.iterdir() if p != exact and NAME_RE.match(p.name))
+    except OSError:
+        others = []
+    for path in [exact, *others]:
+        try:
+            if path.is_file() and path.stat().st_size <= MAX_FILE and git_blob_sha(path.read_bytes()) == sha:
+                return path
+        except OSError:
+            continue
+    return None
+
+
+def installed_status(name: str, sha: str, folder: Path, game: str = "vf1") -> str:
+    if installed_copy(name, sha, folder, game) is not None:
+        return INSTALLED
+    try:
+        return UPDATE if (folder / game / name).is_file() else NOT_INSTALLED
     except OSError:
         return NOT_INSTALLED
+
+
+def _slug(text: str) -> str:
+    """A credit name as a file-name part: ASCII, lower case, [a-z0-9-], at most 40 letters ("translator" when
+    nothing ASCII is left)."""
+    ascii_text = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode("ascii").lower()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text).strip("-")[:40].strip("-") or "translator"
+
+
+def kept_name(name: str, translator: str, taken) -> str:
+    """The name a download gets when another translator's file already has its GitHub name: "<stem>-<credit
+    slug><ext>", then "-2", "-3"... never one in `taken` (every name in the folders, without case)."""
+    used = {str(n).casefold() for n in taken}
+    stem, ext = Path(name).stem, Path(name).suffix
+    base = f"{stem}-{_slug(translator)}"[:90]
+    candidate, number = base + ext, 2
+    while candidate.casefold() in used:
+        candidate = f"{base}-{number}{ext}"
+        number += 1
+    return candidate
 
 
 def list_remote(folder: Path | None = None, http=fetch, game: str = "vf1") -> list[Remote]:
@@ -247,16 +288,36 @@ def install(remotes: list[Remote], folder: Path | None = None, http=fetch, game:
             if not NAME_RE.match(remote.name):
                 raise GitHubError("its name is not a translation file's")
             data = remote.data if remote.data is not None else http(remote.url, remote.branch, MAX_FILE)
-            read_remote(remote.name, data, remote.sha, game)
+            language, code, translator = read_remote(remote.name, data, remote.sha, game)
+            already = installed_copy(remote.name, remote.sha, folder, game)
+            if already is not None:                          # exactly these bytes are installed
+                remote.status = INSTALLED
+                out.append((remote, already, ""))
+                continue
             target = folder / game / remote.name
+            replacing = False
+            if target.exists():
+                # Replaced only by its own update (the same language, @code and @translator; the old one goes to
+                # the Recycle Bin). Anyone else's file with that name is kept, and the download gets its own name.
+                old = tr.read_info(target, game)
+                if old is not None and tr.is_update(old, language, code, translator):
+                    replacing = True
+                else:
+                    target = target.parent / kept_name(remote.name, translator, tr.taken_names(folder))
             target.parent.mkdir(parents=True, exist_ok=True)
             temp = target.with_name(target.name + ".download")
             temp.write_bytes(data)
-            temp.replace(target)
+            try:
+                if replacing:
+                    tr.recycle([target])                     # never a plain delete
+                temp.replace(target)
+            except OSError:
+                temp.unlink(missing_ok=True)                 # only our own unfinished download
+                raise
             remote.status = INSTALLED
             out.append((remote, target, ""))
         except GitHubError as exc:
             out.append((remote, None, str(exc)))
         except OSError as exc:
-            out.append((remote, None, f"could not be saved: {exc.strerror or exc}"))
+            out.append((remote, None, f"could not be saved (nothing was replaced): {exc.strerror or exc}"))
     return out

@@ -16,8 +16,15 @@ name: Accept translation
 #
 # Everything in the issue is untrusted: no issue field is ever put into a shell command. The
 # script reads the issue from the event file itself; the shell sees only the issue NUMBER and the
-# scanned file's SHA-256. The VirusTotal key comes only from the VT_API_KEY secret, through the
-# environment of the one step that scans; it is never printed.
+# scanned files' SHA-256. The VirusTotal key comes only from the VT_API_KEY secret, through the
+# environment of the steps that scan; it is never printed.
+#
+# The file committed is exactly the bytes that were scanned: writing the credit name changes the
+# attachment, so the WRITTEN file is scanned too (accept_translation.py scan-written), and only a
+# staged file whose SHA-256 is that scan's is committed. A stale run never acts: a newer accept run
+# for the same issue cancels it (concurrency, cancel-in-progress), and just before pushing the issue
+# is read again (accept_translation.py recheck): edited, unlabelled or closed means no pull request.
+# Labels other than accept-translation get a group of their own, so they never cancel a real run.
 
 on:
   issues:
@@ -26,8 +33,8 @@ on:
 permissions: {}
 
 concurrency:
-  group: accept-translation-${{ github.event.issue.number }}
-  cancel-in-progress: false
+  group: accept-translation-${{ github.event.issue.number }}-${{ github.event.label.name == 'accept-translation' && 'accept' || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   scan:
@@ -92,7 +99,24 @@ jobs:
       - name: Check the translation (the scanned file, as data only, at most 2 MB)
         run: python -I scripts/accept_translation.py accept "$GITHUB_EVENT_PATH" "$RUNNER_TEMP/translation"
 
+      - name: Scan the file that will be committed (the written bytes, with VirusTotal)
+        id: final
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/translation"
+          if [ "$(cat "$work/result.txt")" = "accepted" ]; then
+            if ! python -I scripts/accept_translation.py scan-written "$work/target.txt" "$RUNNER_TEMP/final"; then
+              case "$ISSUE_NUMBER" in (*[!0-9]*|"") echo "bad issue number"; exit 1;; esac
+              gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/final/comment.md"
+              exit 1
+            fi
+          fi
+
       - name: Open a pull request
+        env:
+          FINAL_SHA256: ${{ steps.final.outputs.sha256 }}
         run: |
           set -euo pipefail
           work="$RUNNER_TEMP/translation"
@@ -101,12 +125,23 @@ jobs:
             exit 0
           fi
           case "$ISSUE_NUMBER" in (*[!0-9]*|"") echo "bad issue number"; exit 1;; esac
+          case "$FINAL_SHA256" in (*[!0-9a-f]*|"") echo "the written file was not scanned"; exit 1;; esac
+          target="$(cat "$work/target.txt")"
           branch="translation/issue-$ISSUE_NUMBER"
           git config user.name "github-actions[bot]"
           # No email address anywhere (the owner): the commit's address is left empty.
           git config user.email ""
           git checkout -b "$branch"
-          git add -- "$(cat "$work/target.txt")"
+          git add -- "$target"
+          # Exactly the bytes that were scanned, or nothing.
+          staged="$(git show ":$target" | sha256sum | cut -d' ' -f1)"
+          if [ "$staged" != "$FINAL_SHA256" ]; then
+            echo "The staged file is not the file VirusTotal scanned; nothing is committed."
+            exit 1
+          fi
           git commit -m "Translations: add the translation shared in issue #$ISSUE_NUMBER"
+          # Just before acting: the issue must still ask for exactly what was scanned and checked.
+          gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" > "$work/current.json"
+          python -I scripts/accept_translation.py recheck "$GITHUB_EVENT_PATH" "$work/current.json"
           git push --force origin "$branch"
           gh pr create --head "$branch" --title "Translation from issue #$ISSUE_NUMBER" --body-file "$work/pr_body.md"
