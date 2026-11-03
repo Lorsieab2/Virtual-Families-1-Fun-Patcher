@@ -92,18 +92,12 @@ def test_the_gui_finds_its_files_from_another_folder(bundle, tmp_path):
 
 def test_bundle_layout_matches_the_vf2_release(bundle):
     folder, names = bundle
+    modules = sorted(p.name for p in (ROOT / "patcher").glob("*.py"))
+    assert {"vf1_patcher.py", "vf1_patcher_gui.py", "vf1_picture_maker.py", "vf1_game_art.py", "vf1_jpeg.py",
+            "vf1_small_formats.py", "vf1_art_fonts.py", "vf1_art_sheets.py", "vf1_game_text.py"} <= set(modules)
     assert sorted(n.removeprefix(TOP + "/") for n in names) == sorted(set(PLAYER_FILES + [f"{FILES}/{n}" for n in [
-        "manifest.json", "vf1_patcher.py", "vf1_patcher_gui.py", "vf1_save_backup.py",
-        "vf1_save.py", "vf1_rename_family.py", "vf1_copy_slot.py", "vf1_game_speed.py", "vf1_game_mechanics.py",
-        "vf1_picture_maker.py", "vf1_people_pictures.py", "vf1_picture_image.py",
-        "vf1_how_to_use.py", "how_to_use.json", "stub.json",
-        "vf1_genealogy.py", "vf1_family_history.py", "vf1_tree_memory.py", "vf1_family_tree.py",
-        "vf1_family_tree_window.py", "vf1_member_info.py", "vf1_relationships.py", "vf1_line_colours.py",
-        "vf1_tree_editor_tools.py", "vf1_gdiplus.py",
-        "vf1_text.py", "vf1_names.py", "vf1_game_fonts.py", "vf1_glyph_gdi.py", "vf1_glyph_maker.py", "vf1_game_text.py",
-        "vf1_unicode_font.py",
-        "translation_format.py", "vf1_translation_strings.py", "vf1_translations.py",
-        "vf1_translations_window.py", "vf1_translation_limits.json",
+        "manifest.json", "how_to_use.json", "stub.json", *modules,
+        "vf1_translation_limits.json",
         "payload/vf1fun.dll"] + [f"payload/UnicodeText/{p.name}" for p in (ROOT / "patcher" / "payload" / "UnicodeText").glob("*.txt")
                                  if p.stem not in ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24", "SegoeUi33")] + [f"tree_pictures/{p.name}" for p in (ROOT / "patcher" / "tree_pictures").glob("*.png")] + [f"payload/{row['source']}" for setting in json.loads(
             (folder / "manifest.json").read_text(encoding="utf-8"))["settings"] for row in setting.get("files", [])]]))
@@ -117,6 +111,28 @@ def test_bundle_layout_matches_the_vf2_release(bundle):
         vp.transparency_log_text(manifest)
     for name in names:
         assert "patch" not in Path(name).name.lower() or not name.lower().endswith(".exe")
+
+
+def test_every_bundled_module_imports_from_the_bundle_alone(bundle, tmp_path):
+    """Each module the bundle ships imports from an empty folder, with only the bundle on the path (python -I), and
+    so does every module a tool loads only when its window opens: nothing the zip needs is left in the repository."""
+    folder, _names = bundle
+    elsewhere = tmp_path / "empty"
+    elsewhere.mkdir()
+    probe = ("import importlib, sys; from pathlib import Path; folder = Path(sys.argv[1]).resolve(); "
+             "sys.path.insert(0, str(folder)); bad = []\n"
+             "for p in sorted(folder.glob('*.py')):\n"
+             "    try:\n"
+             "        m = importlib.import_module(p.stem)\n"
+             "        if Path(m.__file__).resolve().parent != folder: bad.append(p.stem + ' from ' + m.__file__)\n"
+             "    except Exception as e: bad.append(p.stem + ': ' + repr(e))\n"
+             "for name in ('vf1_jpeg', 'vf1_small_formats', 'vf1_art_sheets', 'vf1_art_fonts', 'vf1_art_meters', "
+             "'vf1_art_ui', 'vf1_art_house', 'vf1_art_misc', 'vf1_game_text', 'vf1_unicode_font', 'vf1_picture_maker'):\n"
+             "    if name not in sys.modules: bad.append(name + ' not loaded')\n"
+             "print('\\n'.join(bad)); sys.exit(1 if bad else 0)")
+    result = subprocess.run([sys.executable, "-I", "-c", probe, str(folder)], capture_output=True, text=True,
+                            cwd=elsewhere)
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def run_bundled(folder, *args):
