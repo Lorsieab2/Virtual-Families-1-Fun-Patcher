@@ -250,9 +250,10 @@ struct Extra {
     Extra *next;
     unsigned hash;
     unsigned keyLen;
-    unsigned char key[64];            // the letter in UTF-8 (longer letters are not kept: drawn as the box)
+    unsigned char *key;               // the letter (or run, shape.inc) in UTF-8, kept right after this struct
     struct Sheet *sheet;              // the font sheet it is on (the patcher-made one or a page)
     int x, y, w;
+    int ox;                           // where the drawing's origin lies in the box (pad - left; glyph_gdi.inc), else 0
 };
 struct TintList { TintList *next; unsigned colour; SDL_Surface *surface; };
 // colour: a page of colour emoji (glyph_color.inc), drawn as it is whatever the text's colour
@@ -296,9 +297,10 @@ static Extra *FindExtra(FontExtra *f, const unsigned char *key, unsigned n) {
 }
 
 static Extra *AddExtra(FontExtra *f, const unsigned char *key, unsigned n) {
-    if (n > sizeof ((Extra *)0)->key) return 0;
-    Extra *e = (Extra *)Alloc(sizeof(Extra));
+    if (n > 4096) return 0;
+    Extra *e = (Extra *)Alloc(sizeof(Extra) + n);
     if (!e) return 0;
+    e->key = (unsigned char *)(e + 1);
     e->hash = Hash(key, n);
     e->keyLen = n;
     Copy(e->key, key, n);
@@ -392,21 +394,23 @@ static Letter LetterFor(FontExtra *f, void *impl, const unsigned *cps, int i, in
         // Use Unicode Font draws every letter with the chosen font, the game's own ones too
         if (!FontMode && cp < 0x100 && GameHasByte(impl, cp)) { l.byte = (int)cp; return l; }
     }
-    unsigned char key[64];
-    unsigned n = 0;
-    if (j - i == 1) n = (unsigned)Utf8Put(cp, key);
-    else for (int k = i; k < j && n + 4 <= sizeof key; ++k) n += (unsigned)Utf8Put(cps[k], key + n);
     if (!f) { l.byte = 0; return l; }
-    // a colour emoji (glyph_color.inc) is kept under its own key (a leading 0x01, never in a letter's UTF-8), before
-    // the patcher-made letters: the same emoji may be shipped black and white
+    // the key: a leading 0x01 for a colour emoji (glyph_color.inc; the same emoji may be shipped black and white),
+    // 0x02 for a shaped run (shape.inc) -- neither byte is in a letter's UTF-8 -- then the UTF-8
+    unsigned char small[64];
+    unsigned room = 1 + 4 * (unsigned)(j - i);
+    unsigned char *key = room <= sizeof small ? small : (unsigned char *)Alloc(room);
+    if (!key) { l.byte = 0; return l; }
+    unsigned n = 0;
     bool picture = WantColour() && IsColourEmoji(j - i == 1 ? &cp : cps + i, j - i == 1 ? 1 : j - i);
-    if (picture && n + 1 <= sizeof key) {
-        for (unsigned k = n; k > 0; --k) key[k] = key[k - 1];
-        key[0] = 1;
-        ++n;
-    }
+    bool run = j - i > 1 && IsComplex(cps[i]);
+    if (picture) key[n++] = 1;
+    else if (run) key[n++] = 2;
+    if (j - i == 1) n += (unsigned)Utf8Put(cp, key + n);
+    else for (int k = i; k < j; ++k) n += (unsigned)Utf8Put(cps[k], key + n);
     Extra *e = FindExtra(f, key, n);
     if (!e) e = (j - i == 1) ? MakeLetter(f, &cp, 1, key, n) : MakeLetter(f, cps + i, j - i, key, n);
+    if (key != small) Free(key);
     if (!e) { l.byte = 0; return l; }
     l.extra = e;
     return l;
