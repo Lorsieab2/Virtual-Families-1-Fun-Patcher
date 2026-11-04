@@ -454,7 +454,7 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
             count = max([count] + [int(n) + 1 for n in _COPIED.findall(text)])
         newest = plan.writes[newest_history[1]]
         prefix = b"" if not newest.data or newest.data.endswith(b"\n") else b"\r\n"
-        newest.data += prefix + vf1_text.encode(history_record(source, old, new_name, when, count))
+        newest.data += prefix + history_record(source, old, new_name, when, count).encode("utf-8")
         newest.what = "copied, with a Family Copied record"
 
     names_dest = vf1_names.names_path(Path(), target)

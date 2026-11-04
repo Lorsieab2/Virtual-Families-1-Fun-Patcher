@@ -27,6 +27,8 @@
 #include <intrin.h>
 
 #include "vf1logs_sites.h"
+#include "../vf1text/text_rule.inc"   // the per-sequence read rule: a name is written to the log as UTF-8
+#pragma warning(disable: 4505)        // text_rule.inc: only Utf8At, SingleCp and Utf8Put are used here
 
 #pragma intrinsic(_ReturnAddress)
 
@@ -111,8 +113,25 @@ struct Text {
             const char *whole = WholeName(field);
             if (whole != field) { s = whole; max = 0xFFFFu; }
         }
-        for (unsigned i = 0; s && i < max && s[i] && n + 1 < cap; ++i)
-            if (s[i] != '\t' && s[i] != '\r' && s[i] != '\n') buf[n++] = s[i];
+        return Utf8(s, max);
+    }
+    // Game text in the log's UTF-8: read with the stored form's per-sequence rule (text_rule.inc: a valid UTF-8
+    // sequence stays, any other byte is its Windows-1252 character), at most `max` bytes, tabs and line ends dropped.
+    Text &Utf8(const char *s, unsigned max) {
+        const unsigned char *u = (const unsigned char *)s;
+        unsigned len = 0;
+        while (u && len < max && u[len]) ++len;
+        for (unsigned i = 0; i < len;) {
+            unsigned cp;
+            int k = Utf8At(u + i, (int)(len - i), &cp);
+            if (!k) { cp = SingleCp(u[i]); k = 1; }
+            i += (unsigned)k;
+            if (cp == '\t' || cp == '\r' || cp == '\n') continue;
+            unsigned char seq[4];
+            int m = Utf8Put(cp, seq);
+            if (n + (unsigned)m >= cap) break;
+            for (int j = 0; j < m; ++j) buf[n++] = (char)seq[j];
+        }
         buf[n] = 0;
         return *this;
     }
@@ -491,19 +510,31 @@ static void Write(int slot, const char *kind, const char *lines, bool backfilled
 // ---- remarriage: the spouse a person married before in the same generation and why they left ("died" or
 // "divorced"), from this slot's own Family History (the save forgets a spouse who left or died before any
 // child). Records after the last eviction only.
-static bool Value(const char *p, const char *label, char *out, unsigned cap) {   // "  <label>: <value>"
+// The names in the log are in UTF-8 (a log an earlier build wrote holds the stored form: read per sequence, it is the
+// same text); kNameBytes holds a whole name's UTF-8 (a stored byte is at most three UTF-8 bytes).
+static const unsigned kNameBytes = 3 * 1200 + 1;
+static char EarlierA[kNameBytes], EarlierB[kNameBytes], EarlierHead[kNameBytes], ValueRaw[kNameBytes];
+
+static bool Value(const char *p, const char *label, char *out, unsigned cap) {   // "  <label>: <value>", in UTF-8
     if (!StartsWith(p, label)) return false;
     p += Length(label);
     unsigned k = 0;
-    while (*p && *p != '\r' && *p != '\n') { if (k + 1 < cap) out[k++] = *p; ++p; }
-    out[k] = 0;
+    while (*p && *p != '\r' && *p != '\n') { if (k + 1 < kNameBytes) ValueRaw[k++] = *p; ++p; }
+    ValueRaw[k] = 0;
+    Text t;
+    t.Init(out, cap);
+    t.Utf8(ValueRaw, k);
     return true;
 }
 
-static bool EarlierSpouse(int slot, int gen, const char *head, char *earlier, char *how) {
+static bool EarlierSpouse(int slot, int gen, const char *stored, char *earlier, char *how) {
     char path[MAX_PATH + 64];
     earlier[0] = how[0] = 0;
-    char kind[16], a[28], b[28], g[12];
+    Text h;
+    h.Init(EarlierHead, kNameBytes);
+    h.Name(stored, 25);                                  // the name as the log writes it
+    const char *head = EarlierHead;
+    char kind[16], g[12], *a = EarlierA, *b = EarlierB;
     kind[0] = a[0] = b[0] = g[0] = 0;
     for (unsigned k = 1; k <= kMaxFiles && HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
         unsigned got = 0;
@@ -513,12 +544,12 @@ static bool EarlierSpouse(int slot, int gen, const char *head, char *earlier, ch
             if (heading && kind[0]) {                  // the record before ends: what it says
                 int gn = 0;
                 for (const char *q = g; *q >= '0' && *q <= '9'; ++q) gn = gn * 10 + (*q - '0');
-                if ((SameText(kind, "Marriage", 16)) && gn == gen && (SameText(a, head, 28) || SameText(b, head, 28))) {
-                    Copy(earlier, SameText(a, head, 28) ? b : a, 28);
+                if ((SameText(kind, "Marriage", 16)) && gn == gen && (SameText(a, head, kNameBytes) || SameText(b, head, kNameBytes))) {
+                    Copy(earlier, SameText(a, head, kNameBytes) ? b : a, kNameBytes);
                     how[0] = 0;
-                } else if (SameText(kind, "Death", 16) && earlier[0] && SameText(a, earlier, 28)) {
+                } else if (SameText(kind, "Death", 16) && earlier[0] && SameText(a, earlier, kNameBytes)) {
                     Copy(how, "died", 5);
-                } else if (SameText(kind, "Divorce", 16) && earlier[0] && SameText(b, earlier, 28)) {
+                } else if (SameText(kind, "Divorce", 16) && earlier[0] && SameText(b, earlier, kNameBytes)) {
                     Copy(how, "divorced", 9);
                 } else if (SameText(kind, "Evict Family", 16)) {
                     earlier[0] = how[0] = 0;
@@ -534,8 +565,8 @@ static bool EarlierSpouse(int slot, int gen, const char *head, char *earlier, ch
                 while (*q && *q != '\r' && *q != '\n' && !(*q == ' ' && q[1] >= '0' && q[1] <= '9') && n < 15) kind[n++] = *q++;
                 kind[n] = 0;
             } else {
-                Value(p, "  Family member: ", a, sizeof(a)) || Value(p, "  Name: ", a, sizeof(a)) ||
-                    Value(p, "  Married: ", b, sizeof(b)) || Value(p, "  Divorced: ", b, sizeof(b)) ||
+                Value(p, "  Family member: ", a, kNameBytes) || Value(p, "  Name: ", a, kNameBytes) ||
+                    Value(p, "  Married: ", b, kNameBytes) || Value(p, "  Divorced: ", b, kNameBytes) ||
                     Value(p, "  Generation: ", g, sizeof(g));
             }
             while (*p && *p != '\n') ++p;
@@ -737,14 +768,15 @@ static void ReportDeathHook(ReportDeathFn next, void *tree, void *villager) {
 static void OnMarriage(const Person &head, const Person &spouse, int gen) {
     int slot = CurrentSlot();
     if (!slot) return;
-    char earlier[28], how[12];
+    static char earlier[kNameBytes];
+    char how[12];
     bool again = EarlierSpouse(slot, gen, head.name, earlier, how);
     Text t;
     t.Init(Body, sizeof(Body));
     Member(t, "  ", "Family member", head, "Age");
     Member(t, "  ", "Married", spouse, "Age");
     if (again) {
-        t.S("  Remarried: yes").NL().S("  Earlier spouse: ").Name(earlier, 25);
+        t.S("  Remarried: yes").NL().S("  Earlier spouse: ").Utf8(earlier, kNameBytes);
         if (how[0]) t.S(" (").S(how).S(")");
         t.NL();
     }
