@@ -290,6 +290,46 @@ def test_editor_autosave_progress_filter_and_person_choice(window):
     editor.close()
 
 
+def test_editor_warns_with_the_real_width_and_wraps_to_fit(window, vanilla_dir):
+    """Nothing runs off the screen: the editor measures the translation with the game's own fonts and says how wide
+    a line is when it is wider than the screen; Wrap to fit breaks it (vf1_screen_edge)."""
+    import vf1_glyph_gdi as g
+    import vf1_screen_edge as se
+    if not g.AVAILABLE:
+        pytest.skip("needs Windows GDI")
+    editor = window.open_editor(window.test["path"])
+    editor.font_candidates = [str(vanilla_dir)]
+    editor.fonts = None
+    iid = next(i for i, r in editor.visible.items() if r.english == "Continue")
+    editor.tree.selection_set(iid)
+    editor.show_row()
+    long = "Continuer la très longue partie de la famille " * 5
+    editor.translation_text.delete("1.0", "end")
+    editor.translation_text.insert("1.0", long)
+    editor.changed()
+    editor.render_preview()
+    assert "pixels wide in the game's" in editor.preview_note.get() and str(editor.wrap_button.cget("state")) == "normal"
+    editor.wrap_to_fit()
+    fitted = editor.translation_text.get("1.0", "end-1c")
+    assert "\n" in fitted and not se.too_wide(editor.game_fonts, fitted) and fitted.split() == long.split()
+    editor.render_preview()
+    assert "pixels wide" not in editor.preview_note.get() and str(editor.wrap_button.cget("state")) == "disabled"
+    editor.close()
+
+
+def test_check_lists_lines_wider_than_the_screen(window, vanilla_dir, monkeypatch):
+    import vf1_glyph_gdi as g
+    if not g.AVAILABLE:
+        pytest.skip("needs Windows GDI")
+    monkeypatch.setattr(window, "game_folders", lambda game: [str(vanilla_dir)])
+    parsed = tfmt.parse_bytes(window.test["path"].read_bytes(), "vf1")
+    parsed.rows[0].translation = "Continuer la très longue partie de la famille " * 5
+    report = window.screen_report(parsed)
+    assert parsed.rows[0].key in report and "pixels in SegoeUiBold" in report
+    parsed.rows[0].translation = "Continuer"
+    assert window.screen_report(parsed) == "" or parsed.rows[0].key not in window.screen_report(parsed)
+
+
 def test_editor_marks_new_and_changed_lines_after_an_update(window):
     changed = tfmt.Entry(tfmt.make_key("strings", "1050", "Done!"), "Done!")
     newer = [changed] + ENTRIES[1:] + [tfmt.Entry(tfmt.make_key("strings", "2", "Status: "), "Status: ")]

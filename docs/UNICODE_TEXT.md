@@ -826,6 +826,54 @@ a phrase; the cut not at a space) fail.
    reads right to left, no line runs out of the dialog.
 3. A Hindi (नमस्ते) and a Thai name: conjuncts and vowel marks sit on their letters.
 4. Use Unicode Font with Comic Sans MS: the same.
+## Nothing runs off the screen (2026-11-03)
+
+> **Long translations and names stay on the screen.** A translated line, a long name or any text the patches bring
+> that would run past the edge of the screen is moved so that it ends at the edge; a line wider than the whole screen
+> is cut with "…", and a text taller than the screen keeps the lines that fit. Text may run out of its box, never off
+> the screen. The stock English game is drawn exactly as before.
+
+The owner, 2026-11-03: "i dont care if things run out of boxes, they just need to not run off the screen" (option A:
+left, right, top and bottom; only the text the patches or a translation bring). Every text the game draws ends in
+DrawString 0x409660 (the left, right-aligned 0x409CD0 and centred 0x409D20 draws and every text box's draw call it) or
+the word wrapper 0x409D70 (whose pieces go through 0x409450, called by nothing else). There the patch checks the text
+against the screen (the window's surface, 800 x 600):
+
+* on the screen: drawn as before; wholly off it (an animation not yet in view): left as it is;
+* partly off: moved so that it ends at the edge (x into 0..800 - width, y into 0..600 - height); wider than the screen:
+  each line cut to its longest start of whole characters and "…" (names.inc FitToRoom), from the left edge; taller
+  than the screen: the lines that fit, the last ending in "…"; when not even "…" fits, the English line;
+* the wrapper's box (its text already broken at the wrapper's own line breaks) moves the same way.
+
+Only text with a letter beyond ASCII, or any text while a translation is chosen, is checked (ClampWanted), so
+stock English is never touched. 
+ative/vf1text/screen.inc in both Unicode DLLs; with Translations on and neither
+Unicode DLL installed, 
+ative/vf1tr/screen_tr.inc in vf1tr.dll does the same with the game's own GetWidth and "..."
+(the stock fonts have no "…"): two 5-byte jumps at 0x409660 and 0x409D70, written only over their stock bytes, the
+stock code going on through two naked trampolines in vf1tr.dll's own code (DEP-safe). patcher/vf1_screen_edge.py
+is the model; the translation editor measures each line with the game's own fonts (the game's letters, the
+patcher-made ones and the ones Windows draws), says how wide a line wider than the screen is and in which font, and
+its **Wrap to fit** button breaks such lines; **Check** lists them.
+
+Proved (	ests/test_screen_edge.py): the model; vf1text.dll moves and cuts as the model in two fonts, with and
+without a translation chosen, stock English exactly as before, a text wholly off the screen left alone; the wrapper's
+box moved up and in, its pieces as the model's; every line a translation can replace (the game's and the patches',
+at its longest) and worst-case Japanese, Arabic and emoji lines drawn at both edges, centred on either edge and at the
+bottom: every letter on the screen; vf1tr.dll writes its jumps only over the stock bytes (nothing without a
+translation), moves and cuts, moves the wrapper's box, and every instruction it runs lies in an executable section.
+Mutations fail. 	ests/test_translations_window.py: the editor's width warning, Wrap to fit and Check.
+
+### Live checks (not yet done)
+
+1. Translations with a long line (the TEST French file, or a translated button or message made three times longer):
+   the line ends at the screen's right edge or is cut with "…", never off the screen; the same with both Unicode
+   settings off (vf1tr.dll's hooks).
+2. Stock text that moves (look for any slide-in or scrolling text: the intro story pages, the e-mail and event pop-ups
+   opening, the achievement pop-up, the Family Tree screen's scrolling, the credits): with a translation chosen it
+   still moves in as before once it is on the screen (a text partly off the screen is pinned to the edge while it
+   slides in).
+3. A family member with a 1,200-byte name: the bottom bar and the status line stay on the screen.
 ## Not in this part (the rest of the stage-3 work)
 
 * Translations, the Translations window and Share on GitHub.
