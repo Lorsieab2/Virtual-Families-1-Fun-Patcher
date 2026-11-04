@@ -318,6 +318,24 @@ def _word_end(s: str, at: int) -> int:
     return at
 
 
+def _own_word_end(s: str, at: int) -> int:
+    """wrap.inc OwnWordEnd: the stock word, and, when it ends in a letter of a right-to-left script that goes on after
+    its spaces, the next word too (a right-to-left phrase is drawn as one shaped run, in its visual order)."""
+    import vf1_shaping
+    n = len(s)
+    end = _word_end(s, at)
+    while end < n and s[end] == " ":
+        before = ord(s[end - 1]) if end > at else 0
+        q = end
+        while q < n and s[q] == " ":
+            q += 1
+        if q >= n or not vf1_shaping.is_rtl(before) or \
+                vf1_shaping.script_group(ord(s[q])) != vf1_shaping.script_group(before):
+            break
+        end = _word_end(s, end)
+    return end
+
+
 def stock_words_fit(font, s: str, width: int) -> bool:
     """wrap.inc StockWordsFit: would the stock code lay this out (every word fits a line it starts)?"""
     at, n, line_start = 0, len(s), True
@@ -350,6 +368,11 @@ def _emergency(font, piece: str, room: int) -> int:
         if best and advance(font, piece[:used]) > room:
             break
         best = used
+    if best and best < len(piece):                # a right-to-left phrase is cut at its last space that fits
+        for k in range(best, 0, -1):
+            if piece[k] == " " and piece[k - 1] != " ":
+                best = k
+                break
     return best or len(piece)
 
 
@@ -360,11 +383,15 @@ def wrap(font, text: str, x: int, y: int, width: int, justify_ratio: float, *, m
     s = text
     n = len(s)
     if patched:
+        import vf1_shaping
         breaks, any_letter = break_points(s, use_icu)
-        if not any_letter and stock_words_fit(font, s, width):
+        own = any_letter or not stock_words_fit(font, s, width) or vf1_shaping.has_rtl_phrase(s)
+        if not own:
             breaks = set()
     else:
         breaks = set()
+        own = False
+    word_end = _own_word_end if own else _word_end
     space = advance(font, " ")
     max_gap = int(space * 5 / 3) if space >= 0 else -int(-space * 5 / 3)
     height = font.height
@@ -391,7 +418,7 @@ def wrap(font, text: str, x: int, y: int, width: int, justify_ratio: float, *, m
             if not after_break and ch(at) == " ":
                 at += 1
             after_break = False
-            word_start, end = at, _word_end(s, at)
+            word_start, end = at, word_end(s, at)
             full = False
             p = word_start
             while True:                            # a word may be empty (spaces at the text's end make one)

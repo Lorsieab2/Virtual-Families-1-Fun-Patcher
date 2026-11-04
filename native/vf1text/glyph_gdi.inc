@@ -25,6 +25,7 @@ struct GdiFace {
     unsigned sub12, sub4;     // offsets of the subtables used (0 = none)
 };
 static GdiFace *Faces;
+static const int MaxLetterUnits = 190;   // the code points of the longest letter drawn (a shaped run's key holds 384 bytes)
 static HDC GlyphDC;
 
 static unsigned BE16(const unsigned char *p) { return (unsigned)(p[0] << 8 | p[1]); }
@@ -156,9 +157,9 @@ static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n, bool colo
 static bool DrawLetter(const Style &s, int height, const unsigned *cps, int n, unsigned char **out, int *outW) {
     GdiFace *g = ChooseFace(s, cps, n);
     if (!g) return false;
-    wchar_t text[64];
+    wchar_t text[2 * MaxLetterUnits + 4];        // a letter, or a shaped run (shape.inc)
     int units = 0;
-    for (int i = 0; i < n && units < 60; ++i) {
+    for (int i = 0; i < n && units < 2 * MaxLetterUnits; ++i) {
         unsigned cp = cps[i];
         if (cp >= 0x10000) { text[units++] = (wchar_t)(0xD800 + ((cp - 0x10000) >> 10)); text[units++] = (wchar_t)(0xDC00 + ((cp - 0x10000) & 0x3FF)); }
         else text[units++] = (wchar_t)cp;
@@ -227,6 +228,7 @@ static int Shift(unsigned mask) { int s = 0; if (!mask) return 0; while (!(mask 
 // Puts coverage rows on a page of the font (1024 x 16 bands), the white sheet and every tinted copy.
 static Extra *PlaceLetter(FontExtra *f, const unsigned char *rows, int w, const unsigned char *key, unsigned n, bool lut) {
     const int pageW = 1024, bands = 16;
+    int stride = w;                               // the rows' own width (a wider letter is cut to the page)
     if (w > pageW) w = pageW;
     Sheet *page = f->pageCount ? &f->pages[f->pageCount - 1] : 0;
     if (page && page->usedX + w > pageW) { page->usedX = 0; page->usedY += f->height; }
@@ -248,7 +250,7 @@ static Extra *PlaceLetter(FontExtra *f, const unsigned char *rows, int w, const 
     for (int y = 0; y < f->height; ++y) {
         unsigned *dst = (unsigned *)((unsigned char *)page->white->pixels + (y0 + y) * page->white->pitch) + x0;
         for (int x = 0; x < w; ++x) {
-            unsigned av = rows[y * w + x];
+            unsigned av = rows[y * stride + x];
             if (lut) av = f->style.lut[av];
             dst[x] = av ? (rgb | ((av << ashift) & fmt->Amask)) : 0;
         }

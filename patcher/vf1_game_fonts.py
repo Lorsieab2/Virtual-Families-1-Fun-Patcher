@@ -408,7 +408,18 @@ class GameFont:
 
     # -- the game's drawing
     def letters(self, text: str) -> list[str]:
-        return vf1_text.clusters(text, draw=True)
+        """The pieces the DLL draws one at a time: whole characters, and shaped runs (vf1_shaping, shape.inc)."""
+        import vf1_shaping
+        if not any(vf1_shaping.script_group(ord(c)) for c in text):
+            return vf1_text.clusters(text, draw=True)
+        r = self.renderer() if self.style is not None else None
+        if r is None:
+            return vf1_shaping.pieces(text, None)
+
+        def covered(run: str) -> bool:                 # shape.inc PieceEnd / RunFitsPage
+            face = r.face_for(run)
+            return face is not None and r.extent(run, face) + 2 * self.height <= 1024
+        return vf1_shaping.pieces(text, covered)
 
     def width(self, text: str, scale: float = 1.0) -> int:
         """ldwFont::GetWidth (0x402320), one whole character at a time."""
