@@ -1,0 +1,72 @@
+{
+  "note": "The open fonts vf1text.dll and vf1font.dll load privately (AddFontMemResourceEx) as the last steps of their fallback chain; fetched and verified by scripts/fetch_unicode18.py.",
+  "files": {
+    "unifont-18.0.01.otf": {
+      "source": "https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont-18.0.01.otf",
+      "version": "GNU Unifont 18.0.01",
+      "verified": "OpenPGP signature https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont-18.0.01.otf.sig (GNU keyring)",
+      "license": "GPL-2.0-or-later WITH Font-exception-2.0 OR OFL-1.1",
+      "sha256": "88D0A14D4AA9A96419720B39BA5DA921A59560D76D4EC7D523ACC06ED85CD3C2",
+      "bytes": 5320148
+    },
+    "unifont_upper-18.0.01.otf": {
+      "source": "https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont_upper-18.0.01.otf",
+      "version": "GNU Unifont 18.0.01",
+      "verified": "OpenPGP signature https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont_upper-18.0.01.otf.sig (GNU keyring)",
+      "license": "GPL-2.0-or-later WITH Font-exception-2.0 OR OFL-1.1",
+      "sha256": "472201E45A050BFF4C7658208B8C73E34EBCE3764B287A5A46C7774038EF9391",
+      "bytes": 5954156
+    },
+    "Unifont-GPL-2.0-COPYING.txt": {
+      "source": "https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont-18.0.01.tar.gz (unifont-18.0.01/COPYING)",
+      "sha256": "CD2785C2B8E0A01D203560265B2D2D47CDB1401D2707D25918AC5531BCDBA947",
+      "bytes": 48441
+    },
+    "Unifont-OFL-1.1.txt": {
+      "source": "https://ftp.gnu.org/gnu/unifont/unifont-18.0.01/unifont-18.0.01.tar.gz (unifont-18.0.01/OFL-1.1.txt)",
+      "sha256": "869692AF094C57FB7258C57FE26820C759319603321D0FFEB278DE3651763DED",
+      "bytes": 4340
+    },
+    "LastResortHE-Regular.ttf": {
+      "source": "https://github.com/unicode-org/last-resort-font/releases/download/18.000/LastResortHE-Regular.ttf",
+      "version": "Last Resort 18.000",
+      "verified": "SHA-256 published for the release asset",
+      "license": "OFL-1.1",
+      "sha256": "CB7C2262CB86A33E7BDFABD0A51746E738B0DD10924126C4530C414C5FC7E4B6",
+      "bytes": 587864
+    },
+    "LastResort-OFL-1.1.txt": {
+      "source": "https://raw.githubusercontent.com/unicode-org/last-resort-font/18.000/LICENSE",
+      "sha256": "FC8FC512B27846BDB0D6645BED8069AC87EA599548B58A8D04BC3B0EA705A9C4",
+      "bytes": 4335
+    },
+    "NotoSansCuneiform-Regular.otf": {
+      "source": "https://github.com/notofonts/cuneiform/releases/download/NotoSansCuneiform-v2.001/NotoSansCuneiform-v2.001.zip (NotoSansCuneiform/unhinted/otf/NotoSansCuneiform-Regular.otf)",
+      "version": "NotoSansCuneiform-v2.001",
+      "verified": "the archive's recorded SHA-256 (no checksum is published)",
+      "archive_sha256": "B686250DD8AB4DEFA9900236BB6E31F1F6FBE9E3C3B70E777272CEC1CD26BD27",
+      "license": "OFL-1.1",
+      "sha256": "AC997E70013545B311A1703EACD3D8DEA080B7B9E17924A69391A6F568B9C023",
+      "bytes": 433748
+    },
+    "NotoSansCuneiform-OFL-1.1.txt": {
+      "source": "https://github.com/notofonts/cuneiform/releases/download/NotoSansCuneiform-v2.001/NotoSansCuneiform-v2.001.zip (OFL.txt)",
+      "sha256": "83E16AED35737EA80911A82938AD4BFE762FDE24928010C2C80D21ECE07BEC14",
+      "bytes": 4385
+    },
+    "NotoSerifTangut-Regular.otf": {
+      "source": "https://github.com/notofonts/tangut/releases/download/NotoSerifTangut-v2.170/NotoSerifTangut-v2.170.zip (NotoSerifTangut/unhinted/otf/NotoSerifTangut-Regular.otf)",
+      "version": "NotoSerifTangut-v2.170",
+      "verified": "SHA-256 published for the release asset",
+      "archive_sha256": "741EF7BCA66790C51C5F2EFEA3C291F5A82CC2E3992D9413A020AEC26DBD75B1",
+      "license": "OFL-1.1",
+      "sha256": "CA10571246BDCE735FAC2698E875D86ED73354C76C650BB92C4D7CB43973AED6",
+      "bytes": 1914772
+    },
+    "NotoSerifTangut-OFL-1.1.txt": {
+      "source": "https://github.com/notofonts/tangut/releases/download/NotoSerifTangut-v2.170/NotoSerifTangut-v2.170.zip (OFL.txt)",
+      "sha256": "BD8B32C064BE2225D55F878A689063C6F169CCD9E2792D7051F0D74CF4816F1B",
+      "bytes": 4382
+    }
+  }
+}

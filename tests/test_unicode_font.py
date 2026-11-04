@@ -41,7 +41,12 @@ def test_the_setting_and_its_exclusion():
         "Virtual Families 1 Patcher Files/vf1font.dll",
         *(f"Virtual Families 1 Patcher Files/Unicode Font/{n}.txt" for n in gf.GAME_FONTS),
         *(f"Virtual Families 1 Patcher Files/Unicode Font/Word Lists/{n}" for n in
-          ("thaidict.txt", "laodict.txt", "khmerdict.txt", "burmesedict.txt", "cjdict.txt", "ICU-LICENSE.txt"))}
+          ("thaidict.txt", "laodict.txt", "khmerdict.txt", "burmesedict.txt", "cjdict.txt", "ICU-LICENSE.txt")),
+        *(f"Virtual Families 1 Patcher Files/Unicode Font/Fonts/{n}" for n in
+          ("unifont-18.0.01.otf", "unifont_upper-18.0.01.otf", "NotoSansCuneiform-Regular.otf",
+           "NotoSerifTangut-Regular.otf", "LastResortHE-Regular.ttf", "Unifont-OFL-1.1.txt",
+           "Unifont-GPL-2.0-COPYING.txt", "NotoSansCuneiform-OFL-1.1.txt", "NotoSerifTangut-OFL-1.1.txt",
+           "LastResort-OFL-1.1.txt"))}
     assert "Cannot be on with Render Unicode with In-Game Fonts" in vp.excludes_note(row, s)
 
 

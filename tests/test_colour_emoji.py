@@ -68,11 +68,14 @@ def test_the_dlls_table_is_the_patchers():
         assert a0 <= b0 < a1
 
 
-def test_the_table_is_windows_icus():
+def test_the_table_is_unicode_18s_and_holds_every_emoji_windows_icu_knows():
     import vf1_line_break as lb
+    import vf1_unicode18
+    assert vf1_emoji.EMOJI_PRESENTATION_RANGES == vf1_unicode18.EMOJI_PRESENTATION
     if lb.icu() is None:
         pytest.skip("needs icu.dll")
-    assert vf1_emoji.build_emoji_presentation() == vf1_emoji.EMOJI_PRESENTATION_RANGES
+    ours = {cp for a, b in vf1_emoji.EMOJI_PRESENTATION_RANGES for cp in range(a, b + 1)}
+    assert {cp for a, b in vf1_emoji.build_emoji_presentation() for cp in range(a, b + 1)} <= ours
 
 
 # --------------------------------------------------------------------------- the DLL's drawing, through rundll32
@@ -261,9 +264,6 @@ def test_the_wrapper_and_the_counted_draw_use_the_same_pictures(world, vanilla_d
     same_pixels(world, blits, layout)
 
 
-NEWER_EMOJI = "\U0001fa89"      # harp (Unicode 16): not in the 15.1 table, but Segoe UI Emoji has it
-
-
 def test_a_country_flag_takes_the_text_colour(world):
     """A flag's two letters have no colour of their own (Segoe UI Emoji has no flag pictures), so they are drawn by
     GDI on the tinted pages, in the text's colour, as any letter (FP's raster_colour; VV shows them as letters)."""
@@ -278,18 +278,25 @@ def test_a_country_flag_takes_the_text_colour(world):
 
 
 @pytest.mark.parametrize("font", ["SegoeUiBold18", "SegoeUi33"])
-def test_any_letter_from_a_colour_font_is_in_colour(world, vanilla_dir, font):
+def test_any_letter_from_a_colour_font_is_in_colour(dll, vanilla_dir, font):
     """FP's rule, the shared spec's: a letter whose chain face is a colour font is drawn in its own colours even when
-    the emoji table does not list it (a newer emoji), in the game as in the tool, untinted."""
+    the emoji table does not list it, in the game as in the tool, untinted. With the Unicode 18.0 table no installed
+    font has such a letter in the plain chain (test_unicode18), so the chain's first face is a colour font here: Use
+    Unicode Font with Segoe UI Emoji, and the copyright sign (an emoji shown as text by default)."""
+    need_colour()
+    import text_emu
     import vf1_emoji
-    assert not vf1_emoji.is_colour_emoji(NEWER_EMOJI)
-    f = gf.Fonts(vanilla_dir).font(font)
-    glyph = f.glyph(NEWER_EMOJI)
+    letter = "©"
+    assert not vf1_emoji.is_colour_emoji(letter)
+    w = text_emu.TextWorld(vanilla_dir / "Virtual Families.exe", dll.parent / "vf1font.dll", vanilla_dir, install=True,
+                           real_gdi=True, ini={("UnicodeFont", "Face"): gc.EMOJI_FACE})
+    assert w.installed == 1
+    f = gf.Fonts(vanilla_dir).font(font).with_unicode_font(gc.EMOJI_FACE)
+    glyph = f.glyph(letter)
     assert glyph.kind == "colour emoji" and glyph.colour and glyph.face == gc.EMOJI_FACE
-    name = "Mia " + NEWER_EMOJI
     for colour in (0xFFFFFFFF, 0xFF2040C0):
-        same_pixels(world, world.draw(vf1_text.encode(name), font, colour=colour), f.layout(name))
-    assert any(c[5] == NEWER_EMOJI for c in world.colour_calls)
+        same_pixels(w, w.draw(vf1_text.encode(letter), font, colour=colour), f.layout(letter))
+    assert any(c[5] == letter for c in w.colour_calls)
 
 
 def test_the_colour_test_is_fps():
@@ -307,7 +314,8 @@ def test_the_fallback_chain_is_the_shared_spec_in_both():
             "Myanmar Text", "Javanese Text", "Mongolian Baiti", "Microsoft Himalaya", "Microsoft Yi Baiti",
             "Microsoft New Tai Lue", "Microsoft Tai Le", "Microsoft PhagsPa", "Sylfaen", "Cambria Math", "Noto Sans",
             "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans CJK JP", "Noto Sans CJK SC", "Noto Sans Math",
-            "Noto Sans Cuneiform", "Noto Color Emoji")
+            "Noto Sans Cuneiform", "Noto Color Emoji",
+            "Unifont", "Unifont Upper", "Noto Serif Tangut", "Last Resort High-Efficiency")   # shipped: last
     src = (ROOT / "native" / "vf1text" / "glyph_gdi.inc").read_text(encoding="utf-8")
     table = src[src.index("FallbackFaces[] = {"):]
     table = table[:table.index("};")]

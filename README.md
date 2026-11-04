@@ -518,6 +518,13 @@ native-build tests are checked only by a local run with the vanilla copy.
   and Robert Martin Campbell, the Myanmar Karen Word Lists, and Libtabe (Chinese) and IPADIC (Japanese) as
   combined by ICU.
 
+- **Unicode 18.0**: the tables are made from the Unicode Character Database 18.0.0 (Unicode, Inc., under the Unicode
+  License v3: `data/unicode18/LICENSE-Unicode.txt`). The open fonts drawn last for characters no Windows font has,
+  loaded for the game only and shipped with their licences in `Unicode Text\Fonts` / `Unicode Font\Fonts`:
+  GNU Unifont 18.0.01 (Roman Czyborra, Paul Hardy and contributors; GPL-2.0-or-later with the GNU font embedding
+  exception, or SIL OFL 1.1), Noto Sans Cuneiform and Noto Serif Tangut (Google, SIL OFL 1.1), and Unicode's
+  Last Resort font 18.000 (Unicode, Inc., SIL OFL 1.1).
+
 ## Related projects
 
 - [Virtual Families 2 Restoration/Addition Patcher](https://github.com/Lorsieab2/Virtual-Families-2-Restoration-Addition-Patcher)

@@ -32,6 +32,7 @@ FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Text\\"
 FONT_FOLDER = "C:\\Game\\Virtual Families 1 Patcher Files\\Unicode Font\\"   # vf1font.dll's
 WORD_FOLDERS = (FOLDER + "Word Lists\\", FONT_FOLDER + "Word Lists\\")   # the shared word lists (wordlists.inc)
 WORD_LISTS = ROOT / "patcher" / "payload" / "WordLists"
+BUNDLED_FONTS = ROOT / "patcher" / "payload" / "UnicodeFonts"
 SETTINGS_INI = "C:\\Game\\Virtual Families 1 Patcher Files\\settings.ini"
 FONT_CTORS = {   # name: (table, spacing) -- found by vf1_game_fonts.find_game_fonts
     "SegoeUi33": 0x4EB6F0, "SegoeUiBold17": 0x4EC610, "SegoeUiBold18": 0x4ED538, "SegoeUiBold24": 0x4EE460,
@@ -63,6 +64,8 @@ class TextWorld:
         self.normalize = True
         self.word_lists = WORD_LISTS               # where the emulated "Word Lists\" folder is
         self.word_list_opens: list[str] = []
+        self.font_opens: list[str] = []            # the shipped fonts the DLL opened
+        self.loaded_font_bytes: list[int] = []
         self._seams()
         self.screen = self.surface(16, 16)
         self.window = e.alloc(0x80)
@@ -217,6 +220,15 @@ class TextWorld:
 
         def create_file(em):
             path = em.wstr(em.arg(0))
+            fonts = next((f + "Fonts\\" for f in (FOLDER, FONT_FOLDER) if path.startswith(f + "Fonts\\")), None)
+            if fonts is not None:                  # the shipped open fonts (glyph_gdi.inc LoadBundledFonts)
+                local = BUNDLED_FONTS / path[len(fonts):]
+                self.font_opens.append(path[len(fonts):])
+                if not local.is_file():
+                    return 0xFFFFFFFF, 28
+                self.handles += 4
+                self.files[self.handles] = [local.read_bytes(), 0]
+                return self.handles, 28
             word = next((f for f in WORD_FOLDERS if path.startswith(f)), None)
             if word is not None:
                 self.word_list_opens.append(path[len(word):])
@@ -624,6 +636,20 @@ class RealGdi:
             return (1 if self.g.add_private_font(local) else 0), 12
 
         W.e.imports["AddFontResourceExW"] = log("AddFontResourceExW", add_font)
+        self.memory_fonts: list = []           # the fonts the DLL loaded from memory (kept alive for real GDI)
+
+        def add_font_memory(em):                # AddFontMemResourceEx(data, size, 0, &count): the bytes are the DLL's
+            data, size, count = em.arg(0), em.arg(1), em.arg(3)
+            buf = c.create_string_buffer(bytes(em.read(data, size)), size)
+            n = c.c_uint32(0)
+            h = c.windll.gdi32.AddFontMemResourceEx(buf, size, None, c.byref(n))
+            self.memory_fonts.append((buf, h))
+            W.loaded_font_bytes.append(size)
+            if count:
+                em.w32(count, n.value)
+            return (len(self.memory_fonts) if h else 0), 16
+
+        W.e.imports["AddFontMemResourceEx"] = log("AddFontMemResourceEx", add_font_memory)
 
         def delete(em):
             real = self.handles.pop(em.arg(0), None)
