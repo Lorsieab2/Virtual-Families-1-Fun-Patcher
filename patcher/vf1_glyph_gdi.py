@@ -317,10 +317,16 @@ class Renderer:
         left = min(pad, first) if last >= 0 else pad
         right = max(pad + advance, last + 1) if last >= 0 else pad + advance
         w = right - left
+        rows = [[green[y * width + left + x] for x in range(w)] for y in range(h)]
+        if self.weight >= 600 and name in ("Unifont", "Unifont Upper"):
+            # GNU Unifont, a pixel font drawn at its own regular weight, thickened to a bold game font's stroke: a
+            # synthetic-bold offset of one pixel (glyph_gdi.inc DrawLetter: the same)
+            rows = [[max(r[x] if x < w else 0, r[x - 1] if x > 0 else 0) for x in range(w + 1)] for r in rows]
+            w += 1
         out = pi.Image(w, h)
         for y in range(h):
             for x in range(w):
-                a = green[y * width + left + x]
+                a = rows[y][x]
                 if a:
                     at = (y * w + x) * 4
                     out.data[at:at + 4] = bytes((255, 255, 255, a))
