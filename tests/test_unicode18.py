@@ -188,3 +188,22 @@ def test_the_dll_loads_the_shipped_fonts_only_when_needed_and_draws_from_them(bu
     assert sorted(set(w.font_opens)) == sorted(FONT_FILES)                     # each file opened once
     assert len(w.font_opens) == len(FONT_FILES)
     assert sum(w.loaded_font_bytes) == sum((FONTS / n).stat().st_size for n in FONT_FILES)
+
+
+def test_unifont_letters_are_thickened_in_the_bold_fonts_only():
+    """The owner, 2026-11-03: Unifont letters bolder -- a one-pixel synthetic-bold offset in the bold game fonts; the
+    regular SegoeUi33 keeps the smooth scaled letter."""
+    import vf1_glyph_gdi as g
+    if not g.AVAILABLE:
+        pytest.skip("needs Windows GDI")
+    letter = next(chr(cp) for cp in new_since_python(1)
+                  if g.Renderer("Segoe UI", 700, 16, 13, 18).face_for(chr(cp)) == "Unifont Upper")
+    bold, face = g.Renderer("Segoe UI", 700, 16, 13, 18).draw(letter)
+    plain, _ = g.Renderer("Segoe UI", 400, 16, 13, 18).draw(letter)
+    assert face == "Unifont Upper" and bold.width == plain.width + 1
+    assert sum(bold.data[3::4]) > sum(plain.data[3::4])
+    a, _ = g.Renderer("Segoe UI", 400, 31, 26, 33).draw(letter)
+    b, _ = g.Renderer("Segoe UI", 400, 31, 26, 33).draw(letter)
+    assert a == b                                         # regular: no offset
+    latin, _ = g.Renderer("Segoe UI", 700, 16, 13, 18).draw("\u0141")
+    assert latin.width == g.Renderer("Segoe UI", 700, 16, 13, 18, ()).draw("\u0141")[0].width

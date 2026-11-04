@@ -242,6 +242,22 @@ static bool DrawLetter(const Style &s, int height, const unsigned *cps, int n, u
     DeleteObject(bmp);
     SelectObject(GlyphDC, old);
     if (!rows) return false;
+    // GNU Unifont, a pixel font drawn at its own regular weight, is thickened to a bold game font's stroke: a
+    // synthetic-bold offset of one pixel (each column also takes the coverage of the one before it); the font's own
+    // coverage curve is then applied as for every letter (patcher/vf1_glyph_gdi.py Renderer.draw: the same)
+    if (s.weight >= 600 && (SameNoCase(g->face, L"Unifont") || SameNoCase(g->face, L"Unifont Upper"))) {
+        unsigned char *bold = (unsigned char *)Alloc((unsigned)((w + 1) * height + 1));
+        if (bold) {
+            for (int y = 0; y < height; ++y)
+                for (int x = 0; x <= w; ++x) {
+                    unsigned char a = x < w ? rows[y * w + x] : 0, b = x > 0 ? rows[y * w + x - 1] : 0;
+                    bold[y * (w + 1) + x] = a > b ? a : b;
+                }
+            Free(rows);
+            rows = bold;
+            ++w;
+        }
+    }
     *out = rows;
     *outW = w;
     return true;

@@ -850,7 +850,9 @@ in-game fonts".
   AddFontMemResourceEx (private to the game, never installed) and looks again for any face it missed
   (LoadBundledFonts; the Game Text tool loads the same files with AddFontResourceExW(FR_PRIVATE)). Their letters
   are drawn like every letter Windows draws (glyph_gdi.inc): the font's em, baseline and coverage curve and the
-  text's colour and see-through; Unifont, a pixel font, at its own regular weight (emboldening smears it). A cmap of
+  text's colour and see-through; Unifont, a pixel font, at its own regular weight (GDI's emboldening smears it), scaled
+  smoothly to the font's size and, in the three bold fonts, thickened to their stroke by a one-pixel synthetic-bold
+  offset (the owner, 2026-11-03: bolder Unifont letters); SegoeUi33 (regular) keeps the smooth letter. A cmap of
   format 13 (Last Resort's) is read like format 12.
 * **Preview:** scripts/vf1_unicode18_preview.py draws the game's letters beside newer letters and emoji, Tangut,
   cuneiform and a private-use character in all four fonts.
