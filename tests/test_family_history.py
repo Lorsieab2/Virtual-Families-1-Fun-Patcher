@@ -291,6 +291,37 @@ def test_remarriage_after_a_spouse_dies_with_no_children(built):
     assert "  Remarried: yes\n  Earlier spouse: Bob (died)\n  Current spouse of Ann: Carl\n" in find(w, "Marriage 2")
 
 
+def test_names_are_logged_in_utf8(built):
+    """A name is stored per character (vf1_text.encode): an accented Latin letter is ONE Windows-1252 byte, every
+    other character UTF-8 (b"Zo\xeb \xf0\x9f\x98..."). The log is UTF-8: each name is read per sequence and written
+    as UTF-8 (the header's family name, the members, the remarriage's earlier spouse). A log an earlier build wrote
+    with the raw byte is still read the same (a remarriage is found across both forms)."""
+    import vf1_text
+    family_name, zoe = "Zoë مرحبا", "Zoë \U0001F600\U0001F44D\U0001F3FD"
+    stored_family, stored_zoe = vf1_text.encode(family_name), vf1_text.encode(zoe)
+    assert stored_family.startswith(b"Zo\xeb ") and stored_zoe.startswith(b"Zo\xeb \xf0\x9f\x98")
+    w = world(built)
+    w.set_family_name(stored_family)
+    w.start_family(0, stored_zoe, 1, 26)
+    w.set_villager(1, "Bob", 0, years=27, head=7, body=8)
+    assert w.marry(0, 1) == 1
+    path = w.root() + "\\Logs\\Family History\\Family History 1.txt"
+    raw = w.fs.read(path)
+    assert raw.startswith(f"Family: {family_name} (Save 1)\r\n".encode("utf-8")), raw[:40]
+    assert raw.decode("utf-8").count(zoe) == 3, "every name is valid UTF-8 with the right text"
+    w.die(1, cause=3)
+    # a log an earlier build wrote: the names as their stored bytes (the raw Windows-1252 byte)
+    old = w.fs.read(path).replace(zoe.encode("utf-8"), stored_zoe)
+    assert b"Zo\xeb " in old
+    w.fs.write(path, old)
+    w.set_villager(2, "Carl", 0, years=29, head=5, body=6)
+    assert w.marry(0, 2) == 1
+    tail = w.fs.read(path)[len(old):].decode("utf-8")
+    assert f"  Remarried: yes\r\n  Earlier spouse: Bob (died)\r\n  Current spouse of {zoe}: Carl\r\n" in tail, tail
+    text = vf1_text.decode_lines(w.fs.read(path))
+    assert "�" not in text and text.count(zoe) == 6
+
+
 def test_divorce_then_remarriage(built):
     w = family(built)
     w.event(1, 1)                                             # vf1fun's Divorce Spouse, before the spouse leaves

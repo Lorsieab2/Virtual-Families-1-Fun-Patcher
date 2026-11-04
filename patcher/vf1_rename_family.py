@@ -451,7 +451,7 @@ def plan_log_notes(folder: Path, slot: int, old: str, new: str, when: datetime) 
     except OSError as exc:
         raise RenameError(f"Could not read the log {path.name}: {exc}") from exc
     prefix = b"" if not data or data.endswith(b"\n") else b"\r\n"
-    return [LogNote(path, len(data), prefix + vf1_text.encode(history_record(old, new, when, number)))]
+    return [LogNote(path, len(data), prefix + history_record(old, new, when, number).encode("utf-8"))]
 
 
 def _restore(changes: list[FileChange], notes: list[LogNote]) -> list[str]:

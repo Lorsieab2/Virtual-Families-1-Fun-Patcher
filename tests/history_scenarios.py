@@ -343,7 +343,8 @@ class HistoryWorld:
         self.set_money(1000.0)
 
     def set_family_name(self, name):
-        self.e.write(self.state + L.GAME_STATE_FAMILY_NAME, name.encode("latin-1")[:27].ljust(0x1C, b"\0"))
+        raw = name if isinstance(name, bytes) else name.encode("latin-1")     # bytes: the stored form itself
+        self.e.write(self.state + L.GAME_STATE_FAMILY_NAME, raw[:27].ljust(0x1C, b"\0"))
 
     def set_slot(self, slot):
         self.slot = slot
@@ -367,7 +368,8 @@ class HistoryWorld:
     def set_villager(self, slot, name, sex, years=26, head=3, body=4, present=1, health=90, career=5):
         e = self.e
         v = self.villager(slot)
-        e.write(v + L.VILLAGER_NAME, name.encode("latin-1")[:24].ljust(25, b"\0"))
+        raw = name if isinstance(name, bytes) else name.encode("latin-1")     # bytes: the stored form itself
+        e.write(v + L.VILLAGER_NAME, raw[:24].ljust(25, b"\0"))
         e.w32(v + L.VILLAGER_GENDER, sex)
         e.w32(v + L.VILLAGER_HEAD, head)
         e.w32(v + L.VILLAGER_BODY, body)
