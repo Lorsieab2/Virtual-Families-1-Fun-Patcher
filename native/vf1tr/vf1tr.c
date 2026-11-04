@@ -810,6 +810,8 @@ static int install_guards(void) {
     return 1;
 }
 
+#include "screen_tr.inc"
+
 /* ----------------------------------------------------------------- installing */
 
 static int is_this_game(void) {
@@ -863,6 +865,7 @@ __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
                 } else {
                     for (k = 1; k <= VF1TR_MAX_ID; ++k) if (by_id[k] != NULL) by_id[k]->rec->override = by_id[k]->out;
                     installed = 1;
+                    if (!text_mode) install_screen_edge();   /* the Unicode DLLs keep text on the screen themselves */
                 }
             }
         }
@@ -878,6 +881,7 @@ __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
         head_add(number(guarded));
         head_add(" copies guarded, ");
         head_add(text_mode ? "UTF-8 text" : "Windows-1252 text");
+        if (screen_edge) head_add(", kept on the screen");
         head_add("\r\n");
     }
     if (refused > 0) {
@@ -888,6 +892,9 @@ __declspec(dllexport) int __cdecl VF1Tr_Startup(void) {
     write_log();
     return installed;
 }
+
+/* Nonzero once a translation is installed (vf1text.dll / vf1font.dll then keep every text on the screen: screen.inc). */
+__declspec(dllexport) int __cdecl VF1Tr_Active(void) { return installed; }
 
 /* The line's override for a string id now (tests and other DLLs): the translation, or NULL (English). */
 __declspec(dllexport) const char *__cdecl VF1Tr_Translation(int id) {

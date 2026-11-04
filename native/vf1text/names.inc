@@ -898,7 +898,11 @@ static int __fastcall WrapHook(void *window, void *, const char *text, int a1, i
     void *f = font ? font : *(void **)((char *)*(void **)window + 0x5C);
     char *owned = 0;
     const char *shown = f ? WithNames(text, ImplOf(f), &owned) : text;
+    char *placed = 0;
+    if (!(a6 & 0xFF) && f && ClampWanted(shown, (int)Len(shown)))   // nothing runs off the screen (screen.inc)
+        shown = WrapOnScreen(window, shown, &a1, &a2, a3, (unsigned)a4, font, &placed);
     int r = WrapText(window, shown, a1, a2, a3, (unsigned)a4, font, a6);
+    Free(placed);
     Free(owned);
     return r;
 }

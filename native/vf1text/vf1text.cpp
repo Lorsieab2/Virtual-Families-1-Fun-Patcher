@@ -508,6 +508,10 @@ static void BlitLetter(void *window, SDL_Surface *surface, ldwRect rect, int x, 
 static const char *WithNames(const char *text, void *impl, char **owned);
 static unsigned GameSite(void *returnSlot);
 static const char *NamesAt(const char *text, void *impl, unsigned site, char **owned);
+static const char *OnScreen(void *window, void *impl, FontExtra *f, const char *text, int *x, int *y, char **owned);
+static const char *WrapOnScreen(void *window, const char *text, int *x, int *y, int width, unsigned colour, void *font,
+                                char **owned);
+static bool ClampWanted(const char *text, int n);
 
 // 0x409660 ldwGameWindowImpl::DrawString(text, x, y, colour, font), ret 0x14.
 static void __fastcall DrawString(void *window, void *, const char *text, int x, int y, unsigned colour, void *font) {
@@ -522,8 +526,10 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
     FontExtra *f = ExtraFor(impl);
     char *owned;
     text = NamesAt(text, impl, GameSite(_AddressOfReturnAddress()), &owned);
+    char *placed;                                         // nothing runs off the screen (screen.inc)
+    text = OnScreen(window, impl, f, text, &x, &y, &placed);
     Run run;
-    if (!DecodeRun(&run, text, (int)Len(text))) { Free(owned); return; }
+    if (!DecodeRun(&run, text, (int)Len(text))) { Free(placed); Free(owned); return; }
     int startX = x;
     for (int i = 0; i < run.n;) {
         int j = PieceEnd(f, run.cps, run.n, i);
@@ -544,6 +550,7 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
         x += w + spacing;
     }
     FreeRun(&run);
+    Free(placed);
     Free(owned);
 }
 
@@ -737,6 +744,7 @@ struct TextControl {               // ldwTextControlImpl, the fields the stock h
 
 #include "names.inc"
 #include "wrap.inc"
+#include "screen.inc"
 
 // A mark typed right after a character that was refused belongs to that character and is refused too: it must never
 // land on the box's last character. RefusedState 1: the last typed character was refused (a following extender is

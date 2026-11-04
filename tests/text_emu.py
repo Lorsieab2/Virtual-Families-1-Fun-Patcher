@@ -67,7 +67,7 @@ class TextWorld:
         self.font_opens: list[str] = []            # the shipped fonts the DLL opened
         self.loaded_font_bytes: list[int] = []
         self._seams()
-        self.screen = self.surface(16, 16)
+        self.screen = self.surface(800, 600)              # the game's screen (0x423750: 800 wide)
         self.window = e.alloc(0x80)
         e.w32(self.window + 0x30, self.screen)
         self.fonts = {name: self.make_font(name, table) for name, table in FONT_CTORS.items()}

@@ -24,6 +24,7 @@ import translation_format as tfmt
 import vf1_translation_strings as tstr
 import vf1_translations as tr
 import vf1_translations_github as ghub
+import vf1_screen_edge as se
 
 TITLE = "Translations"
 GAME = "vf1"
@@ -436,8 +437,31 @@ class TranslationsWindow:
             return ""
         parsed = tfmt.parse_bytes(item.path.read_bytes(), self.game)
         summary = tfmt.validate(parsed, self.entries(self.game, ask=False)).summary()
+        summary += self.screen_report(parsed)
         messagebox.showinfo(TITLE, summary[:6000], parent=self.window)
         return summary
+
+    def screen_report(self, parsed) -> str:
+        """The lines wider than the screen in a game font, measured with the game's own letters, the patcher-made
+        ones and the ones Windows draws (vf1_screen_edge.too_wide); "" without an original game folder."""
+        import vf1_game_fonts as gf
+        exe = tstr.find_vanilla_exe(list(self.game_folders(self.game)))
+        if exe is None:
+            return ""
+        try:
+            fonts = gf.Fonts(exe.parent)
+        except Exception:
+            return ""
+        wide = []
+        for row in parsed.rows:
+            if row.translation:
+                text = tfmt.evaluate(row.translation, sexes={"name": "f", "name2": "m"})
+                for _line, width, name in se.too_wide(fonts, text):
+                    wide.append(f"{row.key}: {width} pixels in {name}")
+        if not wide:
+            return ""
+        return (f"\n\n{len(wide)} line(s) are wider than the game's screen ({se.SCREEN_W} pixels); the game moves each "
+                "to the screen's edge or cuts it with \"…\" (Wrap to fit in Edit... breaks them):\n" + "\n".join(wide[:30]))
 
     def export(self) -> list[Path]:
         """Export...: a copy of each selected translation, one file each. One selected: saved where and as
@@ -768,6 +792,7 @@ class TranslationEditor:
         self.dirty = False
         self._after = None
         self.fonts = None
+        self.game_fonts = None
         self.font_folder = None
         self.file = tfmt.parse_bytes(self.path.read_bytes(), game)
         self.update_note = ""
@@ -841,6 +866,8 @@ class TranslationEditor:
         tools = ttk.Frame(edit)
         tools.pack(fill="x", pady=(4, 0))
         ttk.Button(tools, text="Copy English", command=self.copy_english).pack(side="left")
+        self.wrap_button = ttk.Button(tools, text="Wrap to fit", command=self.wrap_to_fit, state="disabled")
+        self.wrap_button.pack(side="left", padx=(8, 0))
         self.insert_row = ttk.Frame(tools)
         self.insert_row.pack(side="left", padx=(12, 0))
         self.message = tk.StringVar(master=win, value="")
@@ -961,6 +988,17 @@ class TranslationEditor:
         self.translation_text.insert("insert", token)
         self.changed()
 
+    def wrap_to_fit(self) -> None:
+        """Breaks every line of the translation that is wider than the screen in a game font (vf1_screen_edge)."""
+        if self.current is None or self.game_font() is None:
+            return
+        text = self.translation_text.get("1.0", "end-1c")
+        fitted = se.wrap_to_fit(self.game_fonts, text)
+        if fitted != text:
+            self.translation_text.delete("1.0", "end")
+            self.translation_text.insert("1.0", fitted)
+            self.changed()
+
     def copy_english(self) -> None:
         if self.current is None:
             return
@@ -1044,6 +1082,12 @@ class TranslationEditor:
             note = f"Preview in the game's {font.name} (as said by Zoë)"
             if row.translation and image.width > english.width * 1.2 + 8:
                 note += f" -- wider than the English ({image.width} vs {english.width} pixels): it may not fit its space."
+            wide = se.too_wide(self.game_fonts, text) if row.translation else []
+            if wide:
+                _line, width, name = max(wide, key=lambda w: w[1])
+                note += (f" -- a line is {width} pixels wide in the game's {name}; the screen is {se.SCREEN_W}: the game "
+                         "moves it to the screen's edge or cuts it with \"…\". Wrap to fit breaks it into lines.")
+            self.wrap_button.configure(state="normal" if wide else "disabled")
             self.preview_note.set(note)
         except Exception as exc:  # the preview never stops the editor
             self.preview_note.set(f"Preview unavailable ({exc.__class__.__name__}).")
@@ -1057,7 +1101,8 @@ class TranslationEditor:
             for folder in self.font_candidates:
                 try:
                     if folder and (Path(folder) / gf.EXE_NAME).is_file():
-                        self.fonts = [gf.Fonts(Path(folder)).font("SegoeUiBold18")]
+                        self.game_fonts = gf.Fonts(Path(folder))
+                        self.fonts = [self.game_fonts.font("SegoeUiBold18")]
                         break
                 except Exception:
                     continue
