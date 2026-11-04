@@ -84,12 +84,12 @@ def run_end(text: str, starts: list[int], ends: dict[int, int], i: int) -> int:
             size += add
             clusters += 1
             continue
-        if text[k] != " ":
+        if text[k] != " " or ends[k] != k + 1:     # a space with a mark on it is a letter
             break
         q = k
-        while q < n and text[q] == " ":
+        while q < n and text[q] == " " and ends[q] == q + 1:
             q += 1
-        if q >= n or script_group(ord(text[q])) != group:
+        if q >= n or text[q] == " " or script_group(ord(text[q])) != group:
             break
         if clusters + (q - k) >= MAX_RUN_CLUSTERS or size + (q - k) > MAX_RUN_BYTES:
             capped = True

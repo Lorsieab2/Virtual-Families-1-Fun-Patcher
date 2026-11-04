@@ -91,10 +91,10 @@ static int RunEnd(const unsigned *cps, int n, int i) {
             ++clusters;
             continue;
         }
-        if (cps[k] != ' ') break;
+        if (cps[k] != ' ' || DrawEnd(cps, n, k) != k + 1) break;     // a space with a mark on it is a letter
         int q = k;
-        while (q < n && cps[q] == ' ') ++q;
-        if (q >= n || ScriptGroup(cps[q]) != group) break;
+        while (q < n && cps[q] == ' ' && DrawEnd(cps, n, q) == q + 1) ++q;
+        if (q >= n || cps[q] == ' ' || ScriptGroup(cps[q]) != group) break;
         if (clusters + (q - k) >= MaxRunClusters || bytes + (q - k) > MaxRunBytes) { capped = true; break; }
         lastSpace = k;
         clusters += q - k;
@@ -105,13 +105,40 @@ static int RunEnd(const unsigned *cps, int n, int i) {
     return end > DrawEnd(cps, n, i) ? end : 0;
 }
 
+// Whether a run, drawn by GDI in face g, fits one page of letters (1024 pixels, with the drawing's pad on both
+// sides: glyph_gdi.inc DrawLetter); a wider one is drawn a character at a time. Asked once per run: the answer is kept
+// as the run's letter (drawn) or as a marker that it is too wide.
+static bool RunFitsPage(FontExtra *f, GdiFace *g, const unsigned *cps, int n) {
+    unsigned char key[384];
+    unsigned k = 0;
+    for (int i = 0; i < n && k + 4 <= sizeof key; ++i) k += (unsigned)Utf8Put(cps[i], key + k);
+    Extra *e = FindExtra(f, key, k);
+    if (e) return e->sheet != 0;
+    wchar_t text[2 * MaxLetterUnits + 4];
+    int units = 0;
+    for (int i = 0; i < n && units < 2 * MaxLetterUnits; ++i) {
+        unsigned cp = cps[i];
+        if (cp >= 0x10000) { text[units++] = (wchar_t)(0xD800 + ((cp - 0x10000) >> 10)); text[units++] = (wchar_t)(0xDC00 + ((cp - 0x10000) & 0x3FF)); }
+        else text[units++] = (wchar_t)cp;
+    }
+    HGDIOBJ old = SelectObject(GlyphDC, g->font);
+    SIZE size = { 0, 0 };
+    GetTextExtentPoint32W(GlyphDC, text, units, &size);
+    SelectObject(GlyphDC, old);
+    if (size.cx + 2 * f->height <= 1024) return true;
+    e = AddExtra(f, key, k);                       // too wide: remembered (no sheet), drawn a character at a time
+    if (e) e->sheet = 0;
+    return false;
+}
 // The piece the draw and measure loops take at code point i: a shaped run (when a face of the chain has every one of
 // its letters), else DrawEnd's whole character.
 static int PieceEnd(FontExtra *f, const unsigned *cps, int n, int i) {
     int j = DrawEnd(cps, n, i);
     int end = RunEnd(cps, n, i);
     if (!end || !f) return j;
-    if (!f->style.ok || !ChooseFace(f->style, cps + i, end - i)) return j;
+    if (!f->style.ok) return j;
+    GdiFace *g = ChooseFace(f->style, cps + i, end - i);
+    if (!g || !RunFitsPage(f, g, cps + i, end - i)) return j;
     return end;
 }
 

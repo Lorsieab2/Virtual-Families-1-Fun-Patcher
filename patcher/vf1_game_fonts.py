@@ -413,7 +413,13 @@ class GameFont:
         if not any(vf1_shaping.script_group(ord(c)) for c in text):
             return vf1_text.clusters(text, draw=True)
         r = self.renderer() if self.style is not None else None
-        return vf1_shaping.pieces(text, (lambda run: r.face_for(run) is not None) if r is not None else None)
+        if r is None:
+            return vf1_shaping.pieces(text, None)
+
+        def covered(run: str) -> bool:                 # shape.inc PieceEnd / RunFitsPage
+            face = r.face_for(run)
+            return face is not None and r.extent(run, face) + 2 * self.height <= 1024
+        return vf1_shaping.pieces(text, covered)
 
     def width(self, text: str, scale: float = 1.0) -> int:
         """ldwFont::GetWidth (0x402320), one whole character at a time."""

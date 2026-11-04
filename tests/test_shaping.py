@@ -57,6 +57,24 @@ def test_rtl_phrases():
     assert not sh.has_rtl_phrase(DEVANAGARI) and not sh.has_rtl_phrase("Hello there " + ARABIC[:5])
 
 
+def test_a_space_with_a_mark_ends_the_run():
+    text = "\u05e9\u05dc\u05d5\u05dd \u05b0\u05e9\u05dc\u05d5\u05dd"
+    pieces = sh.pieces(text, lambda run: True)
+    assert "".join(pieces) == text and pieces[0] == "\u05e9\u05dc\u05d5\u05dd" and " \u05b0" in pieces
+
+
+def test_a_run_wider_than_a_page_is_drawn_a_character_at_a_time(world, fonts):
+    text = "\ufdfd" * 40                                          # the widest Arabic ligature, 40 times (~1300 px)
+    f = fonts.font("SegoeUi33")
+    pieces = f.letters(text)
+    assert pieces[0] == "\ufdfd" and len(pieces) > 1                # the whole run is too wide: not one piece
+    assert all(f.glyph(p).width <= 1024 for p in pieces)
+    blits = world.draw(vf1_text.encode(text), "SegoeUi33")
+    _same(world, blits, f.layout(text), "wide run")
+    assert all(b[2][2] <= 1024 for b in blits)
+    assert world.width(vf1_text.encode(text), "SegoeUi33") == f.width(text)
+
+
 # --------------------------------------------------------------------------- the patcher's drawing
 @pytest.fixture(scope="module")
 def fonts(vanilla_dir):

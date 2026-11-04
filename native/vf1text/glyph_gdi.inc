@@ -228,6 +228,7 @@ static int Shift(unsigned mask) { int s = 0; if (!mask) return 0; while (!(mask 
 // Puts coverage rows on a page of the font (1024 x 16 bands), the white sheet and every tinted copy.
 static Extra *PlaceLetter(FontExtra *f, const unsigned char *rows, int w, const unsigned char *key, unsigned n, bool lut) {
     const int pageW = 1024, bands = 16;
+    int stride = w;                               // the rows' own width (a wider letter is cut to the page)
     if (w > pageW) w = pageW;
     Sheet *page = f->pageCount ? &f->pages[f->pageCount - 1] : 0;
     if (page && page->usedX + w > pageW) { page->usedX = 0; page->usedY += f->height; }
@@ -249,7 +250,7 @@ static Extra *PlaceLetter(FontExtra *f, const unsigned char *rows, int w, const 
     for (int y = 0; y < f->height; ++y) {
         unsigned *dst = (unsigned *)((unsigned char *)page->white->pixels + (y0 + y) * page->white->pitch) + x0;
         for (int x = 0; x < w; ++x) {
-            unsigned av = rows[y * w + x];
+            unsigned av = rows[y * stride + x];
             if (lut) av = f->style.lut[av];
             dst[x] = av ? (rgb | ((av << ashift) & fmt->Amask)) : 0;
         }
