@@ -20,11 +20,13 @@ like its own letters.
 """
 from __future__ import annotations
 
+import bisect
 import ctypes
 import struct
 import sys
 from ctypes import wintypes
 from functools import lru_cache
+from pathlib import Path
 
 import vf1_picture_image as pi
 import vf1_text
@@ -39,7 +41,28 @@ FALLBACK_FACES = (
     "Microsoft PhagsPa", "Sylfaen", "Cambria Math",
     "Noto Sans", "Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans CJK JP", "Noto Sans CJK SC",
     "Noto Sans Math", "Noto Sans Cuneiform", "Noto Color Emoji",
+    # the open fonts the patcher ships (payload/UnicodeFonts), loaded for this program only, last
+    "Unifont", "Unifont Upper", "Noto Serif Tangut", "Last Resort High-Efficiency",
 )
+BUNDLED_FACES = ("Unifont", "Unifont Upper", "Noto Serif Tangut", "Last Resort High-Efficiency")
+BUNDLED_FILES = ("unifont-18.0.01.otf", "unifont_upper-18.0.01.otf", "NotoSansCuneiform-Regular.otf",
+                 "NotoSerifTangut-Regular.otf", "LastResortHE-Regular.ttf")
+BUNDLED_DIR = Path(__file__).resolve().parent / "payload" / "UnicodeFonts"
+_bundled_loaded = False
+
+
+def load_bundled_fonts() -> bool:
+    """The open fonts the patcher ships, loaded privately for this process (AddFontResourceExW FR_PRIVATE: never
+    installed), once; the DLLs load the same files with AddFontMemResourceEx when the chain first needs them."""
+    global _bundled_loaded
+    if not _bundled_loaded:
+        _bundled_loaded = True
+        if AVAILABLE:
+            for name in BUNDLED_FILES:
+                path = BUNDLED_DIR / name
+                if path.is_file():
+                    gdi32.AddFontResourceExW(str(path), 0x10, None)          # FR_PRIVATE
+    return _bundled_loaded
 # A colour font has one of these tables (GetFontData tags): COLR, CBDT, sbix, "SVG ".
 COLOUR_TABLES = (0x524C4F43, 0x54444243, 0x78696273, 0x20475653)
 COLOUR_EMOJI_FACE = "Segoe UI Emoji"     # an emoji no colour font of the chain has: DirectWrite's own fallback
@@ -70,7 +93,7 @@ def cmap_covers(table: bytes) -> "callable":
         unicode_sub = platform == 0 or (platform == 3 and encoding in (1, 10))
         if not unicode_sub:
             continue
-        if fmt == 12 and best12 is None:
+        if fmt in (12, 13) and best12 is None:          # 13 (many-to-one): Last Resort's ranges
             best12 = offset
         elif fmt == 4 and best4 is None:
             best4 = offset
@@ -79,8 +102,13 @@ def cmap_covers(table: bytes) -> "callable":
         n = struct.unpack_from(">I", table, o + 12)[0]
         groups = [struct.unpack_from(">III", table, o + 16 + 12 * k) for k in range(n)
                   if o + 16 + 12 * k + 12 <= len(table)]
-        ranges = [(a, b) for a, b, g in groups]
-        return lambda cp: any(a <= cp <= b for a, b in ranges)
+        ranges = sorted((a, b) for a, b, g in groups)
+        starts = [a for a, _b in ranges]
+
+        def covers12(cp: int) -> bool:
+            k = bisect.bisect_right(starts, cp) - 1
+            return k >= 0 and cp <= ranges[k][1]
+        return covers12
     if best4 is not None:
         o = best4
         segx2 = struct.unpack_from(">H", table, o + 6)[0]
@@ -203,12 +231,15 @@ class Renderer:
         self.weight, self.em, self.baseline, self.height = int(weight), int(em), int(baseline), int(height)
         self._dc = None
         self._loaded: dict[str, "_Face"] = {}
+        self._bundled = False
 
     def _face(self, name: str):
         if self._dc is None:
             self._dc = gdi32.CreateCompatibleDC(None)
         if name not in self._loaded:
-            self._loaded[name] = _Face(self._dc, name, self.em, self.weight)
+            # GNU Unifont is drawn at its own (regular) weight: emboldening a pixel font smears its letters
+            weight = 400 if name in ("Unifont", "Unifont Upper") else self.weight
+            self._loaded[name] = _Face(self._dc, name, self.em, weight)
         return self._loaded[name]
 
     def face_for(self, letter: str) -> str | None:
@@ -217,6 +248,12 @@ class Renderer:
             return None
         needed = [ord(c) for c in letter if not not_needed(ord(c))]
         for name in self.faces:
+            if name in BUNDLED_FACES and not self._bundled:
+                # the chain reached the shipped fonts: load them (once), and look again for the faces of the chain
+                # that were missing (glyph_gdi.inc LoadBundledFonts: the same)
+                self._bundled = load_bundled_fonts()
+                self._loaded = {k: v for k, v in self._loaded.items() if v.ok}
+                return self.face_for(letter)
             face = self._face(name)
             if face.ok and all(face.covers(cp) for cp in needed):
                 return name

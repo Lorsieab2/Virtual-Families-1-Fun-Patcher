@@ -67,7 +67,10 @@ def test_the_chain_picks_the_owners_order():
     r = g.Renderer("Segoe UI", 400, 31, 26, 33)
     for letter, face in SAMPLES:
         assert r.face_for(letter) == face, letter
-    assert r.face_for("\U000effff") is None          # nothing has it: the box
+    # an unassigned code point: Unicode's Last Resort font (shipped, last of the chain) has a placeholder for it;
+    # with no face that has it, the box
+    assert r.face_for("\U000effff") == "Last Resort High-Efficiency"
+    assert g.Renderer("Segoe UI", 400, 31, 26, 33, ()).face_for("\U000effff") is None
 
 
 def test_missing_box_is_the_same(dll, tmp_path):

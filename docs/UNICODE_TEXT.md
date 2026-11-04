@@ -687,7 +687,7 @@ A whole character (grapheme cluster) is a colour emoji when nothing in it asks f
 a code point of it has Unicode's Emoji_Presentation property (an emoji shown as a picture by default: faces,
 animals, regional indicators, skin tones), or it holds U+FE0F (emoji presentation asked for: ❤️ ☃️), a keycap U+20E3,
 a skin tone U+1F3FB..U+1F3FF or a tag character U+E0020..U+E007F. So ❤ and ☃ alone, digits and letters stay
-letters. `EMOJI_PRESENTATION_RANGES` is Unicode 15.1's property read from Windows 11's own `icu.dll`
+letters. `EMOJI_PRESENTATION_RANGES` is Unicode 18.0's property (`vf1_unicode18`, from the Unicode Character Database; it holds every emoji Windows 11's own `icu.dll`
 (`u_hasBinaryProperty UCHAR_EMOJI_PRESENTATION`, `build_emoji_presentation`), fixed in the module;
 `scripts/build_vf1_text_tables.py` writes `emoji.inc` from it (`tests/test_vf1_text.py` checks it is up to date,
 `tests/test_colour_emoji.py` that it equals ICU's answer).
@@ -826,6 +826,49 @@ a phrase; the cut not at a space) fail.
    reads right to left, no line runs out of the dialog.
 3. A Hindi (नमस्ते) and a Thai name: conjuncts and vowel marks sit on their letters.
 4. Use Unicode Font with Comic Sans MS: the same.
+## Unicode 18.0 (2026-11-03)
+
+> **Every character of Unicode 18.0 shows.** With Render Unicode with In-Game Fonts or Use Unicode Font on, a
+> character no Windows font has is drawn from the open fonts the patcher ships, loaded for the game only and fitted to
+> the game font's height, baseline and colour: GNU Unifont 18.0 (nearly every script, newest ones included), Noto Sans
+> Cuneiform, Noto Serif Tangut, and Unicode's Last Resort font (a box naming the character's block) for anything
+> else. Whole characters and colour emoji follow Unicode 18.0.
+
+The owner, 2026-11-03: "yeah you can add them! to all the games!", "as long as the unicode LOOKS similar to the
+in-game fonts".
+
+* **Tables** (patcher/vf1_unicode18.py, written by scripts/build_vf1_unicode18.py from the Unicode Character
+  Database 18.0.0 that scripts/fetch_unicode18.py downloads and checks; the Unicode licence is
+  data/unicode18/LICENSE-Unicode.txt): the cluster rule's marks (Mn, Mc, Me: f1_text.EXTENDER_RANGES and
+  extenders.inc), the colour emoji list (Emoji_Presentation: f1_emoji, emoji.inc) and every assigned code
+  point (the coverage test). Python's own unicodedata and Windows' ICU are older.
+* **Fonts** (patcher/payload/UnicodeFonts, with each licence and SOURCES.json; installed in Unicode Text\Fonts
+  / Unicode Font\Fonts): GNU Unifont 18.0.01 and Unifont Upper (verified by the GNU maintainer's OpenPGP signature),
+  Noto Sans Cuneiform v2.001 and Noto Serif Tangut v2.170 (notofonts releases), Last Resort High-Efficiency 18.000
+  (the SHA-256 GitHub publishes). They are the LAST steps of the chain (after every Windows font: FallbackFaces[]
+  = f1_glyph_gdi.FALLBACK_FACES); the first time the chain reaches them the DLL loads all five from memory with
+  AddFontMemResourceEx (private to the game, never installed) and looks again for any face it missed
+  (LoadBundledFonts; the Game Text tool loads the same files with AddFontResourceExW(FR_PRIVATE)). Their letters
+  are drawn like every letter Windows draws (glyph_gdi.inc): the font's em, baseline and coverage curve and the
+  text's colour and see-through; Unifont, a pixel font, at its own regular weight (emboldening smears it). A cmap of
+  format 13 (Last Resort's) is read like format 12.
+* **Preview:** scripts/vf1_unicode18_preview.py draws the game's letters beside newer letters and emoji, Tangut,
+  cuneiform and a private-use character in all four fonts.
+
+Proved (	ests/test_unicode18.py): every font and licence is the verified file; the tables come from the checked
+UCD files; both settings install the fonts; the credits; 18.0's marks join clusters and the emoji list holds every
+emoji ICU knows; EVERY assigned Unicode 18.0 code point (312,389; controls and surrogates aside) gets a glyph; the real
+DLLs in Unicorn draw Tangut, Khitan, Early Dynastic Cuneiform, a private-use character and two letters of every newer
+block exactly as the tool draws them, loading each shipped font once, from memory, only when needed (ordinary text
+never opens them). 	ests/test_colour_emoji.py: the table is 18.0's; a letter whose face is a colour font is in
+colour.
+
+### Live checks (not yet done)
+
+1. Name a family member with a Tangut letter (U+17000), a Khitan letter (U+18B00) and a Unicode 17/18 letter (see
+   VF1 Unicode 18 preview.png): they show (not boxes), the size of the game's letters, in the text's colour.
+2. The game's memory and frame rate after showing them (the fonts load once, about 14 MB).
+3. Use Unicode Font: the same.
 ## Nothing runs off the screen (2026-11-03)
 
 > **Long translations and names stay on the screen.** A translated line, a long name or any text the patches bring

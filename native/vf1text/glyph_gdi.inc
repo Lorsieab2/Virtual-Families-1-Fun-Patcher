@@ -11,7 +11,16 @@ static const wchar_t *const FallbackFaces[] = {
     L"Microsoft PhagsPa", L"Sylfaen", L"Cambria Math",
     L"Noto Sans", L"Noto Sans Symbols", L"Noto Sans Symbols 2", L"Noto Sans CJK JP", L"Noto Sans CJK SC",
     L"Noto Sans Math", L"Noto Sans Cuneiform", L"Noto Color Emoji",
+    // the open fonts the patcher ships ("Fonts\" beside the letters), loaded privately the first time the chain
+    // reaches them (LoadBundledFonts): GNU Unifont 18.0.01, Noto Serif Tangut, Unicode's Last Resort 18.000
+    L"Unifont", L"Unifont Upper", L"Noto Serif Tangut", L"Last Resort High-Efficiency",
 };
+static const int FirstBundledFace = (int)(sizeof FallbackFaces / sizeof FallbackFaces[0]) - 4;
+static const wchar_t *const BundledFiles[] = {     // patcher/vf1_glyph_gdi.BUNDLED_FILES
+    L"unifont-18.0.01.otf", L"unifont_upper-18.0.01.otf", L"NotoSansCuneiform-Regular.otf",
+    L"NotoSerifTangut-Regular.otf", L"LastResortHE-Regular.ttf",
+};
+static bool BundledLoaded;
 
 struct GdiFace {
     GdiFace *next;
@@ -46,7 +55,7 @@ static void PickSubtables(GdiFace *g) {
         unsigned fmt = BE16(t + offset);
         bool unicodeSub = platform == 0 || (platform == 3 && (encoding == 1 || encoding == 10));
         if (!unicodeSub) continue;
-        if (fmt == 12 && !have12) { g->sub12 = offset; have12 = true; }
+        if ((fmt == 12 || fmt == 13) && !have12) { g->sub12 = offset; have12 = true; }   // 13: Last Resort's ranges
         else if (fmt == 4 && !have4) { g->sub4 = offset; have4 = true; }
     }
     if (!have12) g->sub12 = 0xFFFFFFFF;
@@ -136,14 +145,47 @@ static bool NotNeeded(unsigned cp) {
     return cp == 0x200C || cp == 0x200D || (cp >= 0xFE00 && cp <= 0xFE0F) || (cp >= 0xE0000 && cp <= 0xE01EF);
 }
 
+// The shipped open fonts ("Fonts\" in this DLL's letters folder), loaded for this process only
+// (AddFontMemResourceEx: never installed, seen by no other program), once; the faces of the chain that were missing
+// before are then looked for again (patcher/vf1_glyph_gdi.load_bundled_fonts: the same).
+static bool FindFolder();
+static void LoadBundledFonts() {
+    BundledLoaded = true;
+    if (!Folder[0]) FindFolder();
+    unsigned fl = WLen(Folder);
+    for (unsigned i = 0; i < sizeof BundledFiles / sizeof BundledFiles[0]; ++i) {
+        wchar_t path[MAX_PATH];
+        unsigned nl = WLen(BundledFiles[i]);
+        if (!fl || fl + 6 + nl + 1 > MAX_PATH) break;
+        Copy(path, Folder, fl * 2);
+        Copy(path + fl, L"Fonts\\", 6 * 2);
+        Copy(path + fl + 6, BundledFiles[i], (nl + 1) * 2);
+        HANDLE h = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+        if (h == INVALID_HANDLE_VALUE) continue;
+        DWORD hi = 0, size = GetFileSize(h, &hi), got = 0;
+        void *data = hi == 0 && size > 0 && size < 32u * 1024 * 1024
+                         ? VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE) : 0;   // kept for the game's life
+        bool read = data && ReadFile(h, data, size, &got, 0) && got == size;
+        CloseHandle(h);
+        DWORD count = 0;
+        if (read) AddFontMemResourceEx(data, size, 0, &count);
+    }
+    for (GdiFace **p = &Faces; *p;) {
+        if (!(*p)->ok) *p = (*p)->next; else p = &(*p)->next;
+    }
+}
+
 static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n, bool colourOnly = false) {
     // the font's own face; with Use Unicode Font, the chosen font and then Segoe UI; then the chain
     // (colourOnly: the first such face that is a colour font)
     for (int k = -2; k < (int)(sizeof FallbackFaces / sizeof FallbackFaces[0]); ++k) {
+        if (k == FirstBundledFace && !BundledLoaded) { LoadBundledFonts(); k = -3; continue; }
         const wchar_t *name = k == -2 ? s.face : k == -1 ? L"Segoe UI" : FallbackFaces[k];
         if (k == -1 && (!FontMode || SameNoCase(name, s.face))) continue;
         if (k >= 0 && SameNoCase(name, s.face)) continue;
-        GdiFace *g = FaceFor(name, s.em, s.weight);
+        // GNU Unifont is drawn at its own (regular) weight: emboldening a pixel font smears its letters
+        bool pixelFace = k >= FirstBundledFace && k < FirstBundledFace + 2;
+        GdiFace *g = FaceFor(name, s.em, pixelFace ? 400 : s.weight);
         if (!g || !g->ok || (colourOnly && !g->colour)) continue;
         bool all = true;
         for (int i = 0; i < n && all; ++i)
