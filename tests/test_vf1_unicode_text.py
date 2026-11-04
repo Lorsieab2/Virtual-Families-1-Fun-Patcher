@@ -147,11 +147,17 @@ def test_old_single_byte_names_read_as_before(world, fonts, vanilla_dir):
     import text_emu
     from test_vf1_game_fonts import _any_dll
     stock = text_emu.TextWorld(vanilla_dir / "Virtual Families.exe", _any_dll(), vanilla_dir, install=False)
-    for data in [b"Smith", b"Caf\xe9 \xc5ngstr\xf6m", bytes(range(0x20, 0x7F)), bytes(range(0xA2, 0x100))]:
-        ours = [(b[2], b[3]) for b in world.draw(data)]
-        theirs = [(b[2], b[3]) for b in stock.draw(data)]
-        assert ours == theirs
-        assert world.width(data) == stock.width(data)
+    # the two long rows are wider than the 800-pixel screen: a screen wide enough here, so that nothing is moved or
+    # cut (screen.inc: text beyond ASCII that would leave the screen is kept on it; tests/test_screen_edge.py)
+    world.e.w32(world.screen + 8, 4000)
+    try:
+        for data in [b"Smith", b"Caf\xe9 \xc5ngstr\xf6m", bytes(range(0x20, 0x7F)), bytes(range(0xA2, 0x100))]:
+            ours = [(b[2], b[3]) for b in world.draw(data)]
+            theirs = [(b[2], b[3]) for b in stock.draw(data)]
+            assert ours == theirs
+            assert world.width(data) == stock.width(data)
+    finally:
+        world.e.w32(world.screen + 8, 800)
     # a Windows-1252 byte the sheets lack now reads as its letter, not "!"
     blits = world.draw(b"\x93Hi\x94")
     assert [b[3][0] for b in blits][:1] == [0] and len(blits) == 4
