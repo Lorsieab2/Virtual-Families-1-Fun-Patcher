@@ -40,3 +40,11 @@ def test_the_protect_comes_before_the_first_hook_is_written():
         apply_body = text[text.index("static bool Apply(Plan &plan) {"):]
         protect = apply_body.index("VirtualProtect(Trampolines, sizeof(Trampolines), PAGE_EXECUTE_READWRITE")
         assert protect < apply_body.index("WriteCode(w.va"), dll
+
+def test_the_entry_hooks_run_the_stock_code_through_naked_functions():
+    """vf1text's wrapper and vf1tr's DrawString / wrapper trampolines are code in .text, never data."""
+    tr = (NATIVE / "vf1tr" / "screen_tr.inc").read_text(encoding="utf-8")
+    for name in ("stock_draw_string", "stock_wrap"):
+        assert f"__declspec(naked) static void {name}(void)" in tr, name
+    names = (NATIVE / "vf1text" / "names.inc").read_text(encoding="utf-8")
+    assert "__declspec(naked) static void WrapStock()" in names

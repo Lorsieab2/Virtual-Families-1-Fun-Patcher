@@ -69,7 +69,11 @@ def test_a_run_wider_than_a_page_is_drawn_a_character_at_a_time(world, fonts):
     pieces = f.letters(text)
     assert pieces[0] == "\ufdfd" and len(pieces) > 1                # the whole run is too wide: not one piece
     assert all(f.glyph(p).width <= 1024 for p in pieces)
-    blits = world.draw(vf1_text.encode(text), "SegoeUi33")
+    world.e.w32(world.screen + 8, 4000)                   # a screen wide enough: nothing is moved or cut here
+    try:
+        blits = world.draw(vf1_text.encode(text), "SegoeUi33")
+    finally:
+        world.e.w32(world.screen + 8, 800)
     _same(world, blits, f.layout(text), "wide run")
     assert all(b[2][2] <= 1024 for b in blits)
     assert world.width(vf1_text.encode(text), "SegoeUi33") == f.width(text)

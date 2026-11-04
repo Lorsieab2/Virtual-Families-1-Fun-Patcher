@@ -64,7 +64,7 @@ class TextWorld:
         self.word_lists = WORD_LISTS               # where the emulated "Word Lists\" folder is
         self.word_list_opens: list[str] = []
         self._seams()
-        self.screen = self.surface(16, 16)
+        self.screen = self.surface(800, 600)              # the game's screen (0x423750: 800 wide)
         self.window = e.alloc(0x80)
         e.w32(self.window + 0x30, self.screen)
         self.fonts = {name: self.make_font(name, table) for name, table in FONT_CTORS.items()}
