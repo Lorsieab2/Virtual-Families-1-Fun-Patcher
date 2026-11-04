@@ -187,7 +187,7 @@ struct Extra {
     Extra *next;
     unsigned hash;
     unsigned keyLen;
-    unsigned char key[64];            // the letter in UTF-8 (longer letters are not kept: drawn as the box)
+    unsigned char key[384];           // the letter, or a shaped run (shape.inc), in UTF-8 (longer: not kept, drawn as the box)
     struct Sheet *sheet;              // the font sheet it is on (the patcher-made one or a page)
     int x, y, w;
 };
@@ -248,6 +248,7 @@ static Extra *MakeColourLetter(FontExtra *f, const unsigned *cps, int n, const u
 #include "glyph_file.inc"
 #include "glyph_gdi.inc"
 #include "glyph_color.inc"
+#include "shape.inc"
 
 // The tinted copy of a sheet (0x402940's rule: white is the sheet itself, else every pixel ANDed with
 // MapRGBA(r, g, b, 255)), kept per colour. A colour page is drawn as it is (Windows does not recolour emoji).
@@ -329,7 +330,7 @@ static Letter LetterFor(FontExtra *f, void *impl, const unsigned *cps, int i, in
         // Use Unicode Font draws every letter with the chosen font, the game's own ones too
         if (!FontMode && cp < 0x100 && GameHasByte(impl, cp)) { l.byte = (int)cp; return l; }
     }
-    unsigned char key[64];
+    unsigned char key[384];
     unsigned n = 0;
     if (j - i == 1) n = (unsigned)Utf8Put(cp, key);
     else for (int k = i; k < j && n + 4 <= sizeof key; ++k) n += (unsigned)Utf8Put(cps[k], key + n);
@@ -525,7 +526,7 @@ static void __fastcall DrawString(void *window, void *, const char *text, int x,
     if (!DecodeRun(&run, text, (int)Len(text))) { Free(owned); return; }
     int startX = x;
     for (int i = 0; i < run.n;) {
-        int j = DrawEnd(run.cps, run.n, i);
+        int j = PieceEnd(f, run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             y += *(int *)((char *)impl + 4);   // GetHeight(NULL) 0x4023F0
             x = startX;
@@ -567,7 +568,7 @@ static int __fastcall DrawStringN(void *window, void *, const char *text, int co
     if (!DecodeRun(&run, text, bytes, (int)Len(text))) return 0;
     int startX = x;
     for (int i = 0; i < run.n;) {
-        int j = DrawEnd(run.cps, run.n, i);
+        int j = PieceEnd(f, run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             y += *(int *)((char *)impl + 4);
             x = startX;
@@ -597,7 +598,7 @@ static int Measure(void *impl, FontExtra *f, const char *text, int bytes, float 
     if (!DecodeRun(&run, text, bytes)) return 0;
     int widest = 0, line = 0;
     for (int i = 0; i < run.n;) {
-        int j = DrawEnd(run.cps, run.n, i);
+        int j = PieceEnd(f, run.cps, run.n, i);
         if (run.cps[i] == '\n' && j == i + 1) {
             if (line && line > widest) widest = line;
             line = 0;

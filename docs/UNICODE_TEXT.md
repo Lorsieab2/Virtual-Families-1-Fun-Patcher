@@ -788,8 +788,44 @@ flag in both.
    red or dark text, "🇯🇵" shows "JP"-style letters in the text's colour, not white.
 4. Frame rate in the house with several emoji names on screen (each picture is made once).
 
+## Shaped and right-to-left scripts (2026-11-03)
+
+> **Arabic, Hebrew, Hindi, Thai and the other shaped scripts are drawn joined and in reading order.** With Render
+> Unicode with In-Game Fonts or Use Unicode Font on, a word or phrase in such a script is drawn the way Windows draws
+> it: Arabic letters join, Indic conjuncts and vowel signs form, and Hebrew and Arabic read right to left. Text in
+> any other script is drawn exactly as before.
+
+
+ative/vf1text/shape.inc = patcher/vf1_shaping.py (the Virtual Villagers patcher's run rule, 	ext_utf8.h
+ut_unit UT_RUN): a RUN is letters of one shaped script (Hebrew, Arabic and its relatives, the Indic scripts, Thai,
+Lao, Tibetan, Myanmar, Khmer, Mongolian and the others in ComplexRanges) with their marks and the spaces between two
+of its words. It is one piece of the draw, measure and counted-draw loops (PieceEnd, GameFont.letters): GDI's
+TextOutW draws the whole run in the font's style (glyph_gdi.inc), which shapes it (Uniscribe) and puts it in visual
+order (bidi with a left-to-right base, as in the game's own left-to-right screens), kept for the session like any
+letter Windows draws. A run is at most 64 characters and 380 bytes; a longer one is cut at its last space. A run
+that no face of the chain has every letter of is drawn a character at a time, as before. The word wrapper keeps a
+right-to-left phrase together (OwnWordEnd), so each line's words are one run in their visual order, and cuts a
+phrase wider than the line at its last space that fits (EmergencyCut); a name fitted to its spot measures its runs
+whole. Backspace removes one whole character, and the run is drawn again from what is left. The name box's caret
+stays at the logical end of the text (the right edge), as before.
+
+Proved (	ests/test_shaping.py, 	ests/test_name_fit.py::test_shaped_names_stay_in_their_frames; the real DLLs on
+the real exe in Unicorn, real GDI): the rule; Arabic shaped (not its isolated letters), Hebrew in visual order;
+Arabic, Hebrew, Devanagari, Thai, Bengali, Tamil, harakat and mixed text drawn and measured as the model draws them,
+pixel for pixel, in all four fonts; right-to-left phrases wrapped at 432, 160 and 90 pixels as the model, each line
+one run, the words in their logical order across lines; Backspace; vf1font.dll draws runs; shaped names inside their
+Family Tree frames. Text with no shaped letter: origin/main's DLLs and these give identical blits, pixels, widths
+and wrapper output (18 texts, 4 fonts, 3 colours, 3 widths, both DLLs). Mutations (no runs; the wrapper not keeping
+a phrase; the cut not at a space) fail.
+
+### Live checks (not yet done)
+
+1. Name a family member مرحبا and one שלום (Rename Family with "مرحبا بالعالم"): the letters are joined, Hebrew reads
+   right to left, on the main screen, the bottom bar and the Family Tree screen.
+2. With a translation that has Arabic or Hebrew text (or a long Arabic family name in an event pop-up): each line
+   reads right to left, no line runs out of the dialog.
+3. A Hindi (नमस्ते) and a Thai name: conjuncts and vowel marks sit on their letters.
+4. Use Unicode Font with Comic Sans MS: the same.
 ## Not in this part (the rest of the stage-3 work)
 
-* Right-to-left and shaped scripts (Arabic, Hebrew order, Indic shaping) are drawn one character at a time,
-  unshaped.
 * Translations, the Translations window and Share on GitHub.

@@ -157,6 +157,28 @@ static int WordEnd(const unsigned char *s, int at) {
     return at;
 }
 
+// OwnWrap's word (shape.inc): the stock word, and, when it ends in a letter of a right-to-left script and that script
+// goes on after its spaces, the next word too -- a right-to-left phrase is kept together, so that its words are drawn
+// as one shaped run in their visual order (a phrase wider than the line is cut at a space: EmergencyCut).
+static unsigned CpBefore(const unsigned char *s, int start, int end) {
+    int p = end - 1;
+    while (p > start && (s[p] & 0xC0) == 0x80 && end - p < 4) --p;
+    unsigned cp = 0;
+    return Utf8At(s + p, end - p, &cp) == end - p ? cp : 0;
+}
+static int OwnWordEnd(const unsigned char *s, int at) {
+    int end = WordEnd(s, at);
+    while (s[end] == ' ') {
+        unsigned before = CpBefore(s, at, end), after = 0;
+        int q = end;
+        while (s[q] == ' ') ++q;
+        int n = 0;
+        while (s[q + n] && n < 4) ++n;
+        if (!s[q] || !IsRtl(before) || !Utf8At(s + q, n, &after) || ScriptGroup(after) != ScriptGroup(before)) break;
+        end = WordEnd(s, end);
+    }
+    return end;
+}
 static int PieceWidth(void *impl, const char *text, int start, int len, unsigned colour, void *font) {
     return DrawStringN(impl, 0, text + start, len, 0, 0, true, colour, font);
 }
@@ -197,6 +219,12 @@ static int EmergencyCut(void *impl, const char *text, int start, int len, int ro
         i = j;
     }
     FreeRun(&run);
+    // a right-to-left phrase (OwnWordEnd) is cut at its last space that fits, not inside a word
+    if (best && best < len) {
+        const unsigned char *s = (const unsigned char *)text + start;
+        for (int k = best; k > 0; --k)
+            if (s[k] == ' ' && s[k - 1] != ' ') { best = k; break; }
+    }
     return best ? best : len;
 }
 
@@ -227,7 +255,7 @@ static int OwnWrap(void *outer, const char *text, int x, int y, int width, unsig
         for (;;) {
             if (!afterBreak && s[at] == ' ') ++at;           // the one space between two words
             afterBreak = false;
-            int wordStart = at, end = WordEnd(s, at);
+            int wordStart = at, end = OwnWordEnd(s, at);
             bool full = false;
             // (a word may be empty: spaces at the end of the text make one, which the stock code counts too)
             for (int p = wordStart;;) {
@@ -301,6 +329,14 @@ static int OwnWrap(void *outer, const char *text, int x, int y, int width, unsig
     }
 }
 
+static bool TextHasRtlPhrase(const char *text, int n) {
+    Run run;
+    if (!DecodeRun(&run, text, n)) return false;
+    bool r = HasRtlPhrase(run.cps, run.n);
+    FreeRun(&run);
+    return r;
+}
+
 // 0x409D70 after whole names (names.inc): the game's own code when it lays the text out as before, else OwnWrap.
 static int WrapText(void *window, const char *shown, int x, int y, int width, unsigned colour, void *font, int measure) {
     void *impl = *(void **)window;
@@ -310,7 +346,7 @@ static int WrapText(void *window, const char *shown, int x, int y, int width, un
     bool own = false;
     if (breaks) {
         bool any = BreaksFor((const unsigned char *)shown, n, breaks);
-        own = any || !StockWordsFit(impl, shown, width, colour, f);
+        own = any || !StockWordsFit(impl, shown, width, colour, f) || TextHasRtlPhrase(shown, n);
     }
     int r = own ? OwnWrap(window, shown, x, y, width, colour, font, (measure & 0xFF) != 0, breaks)
                 : ((WrapFn)(void *)&WrapStock)(window, shown, x, y, width, (int)colour, font, measure);

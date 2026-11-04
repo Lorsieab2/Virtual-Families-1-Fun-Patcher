@@ -169,6 +169,29 @@ def stock_centre(w, text, cx):
     return cx - w.width(text) // 2                     # 0x409D46..0x409D4D: cdq / sub / sar
 
 
+SHAPED = ["محمدعبدالله",            # Arabic, 22 bytes
+          "محمد عبد الله",        # with spaces, 24 bytes
+          "אברהם יצחק י",             # Hebrew
+          "देवनागरी"]                              # Devanagari
+
+
+@pytest.mark.parametrize("name", SHAPED)
+def test_shaped_names_stay_in_their_frames(world, tree, name):
+    """A name in a shaped script (drawn as runs, shape.inc) fitted with its runs measured whole: inside every frame,
+    and as the model fits it (the longest start whose shaped width and "…" fit the room)."""
+    w = world
+    data = vf1_text.encode(name)
+    assert len(data) <= 24
+    for site, x, y, (left, right) in tree_spots(tree):
+        room = 127 if site != 0x439F49 else 93
+        blits = draw_at(w, site, data, x, y)
+        lo, hi = extent(blits)
+        assert left <= lo and hi <= right, (hex(site), name, lo, hi, left, right)
+        shown = fit(w, name, room)
+        if site != 0x439F49:
+            assert blits == w.draw(shown.encode(), x=x, y=y), (hex(site), name)
+
+
 @pytest.mark.parametrize("name", WIDE + ORDINARY)
 def test_family_tree_names_stay_in_their_frames(world, tree, name):
     w = world

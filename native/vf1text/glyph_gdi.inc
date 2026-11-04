@@ -25,6 +25,7 @@ struct GdiFace {
     unsigned sub12, sub4;     // offsets of the subtables used (0 = none)
 };
 static GdiFace *Faces;
+static const int MaxLetterUnits = 190;   // the code points of the longest letter drawn (a shaped run's key holds 384 bytes)
 static HDC GlyphDC;
 
 static unsigned BE16(const unsigned char *p) { return (unsigned)(p[0] << 8 | p[1]); }
@@ -156,9 +157,9 @@ static GdiFace *ChooseFace(const Style &s, const unsigned *cps, int n, bool colo
 static bool DrawLetter(const Style &s, int height, const unsigned *cps, int n, unsigned char **out, int *outW) {
     GdiFace *g = ChooseFace(s, cps, n);
     if (!g) return false;
-    wchar_t text[64];
+    wchar_t text[2 * MaxLetterUnits + 4];        // a letter, or a shaped run (shape.inc)
     int units = 0;
-    for (int i = 0; i < n && units < 60; ++i) {
+    for (int i = 0; i < n && units < 2 * MaxLetterUnits; ++i) {
         unsigned cp = cps[i];
         if (cp >= 0x10000) { text[units++] = (wchar_t)(0xD800 + ((cp - 0x10000) >> 10)); text[units++] = (wchar_t)(0xDC00 + ((cp - 0x10000) & 0x3FF)); }
         else text[units++] = (wchar_t)cp;

@@ -602,7 +602,37 @@ static const char *FitToRoom(const char *text, void *impl, int room, char **owne
     // letter after them needs their room); keep: its bytes up to its last letter that is not a space
     int width = 0, bytes = 0, keep = 0;
     bool any = ellipsis - spacing <= room;
-    for (int i = 0; i < run.n && any;) {
+    bool shaped = false;                                 // a shaped run (shape.inc) is measured whole, not per letter
+    for (int i = 0; i < run.n; ++i) if (ScriptGroup(run.cps[i])) shaped = true;
+    if (shaped && any) {
+        // the longest start of whole characters whose kept bytes and "…" measure no wider than the room (halving:
+        // a longer start is never narrower)
+        int *ends = (int *)Alloc(sizeof(int) * (unsigned)(run.n + 1));
+        int count = 0;
+        if (ends) {
+            int at = 0;
+            for (int i = 0; i < run.n;) {
+                int j = DrawEnd(run.cps, run.n, i);
+                for (int k = i; k < j; ++k) at += run.widths[k];
+                ends[count++] = at;
+                i = j;
+            }
+            int lo = 0, hi = count;
+            while (lo < hi) {
+                int mid = (lo + hi + 1) / 2, kb = ends[mid - 1];
+                while (kb > 0 && text[kb - 1] == ' ') --kb;
+                Copy(out, text, (unsigned)kb);
+                Copy(out + kb, Ellipsis, 4);
+                if (MeasureRaw(impl, f, out, kb + 3) <= room) lo = mid; else hi = mid - 1;
+            }
+            keep = lo ? ends[lo - 1] : 0;
+            while (keep > 0 && text[keep - 1] == ' ') --keep;
+            Free(ends);
+        } else {
+            any = false;
+        }
+    }
+    for (int i = 0; i < run.n && any && !shaped;) {
         int j = DrawEnd(run.cps, run.n, i);
         int add = 0;
         for (int k = i; k < j; ++k) add += run.widths[k];
