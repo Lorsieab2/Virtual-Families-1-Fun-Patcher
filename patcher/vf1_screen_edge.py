@@ -97,17 +97,40 @@ def on_screen(font, text: str, x: int, y: int, *, translation: bool = False, scr
     return text, x, y
 
 
-def box_on_screen(x: int, y: int, width: int, height: int, *, screen=(SCREEN_W, SCREEN_H)) -> tuple[int, int]:
-    """screen.inc WrapOnScreen: where the word wrapper's box goes (its text is wrapped inside it)."""
+def wrap_on_screen(font, text: str, x: int, y: int, width: int, ratio: float, *, translation: bool = False,
+                   screen=(SCREEN_W, SCREEN_H)):
+    """screen.inc WrapOnScreen: (text, x, y) the word wrapper draws -- its box moved so that it ends at the screen's
+    edge, and a text that wraps taller than the screen cut to its longest start of whole characters that wraps,
+    with "…" after it, into the screen's height."""
+    import vf1_line_break as lb
     sw, sh = screen
-    if x >= 0 and x + width <= sw and y >= 0 and y + height <= sh:
-        return x, y
-    if x >= sw or x + width <= 0 or y >= sh or y + height <= 0:
-        return x, y
-    x = 0 if (x < 0 or width > sw) else (sw - width if x + width > sw else x)
-    y = 0 if (y < 0 or height > sh) else (sh - height if y + height > sh else y)
-    return x, y
+    if not text or not clamp_wanted(text, translation):
+        return text, x, y
 
+    def height(t: str) -> int:
+        return lb.wrap(font, t, 0, 0, width, ratio, measure=True)[0]
+    h = height(text)
+    if x >= 0 and x + width <= sw and y >= 0 and y + h <= sh:
+        return text, x, y
+    if x >= sw or x + width <= 0 or y >= sh or y + h <= 0:
+        return text, x, y
+    if h > sh:
+        ends, at = [], 0
+        for piece in vf1_text.clusters(text, draw=True):
+            at += len(piece)
+            ends.append(at)
+        lo, hi = 0, len(ends)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if height(text[:ends[mid - 1]].rstrip(" \n") + ELLIPSIS) <= sh:
+                lo = mid
+            else:
+                hi = mid - 1
+        text = (text[:ends[lo - 1]] if lo else "").rstrip(" \n") + ELLIPSIS
+        h = height(text)
+    x = 0 if (x < 0 or width > sw) else (sw - width if x + width > sw else x)
+    y = 0 if (y < 0 or h > sh) else (sh - h if y + h > sh else y)
+    return text, x, y
 
 # --------------------------------------------------------------------------- the translation editor's check
 def too_wide(fonts, text: str, screen_w: int = SCREEN_W) -> list[tuple[str, int, str]]:
@@ -124,28 +147,44 @@ def too_wide(fonts, text: str, screen_w: int = SCREEN_W) -> list[tuple[str, int,
 DRAWN_FONTS = ("SegoeUiBold18", "SegoeUiBold17", "SegoeUiBold24")   # SegoeUi33 is never drawn (test_font_slots)
 
 
+def _tokens(line: str) -> list[tuple[int, int]]:
+    """The spans a line break must never cut: printf placeholders and {...} choices and names."""
+    import re
+    import translation_format as tfmt
+    spans = [(m.start(), m.end()) for m in tfmt.CONVERSION_RE.finditer(line)]
+    spans += [(m.start(), m.end()) for m in re.finditer(r"\{[^{}]*\}", line)]
+    return spans
+
+
 def wrap_to_fit(fonts, text: str, screen_w: int = SCREEN_W) -> str:
     """Wrap to fit: each line wider than the screen in the widest drawn font is broken at its last space that fits
     (in a script written without spaces, between whole characters where a line may break), never inside a
-    character."""
+    character, a placeholder (%s, %d...) or a {...} choice."""
     import vf1_line_break as lb
     out = []
+
+    def width(s: str) -> int:
+        return max(fonts.font(name).width(s) for name in DRAWN_FONTS)
     for line in text.split("\n"):
-        def width(s: str) -> int:
-            return max(fonts.font(name).width(s) for name in DRAWN_FONTS)
         while width(line) > screen_w:
+            spans = _tokens(line)
+            inside = lambda i: any(a < i < b for a, b in spans)         # noqa: E731
             breaks, _ = lb.break_points(line)
-            cuts = sorted({i for i, c in enumerate(line) if c == " " and i > 0} | breaks)
+            cuts = sorted(i for i in {i for i, c in enumerate(line) if c == " " and i > 0} | breaks if not inside(i))
             fitting = [c for c in cuts if width(line[:c].rstrip(" ")) <= screen_w]
-            if not fitting:
-                head = ""
-                for cluster in vf1_text.clusters(line):
-                    if head and width(head + cluster) > screen_w:
-                        break
-                    head += cluster
-                cut = len(head)
-            else:
+            if fitting:
                 cut = fitting[-1]
+            else:                                  # no place to break: the longest start of whole characters
+                cut, at = 0, 0
+                for cluster in vf1_text.clusters(line):
+                    at += len(cluster)
+                    if inside(at):
+                        continue
+                    if cut and width(line[:at]) > screen_w:
+                        break
+                    cut = at
+                if not cut or cut >= len(line):
+                    break                          # one unbreakable piece: left as it is
             out.append(line[:cut].rstrip(" "))
             line = line[cut:].lstrip(" ")
         out.append(line)

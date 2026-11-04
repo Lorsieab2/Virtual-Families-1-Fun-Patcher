@@ -140,12 +140,14 @@ def test_the_wrapper_box_moves_up_and_in(tr_world, fonts, vanilla_dir):
     ratio = lb.justify_ratio((vanilla_dir / "Virtual Families.exe").read_bytes())
     f = fonts.font("SegoeUiBold18")
     text = ("Une tr\u00e8s longue phrase traduite qui ne tient pas sur une ligne. " * 8).strip()
-    for x, y in ((500, 100), (10, 520), (-30, 560)):
-        height, _ = lb.wrap(f, text, x, y, 432, ratio, measure=True)
-        bx, by = se.box_on_screen(x, y, 432, height)
-        got, blits = tr_world.wrap(vf1_text.encode(text), 432, x=x, y=y, limit=200_000_000)
-        want, draws = lb.wrap(f, text, bx, by, 432, ratio)
-        assert got == want and placed(blits) == [p for piece, px, py in draws for p in blits_of(f, piece, px, py)]
+    tall = ("Une tr\u00e8s longue phrase traduite. " * 120).strip()       # wraps far taller than the screen
+    for text, x, y, width in ((text, 500, 100, 432), (text, 10, 520, 432), (text, -30, 560, 432), (tall, 10, 40, 160)):
+        shown, bx, by = se.wrap_on_screen(f, text, x, y, width, ratio, translation=True)
+        got, blits = tr_world.wrap(vf1_text.encode(text), width, x=x, y=y, limit=900_000_000)
+        want, draws = lb.wrap(f, shown, bx, by, width, ratio)
+        if text is tall:
+            assert shown.endswith("\u2026") and want <= SH and len(shown) < len(text)
+        assert placed(blits) == [p for piece, px, py in draws for p in blits_of(f, piece, px, py)], (x, y)
         assert inside(blits), (x, y)
 
 
@@ -254,8 +256,9 @@ class TrEdge:
         self.stop_draw(self.e)
         return self.reached[-1]
 
-    def wrap(self, text: bytes, x: int, y: int, width: int, height: int):
-        """The box as it reaches the stock wrapper for drawing (its measuring call is answered with `height`)."""
+    def wrap(self, text: bytes, x: int, y: int, width: int, height):
+        """The box (and text) as they reach the stock wrapper for drawing; its measuring calls are answered with
+        height(text) (or `height` itself when it is a number)."""
         self.reached.clear()
         at = self.e.alloc(len(text) + 4)
         self.e.write(at, text + b"\0")
@@ -269,10 +272,11 @@ class TrEdge:
             esp = e.reg(K_ESP)
             x_, y_, w_, _c, _f, measure = struct.unpack("<iiiIII", e.read(esp + 0x4DC + 8, 24))
             calls.append((x_, y_, w_, measure & 0xFF))
+            self.last_text = e.read_cstr_bytes(e.r32(esp + 0x4DC + 4))
             if measure & 0xFF:                                   # the measuring call: answer it, back to the DLL
                 ret = e.r32(esp + 0x4DC)
                 e.setreg(K_ESP, esp + 0x4DC + 4 + 0x1C)
-                e.setreg(K_EAX, height)
+                e.setreg(K_EAX, height(self.last_text) if callable(height) else height)
                 e.setreg(K_EIP, ret)
             else:
                 e.uc.emu_stop()
@@ -327,6 +331,11 @@ def test_vf1tr_moves_the_wrappers_box(tr_edge):
     assert calls[0][3] == 1 and calls[-1] == (SW - 432, SH - 90, 432, 0)
     calls = tr_edge.wrap(b"Une phrase traduite.", 100, 100, 432, 90)
     assert calls[-1] == (100, 100, 432, 0)
+    tall = b"Une phrase traduite. " * 100                   # a stand-in wrapper: 18 pixels for every 40 bytes
+    calls = tr_edge.wrap(tall, 100, 100, 432, lambda t: 18 * (len(t) // 40 + 1))
+    shown = tr_edge.last_text
+    assert calls[-1] == (100, SH - 18 * (len(shown) // 40 + 1), 432, 0)
+    assert shown.endswith(b"...") and 18 * (len(shown) // 40 + 1) <= SH < 18 * ((len(shown) + 40) // 40 + 1)
 
 
 def test_every_instruction_vf1tr_runs_is_in_an_executable_section(tr_edge):
@@ -351,3 +360,17 @@ def test_the_editor_measures_with_the_game_fonts_and_wraps_to_fit(fonts):
     cjk = se.wrap_to_fit(fonts, CJK)
     assert not se.too_wide(fonts, cjk) and cjk.replace("\n", "") == CJK
     assert se.too_wide(fonts, "Short") == [] and se.wrap_to_fit(fonts, "Short") == "Short"
+
+
+def test_wrap_to_fit_never_cuts_a_placeholder():
+    class Ten:                                            # ten pixels a letter
+        spacing, height = 0, 18
+
+        def width(self, text):
+            return 10 * max(len(line) for line in text.split("\n"))
+
+    class Fonts:
+        def font(self, name):
+            return Ten()
+    assert se.wrap_to_fit(Fonts(), "W" * 79 + "%s") == "W" * 79 + "\n%s"
+    assert se.wrap_to_fit(Fonts(), "W" * 78 + "{name}xyz") == "W" * 78 + "\n{name}xyz"

@@ -107,15 +107,58 @@ static const char *OnScreen(void *window, void *impl, FontExtra *f, const char *
 }
 
 // The word wrapper's box (x, y, width) moved so that its text ends at the screen's edge: the text is wrapped at the
-// wrapper's own line breaks inside the box, so only the box moves.
-static void WrapOnScreen(void *window, const char *text, int *x, int *y, int width, int height) {
+// wrapper's own line breaks inside the box, so only the box moves; a text that wraps taller than the screen keeps its
+// longest start of whole characters that wraps, with "…" after it, into the screen's height (on the heap, *owned).
+static int WrapText(void *window, const char *shown, int x, int y, int width, unsigned colour, void *font, int measure);
+static const char *WrapOnScreen(void *window, const char *text, int *x, int *y, int width, unsigned colour, void *font,
+                                char **owned) {
+    *owned = 0;
     int sw, sh;
     void *impl = window ? *(void **)window : 0;
-    if (!impl || !text || !*text || !ScreenSize(impl, &sw, &sh)) return;
-    if (*x >= 0 && *x + width <= sw && *y >= 0 && *y + height <= sh) return;
-    if (*x >= sw || *x + width <= 0 || *y >= sh || *y + height <= 0) return;
+    if (!impl || !text || !*text || !ScreenSize(impl, &sw, &sh)) return text;
+    int height = WrapText(window, text, *x, *y, width, colour, font, 1);
+    if (*x >= 0 && *x + width <= sw && *y >= 0 && *y + height <= sh) return text;
+    if (*x >= sw || *x + width <= 0 || *y >= sh || *y + height <= 0) return text;
+    if (height > sh) {
+        int n = (int)Len(text);
+        Run run;
+        int *ends = 0, count = 0;
+        char *out = (char *)Alloc((unsigned)n + 8);
+        if (out && DecodeRun(&run, text, n)) {
+            ends = (int *)Alloc(sizeof(int) * (unsigned)(run.n + 1));
+            int at = 0;
+            for (int i = 0; ends && i < run.n;) {
+                int j = DrawEnd(run.cps, run.n, i);
+                for (int k = i; k < j; ++k) at += run.widths[k];
+                ends[count++] = at;
+                i = j;
+            }
+            FreeRun(&run);
+        }
+        if (out && ends) {
+            int lo = 0, hi = count;
+            while (lo < hi) {
+                int mid = (lo + hi + 1) / 2, kb = ends[mid - 1];
+                while (kb > 0 && (text[kb - 1] == ' ' || text[kb - 1] == '\n')) --kb;
+                Copy(out, text, (unsigned)kb);
+                Copy(out + kb, Ellipsis, 4);
+                if (WrapText(window, out, 0, 0, width, colour, font, 1) <= sh) lo = mid; else hi = mid - 1;
+            }
+            int kb = lo ? ends[lo - 1] : 0;
+            while (kb > 0 && (text[kb - 1] == ' ' || text[kb - 1] == '\n')) --kb;
+            Copy(out, text, (unsigned)kb);
+            Copy(out + kb, Ellipsis, 4);
+            *owned = out;
+            text = out;
+            height = WrapText(window, text, *x, *y, width, colour, font, 1);
+        } else {
+            Free(out);
+        }
+        Free(ends);
+    }
     if (*x < 0 || width > sw) *x = 0;
     else if (*x + width > sw) *x = sw - width;
     if (*y < 0 || height > sh) *y = 0;
     else if (*y + height > sh) *y = sh - height;
+    return text;
 }

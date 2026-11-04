@@ -128,20 +128,42 @@ static void __fastcall edge_draw_string(void *window, void *edx, const char *tex
 static int __fastcall edge_wrap(void *outer, void *edx, const char *text, int x, int y, int width, unsigned colour,
                                 void *font, int measure) {
     void *window = outer != NULL ? *(void **)outer : NULL;
-    int sw, sh;
+    char *owned = NULL;
+    int sw, sh, r;
+    WrapFn wrap = (WrapFn)(void *)stock_wrap;
     (void)edx;
     if (!(measure & 0xFF) && text != NULL && *text && screen_size(window, &sw, &sh)) {
-        int h = ((WrapFn)(void *)stock_wrap)(outer, NULL, text, x, y, width, colour, font, 1);
+        int h = wrap(outer, NULL, text, x, y, width, colour, font, 1);
         if (!(x >= 0 && x + width <= sw && y >= 0 && y + h <= sh) && !(x >= sw || x + width <= 0 || y >= sh || y + h <= 0)) {
+            if (h > sh) {          /* taller than the screen: its longest start that wraps, with "...", into it */
+                int n = slen(text), lo = 0, hi = n;
+                char *out = (char *)tr_alloc((SIZE_T)n + 8);
+                if (out != NULL) {
+                    while (lo < hi) {
+                        int mid = (lo + hi + 1) / 2, k = mid;
+                        while (k > 0 && (text[k - 1] == ' ' || text[k - 1] == '\n')) --k;
+                        bcopy_(out, text, k);
+                        out[k] = '.'; out[k + 1] = '.'; out[k + 2] = '.'; out[k + 3] = 0;
+                        if (wrap(outer, NULL, out, 0, 0, width, colour, font, 1) <= sh) lo = mid; else hi = mid - 1;
+                    }
+                    while (lo > 0 && (text[lo - 1] == ' ' || text[lo - 1] == '\n')) --lo;
+                    bcopy_(out, text, lo);
+                    out[lo] = '.'; out[lo + 1] = '.'; out[lo + 2] = '.'; out[lo + 3] = 0;
+                    owned = out;
+                    text = out;
+                    h = wrap(outer, NULL, text, x, y, width, colour, font, 1);
+                }
+            }
             if (x < 0 || width > sw) x = 0;
             else if (x + width > sw) x = sw - width;
             if (y < 0 || h > sh) y = 0;
             else if (y + h > sh) y = sh - h;
         }
     }
-    return ((WrapFn)(void *)stock_wrap)(outer, NULL, text, x, y, width, colour, font, measure);
+    r = wrap(outer, NULL, text, x, y, width, colour, font, measure);
+    if (owned != NULL) HeapFree(GetProcessHeap(), 0, owned);
+    return r;
 }
-
 static int jump_to(unsigned int at, void *target) {
     unsigned char jmp[5];
     DWORD rel = (DWORD)(UINT_PTR)target - (at + 5u);

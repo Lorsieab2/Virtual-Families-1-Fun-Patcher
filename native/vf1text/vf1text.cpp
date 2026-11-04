@@ -509,7 +509,8 @@ static const char *WithNames(const char *text, void *impl, char **owned);
 static unsigned GameSite(void *returnSlot);
 static const char *NamesAt(const char *text, void *impl, unsigned site, char **owned);
 static const char *OnScreen(void *window, void *impl, FontExtra *f, const char *text, int *x, int *y, char **owned);
-static void WrapOnScreen(void *window, const char *text, int *x, int *y, int width, int height);
+static const char *WrapOnScreen(void *window, const char *text, int *x, int *y, int width, unsigned colour, void *font,
+                                char **owned);
 static bool ClampWanted(const char *text, int n);
 
 // 0x409660 ldwGameWindowImpl::DrawString(text, x, y, colour, font), ret 0x14.
