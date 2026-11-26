@@ -92,8 +92,10 @@ static const wchar_t *ReviveOutcome(int how) {
     case 1: case 2: return TR(L"They are back in the house, in their own place in the Family Tree.");
     case 3: return TR(L"They are back in the house, in their own place in the Family Tree.");
     case 4: return TR(L"They are back in the house, as the spouse again.");
+    case 6: return TR(L"They are back in the house as a family member, not a spouse (their partner remarried): the "
+                      L"Family Tree shows them as a child of this generation.");
     }
-    return TR(L"They are back in the house as a family member, not in the Family Tree (their place there is taken).");
+    return TR(L"They are back in the house as a family member, not in the Family Tree (it has no room for another child).");
 }
 
 static INT_PTR CALLBACK ReviveProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {

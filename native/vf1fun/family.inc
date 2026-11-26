@@ -328,10 +328,10 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
 
 // ---------------------------------------------------------------- Revive a Family Member
 // vf1revive.dll (the Revive setting) keeps a snapshot of everyone who died; this brings one back, for money. The
-// price is the one constant below (the owner confirms it before a release): $10,000, between the second career room
-// ($5,000) and the third ($15,000, the game's dearest purchase), well above Adoption Services ($4,000, a new child),
-// since it brings back the same person. Free while Free and Guaranteed Cheats is on, as every paid item.
-static const int kRevivePrice = 10000;
+// price is the one constant below: $25,000 (the owner, 2026-11-26), above the game's dearest purchase (the third career
+// room, $15,000) and Adoption Services ($4,000, a new child), since it brings back the same person. Free while Free and
+// Guaranteed Cheats is on, as every paid item.
+static const int kRevivePrice = 25000;
 static int RevivePrice() { return gFreeCheats ? 0 : kRevivePrice; }
 
 // vf1revive.cpp's REVIVE_* reasons, in words.

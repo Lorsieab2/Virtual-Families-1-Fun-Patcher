@@ -149,7 +149,8 @@ def test_the_family_tree_alone_marks_the_rest_unknown(folder):
     m = s.marks()
     assert s.source == rb.SOURCE_TREE
     assert (m["name"], m["sex"], m["head"], m["body"], m["family tree"]) == ("exact",) * 5
-    assert m["voice"] == m["likes"] == m["career"] == m["fertility"] == m["age at death"] == "unknown"
+    assert m["voice"] == m["likes"] == m["career"] == m["fertility"] == "unknown"
+    assert m["age at death"] == "unknown -> 18" and s.revive_units() == 360      # the owner: not refused, back at 18
 
 
 def test_the_log_alone_brings_a_childless_spouse_back(folder):

@@ -20,8 +20,8 @@ The backfill (read-only sources, in this order)
        villager's own values there);
     4. the Family History log (age at death in years, the cause, the generation, the family role) and the Names file
        (the whole name).
-    Every field of every snapshot is marked exact, inferred or unknown. A person whose age at death is unknown cannot
-    be revived (the game would not know the age to bring them back at).
+    Every field of every snapshot is marked exact, inferred or unknown. A person whose age at death is not found
+    anywhere is marked "unknown -> 18" and comes back at 18 (the owner, 2026-11-26).
 
     Only the dead are backfilled: the Family Tree's entries the game marked dead (slot -1) and the log's Death
     records; never a divorce, the Talent Scout or an eviction.
@@ -61,7 +61,7 @@ MAX_ENTRIES = gen.REVIVE_MAX
 
 # The entry, exactly as vf1revive.cpp's E_* table.
 E_STATE, E_SOURCE, E_MARKS, E_SLOT, E_ROLE, E_GENERATION, E_DEATH_NUMBER = 0, 4, 8, 16, 20, 24, 28
-E_TIME, E_REVIVED_SLOT = 32, 40
+E_TIME, E_REVIVED_SLOT, E_HOW = 32, 40, 44
 E_BIO, E_VSTATE, E_SKILLS, E_LIKES, E_PEEP, E_PARENT1, E_PARENT2, E_WHOLE = 48, 208, 360, 376, 400, 616, 832, 1048
 WHOLE_SIZE = 1204
 BIO_SIZE, VSTATE_SIZE, SKILLS_SIZE, LIKES_SIZE, PEEP_SIZE = 0xA0, 0x98, 0x10, 0x18, 0xD8
@@ -73,7 +73,8 @@ SOURCE_CAPTURED, SOURCE_STALE, SOURCE_OLDER, SOURCE_BACKUP, SOURCE_TREE, SOURCE_
 FIELDS = ("name", "sex", "head", "body", "voice", "name index", "parents", "likes", "dislikes", "career", "fertility",
           "wants kids", "age at death", "cause of death", "family tree", "whole name", "generation")
 UNKNOWN, INFERRED, EXACT = 0, 1, 2
-MARK_WORDS = {UNKNOWN: "unknown", INFERRED: "inferred", EXACT: "exact"}
+UNKNOWN_ADULT = 3                       # the age at death only: not found, so they come back at 18 (the owner, 2026-11-26)
+MARK_WORDS = {UNKNOWN: "unknown", INFERRED: "inferred", EXACT: "exact", UNKNOWN_ADULT: "unknown -> 18"}
 UNITS_PER_YEAR = vf1_save.AGE_UNITS_PER_YEAR
 REVIVE_ADULT_UNITS = 18 * UNITS_PER_YEAR          # died at 18 or older: back at exactly 18
 
@@ -197,7 +198,10 @@ class Snapshot:
         return i32(self.raw, E_ROLE)
 
     def revive_units(self) -> int:
-        """The age they come back at (vf1revive.cpp ReviveAge): 18 years for anyone who died at 18 or older."""
+        """The age they come back at (vf1revive.cpp ReviveAge): 18 years for anyone who died at 18 or older, and for
+        anyone whose age at death is not known."""
+        if self.mark("age at death") in (UNKNOWN, UNKNOWN_ADULT):
+            return REVIVE_ADULT_UNITS
         return min(max(self.age_units, 0), REVIVE_ADULT_UNITS)
 
     def key(self) -> tuple:
@@ -275,8 +279,8 @@ def build_entry(d: Dead, record: vf1_save.Villager | None, source: int, record_i
         elif record is not None and record.age_units >= REVIVE_ADULT_UNITS:
             marks["age at death"] = INFERRED
         else:
-            struct.pack_into("<i", raw, E_BIO, 0)
-            marks["age at death"] = UNKNOWN
+            struct.pack_into("<i", raw, E_BIO, REVIVE_ADULT_UNITS)
+            marks["age at death"] = UNKNOWN_ADULT              # not found anywhere: they come back at 18
         if d.cause is not None:
             struct.pack_into("<i", raw, E_VSTATE + 0x10, d.cause)
             marks["cause of death"] = EXACT

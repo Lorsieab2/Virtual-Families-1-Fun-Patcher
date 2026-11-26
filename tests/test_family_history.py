@@ -455,6 +455,13 @@ def test_a_revival_is_a_revived_record(built):
                                         "  Family role: (not in the Family Tree)", "  Generation: 1")
 
 
+def test_a_revived_spouse_whose_partner_remarried_is_logged_as_a_child_entry(built):
+    w = family(built)
+    w.set_villager(5, "Ola", 1, years=18, head=21, body=22, career=-1)
+    w.event(7, 5, 40 * 20, 6)                                # back as a family member in a child entry
+    assert "  Returned as: Family member (in the Family Tree as a child)\n" in find(w, "Revived 1")
+
+
 def test_leaving_home_at_19_uses_the_games_caption(built):
     w = family(built)
     w.set_villager(4, "Eve", 1, years=19, career=0)
