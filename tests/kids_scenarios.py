@@ -913,6 +913,27 @@ def scenario_long_path_set_aside(w: KidsWorld):
     assert good != b"damaged again"
 
 
+def scenario_revive_gives_an_extra_child_their_place_back(w: KidsWorld):
+    """vf1revive.dll's two calls: a child 7..28 is recognised at death, and when revived keeps the one place they had."""
+    w.start_family()
+    w.have_children(8)
+    name = w.e.alloc(32)
+    w.e.write(name, w.e.read(w.villager(9) + K.VILLAGER_NAME, 25))
+    is_extra = lambda slot, g: s32(w.e.call(w.e.dll_export("VF1Kids_IsExtraChild"), (slot, g, name)))  # noqa: E731
+    assert is_extra(9, w.e.r32(w.villager(9) + K.VILLAGER_GENDER)) == 1
+    assert is_extra(2, w.e.r32(w.villager(2) + K.VILLAGER_GENDER)) == 0          # a stock child is not an extra
+    gender = w.e.r32(w.villager(9) + K.VILLAGER_GENDER)
+    w.report_death(9)
+    w.set_active(9, 0)
+    assert {e[0]: e[2] for e in w.extras()}[9] == DEAD and w.surviving() == 7
+    revived = lambda old, new: s32(w.e.call(w.e.dll_export("VF1Kids_Revived"), (old, gender, name, new)))  # noqa: E731
+    w.set_villager(20, w.e.cstr(name), gender)                                    # back, in another slot
+    assert revived(9, 20) == 1
+    assert [(e[0], e[2]) for e in w.extras()] == [(8, ALIVE), (20, ALIVE)]
+    assert w.surviving() == 8 and w.children_export() == 8                         # no second place used
+    assert revived(9, 20) == 0                                                    # only a dead entry comes back
+
+
 ALL = [
     scenario_six_stock_then_extras, scenario_free_slots_cap, scenario_deaths_count_toward_28,
     scenario_rename_and_reused_slot, scenario_next_generation_candidates, scenario_six_or_fewer_is_stock,
@@ -921,7 +942,7 @@ ALL = [
     scenario_unreadable_backup_is_set_aside,
     scenario_foreign_backup_is_set_aside,
     scenario_shut_sidecar_is_retried_never_set_aside,
-    scenario_long_path_set_aside,
+    scenario_long_path_set_aside, scenario_revive_gives_an_extra_child_their_place_back,
 ]
 FACTORY = [scenario_births_near_the_limit, scenario_stock_odds_unchanged, scenario_limit_counts_lifetime_births]
 

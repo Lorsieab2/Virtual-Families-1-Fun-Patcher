@@ -2,7 +2,7 @@
 #pragma once
 /* The patches' lines vf1fun.dll hands swprintf as its FORMAT, by the hash in their key: a plain '%' of their
    translation is written as "%%" (translation_format.runtime_text). */
-#define VF1TR_PATCH_FORMAT_COUNT 38
+#define VF1TR_PATCH_FORMAT_COUNT 41
 static const unsigned int VF1TR_PATCH_FORMAT[] = {
     0x089244a8u,
     0x0d545b9fu,
@@ -23,6 +23,7 @@ static const unsigned int VF1TR_PATCH_FORMAT[] = {
     0x623d3b8cu,
     0x6c865fe5u,
     0x7547f722u,
+    0x86796557u,
     0x86d69203u,
     0x870f97d0u,
     0x877608cbu,
@@ -36,7 +37,9 @@ static const unsigned int VF1TR_PATCH_FORMAT[] = {
     0xb7c16f17u,
     0xb8e7c7d0u,
     0xbbc87e50u,
+    0xbc048d31u,
     0xd8c64ebcu,
+    0xddfb1ffdu,
     0xe4c96a38u,
     0xf06b2620u,
     0xf8c9ecc1u,

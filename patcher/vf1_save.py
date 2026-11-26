@@ -476,6 +476,14 @@ def file_owner(relative) -> tuple[int, str] | None:
                 kind = "unreadable children sidecar" if ".unreadable-" in name.lower() else "children sidecar"
                 return owner[0], f"{kind} ({owner[1]})"
         return None
+    if parts == [PATCHER_DATA.casefold(), "revive"]:     # vf1revive: the snapshots of the family's dead
+        m = _CHILDREN.match(name)
+        if m:
+            owner = slot_of_save_number(int(m.group(1)))
+            if owner and owner[0] >= 1:
+                kind = "unreadable revive sidecar" if ".unreadable-" in name.lower() else "revive sidecar"
+                return owner[0], f"{kind} ({owner[1]})"
+        return None
     if parts == [PATCHER_DATA.casefold(), "names"]:      # vf1_names: the whole names of the slot's long names
         m = re.match(r"^Virtual Families(\d+)\.ldw\.txt$", name, re.IGNORECASE)
         if m:

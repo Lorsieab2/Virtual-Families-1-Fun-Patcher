@@ -3,7 +3,7 @@
 enum { ID_FA_STATUS = 700, ID_FA_SAMESEX, ID_FA_REROLL, ID_FA_EMAIL, ID_FA_DIVORCE,
        ID_FA_FORCE, ID_FA_ANYGENDER, ID_FA_MALE, ID_FA_FEMALE, ID_FA_ANYCOUNT, ID_FA_SINGLE, ID_FA_TWINS,
        ID_FA_TRIPLETS, ID_FA_NAME, ID_FA_AGE, ID_FA_CHILD_BOY, ID_FA_CHILD_GIRL, ID_FA_ADOPT_BOY, ID_FA_ADOPT_GIRL,
-       ID_FA_NEWPERSON, ID_FA_EVICT };
+       ID_FA_NEWPERSON, ID_FA_EVICT, ID_FA_REVIVE };
 // gFamilyAction (vf1fun.cpp): ADOPT_EVICT or ADOPT_NEW_PERSON, carried out by the store once the dialogs close.
 
 static void RefreshFamily(HWND dlg) {
@@ -28,7 +28,120 @@ static void RefreshFamily(HWND dlg) {
           : (gVillage.armed & ARM_TRIPLETS) ? ID_FA_TRIPLETS : ID_FA_ANYCOUNT;
     CheckRadioButton(dlg, ID_FA_ANYCOUNT, ID_FA_TRIPLETS, c);
     EnableWindow(GetDlgItem(dlg, ID_FA_NEWPERSON), GameOver());
+    EnableWindow(GetDlgItem(dlg, ID_FA_REVIVE), ReviveCount != 0);
 }
+
+// ---------------------------------------------------------------- Revive a Family Member
+// Everyone who died (a snapshot in vf1revive.dll's file) and is not back yet: their name, age at death, cause, the age
+// they would come back at, whether every detail is exact, and why one cannot be brought back now.
+enum { ID_RV_MONEY = 740, ID_RV_LIST, ID_RV_INFO, ID_RV_REVIVE };
+
+static void ReviveLine(int i, const int *info, wchar_t *line, int cap) {
+    const char *cause = GetString(StringsGet(), 0x507 + 1 + (info[4] >= -1 && info[4] <= 4 ? info[4] : -1));
+    const wchar_t *why = ReviveRefusal(info[1]);
+    wchar_t died[24], back[24];
+    swprintf(died, 24, L"%d", info[3] / 20);       // years: 20 age units each
+    swprintf(back, 24, L"%d", info[8] / 20);
+    wchar_t causeText[64];
+    swprintf(causeText, 64, L"%.60ls", cause ? NameW(cause, 64) : L"");
+    swprintf(line, cap, TR(L"%.40ls\tdied at %ls, %ls\tback at %ls%ls"), NameW(ReviveName(i), 0x19),
+             info[10] ? died : L"?", causeText, info[10] ? back : L"?",
+             why ? TR(L"  (cannot now)") : info[7] ? L"" : TR(L"  (some details not known)"));
+}
+
+static void FillRevive(HWND dlg) {
+    wchar_t s[160];
+    int price = RevivePrice();
+    swprintf(s, 160, TR(L"Money: $%.0f     Price: $%d%s"), CurrentMoney(), price,
+             gFreeCheats ? TR(L"  (Free and Guaranteed Cheats: free)") : L"");
+    SetDlgItemTextW(dlg, ID_RV_MONEY, s);
+    HWND list = GetDlgItem(dlg, ID_RV_LIST);
+    int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+    SendMessageW(list, LB_RESETCONTENT, 0, 0);
+    int n = ReviveCount ? ReviveCount() : 0;
+    for (int i = 0; i < n; ++i) {
+        int info[11];
+        if (!ReviveInfo(i, info) || info[0] != 1) continue;           // the dead only (1); a revived one is not listed
+        wchar_t line[200];
+        ReviveLine(i, info, line, 200);
+        int row = (int)SendMessageW(list, LB_ADDSTRING, 0, (LPARAM)line);
+        SendMessageW(list, LB_SETITEMDATA, row, i);
+    }
+    int rows = (int)SendMessageW(list, LB_GETCOUNT, 0, 0);
+    if (rows <= 0) {
+        SetDlgItemTextW(dlg, ID_RV_INFO, TR(L"Nobody of this family has died since Revive was turned on, and the "
+                                            L"Tools tab's backfill found nobody before that."));
+        EnableWindow(GetDlgItem(dlg, ID_RV_REVIVE), FALSE);
+        return;
+    }
+    if (sel < 0 || sel >= rows) sel = 0;
+    SendMessageW(list, LB_SETCURSEL, sel, 0);
+    int info[11];
+    int i = (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+    ReviveInfo(i, info);
+    const wchar_t *why = ReviveRefusal(info[1]);
+    SetDlgItemTextW(dlg, ID_RV_INFO, why ? why
+                    : info[7] ? TR(L"Every detail of them is known: they come back exactly as they were.")
+                              : TR(L"Some details of them are not known (they died before Revive was on): those "
+                                   L"start fresh."));
+    EnableWindow(GetDlgItem(dlg, ID_RV_REVIVE), why == 0);
+}
+
+static const wchar_t *ReviveOutcome(int how) {
+    switch (how) {
+    case 1: case 2: return TR(L"They are back in the house, in their own place in the Family Tree.");
+    case 3: return TR(L"They are back in the house, in their own place in the Family Tree.");
+    case 4: return TR(L"They are back in the house, as the spouse again.");
+    }
+    return TR(L"They are back in the house as a family member, not in the Family Tree (their place there is taken).");
+}
+
+static INT_PTR CALLBACK ReviveProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
+    switch (msg) {
+    case WM_INITDIALOG: {
+        UseNameFont(dlg, ID_RV_LIST);
+        int stops[2] = { 100, 190 };
+        SendMessageW(GetDlgItem(dlg, ID_RV_LIST), LB_SETTABSTOPS, 2, (LPARAM)stops);
+        FillRevive(dlg);
+        return TRUE;
+    }
+    case WM_COMMAND: {
+        int id = LOWORD(wp);
+        if (id == ID_RV_LIST && HIWORD(wp) == LBN_SELCHANGE) {
+            FillRevive(dlg);
+        } else if (id == ID_RV_REVIVE) {
+            HWND list = GetDlgItem(dlg, ID_RV_LIST);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            if (sel < 0) return TRUE;
+            int i = (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            wchar_t text[240];
+            swprintf(text, 240, TR(L"Bring %.40ls back for $%d?"), NameW(ReviveName(i), 0x19), RevivePrice());
+            if (!Confirm(dlg, text)) return TRUE;
+            int how = 0;
+            const wchar_t *why = ReviveMember(i, &how);
+            Message(dlg, why ? why : ReviveOutcome(how));
+            FillRevive(dlg);
+        } else if (id == IDOK || id == IDCANCEL) {
+            EndDialog(dlg, 0);
+        }
+        return TRUE;
+    }
+    case WM_CLOSE: EndDialog(dlg, 0); return TRUE;
+    }
+    return FALSE;
+}
+
+static Template &ReviveTemplate() {
+    static Template t;
+    t.Begin(TR_N(L"Revive a Family Member"), 340, 196);
+    t.Item(STATIC, SS_LEFT, 10, 8, 320, 12, ID_RV_MONEY, L"");
+    t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 24, 320, 100, ID_RV_LIST, L"");
+    t.Item(STATIC, SS_LEFT, 10, 128, 320, 36, ID_RV_INFO, L"");
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 10, 172, 90, 16, ID_RV_REVIVE, TR_N(L"Bring them back"));
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 255, 172, 75, 16, IDOK, TR_N(L"Close"));
+    return t;
+}
+static void ShowRevive(HWND owner) { DialogBoxIndirectParamW(Module, ReviveTemplate().Get(), owner, ReviveProc, 0); }
 
 static void ReadArmed(HWND dlg) {
     int m = 0;
@@ -101,6 +214,10 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
                 EndDialog(dlg, 0);
             }
             break;
+        case ID_FA_REVIVE:
+            if (ReviveCount) ShowRevive(dlg);
+            RefreshFamily(dlg);
+            break;
         case IDOK: case IDCANCEL: EndDialog(dlg, 0); break;
         }
         return TRUE;
@@ -115,7 +232,7 @@ static INT_PTR CALLBACK FamilyProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
 static Template &FamilyTemplate() {
     static Template t;
     const DWORD check = BS_AUTOCHECKBOX | WS_TABSTOP, radio = BS_AUTORADIOBUTTON, push = BS_PUSHBUTTON | WS_TABSTOP;
-    t.Begin(TR_N(L"Family: Marriage, Babies and Children"), 300, 366);
+    t.Begin(TR_N(L"Family: Marriage, Babies and Children"), 300, 406);
     t.Item(STATIC, SS_LEFT, 10, 8, 280, 12, ID_FA_STATUS, L"");
     t.Item(BUTTON, BS_GROUPBOX, 6, 24, 288, 62, -1, TR_N(L"Marriage"));
     t.Item(BUTTON, check, 14, 36, 260, 12, ID_FA_SAMESEX, TR_N(L"Enable Same-Sex Marriage"));
@@ -148,9 +265,12 @@ static Template &FamilyTemplate() {
     t.Item(BUTTON, push, 152, 216, 134, 16, ID_FA_CHILD_GIRL, TR_N(L"Spawn child in house (female)"));
     t.Item(BUTTON, push, 14, 236, 272, 16, ID_FA_ADOPT_BOY, TR_N(L"Spawn outside child in house (male)"));
     t.Item(BUTTON, push, 14, 256, 272, 16, ID_FA_ADOPT_GIRL, TR_N(L"Spawn outside child in house (female)"));
-    t.Item(BUTTON, BS_GROUPBOX, 6, 282, 288, 56, -1, TR_N(L"Start again"));
-    t.Item(BUTTON, push, 14, 296, 272, 16, ID_FA_NEWPERSON, TR_N(L"Adopt New Person (the game's Adoption screen; after a game over)"));
-    t.Item(BUTTON, push, 14, 316, 272, 16, ID_FA_EVICT, TR_N(L"Evict Family (everyone leaves the house)..."));
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 344, 75, 16, IDOK, TR_N(L"Close"));    return t;
+    // Revive a Family Member (the Revive setting): only someone who died, never one who divorced, left or was evicted.
+    t.Item(BUTTON, BS_GROUPBOX, 6, 282, 288, 36, -1, TR_N(L"Bring back the dead"));
+    t.Item(BUTTON, push, 14, 296, 272, 16, ID_FA_REVIVE, TR_N(L"Revive a Family Member (someone who died comes back)..."));
+    t.Item(BUTTON, BS_GROUPBOX, 6, 322, 288, 56, -1, TR_N(L"Start again"));
+    t.Item(BUTTON, push, 14, 336, 272, 16, ID_FA_NEWPERSON, TR_N(L"Adopt New Person (the game's Adoption screen; after a game over)"));
+    t.Item(BUTTON, push, 14, 356, 272, 16, ID_FA_EVICT, TR_N(L"Evict Family (everyone leaves the house)..."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 219, 384, 75, 16, IDOK, TR_N(L"Close"));    return t;
 }
 static void ShowFamily(HWND owner) { DialogBoxIndirectParamW(Module, FamilyTemplate().Get(), owner, FamilyProc, 0); }

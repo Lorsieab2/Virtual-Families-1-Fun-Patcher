@@ -45,7 +45,7 @@ LABEL = 0x13594
 
 PAGES = ["UpgradesTemplate", "CheatsTemplate", "VillagerCheatsTemplate", "FleaMarketTemplate",
          "StoreCheatsTemplate", "HouseTemplate", "PurchasesTemplate", "TimeTemplate", "FamilyTemplate",
-         "AppearanceTemplate", "ServicesTemplate", "AchievementsTemplate"]
+         "AppearanceTemplate", "ServicesTemplate", "AchievementsTemplate", "ReviveTemplate"]
 
 HARNESS = r'''
 #include "@SOURCE@"

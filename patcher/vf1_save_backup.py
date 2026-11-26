@@ -485,8 +485,7 @@ def _rematch_children(staging: Path, result: BackupResult, paused_saves: list[tu
         for path, old, new in gen.children_rekeys(staging, int(match.group(2)), [(original, paused)], match.group(1)):
             sidecar = path.relative_to(staging)
             _write_save(path, new, old)
-            check = gen.read_children_sidecar(path.read_bytes())
-            if check is None or check.save_hash != gen.fnv1a64(paused) or check.save_size != len(paused):
+            if gen.sidecar_key(path.read_bytes()) != (gen.fnv1a64(paused), len(paused)):
                 raise BackupError(f"The backup's {path.name} did not match the paused copy of {relative.name}.")
             result.unpaused_bytes[sidecar] = old
             result.rematched_children.append(sidecar.name)

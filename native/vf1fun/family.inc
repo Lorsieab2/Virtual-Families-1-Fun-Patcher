@@ -326,6 +326,42 @@ static const wchar_t *AdoptOutsideChild(int gender, int years, const wchar_t *na
     return 0;
 }
 
+// ---------------------------------------------------------------- Revive a Family Member
+// vf1revive.dll (the Revive setting) keeps a snapshot of everyone who died; this brings one back, for money. The
+// price is the one constant below (the owner confirms it before a release): $10,000, between the second career room
+// ($5,000) and the third ($15,000, the game's dearest purchase), well above Adoption Services ($4,000, a new child),
+// since it brings back the same person. Free while Free and Guaranteed Cheats is on, as every paid item.
+static const int kRevivePrice = 10000;
+static int RevivePrice() { return gFreeCheats ? 0 : kRevivePrice; }
+
+// vf1revive.cpp's REVIVE_* reasons, in words.
+static const wchar_t *ReviveRefusal(int why) {
+    switch (why) {
+    case 0: return 0;
+    case 1: return TR(L"They are not dead (they were brought back already).");
+    case 2: return TR(L"They are of an earlier generation: only the current generation can be revived for now.");
+    case 3: return TR(L"They are alive in the house.");
+    case 4: return TR(L"The house is full.");
+    case 5: return TR(L"Their age at death is not known, so they cannot be brought back.");
+    case 8: return TR(L"There is no family yet.");
+    }
+    return TR(L"They could not be brought back. Nothing was changed.");
+}
+
+// Brings snapshot `i` back and charges the price; 0 when done, or the reason (nothing charged).
+static const wchar_t *ReviveMember(int i, int *how) {
+    int info[11];
+    if (!ReviveCount || !ReviveInfo(i, info)) return TR(L"There is no such family member.");
+    if (const wchar_t *why = ReviveRefusal(info[1])) return why;
+    int price = RevivePrice();
+    if (CurrentMoney() < price) return TR(L"You don't have enough money for that.");
+    int slot = ReviveDo(i, how);
+    if (slot < 0) return ReviveRefusal(-slot);
+    if (price) MoneyAdjust(Money, (float)-price, false);
+    LogFamilyEvent(LOGS_REVIVED, slot, info[3], *how);   // the age at death, and how they came back
+    return 0;
+}
+
 // ---------------------------------------------------------------- Evict Family and Adopt New Person
 // Both open the game's own new-family adoption screen (CAdoptionScene with
 // +0x10 = 0, scene 7), as Next Generation opens it (0x43926C..0x43927A). On

@@ -444,6 +444,17 @@ def test_the_patchers_children_who_join(built):
             "      Head: 7\n      Body: 8\n") in find(w, "Arrived 2")
 
 
+def test_a_revival_is_a_revived_record(built):
+    # vf1fun's Revive a Family Member (vf1revive.dll): the person back, the age they died at and how they came back.
+    w = family(built)
+    w.set_villager(5, "Ola", 1, years=18, head=21, body=22, career=-1)
+    w.event(7, 5, 71 * 20 + 7, 5)                            # died at 71, back as a family member
+    assert find(w, "Revived 1") == body(STAMP + "Revived 1", "  Name: Ola", "  Age: 18", "  Sex: Female", "  Head: 21",
+                                        "  Body: 22", "  Age at death: 71", "  How: Revive a Family Member",
+                                        "  Returned as: Family member (not in the Family Tree)",
+                                        "  Family role: (not in the Family Tree)", "  Generation: 1")
+
+
 def test_leaving_home_at_19_uses_the_games_caption(built):
     w = family(built)
     w.set_villager(4, "Eve", 1, years=19, career=0)
