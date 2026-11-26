@@ -169,6 +169,17 @@ Copy Player Slot (Tools tab, only when you use it)
   Family Tree files).
 - Changes in Virtual Families0.ldw only the new slot's name and its in-use flag, last.
 - Never writes the family it copies or any other slot. If anything fails, every file is put back.
+- Move (only when you choose it): first copies the whole save folder into Backups\Backup <date> (before move),
+  moves what the target slot held into Backups\Replaced by move <date> - Save <N> - <old name>\, then moves
+  (renames, never over another file) every file of the family's slot to the target slot's names: the three
+  Virtual Families<n>.ldw, Slot <N>.ini, the Children, Outfits and Names files, and the whole
+  Virtual Families 1 Patcher\Save <N>\ folder. Only the slot number changes inside a file (a Family History
+  file's first line, a Family Tree file's "slot"). In Virtual Families0.ldw it sets the target's name and
+  in-use flag and clears the old slot's in-use flag, last. If anything fails, every file is put back.
+- Delete (only when you choose it, after two Yes answers): sends every file of one slot, including its files
+  inside each backup in Backups, to the Windows Recycle Bin (never a permanent delete: a drive with no
+  Recycle Bin is refused); a folder holding only 30 or more of the slot's files goes as one Recycle Bin
+  entry. Pictures are kept. Then clears that slot's in-use flag in Virtual Families0.ldw. It makes no backup.
 
 Written by the modded game itself
 ---------------------------------

@@ -257,10 +257,11 @@ def leftovers(folder: Path, slot: int) -> list[Path]:
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
-def set_aside_folder(folder: Path, when: datetime, slot: int, old_name: str | None) -> Path:
-    """A new "Backups\\Replaced by copy <date> - Save <N> - <old name>" folder name (not made yet)."""
+def set_aside_folder(folder: Path, when: datetime, slot: int, old_name: str | None, prefix: str = REPLACED) -> Path:
+    """A new "Backups\\Replaced by copy <date> - Save <N> - <old name>" folder name (not made yet); Move Player Slot
+    passes its own ``prefix`` ("Replaced by move")."""
     name = _UNSAFE.sub("_", old_name or "").strip(" .") or "(no name)"
-    base = f"{REPLACED} {when.strftime('%Y-%m-%d %H-%M-%S')} - Save {slot} - {name}"
+    base = f"{prefix} {when.strftime('%Y-%m-%d %H-%M-%S')} - Save {slot} - {name}"
     backups = folder / save_backup.BACKUPS_FOLDER
     for attempt in range(1, 1000):
         candidate = backups / (base if attempt == 1 else f"{base} ({attempt})")

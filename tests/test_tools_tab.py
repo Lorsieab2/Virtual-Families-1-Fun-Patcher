@@ -491,6 +491,147 @@ def test_copy_player_slot_declined_or_running_changes_nothing(app, save, monkeyp
     host.destroy()
 
 
+# ------------------------------------------------------------------ Copy Player Slot: Move and Delete
+
+
+def test_move_asks_to_replace_then_shows_every_file_and_moves_only_after_both_yes(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    import vf1_move_slot as ms
+    copy_form_saves(save)
+    before = snapshot(save)
+    asked, previews = [], []
+    answers = {"slot": False, "preview": False}
+    monkeypatch.setattr(app, "_ask_slot", lambda parent, title, text: asked.append((title, text)) or answers["slot"])
+    monkeypatch.setattr(app, "_ask_preview", lambda parent, title, message, lines, question:
+                        previews.append((title, message, lines, question)) or answers["preview"])
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_mode_var.set("move")
+    assert str(dialog._vf1_copy_button.cget("text")) == "Move"
+    assert dialog._vf1_counter_var.get() == "(the family keeps its name)"
+    dialog._vf1_choose(0, 1)                                          # Smith into Save 2, which holds Jones
+    assert dialog._vf1_problem_var.get() == "" and str(dialog._vf1_copy_button.cget("state")) == "normal"
+    dialog._vf1_start()                                               # No to replacing Jones
+    assert asked == [("Move Player Slot", gui.move_replace_text(save, "Smith", 1, 2, "Jones"))]
+    assert asked[0][1].startswith("Save 2 holds the Jones family. It will be replaced by Smith, moved from Save 1 "
+                                  "with all its files.")
+    assert previews == [] and snapshot(save) == before and not (save / "Backups").exists()
+    answers["slot"] = True
+    dialog._vf1_start()                                               # Yes, then No to the list
+    title, message, lines, question = previews[-1]
+    assert title == "Move Player Slot" and question == "Move it?"
+    assert message.startswith("Smith will move from Save 1 to Save 2, keeping its name,")
+    assert "Virtual Families1.ldw  ->  Virtual Families2.ldw" in lines
+    assert any(line.startswith("Kept in Backups\\Replaced by move <date>:  Virtual Families2.ldw") for line in lines)
+    assert snapshot(save) == before and not (save / "Backups").exists()
+    assert app.status_var.get() == "Move Player Slot: nothing was moved."
+    answers["preview"] = True
+    dialog._vf1_start()
+    slots = {s.slot: s for s in cs.read_slots(save)}
+    assert slots[1].empty and slots[2].name == "Smith"
+    assert len(list((save / "Backups").glob(f"{ms.REPLACED} * - Save 2 - Jones"))) == 1
+    assert sb.list_backups(save)[0].before_move
+    assert app.status_var.get() == "Move Player Slot: Smith moved from Save 1 to Save 2."
+    assert app.shown[-1][0] == "showinfo" and "Save 1 is empty" in app.shown[-1][1][1]
+    dialog.destroy()
+
+
+def test_move_into_an_empty_slot_has_one_question_over_the_list(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    copy_form_saves(save)
+    asked, previews = [], []
+    monkeypatch.setattr(app, "_ask_slot", lambda parent, title, text: asked.append(text) or True)
+    monkeypatch.setattr(app, "_ask_preview", lambda parent, title, message, lines, question:
+                        previews.append(lines) or True)
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_mode_var.set("move")
+    dialog._vf1_choose(1, 4)                                          # Jones into Save 5
+    dialog._vf1_start()
+    assert asked == [] and len(previews) == 1
+    assert {s.slot: s.name for s in cs.read_slots(save)} == {1: "Smith", 2: None, 3: None, 4: None, 5: "Jones"}
+    dialog.destroy()
+
+
+def test_delete_shows_every_file_then_asks_again_and_recycles_only_after_both_yes(app, save, monkeypatch):
+    import vf1_copy_slot as cs
+    import vf1_delete_slot as ds
+    copy_form_saves(save)
+    (save / "Virtual Families - Modded1.ldw").unlink()                # the fixture's other files are not slots
+    (save / "Virtual Families - Modded2.ldw").unlink()
+    tree = save / "Virtual Families 1 Patcher" / "Save 2" / "Family Tree"
+    tree.mkdir(parents=True)
+    (tree / "Virtual Families 1 Family Tree - Save 2.png").write_bytes(b"\x89PNG")
+    (tree / "Virtual Families 1 Family Tree - Save 2.txt").write_bytes(b"report")
+    before = snapshot(save)
+    recycled = []
+
+    def fake_bin(paths):                                              # never the real Recycle Bin
+        for path in paths:
+            assert path.resolve().is_relative_to(save.resolve())
+            recycled.append(path)
+            path.unlink()
+
+    monkeypatch.setattr(ds, "_shell", fake_bin)
+    warmed = []
+    monkeypatch.setattr(ds, "warm_recycle_bin", warmed.append)      # the drive question, asked during the list
+    monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
+    asked, previews = [], []
+    answers = {"slot": False, "preview": False}
+    monkeypatch.setattr(app, "_ask_slot", lambda parent, title, text: asked.append((title, text)) or answers["slot"])
+    monkeypatch.setattr(app, "_ask_preview", lambda parent, title, message, lines, question:
+                        previews.append((title, message, lines, question)) or answers["preview"])
+    dialog = app._show_copy_dialog(app._save_folders()[1])
+    dialog._vf1_mode_var.set("delete")
+    assert str(dialog._vf1_copy_button.cget("text")) == "Delete"
+    assert dialog._vf1_source_list.get(0, "end") == ("Save 1: Smith", "Save 2: Jones")
+    assert str(dialog._vf1_target_list.cget("state")) == "disabled"
+    dialog._vf1_source_list.selection_clear(0, "end")
+    dialog._vf1_source_list.selection_set(1)
+    dialog._vf1_start()                                               # No to the list
+    title, message, lines, question = previews[-1]
+    assert title == "Delete Player Slot" and question == "Delete it?"
+    assert message.startswith("Every file of Save 2 (Jones) goes to the Recycle Bin:")
+    assert "No new backup is made" in message and "1 picture(s) kept" in message
+    assert "Recycled:  Virtual Families2.ldw" in lines
+    assert any(line.startswith("Kept (pictures):  ") for line in lines)
+    assert asked == [] and snapshot(save) == before and not recycled
+    assert warmed == [save]
+    answers["preview"] = True
+    dialog._vf1_start()                                               # Yes to the list, No to the second question
+    assert asked[-1] == ("Delete Player Slot", "Delete Jones from Save 2? Its 2 file(s), in this save folder and in "
+                                               "its backups, go to the Recycle Bin. Delete it?")
+    assert snapshot(save) == before and not recycled
+    assert app.status_var.get() == "Delete Player Slot: nothing was deleted."
+    answers["slot"] = True
+    dialog._vf1_start()                                               # Yes to both
+    assert {p.name for p in recycled} == {"Virtual Families2.ldw", "Virtual Families 1 Family Tree - Save 2.txt"}
+    assert (tree / "Virtual Families 1 Family Tree - Save 2.png").is_file()
+    slots = {s.slot: s for s in cs.read_slots(save)}
+    assert slots[2].empty and slots[1].name == "Smith" and not (save / "Backups").exists()
+    assert app.status_var.get() == "Delete Player Slot: Save 2 sent to the Recycle Bin."
+    assert dialog._vf1_source_list.get(0, "end") == ("Save 1: Smith",)
+    dialog.destroy()
+
+
+def test_the_preview_prompt_says_no_by_default(app, save):
+    host = tk.Toplevel(app.root)
+    host.update()
+    for key in ("<Return>", "<Escape>"):
+        prompt = app._preview_prompt(host, "Move Player Slot", "Move?", ["a  ->  b"], "Move it?")
+        prompt.update()
+        assert str(prompt._vf1_no.cget("default")) == "active" and prompt._vf1_lines == ["a  ->  b"]
+        prompt._vf1_no.focus_force()
+        prompt.update()
+        prompt._vf1_no.event_generate(key)
+        prompt.update()
+        assert prompt._vf1_answer == {"yes": False} and not prompt.winfo_exists()
+    prompt = app._preview_prompt(host, "Delete Player Slot", "Delete?", [], "Delete it?")
+    prompt._vf1_yes.invoke()
+    assert prompt._vf1_answer == {"yes": True}
+    host.destroy()
+
+
 # ------------------------------------------------------------------ Game Speed
 
 
