@@ -26,8 +26,9 @@
 // then the snapshot's persistent fields are written over it and read back (all or none: on any difference the new
 // villager is taken away again). The Family Tree: a child of the current generation gets their own entry back (its
 // villager slot); a parent gets their entry back, or the empty spouse place when it is still empty and their partner
-// is still the other parent; a spouse whose partner has remarried returns as a family member, not a spouse (in the
-// house, not in the Family Tree).
+// is still the other parent; a spouse whose partner has remarried returns as a family member, not a spouse, in a child
+// entry of the generation (as the Virtual Families 2 patcher). A revived parent or spouse with no career stays at home
+// as a grown-up: the ageing pass's at-19 college exit is not taken for them (HasCareerAt19 below).
 //
 // vf1fun.dll loads this DLL (while the Revive setting is on) after vf1kids.dll and vf1logs.dll and calls
 // VF1Revive_Startup() once. Installing is: setting -> verify every pin (vf1revive_sites.h, proved by
@@ -204,7 +205,7 @@ enum {
     E_DEATH_NUMBER = 28,   // the Family History log's "Death <n>", 0 when not known
     E_TIME = 32,           // u64 FILETIME of the capture, 0 for a backfill
     E_REVIVED_SLOT = 40,   // the slot they came back in, -1 while dead
-    E_RESERVED = 44,
+    E_HOW = 44,            // how they came back (BACK_*), 0 while dead
     E_BIO = 48,            // CVillagerBio, 0xA0 bytes (age, sex, name index, voice, name, head, body, parents)
     E_VSTATE = 208,        // CVillagerState, 0x98 bytes (health, cause, fertility, "Wants kids?", the moods)
     E_SKILLS = 360,        // career, level, +8, salary
@@ -221,7 +222,8 @@ enum { SOURCE_CAPTURED = 1 };
 enum { FIELD_NAME, FIELD_SEX, FIELD_HEAD, FIELD_BODY, FIELD_VOICE, FIELD_NAME_INDEX, FIELD_PARENTS, FIELD_LIKES,
        FIELD_DISLIKES, FIELD_CAREER, FIELD_FERTILITY, FIELD_WANTS_KIDS, FIELD_AGE, FIELD_CAUSE, FIELD_TREE,
        FIELD_WHOLE_NAME, FIELD_GENERATION, FIELD_COUNT };
-enum { MARK_UNKNOWN = 0, MARK_INFERRED = 1, MARK_EXACT = 2 };
+// MARK_UNKNOWN_ADULT: the age at death only, when the backfill could not find it: "unknown -> 18".
+enum { MARK_UNKNOWN = 0, MARK_INFERRED = 1, MARK_EXACT = 2, MARK_UNKNOWN_ADULT = 3 };
 enum { BIO_AGE = 0, BIO_SEX = 4, BIO_NAME_INDEX = 8, BIO_VOICE = 0xC, BIO_NAME = 0x10, BIO_HEAD = 0x2C, BIO_BODY = 0x30,
        BIO_PARENTS = 0x34, BIO_PARENTS_SIZE = 0x44, ST_CAUSE = 0x10, ST_FERTILITY = 0x4C, ST_WANTS_KIDS = 0x50 };
 static const unsigned kMaxEntries = 64;
@@ -716,16 +718,92 @@ static bool __fastcall GameStateSave(void *state, void *, int slot) {
 enum { REVIVE_OK = 0, REVIVE_NOT_DEAD = 1, REVIVE_EARLIER_GENERATION = 2, REVIVE_ALIVE = 3, REVIVE_HOUSE_FULL = 4,
        REVIVE_AGE_UNKNOWN = 5, REVIVE_NO_SUCH = 6, REVIVE_FAILED = 7, REVIVE_NO_FAMILY = 8 };
 // How they came back.
-enum { BACK_CHILD = 1, BACK_EXTRA_CHILD = 2, BACK_PARENT = 3, BACK_SPOUSE = 4, BACK_FAMILY_MEMBER = 5 };
+// BACK_FAMILY_MEMBER: in the house, in no Family Tree entry (the generation's child entries are all taken);
+// BACK_CHILD_ENTRY: a family member (a spouse whose partner remarried) given a child entry of the generation, as the
+// Virtual Families 2 patcher does (the owner, 2026-11-26).
+enum { BACK_CHILD = 1, BACK_EXTRA_CHILD = 2, BACK_PARENT = 3, BACK_SPOUSE = 4, BACK_FAMILY_MEMBER = 5,
+       BACK_CHILD_ENTRY = 6 };
 
 // The age they come back at, in the game's own age units: died at 18 or older -> exactly 18 (360 units); younger ->
-// the age they died at.
+// the age they died at; an age at death the backfill could not find ("unknown -> 18", the owner) -> 18.
 static int ReviveAge(const unsigned char *e) {
     int age = I32(e, E_BIO + BIO_AGE);
     int adult = (int)(REV_REVIVE_ADULT_YEARS * REV_UNITS_PER_YEAR);
+    unsigned mark = Mark(e, FIELD_AGE);
+    if (mark == MARK_UNKNOWN || mark == MARK_UNKNOWN_ADULT) return adult;
     if (age < 0) age = 0;
     return age >= adult ? adult : age;
 }
+
+// ---- the at-19 rule: a revived spouse or parent with no career is a grown-up who stays at home
+// The ageing pass sends a 19-year-old (380 units) with no career away to college: at 0x489EAC it asks
+// CVillagerSkills::HasCareer and leaves only on 0 (0x489EB1 test eax / jne past the leaving). This call, and only
+// this one, answers "has a career" for someone this DLL brought back as a parent or spouse of the family (the owner,
+// 2026-11-26): they are not sent to college. Every other HasCareer call (the matriarch and patriarch, jobs, salary)
+// is the game's own, so nothing else about them changes.
+typedef int (__thiscall *HasCareerFn)(void *skills);
+static HasCareerFn NextHasCareerAt19;
+
+static bool RevivedGrownUp(const unsigned char *v, int slot) {
+    if (!v || !v[REV_VILLAGER_PRESENT]) return false;
+    for (unsigned i = 0; i < EntryCount; ++i) {
+        const unsigned char *e = Entries[i];
+        int role = I32(e, E_ROLE);
+        if (I32(e, E_STATE) == STATE_REVIVED && I32(e, E_REVIVED_SLOT) == slot && (role == 0 || role == 1)
+            && NameEquals((const char *)(v + REV_VILLAGER_NAME), (const char *)(e + E_BIO + BIO_NAME))
+            && I32(v, REV_VILLAGER_GENDER) == I32(e, E_BIO + BIO_SEX))
+            return true;
+    }
+    return false;
+}
+
+static int __fastcall HasCareerAt19(void *skills, void *) {
+    const unsigned char *v = (const unsigned char *)skills - REV_VILLAGER_SKILLS;
+    int slot = SlotOf(v);
+    int has = NextHasCareerAt19(skills);
+    if (!has && slot >= 0 && RevivedGrownUp(v, slot)) return 1;
+    return has;
+}
+
+// ---- babies: a revived spouse or parent with no career can be the mother or father of a pregnancy (the owner,
+// 2026-11-26). The game lets only villagers with a career have a baby, in two places, and only those are changed:
+//   * a drop on the spouse (0x44123D, 0x441250): both must have a career -- the same answer as at 19;
+//   * the try-for-a-baby step (0x48EB40, 0x48EB4C): the mother is GetMatriarch, the father GetPatriarch -- the first
+//     villager in slot order at home, present, alive, with a career, of that sex. Here the same rule is run with
+//     "has a career" true for a revived grown-up too. With no revived grown-up in the house the game's own function
+//     answers (what was there: the stock one, or a companion's wrapper).
+// GetMatriarch and GetPatriarch's other callers (the events, the dating scene, the Family page) are not changed.
+typedef void *(__thiscall *PickFn)(void *manager);
+static PickFn NextMother, NextFather;
+static HasCareerFn NextPairA, NextPairB;
+
+static int __fastcall HasCareerPairA(void *skills, void *) {
+    const unsigned char *v = (const unsigned char *)skills - REV_VILLAGER_SKILLS;
+    int has = NextPairA(skills), slot = SlotOf(v);
+    return !has && slot >= 0 && RevivedGrownUp(v, slot) ? 1 : has;
+}
+
+static int __fastcall HasCareerPairB(void *skills, void *) {
+    const unsigned char *v = (const unsigned char *)skills - REV_VILLAGER_SKILLS;
+    int has = NextPairB(skills), slot = SlotOf(v);
+    return !has && slot >= 0 && RevivedGrownUp(v, slot) ? 1 : has;
+}
+
+static void *Parent(void *manager, int sex, PickFn next) {
+    bool any = false;
+    for (int s = 0; s < (int)REV_HOUSEHOLD_SLOTS && !any; ++s) any = RevivedGrownUp(Villager(s), s);
+    if (!any) return next(manager);
+    for (int s = 0; s < (int)REV_HOUSEHOLD_SLOTS; ++s) {
+        unsigned char *v = Villager(s);
+        if (!v[REV_VILLAGER_PRESENT] || v[REV_VILLAGER_LEFT_HOME] || I32(v, REV_VILLAGER_HEALTH) <= 0) continue;
+        if (!((HasCareerFn)REV_V_HAS_CAREER)(v + REV_VILLAGER_SKILLS) && !RevivedGrownUp(v, s)) continue;
+        if (I32(v, REV_VILLAGER_GENDER) == sex) return v;
+    }
+    return 0;
+}
+
+static void *__fastcall BabyMother(void *manager, void *) { return Parent(manager, 1, NextMother); }
+static void *__fastcall BabyFather(void *manager, void *) { return Parent(manager, 0, NextFather); }
 
 // Their generation is the current one: the same generation number, and the family's parent 1 is still the one
 // recorded at the death, or (a founder who died childless: the spouse took the founder's place) the spouse recorded.
@@ -760,7 +838,6 @@ static int Check(unsigned i) {
     if (!CurrentFamily()) return REVIVE_NO_FAMILY;
     if (!CurrentGeneration(e)) return REVIVE_EARLIER_GENERATION;
     if (AliveNow(e)) return REVIVE_ALIVE;
-    if (Mark(e, FIELD_AGE) == MARK_UNKNOWN) return REVIVE_AGE_UNKNOWN;
     if (FreePlaces() <= 0) return REVIVE_HOUSE_FULL;
     return REVIVE_OK;
 }
@@ -802,7 +879,7 @@ static void TakeAway(unsigned char *v) {
 }
 
 // The Family Tree: their place again where it still waits for them; otherwise a family member.
-static int ReplaceInTree(const unsigned char *e, int slot, const char *stored) {
+static int OwnPlace(const unsigned char *e, int slot, const char *stored) {
     unsigned char *rec = CurrentFamily();
     const char *name = (const char *)(e + E_BIO + BIO_NAME);
     int sex = I32(e, E_BIO + BIO_SEX), role = I32(e, E_ROLE);
@@ -847,6 +924,18 @@ static int ReplaceInTree(const unsigned char *e, int slot, const char *stored) {
     return BACK_FAMILY_MEMBER;
 }
 
+// A family member with no place of their own waiting (a spouse whose partner remarried) gets a child entry of the
+// generation, made by the game's own CFamilyTree::AddOffspring (through Up to 28 Children's hook when it is installed,
+// so a 7th to 28th place is used the same way); only when the generation has no child place left are they in the house
+// outside the Family Tree.
+typedef bool (__thiscall *AddOffspringFn)(void *tree, void *villager);
+
+static int ReplaceInTree(const unsigned char *e, int slot, const char *stored) {
+    int how = OwnPlace(e, slot, stored);
+    if (how != BACK_FAMILY_MEMBER || !CurrentFamily()) return how;
+    return ((AddOffspringFn)REV_FT_ADD_OFFSPRING)(Tree(), Villager(slot)) ? BACK_CHILD_ENTRY : BACK_FAMILY_MEMBER;
+}
+
 static int Revive(unsigned i, int *how) {
     int why = Check(i);
     if (why != REVIVE_OK) return -why;
@@ -880,6 +969,7 @@ static int Revive(unsigned i, int *how) {
     *how = ReplaceInTree(e, slot, stored);
     W32(e, E_STATE, STATE_REVIVED);
     W32(e, E_REVIVED_SLOT, slot);
+    W32(e, E_HOW, *how);
     ++VF1Revive_Status.revived;
     return slot;
 }
@@ -904,7 +994,7 @@ extern "C" __declspec(dllexport) int __cdecl VF1Revive_Info(int i, int *out) {
     out[7] = exact ? 1 : 0;
     out[8] = ReviveAge(e);
     out[9] = I32(e, E_SOURCE);
-    out[10] = Mark(e, FIELD_AGE) != MARK_UNKNOWN ? 1 : 0;
+    out[10] = Mark(e, FIELD_AGE) == MARK_EXACT || Mark(e, FIELD_AGE) == MARK_INFERRED ? 1 : 0;
     return 1;
 }
 
@@ -941,7 +1031,9 @@ static bool PinsMatch() {
         const RevivePin &p = REV_PINS[i];
         if (p.va < 0x401000u || p.va + p.len > end) return false;
         const unsigned char *live = (const unsigned char *)p.va;
-        for (unsigned k = 0; k < p.len; ++k)
+        // AddOffspring's entry may hold Up to 28 Children's 5-byte jmp out of the executable (vf1kids.dll hooks it).
+        unsigned from = p.va == REV_FT_ADD_OFFSPRING && live[0] == 0xE9 && !InExe(JumpTarget(p.va)) ? 5u : 0u;
+        for (unsigned k = from; k < p.len; ++k)
             if (!p.mask[k] && live[k] != p.bytes[k]) return false;
     }
     return true;
@@ -949,13 +1041,34 @@ static bool PinsMatch() {
 
 struct Write5 { unsigned va; unsigned char bytes[5]; unsigned char original[5]; };
 struct Plan {
-    Write5 writes[2];
+    Write5 writes[7];
     unsigned count;
     unsigned load, save;       // theGameState's Load and Save slots: the values they hold now
 };
 
 static void *CallHandler(unsigned i) {
-    return i == REV_CALL_DEATH_END ? (void *)&DeathEndHook : (void *)&BodyRemovalHook;
+    switch (i) {
+    case REV_CALL_DEATH_END: return (void *)&DeathEndHook;
+    case REV_CALL_BODY_REMOVAL: return (void *)&BodyRemovalHook;
+    case REV_CALL_AT_19_CAREER: return (void *)&HasCareerAt19;
+    case REV_CALL_BABY_MOTHER: return (void *)&BabyMother;
+    case REV_CALL_BABY_FATHER: return (void *)&BabyFather;
+    case REV_CALL_PAIR_CAREER_A: return (void *)&HasCareerPairA;
+    case REV_CALL_PAIR_CAREER_B: return (void *)&HasCareerPairB;
+    }
+    return 0;
+}
+
+static void SetCallNext(unsigned i, unsigned target) {
+    switch (i) {
+    case REV_CALL_DEATH_END: NextDeathEnd = (ReportDeathFn)target; break;
+    case REV_CALL_BODY_REMOVAL: NextBodyRemoval = (ReportDeathFn)target; break;
+    case REV_CALL_AT_19_CAREER: NextHasCareerAt19 = (HasCareerFn)target; break;
+    case REV_CALL_BABY_MOTHER: NextMother = (PickFn)target; break;
+    case REV_CALL_BABY_FATHER: NextFather = (PickFn)target; break;
+    case REV_CALL_PAIR_CAREER_A: NextPairA = (HasCareerFn)target; break;
+    case REV_CALL_PAIR_CAREER_B: NextPairB = (HasCareerFn)target; break;
+    }
 }
 
 static bool PlanHooks(Plan &plan) {
@@ -965,7 +1078,7 @@ static bool PlanHooks(Plan &plan) {
         if (*(const unsigned char *)h.site != 0xE8) return false;
         unsigned now = JumpTarget(h.site);
         if (now != h.target && InExe(now)) return false;     // the stock function, or a companion's wrapper of it
-        if (i == REV_CALL_DEATH_END) NextDeathEnd = (ReportDeathFn)now; else NextBodyRemoval = (ReportDeathFn)now;
+        SetCallNext(i, now);
         Write5 &w = plan.writes[plan.count++];
         w.va = h.site;
         w.bytes[0] = 0xE8;

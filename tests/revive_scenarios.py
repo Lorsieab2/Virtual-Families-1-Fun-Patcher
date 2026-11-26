@@ -74,8 +74,9 @@ class ReviveWorld(HistoryWorld):
         e = self.e
         plain = e.seam_live
         # The Family History harness's own SpawnPeepFull stand-in (a baby's) is not installed: two hooks at one
-        # address would both return. This world's stand-in, below, is the creator at any age.
-        e.seam_live = lambda addr, fn: None if addr == 0x48B2E0 else plain(addr, fn)
+        # address would both return. This world's stand-in, below, is the creator at any age. Its GetMatriarch and
+        # GetPatriarch stand-ins are not installed either: here the game's own run (who may have a baby).
+        e.seam_live = lambda addr, fn: None if addr in (0x48B2E0, 0x489950, 0x4899C0) else plain(addr, fn)
         try:
             super()._seams()
         finally:
@@ -128,6 +129,7 @@ class ReviveWorld(HistoryWorld):
                 return slot, 0x30
             return INVALID, 0x30
         e.seam_live(0x48B2E0, spawn)
+        e.seam_live(0x48FC10, lambda emu: (1, 0xC))            # ChanceOfPregnancy: yes (the tests are of who)
         e.dyn_procs.update({
             "VF1Kids_IsExtraChild": self._kids_is_extra,
             "VF1Kids_Revived": self._kids_revived,
@@ -152,6 +154,81 @@ class ReviveWorld(HistoryWorld):
 
     def surviving(self):
         return s32(self.e.call(COUNT_SURVIVING, (), ecx=L.FAMILY_TREE))
+
+    def at_19(self, slot):
+        """The ageing pass at the 19-year mark (380 units), the game's own code from its age test (0x489E96): "leaves"
+        when it reaches the leaving (its SetLeftHome call, 0x489EC5), "stays" when it jumps past it (0x489EE4)."""
+        from unicorn import UC_HOOK_CODE
+        from unicorn.x86_const import UC_X86_REG_EBP, UC_X86_REG_EDI, UC_X86_REG_EIP, UC_X86_REG_ESI, UC_X86_REG_ESP
+        e, v = self.e, self.villager(slot)
+        e.w32(v + L.VILLAGER_AGE, 380)
+        e.setreg(UC_X86_REG_ESP, e.sp_top)
+        e.setreg(UC_X86_REG_EBP, 379)                          # the age before this pass
+        e.setreg(UC_X86_REG_EDI, v + L.VILLAGER_AGE)
+        e.setreg(UC_X86_REG_ESI, v + L.VILLAGER_LEFT_HOME)
+        seen = []
+
+        def at(uc, address, size, user):
+            seen.append(address)
+            uc.emu_stop()
+        hooks = [e.uc.hook_add(UC_HOOK_CODE, at, begin=a, end=a) for a in (0x489EC5, 0x489EE4)]
+        try:
+            e.uc.emu_start(0x489E96, 0x489EE5)
+        finally:
+            for h in hooks:
+                e.uc.hook_del(h)
+        assert seen and e.reg(UC_X86_REG_EIP) == seen[0], seen
+        return "leaves" if seen[0] == 0x489EC5 else "stays"
+
+    def run_to(self, start, stops, **regs):
+        """The game's own code from `start` until it reaches the first of `stops` (returned)."""
+        from unicorn import UC_HOOK_CODE
+        from unicorn.x86_const import (UC_X86_REG_EAX, UC_X86_REG_EBP, UC_X86_REG_EBX, UC_X86_REG_ECX,
+                                       UC_X86_REG_EDI, UC_X86_REG_EIP, UC_X86_REG_ESI, UC_X86_REG_ESP)
+        e = self.e
+        names = {"eax": UC_X86_REG_EAX, "ebx": UC_X86_REG_EBX, "ecx": UC_X86_REG_ECX, "esi": UC_X86_REG_ESI,
+                 "edi": UC_X86_REG_EDI, "ebp": UC_X86_REG_EBP}
+        e.setreg(UC_X86_REG_ESP, e.sp_top - 0x400)
+        for k, v in regs.items():
+            e.setreg(names[k], v)
+        seen = []
+
+        def at(uc, address, size, user):
+            seen.append(address)
+            uc.emu_stop()
+        hooks = [e.uc.hook_add(UC_HOOK_CODE, at, begin=a, end=a) for a in stops]
+        try:
+            e.uc.emu_start(start, 0xFFFFFFF0)
+        finally:
+            for h in hooks:
+                e.uc.hook_del(h)
+        assert seen and e.reg(UC_X86_REG_EIP) == seen[0], seen
+        return seen[0]
+
+    def try_for_a_baby(self, actor):
+        """The try-for-a-baby step, the game's own code from its parent choice (0x48EB33: GetMatriarch the mother,
+        GetPatriarch the father) through the pregnancy roll (a stand-in that says yes) and CVillager::Impregnate, for
+        the woman in slot `actor`. Returns (mother slot, father slot, pregnant) or None when the step gives up."""
+        from unicorn.x86_const import UC_X86_REG_EAX, UC_X86_REG_EBX, UC_X86_REG_EDI
+        e = self.e
+        plan = e.alloc(0x80)
+        self.rolls = [99, 99]                                  # a single baby
+        self.baby_names = ["Newt"]
+        self.spawned = []
+        for s in range(30):
+            e.w32(self.villager(s) + 0x2B20, 0)               # fertility 0: no twins
+        stop = self.run_to(0x48EB33, (0x48EBB7, 0x48EE5A), ebx=plan, ebp=self.villager(actor))
+        if stop == 0x48EE5A:
+            return None
+        slot = lambda r: (e.reg(r) - self.villager(0)) // L.VILLAGER_STRIDE  # noqa: E731
+        mother, father = slot(UC_X86_REG_EDI), slot(UC_X86_REG_EBX)
+        return mother, father, bool(e.reg(UC_X86_REG_EAX) & 0xFF) and s32(e.r32(self.villager(mother) + 0x2AF8)) != 0
+
+    def drop_on_spouse_careers(self, a, b):
+        """A drop on the spouse: the game's own test that both have a career (0x441224..0x44125D): "both" or "no"."""
+        stop = self.run_to(0x441224, (0x44125D, 0x4413A1), eax=400, ebp=380, edi=self.villager(a),
+                           esi=self.villager(b))
+        return "both" if stop == 0x44125D else "no"
 
     def save_game(self):
         """theGameState::SaveCurrentGame, the game's own: Save(0), Save(slot), Save(slot + 20)."""

@@ -57,7 +57,7 @@ def test_vf1fun_loads_it_after_the_log_and_charges_one_price():
     cpp = (ROOT / "native" / "vf1fun" / "vf1fun.cpp").read_text(encoding="utf-8")
     assert cpp.index("LoadLogsCompanion();") < cpp.index('if (SettingOn(L"Revive", false))')
     family = (ROOT / "native" / "vf1fun" / "family.inc").read_text(encoding="utf-8")
-    assert "static const int kRevivePrice = 10000;" in family
+    assert "static const int kRevivePrice = 25000;" in family
     assert "return gFreeCheats ? 0 : kRevivePrice;" in family
 
 
@@ -117,7 +117,8 @@ def test_on_installs_the_two_calls_and_the_two_vtable_slots(built):
     w = world(built)
     assert w.installed == 1, w.status()
     changed = w.changed_code()
-    assert changed == set(range(0x48E201, 0x48E205)) | set(range(0x489D90, 0x489D94))
+    calls = (0x48E200, 0x489D8F, 0x489EAC, 0x48EB40, 0x48EB4C, 0x44123D, 0x441250)
+    assert changed == {site + 1 + k for site in calls for k in range(4)}
     dll = w.e.dll.OPTIONAL_HEADER.ImageBase
     for slot in (R.GS_VTABLE_LOAD, R.GS_VTABLE_SAVE):
         assert w.e.r32(slot) not in (R.FUNCTIONS["GS_LOAD"], R.FUNCTIONS["GS_SAVE"])
@@ -300,7 +301,8 @@ def test_a_parent_who_died_with_children_gets_their_place_back(built):
     assert how == 4 and s32(w.e.r32(w.peep(1) + 0x28)) == slot
 
 
-def test_a_spouse_whose_partner_remarried_comes_back_as_a_family_member(built):
+def remarried(built):
+    """Ann married Bob; Bob died before any child (the game frees his place); Ann married Eli."""
     w = world(built)
     w.start_family(0, "Ann", 1, 26)
     w.set_villager(1, "Bob", 0, years=27, head=7, body=8)
@@ -309,10 +311,31 @@ def test_a_spouse_whose_partner_remarried_comes_back_as_a_family_member(built):
     assert w.e.read(w.peep(1) + 0x1A, 1) == b"\0"
     w.set_villager(4, "Eli", 0, years=30, head=9, body=10)
     w.marry(0, 4)                                  # Ann remarried
+    return w
+
+
+def test_a_spouse_whose_partner_remarried_comes_back_as_a_family_member_in_a_child_entry(built):
+    # The owner, 2026-11-26: a family member, placed in the Family Tree as a CHILD ENTRY (as Virtual Families 2).
+    w = remarried(built)
+    slot, how = w.revive(0)
+    assert slot >= 0 and how == 6
+    rec = w.record()
+    assert s32(w.e.r32(rec + L.RECORD_CHILD_COUNT)) == 1                  # the game's own AddOffspring made it
+    child = w.peep(2)
+    assert w.e.cstr(child) == "Bob" and s32(w.e.r32(child + 0x28)) == slot
+    assert (s32(w.e.r32(child + 0x1C)), s32(w.e.r32(child + 0x20)), s32(w.e.r32(child + 0x24))) == (0, 7, 8)
+    assert w.e.cstr(w.peep(1)) == "Eli" and s32(w.e.r32(w.peep(1) + 0x28)) == 4   # Eli stays the spouse
+    assert w.surviving() == 1
+
+
+def test_with_no_child_place_left_the_family_member_is_outside_the_tree(built):
+    w = remarried(built)
+    for k in range(6):                                                    # the generation's six child places
+        w.add_child(10 + k, f"K{k}", k % 2, years=3)
     tree_before = w.e.read(w.record(), L.FAMILY_RECORD_SIZE)
     slot, how = w.revive(0)
     assert slot >= 0 and how == 5
-    assert w.e.read(w.record(), L.FAMILY_RECORD_SIZE) == tree_before     # not in the tree; Eli stays the spouse
+    assert w.e.read(w.record(), L.FAMILY_RECORD_SIZE) == tree_before
 
 
 def test_a_spouse_whose_place_is_still_free_comes_back_as_the_spouse(built):
@@ -385,18 +408,61 @@ def test_a_failed_read_back_takes_the_new_villager_away_and_changes_nothing(buil
     assert w.info(0)["state"] == 1                 # still dead, still revivable
 
 
-def test_an_unknown_age_at_death_is_refused(built):
+@pytest.mark.parametrize("mark", [0, 3])          # unknown (an older file), "unknown -> 18" (the backfill now)
+def test_an_unknown_age_at_death_comes_back_at_18(built, mark):
     w = family(built)
     w.die(2)
     w.save_game()
     path = f"{rb_save_dir()}\\Virtual Families 1 Patcher Data\\Revive\\Virtual Families{w.slot}.ldw.dat"
     side = rb.read_sidecar(w.fs.read(path))
     raw = bytearray(side.entries[0])
-    bits = struct.unpack_from("<Q", raw, rb.E_MARKS)[0] & ~(3 << (2 * rb.FIELDS.index("age at death")))
+    at = 2 * rb.FIELDS.index("age at death")
+    bits = (struct.unpack_from("<Q", raw, rb.E_MARKS)[0] & ~(3 << at)) | (mark << at)
     struct.pack_into("<Q", raw, rb.E_MARKS, bits)
     w.fs.write(path, rb.render_sidecar(w.save_bytes(), side.generations, side.parent_slot, side.parent_sex, [bytes(raw)]))
     w.forget()
-    assert w.info(0)["why"] == 5 and w.revive(0)[0] == -5
+    i = w.info(0)
+    assert (i["why"], i["back_units"], i["age_known"]) == (0, 360, 0)   # Cal died at 8, but that is not known
+    slot, _how = w.revive(0)
+    assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 360
+
+
+# ---------------------------------------------------------------- a revived spouse is a grown-up at 19
+def test_the_at_19_call_is_hooked_only_with_the_setting(built):
+    stock = (0x48F080 - (0x489EAC + 5)) & 0xFFFFFFFF
+    assert world(built).e.r32(0x489EAD) != stock                          # retargeted to the DLL
+    assert world(built, setting=0).e.r32(0x489EAD) == stock
+
+
+def test_a_revived_spouse_with_no_career_is_not_sent_to_college_at_19(built):
+    # The owner, 2026-11-26: treated as an adult. The game's own ageing code from the age test at 0x489E96: with no
+    # career a 19-year-old is sent away; for the revived spouse HasCareer at 0x489EAC answers "yes" (this call only).
+    w = family(built)
+    w.e.write(w.villager(1) + 0x2B6C, struct.pack("<4i", -1, 0, 10, 0))    # Bob never had a career
+    w.die(1)                                       # Bob, the spouse, dies with children: his place waits
+    slot, how = w.revive(0)
+    assert how == 4 and w.e.r32(w.villager(slot) + 0x2B6C) == INVALID     # no career
+    assert w.at_19(slot) == "stays"
+    assert w.e.read(w.villager(slot) + L.VILLAGER_LEFT_HOME, 1) == b"\0"
+    assert w.e.r32(w.villager(slot) + 0x2B6C) == INVALID                  # still no career: nothing else changes
+
+
+def test_a_child_with_no_career_still_goes_to_college_at_19(built):
+    w = family(built)
+    assert w.at_19(3) == "leaves"                  # Dee, never revived: the game's own rule
+    w.die(2)
+    slot, how = w.revive(0)                        # Cal, a revived CHILD: the game's own rule too
+    assert how == 1 and w.at_19(slot) == "leaves"
+
+
+def test_the_grown_up_rule_survives_a_save_and_load(built):
+    w = family(built)
+    w.e.write(w.villager(1) + 0x2B6C, struct.pack("<4i", -1, 0, 10, 0))
+    w.die(1)
+    slot, _how = w.revive(0)
+    w.save_game()
+    w.forget()
+    assert w.info(0)["state"] == 2 and w.at_19(slot) == "stays"
 
 
 def s32(v):
@@ -423,3 +489,56 @@ def test_a_backfilled_snapshot_is_read_and_revived_with_its_unknown_fields_fresh
     assert w.e.cstr(v + L.VILLAGER_NAME) == "Cal" and s32(w.e.r32(v + L.VILLAGER_HEAD)) == 11
     assert s32(w.e.r32(v + 0x2A34 + 0xC)) == FRESH_VOICE and s32(w.e.r32(v + 0x2B20)) == FRESH_FERTILITY
     assert s32(w.e.r32(v + L.VILLAGER_AGE)) == 160
+
+
+# ---------------------------------------------------------------- a revived spouse can have babies
+def no_career(w, slot):
+    w.e.write(w.villager(slot) + 0x2B6C, struct.pack("<4i", -1, 0, 10, 0))
+
+
+def test_a_revived_father_with_no_career_can_father_a_baby(built):
+    # The owner, 2026-11-26: the game's own try-for-a-baby step chooses the parents with GetMatriarch / GetPatriarch
+    # (a career needed); for a revived spouse with none it counts them as having one.
+    w = family(built)
+    no_career(w, 1)
+    w.die(1)                                       # Bob, the father, dies with children; Ann has a career
+    assert w.try_for_a_baby(0) is None             # nobody with a career is a father: the game gives up
+    slot, how = w.revive(0)
+    assert how == 4
+    mother, father, pregnant = w.try_for_a_baby(0)
+    assert (mother, father, pregnant) == (0, slot, True)
+
+
+def test_a_revived_mother_with_no_career_can_have_a_baby(built):
+    w = family(built)
+    no_career(w, 0)
+    w.die(0)                                       # Ann, the mother (the founder), dies with children
+    slot, how = w.revive(0)
+    assert how == 3
+    mother, father, pregnant = w.try_for_a_baby(slot)
+    assert (mother, father, pregnant) == (slot, 1, True)
+
+
+def test_a_revived_child_with_no_career_is_still_no_parent(built):
+    w = family(built)
+    w.e.write(w.villager(1) + L.VILLAGER_PRESENT, b"\0")  # Bob is away (not dead): Ann has no man with a career
+    w.die(2)                                       # Cal, a child, then revived: no career, no baby
+    slot, how = w.revive(0)
+    assert how == 1
+    w.e.w32(w.villager(slot) + L.VILLAGER_AGE, 400)
+    assert w.try_for_a_baby(0) is None             # the game's own rule for him
+
+
+def test_a_drop_on_the_spouse_counts_the_revived_spouse_as_having_a_career(built):
+    w = family(built)
+    no_career(w, 1)
+    w.die(1)
+    slot, _how = w.revive(0)
+    assert w.drop_on_spouse_careers(0, slot) == "both"
+    assert w.drop_on_spouse_careers(0, 3) == "no"  # Dee, a child with no career: the game's own answer
+
+
+def test_with_no_revived_grown_up_the_games_own_choice_stands(built):
+    w = family(built)
+    mother, father, pregnant = w.try_for_a_baby(0)
+    assert (mother, father, pregnant) == (0, 1, True)

@@ -97,24 +97,39 @@ PINS = [
     ("vm_find_empty", 0x489C70, 0x4B, "CVillagerManager::FindEmptySlot: not present, not a reserved baby"),
     ("ldw_make_path", 0x4035F0, 0x59, "ldwGameState::MakeGameStatePath(slot): \"%s%d.ldw\""),
     ("v_save_state", 0x485640, 0xD1, "CVillager::SaveState: the bio, state, skills, likes and dislikes it saves"),
+    ("ft_add_offspring", 0x481AA0, 0x90, "CFamilyTree::AddOffspring: a child entry (vf1kids.dll may hook its entry)"),
+    ("leave_home_at_19", 0x489E96, 0x4E, "the ageing pass: at 19 (380 units) with no career, the child leaves home"),
+    ("v_has_career", 0x48F080, 0x2B, "CVillagerSkills::HasCareer: 0 for career -1, else its kind"),
+    ("plan_conception", 0x48EB33, 0xB8, "the try-for-a-baby step: GetMatriarch (the mother), GetPatriarch (the father)"),
+    ("pairing_careers", 0x441224, 0x39, "a drop on the spouse: both must have a career (HasCareer twice) to try for a baby"),
+    ("vm_get_matriarch", 0x489950, 0x61, "CVillagerManager::GetMatriarch: the first at home, alive, with a career, female"),
+    ("vm_get_patriarch", 0x4899C0, 0x61, "CVillagerManager::GetPatriarch: the first at home, alive, with a career, male"),
     ("gs_save_current", 0x4238E0, 0x3D, "theGameState::SaveCurrentGame: Save(0), Save(slot), Save(slot + 20) by the vtable"),
 ]
 PIN = {p[0]: p for p in PINS}
 
 FUNCTIONS = {
-    "FT_REPORT_DEATH": 0x481CF0, "VM_SPAWN_FULL": 0x48B2E0, "VM_FIND_EMPTY": 0x489C70,
+    "FT_REPORT_DEATH": 0x481CF0, "VM_SPAWN_FULL": 0x48B2E0, "FT_ADD_OFFSPRING": 0x481AA0, "V_HAS_CAREER": 0x48F080, "VM_FIND_EMPTY": 0x489C70,
     "GS_LOAD": 0x424A50, "GS_SAVE": 0x423790,
 }
 
 CALL_HOOKS = (
     ("death_behaviour_end", 0x48E200, 0x481CF0),
     ("body_removal", 0x489D8F, 0x481CF0),
+    ("leave_home_at_19", 0x489EAC, 0x48F080),
+    ("plan_conception", 0x48EB40, 0x489950),
+    ("plan_conception", 0x48EB4C, 0x4899C0),
+    ("pairing_careers", 0x44123D, 0x48F080),
+    ("pairing_careers", 0x441250, 0x48F080),
 )
-CALL_HOOK_NAMES = ("DEATH_END", "BODY_REMOVAL")
+CALL_HOOK_NAMES = ("DEATH_END", "BODY_REMOVAL", "AT_19_CAREER", "BABY_MOTHER", "BABY_FATHER", "PAIR_CAREER_A",
+                   "PAIR_CAREER_B")
 
 CALLS = (
     ("vm_spawn_full", 0x48B2E4, 0x489C70),     # FindEmptySlot
     ("vm_spawn_full", 0x48B33A, 0x484EE0),     # CVillager::Init
+    ("leave_home_at_19", 0x489EBE, 0x48C5A0),  # ForgetPlans: the leaving, only after HasCareer said none
+    ("leave_home_at_19", 0x489EC5, 0x4857F0),  # SetLeftHome
 )
 
 NEG = L.NEG
@@ -126,6 +141,15 @@ CROSS = {
     "vm_find_empty": {GAME_STATE_RESERVED_BABY, GAME_STATE_RESERVED_BABY + 4, GAME_STATE_RESERVED_BABY + 8,
                       VILLAGER_STRIDE, HOUSEHOLD_SLOTS, VILLAGER_ARRAY_OFFSET + VILLAGER_PRESENT},
     "ldw_make_path": {0x14},
+    "vm_get_matriarch": {VILLAGER_ARRAY_OFFSET + VILLAGER_LEFT_HOME, NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH),
+                         NEG(VILLAGER_LEFT_HOME - VILLAGER_SKILLS), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER),
+                         VILLAGER_STRIDE, HOUSEHOLD_SLOTS, VILLAGER_ARRAY_OFFSET},
+    "vm_get_patriarch": {VILLAGER_ARRAY_OFFSET + VILLAGER_LEFT_HOME, NEG(VILLAGER_LEFT_HOME - VILLAGER_HEALTH),
+                         NEG(VILLAGER_LEFT_HOME - VILLAGER_SKILLS), NEG(VILLAGER_LEFT_HOME - VILLAGER_GENDER),
+                         VILLAGER_STRIDE, HOUSEHOLD_SLOTS, VILLAGER_ARRAY_OFFSET},
+    "pairing_careers": {VILLAGER_SKILLS},
+    "leave_home_at_19": {0x17C, NEG(VILLAGER_LEFT_HOME - VILLAGER_SKILLS), NEG(VILLAGER_LEFT_HOME)},
+    "ft_add_offspring": {6, FAMILY_RECORD_SIZE, PEEP_RECORD_SIZE, RECORD_CHILDREN, VILLAGER_NAME, VILLAGER_SLOT},
     "gs_save_current": {GAME_STATE_SLOT, 0x38, SAVE_BACKUP_OFFSET},
     "v_save_state": {VILLAGER_BIO, VILLAGER_STATE, VILLAGER_SKILLS, VILLAGER_LIKES, VILLAGER_LIKES + 0x14,
                      VILLAGER_PRESENT, VILLAGER_LEFT_HOME},
@@ -162,6 +186,14 @@ def validate(data: bytes) -> dict:
             raise SiteError(f"{pin}: call {at:#x} outside the pin")
         if L.call_target(exe, at) != func:
             raise SiteError(f"{pin}+{at - va:#x}: calls {L.call_target(exe, at):#x}, not {func:#x}")
+    # The at-19 test: HasCareer's answer decides alone whether the child leaves (test eax / jne past the leaving).
+    if exe.read(0x489EB1, 4) != bytes((0x85, 0xC0, 0x75, 0x2F)) or 0x489EB3 + 2 + 0x2F != 0x489EE4:
+        raise SiteError("the at-19 career test")
+    # The rule the two wrappers repeat: present (-4 from left home), not left home, health > 0, HasCareer, the sex
+    # (GetMatriarch 1, GetPatriarch 0), the first in slot order.
+    if exe.read(0x489983, 7) != bytes((0x83, 0xBE, 0xC0, 0xF4, 0xFE, 0xFF, 0x01)) \
+            or exe.read(0x4899F3, 7) != bytes((0x83, 0xBE, 0xC0, 0xF4, 0xFE, 0xFF, 0x00)):
+        raise SiteError("the matriarch / patriarch sex test")
     found = L.all_callers(exe, {0x481CF0: None})
     if found[0x481CF0] != [0x489D8F, 0x48E200]:
         raise SiteError("ReportDeath has other callers")

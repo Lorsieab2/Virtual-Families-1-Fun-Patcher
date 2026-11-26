@@ -20,7 +20,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:234",
-    "native/vf1fun/family_page.inc:247"
+    "native/vf1fun/family_page.inc:249"
    ]
   },
   {
@@ -32,7 +32,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:235",
-    "native/vf1fun/family_page.inc:246"
+    "native/vf1fun/family_page.inc:248"
    ]
   },
   {
@@ -113,8 +113,8 @@
    "format": false,
    "where": [
     "native/vf1fun/appearance_page.inc:239",
-    "native/vf1fun/family_page.inc:141",
-    "native/vf1fun/family_page.inc:274",
+    "native/vf1fun/family_page.inc:143",
+    "native/vf1fun/family_page.inc:276",
     "native/vf1fun/pages.inc:99",
     "native/vf1fun/pages.inc:171",
     "native/vf1fun/pages.inc:291",
@@ -450,13 +450,23 @@
    ]
   },
   {
-   "id": "vf1fun.they_are_back_in_the_house_as_a_family_member_not_in_the_fam",
-   "english": "They are back in the house as a family member, not in the Family Tree (their place there is taken).",
-   "room": 297,
+   "id": "vf1fun.they_are_back_in_the_house_as_a_family_member_not_a_spouse_t",
+   "english": "They are back in the house as a family member, not a spouse (their partner remarried): the Family Tree shows them as a child of this generation.",
+   "room": 432,
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:96"
+    "native/vf1fun/family_page.inc:95"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_back_in_the_house_as_a_family_member_not_in_the_fam",
+   "english": "They are back in the house as a family member, not in the Family Tree (it has no room for another child).",
+   "room": 315,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:98"
    ]
   },
   {
@@ -466,7 +476,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/family_page.inc:118"
+    "native/vf1fun/family_page.inc:120"
    ]
   },
   {
@@ -476,7 +486,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:136"
+    "native/vf1fun/family_page.inc:138"
    ]
   },
   {
@@ -486,7 +496,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:140"
+    "native/vf1fun/family_page.inc:142"
    ]
   },
   {
@@ -496,7 +506,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:186"
+    "native/vf1fun/family_page.inc:188"
    ]
   },
   {
@@ -506,7 +516,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:187"
+    "native/vf1fun/family_page.inc:189"
    ]
   },
   {
@@ -516,7 +526,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:209"
+    "native/vf1fun/family_page.inc:211"
    ]
   },
   {
@@ -526,7 +536,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:212"
+    "native/vf1fun/family_page.inc:214"
    ]
   },
   {
@@ -536,7 +546,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:235"
+    "native/vf1fun/family_page.inc:237"
    ]
   },
   {
@@ -546,7 +556,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:237"
+    "native/vf1fun/family_page.inc:239"
    ]
   },
   {
@@ -556,7 +566,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:238"
+    "native/vf1fun/family_page.inc:240"
    ]
   },
   {
@@ -566,7 +576,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:239"
+    "native/vf1fun/family_page.inc:241"
    ]
   },
   {
@@ -576,7 +586,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:240"
+    "native/vf1fun/family_page.inc:242"
    ]
   },
   {
@@ -586,7 +596,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:241"
+    "native/vf1fun/family_page.inc:243"
    ]
   },
   {
@@ -596,7 +606,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:242"
+    "native/vf1fun/family_page.inc:244"
    ]
   },
   {
@@ -606,7 +616,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:243"
+    "native/vf1fun/family_page.inc:245"
    ]
   },
   {
@@ -616,7 +626,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:244"
+    "native/vf1fun/family_page.inc:246"
    ]
   },
   {
@@ -626,7 +636,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:245"
+    "native/vf1fun/family_page.inc:247"
    ]
   },
   {
@@ -636,7 +646,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:248"
+    "native/vf1fun/family_page.inc:250"
    ]
   },
   {
@@ -646,7 +656,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:249"
+    "native/vf1fun/family_page.inc:251"
    ]
   },
   {
@@ -656,7 +666,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:250"
+    "native/vf1fun/family_page.inc:252"
    ]
   },
   {
@@ -666,7 +676,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:251"
+    "native/vf1fun/family_page.inc:253"
    ]
   },
   {
@@ -676,7 +686,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:252"
+    "native/vf1fun/family_page.inc:254"
    ]
   },
   {
@@ -686,7 +696,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:253"
+    "native/vf1fun/family_page.inc:255"
    ]
   },
   {
@@ -696,7 +706,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:259"
+    "native/vf1fun/family_page.inc:261"
    ]
   },
   {
@@ -706,7 +716,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:260"
+    "native/vf1fun/family_page.inc:262"
    ]
   },
   {
@@ -716,7 +726,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:262"
+    "native/vf1fun/family_page.inc:264"
    ]
   },
   {
@@ -726,7 +736,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:264"
+    "native/vf1fun/family_page.inc:266"
    ]
   },
   {
@@ -736,7 +746,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:265"
+    "native/vf1fun/family_page.inc:267"
    ]
   },
   {
@@ -746,7 +756,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:266"
+    "native/vf1fun/family_page.inc:268"
    ]
   },
   {
@@ -756,7 +766,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:267"
+    "native/vf1fun/family_page.inc:269"
    ]
   },
   {
@@ -766,7 +776,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:269"
+    "native/vf1fun/family_page.inc:271"
    ]
   },
   {
@@ -776,7 +786,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:270"
+    "native/vf1fun/family_page.inc:272"
    ]
   },
   {
@@ -786,7 +796,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:271"
+    "native/vf1fun/family_page.inc:273"
    ]
   },
   {
@@ -796,7 +806,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:272"
+    "native/vf1fun/family_page.inc:274"
    ]
   },
   {
@@ -806,7 +816,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:273"
+    "native/vf1fun/family_page.inc:275"
    ]
   },
   {
