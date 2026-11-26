@@ -336,6 +336,46 @@ def test_divorce_then_remarriage(built):
     assert "  Remarried: yes\n  Earlier spouse: Bob (divorced)\n  Current spouse of Ann: Dan\n" in find(w, "Marriage 2")
 
 
+def _append_records(w, *records):
+    """Records added to the slot's log as earlier events wrote them (CRLF lines, a blank line after each)."""
+    path = w.root() + "\\Logs\\Family History\\Family History 1.txt"
+    w.fs.write(path, w.fs.read(path) + "".join("\r\n".join(r) + "\r\n\r\n" for r in records).encode("utf-8"))
+
+
+def test_a_namesake_childs_death_is_not_the_divorced_spouses(built):
+    """Ann divorces Bob; their son, also Bob, dies; Ann remarries. The earlier spouse left by divorce: the son's
+    Death (Family role: Child) is never read as the earlier spouse's."""
+    w = family(built)
+    w.event(1, 1)                                             # Divorce Spouse
+    w.e.write(w.villager(1) + L.VILLAGER_PRESENT, b"\0")
+    w.e.write(record() + L.RECORD_PARENT2, b"\0" * L.PEEP_RECORD_SIZE)
+    w.e.w32(record() + L.RECORD_PARENT2 + L.PEEP_SLOT, -1)
+    _append_records(w, ["[2026-10-24 12:40:00] Death 1", "  Name: Bob", "  Age at death: 6", "  Sex: Male",
+                        "  Cause of death: Illness", "  Head: 7", "  Body: 8", "  Family role: Child",
+                        "  Generation: 1"])
+    w.set_villager(2, "Dan", 0, years=30)
+    w.marry(0, 2)
+    assert "  Remarried: yes\n  Earlier spouse: Bob (divorced)\n  Current spouse of Ann: Dan\n" in find(w, "Marriage 2")
+
+
+def test_a_marriage_before_the_generation_began_is_not_an_earlier_spouse(built):
+    """At 30 generations every generation says "Generation: 30" (Adopt New Person moves the tree up a place), so
+    the number alone cannot tell them apart: a marriage before the record that began this generation belongs to
+    another generation, even with the same names, and the heir's first marriage is not a remarriage."""
+    w = world(built)
+    w.start_family(0, "Ann", 1, 26)
+    _append_records(w,
+                    ["[2026-10-24 12:40:00] Marriage 1", "  Family member: Zed", "  Married: Ann",
+                     "  Current spouse of Zed: Ann", "  Generation: 1"],
+                    ["[2026-10-24 12:41:00] New Generation 1", "  Name: Ann", "  Age: 19", "  Sex: Female",
+                     "  Head: 3", "  Body: 4", "  How: Heir (inherited the house)", "  Generation: 1"])
+    w.set_villager(1, "Bob", 0, years=27, head=7, body=8)
+    assert w.marry(0, 1) == 1
+    marriage = [r for r in w.records() if "] Marriage " in r.split("\n", 1)[0]][-1]
+    assert "Remarried" not in marriage and "Earlier spouse" not in marriage, marriage
+    assert "  Family member: Ann" in marriage and "  Married: Bob" in marriage
+
+
 def test_conception_and_a_single_birth_name_both_parents(built):
     w = family(built)
     w.conceive(rolls=[99, 99], names=["Cid"])
