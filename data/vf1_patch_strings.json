@@ -451,8 +451,8 @@
   },
   {
    "id": "vf1fun.they_are_back_in_the_house_as_a_family_member_not_a_spouse_t",
-   "english": "They are back in the house as a family member, not a spouse (their partner remarried): the Family Tree shows them as a child of this generation.",
-   "room": 432,
+   "english": "They are back in the house as a family member, not a spouse (their partner remarried): the Family Tree screen shows them under the current spouse.",
+   "room": 438,
    "drawn_by_game": false,
    "format": false,
    "where": [

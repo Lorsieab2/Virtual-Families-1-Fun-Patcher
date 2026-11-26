@@ -130,10 +130,16 @@ class ReviveWorld(HistoryWorld):
             return INVALID, 0x30
         e.seam_live(0x48B2E0, spawn)
         e.seam_live(0x48FC10, lambda emu: (1, 0xC))            # ChanceOfPregnancy: yes (the tests are of who)
+
         e.dyn_procs.update({
             "VF1Kids_IsExtraChild": self._kids_is_extra,
             "VF1Kids_Revived": self._kids_revived,
         })
+
+    def _island_events(self):
+        """Not used here: the Family History harness's event dialog stand-in would take every DoModal (0x401B10),
+        and the Family Tree screen's person dialog is run through DoModal too."""
+        self.e.seam_live(0x401B10, lambda emu: (0, 8))       # DoModal(parent, update parent): the dialog closes
 
     def _kids_is_extra(self, emu):
         slot, sex, name = s32(emu.arg(0)), emu.arg(1), emu.cstr(emu.arg(2))
@@ -229,6 +235,99 @@ class ReviveWorld(HistoryWorld):
         stop = self.run_to(0x441224, (0x44125D, 0x4413A1), eax=400, ebp=380, edi=self.villager(a),
                            esi=self.villager(b))
         return "both" if stop == 0x44125D else "no"
+
+    # ------------------------------------------------------------------ the Family Tree screen
+    SCENE = {8: 0, 0xC: 0, 0x10: 800, 0x14: 1200, 0x68: 34, 0x6C: 20, 0x70: 143, 0x74: 120, 0x78: 300, 0x7C: 40,
+             0x80: 400, 0x84: 114, 0x88: 250}
+
+    def _tree_screen(self):
+        """A Family Tree screen object with the layout fields its row draw and click read, and recorders for what it
+        draws: the frames and images (0x44F960), the names (DrawString 0x409CC0), the portraits (0x439790), the
+        shade of the dead (0x409A80)."""
+        e = self.e
+        if getattr(self, "scene", None) is None or self.scene == getattr(self, "_main_scene", None):
+            self._main_scene = self.scene
+        if hasattr(self, "tree_scene"):
+            return self.tree_scene
+        scene = e.alloc(0x200)
+        for off, v in self.SCENE.items():
+            e.w32(scene + off, v)
+        gfx, images, image = e.alloc(0x40), e.alloc(0x40), e.alloc(0x40)
+        e.w32(self.strings, e.alloc(0x40))                 # theStringManager's first font
+        self.drawn = {"images": [], "texts": [], "portraits": [], "shades": []}
+        self.dialogs = []
+        e.seam_live(0x4080B0, lambda emu: (gfx, 0))
+        e.seam_live(0x44F7C0, lambda emu: (images, 0))
+        e.seam_live(0x408410, lambda emu: (0, 0x10))
+        e.seam_live(0x408440, lambda emu: (0, 0))
+        e.seam_live(0x438D70, lambda emu: (0, 0xC))
+
+        def image_draw(emu):
+            self.drawn["images"].append({"id": emu.arg(0), "x": s32(emu.arg(1)), "y": s32(emu.arg(2))})
+            return 0, 0x14
+        e.seam_live(0x44F960, image_draw)
+
+        def text(emu):
+            self.drawn["texts"].append({"text": e.read(emu.arg(0), 26).split(b"\0")[0], "x": s32(emu.arg(1)),
+                                        "y": s32(emu.arg(2)), "colour": emu.arg(3), "font": emu.arg(4)})
+            return 0, 0x14
+        e.seam_live(0x409CC0, text)
+        e.seam_live(0x409D20, text)
+
+        def portrait(emu):
+            self.drawn["portraits"].append({"x": s32(emu.arg(1)), "y": s32(emu.arg(2)), "sex": s32(emu.arg(3)),
+                                            "head": s32(emu.arg(4)), "body": s32(emu.arg(5))})
+            return 0, 0x1C
+        e.seam_live(0x439790, portrait)
+        e.seam_live(0x44F860, lambda emu: (image, 4))
+        e.seam_live(0x409A80, lambda emu: (self.drawn["shades"].append(1), (0, 4))[1])
+        e.seam_live(0x40ACE0, lambda emu: (248, 0))       # the parent frame's width and height
+        e.seam_live(0x40ACF0, lambda emu: (91, 0))
+        e.seam_live(0x40ADD0, lambda emu: (1, 8))         # its pixels: hit
+
+        def dialog(emu):
+            p = emu.arg(0)
+            self.dialogs.append((e.read(p, 26).split(b"\0")[0], s32(e.r32(p + 0x1C)), s32(e.r32(p + 0x20)),
+                                 s32(e.r32(p + 0x24)), s32(e.r32(p + 0x28))))
+            return emu.ecx, 4
+        e.seam_live(0x416CF0, dialog)
+        e.seam_live(0x4172E0, lambda emu: (0, 0))
+        self.tree_scene = scene
+        return scene
+
+    def scene_field(self, off):
+        return s32(self.e.r32(self._tree_screen() + off))
+
+    def scene_step(self):
+        """The step from parent 1 to parent 2 on the screen (the click's own: [esi+74h] - [esi+6Ch] + 2)."""
+        return self.scene_field(0x74) - self.scene_field(0x6C) + 2
+
+    def draw_tree_row(self, gen=None):
+        """The game's own row draw 0x439BA0 (x, y, generation 0-based), as the screen's draw 0x43A1B0 calls it."""
+        from unicorn import UC_HOOK_CODE
+        from unicorn.x86_const import UC_X86_REG_EDI
+        scene = self._tree_screen()
+        for k in self.drawn:
+            self.drawn[k] = []
+        g = self.generations() - 1 if gen is None else gen
+        seen = []
+        h = self.e.uc.hook_add(UC_HOOK_CODE, lambda uc, a, s, u: seen.append(self.e.reg(UC_X86_REG_EDI)),
+                               begin=0x439E87, end=0x439E87)
+        try:
+            self.e.call(0x439BA0, (0, 0, g), ecx=scene)
+        finally:
+            self.e.uc.hook_del(h)
+        return dict(self.drawn, edi_after=seen[-1] if seen else None)
+
+    def tree_click(self, mx, my, gen=None):
+        """A click on the screen at (mx, my): the screen's mouse handler's own call (0x439B64), i.e. whatever is
+        there now (the DLL's handler), with the row at (0, 0). Returns the person dialogs opened."""
+        scene = self._tree_screen()
+        self.dialogs = []
+        g = self.generations() - 1 if gen is None else gen
+        target = (0x439B64 + 5 + struct.unpack("<i", self.e.read(0x439B65, 4))[0]) & 0xFFFFFFFF
+        self.e.call(target, (0, 0, g, mx, my), ecx=scene)
+        return list(self.dialogs)
 
     def save_game(self):
         """theGameState::SaveCurrentGame, the game's own: Save(0), Save(slot), Save(slot + 20)."""

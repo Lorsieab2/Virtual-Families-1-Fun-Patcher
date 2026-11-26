@@ -166,9 +166,9 @@
         "Brings back a family member who died: Upgrades, Family page, Revive a Family Member. It costs $25,000, free with Free and Guaranteed Cheats.",
         "Only the dead come back, never someone who divorced, left with The Talent Scout or was evicted. Only the current generation, for now.",
         "They are the same person: name, looks, parents, likes and dislikes, career, fertility and Wants kids. Moods and needs start fresh.",
-        "Died at 18 or older: back at exactly 18. Died younger: back at the age they died at.",
-        "A child gets their place back. A spouse whose partner remarried comes back as a family member, shown as a child of the family.",
-        "A revived spouse or parent with no career is a grown-up: never sent to college at 19, and able to have babies.",
+        "Died at 20 or older: back at exactly 20, with their career. Died younger: back at the age they died at.",
+        "A child gets their place back. A spouse whose partner remarried lives in the house and is shown under the current spouse.",
+        "Someone back at 20 with no career is a grown-up all the same: never sent to college, and able to have babies.",
         "For people who died before this patch, run Revive Backfill on the Tools tab once.",
         "On by default. Not yet tested in a running game; your save file itself is never changed."
       ]
@@ -403,7 +403,7 @@
       "guide": [
         "Lets Revive a Family Member bring back people who died before that patch was on.",
         "Click Revive Backfill and pick the save folders. It reads the saves, their older copies and backups, the Family Tree, the Family History log and long names.",
-        "Each detail is marked exact, inferred or unknown. Unknown details start fresh; someone whose age at death is not known comes back at 18.",
+        "Each detail is marked exact, inferred or unknown. Unknown details start fresh; someone whose age at death is not known comes back at 20.",
         "Your saves and logs are only read. Backups are filled in even while the game runs; your own saves wait until the game is closed.",
         "Running it again changes nothing. Anyone who already has a record keeps it."
       ]

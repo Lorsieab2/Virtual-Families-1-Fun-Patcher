@@ -150,7 +150,7 @@ def test_the_family_tree_alone_marks_the_rest_unknown(folder):
     assert s.source == rb.SOURCE_TREE
     assert (m["name"], m["sex"], m["head"], m["body"], m["family tree"]) == ("exact",) * 5
     assert m["voice"] == m["likes"] == m["career"] == m["fertility"] == "unknown"
-    assert m["age at death"] == "unknown -> 18" and s.revive_units() == 360      # the owner: not refused, back at 18
+    assert m["age at death"] == "unknown -> 20" and s.revive_units() == 400      # the owner: not refused, back at 20
 
 
 def test_the_log_alone_brings_a_childless_spouse_back(folder):
@@ -163,7 +163,7 @@ def test_the_log_alone_brings_a_childless_spouse_back(folder):
     s = snapshots(folder)[0]
     assert (s.name, s.source, s.role, s.head, s.body, s.age_units, s.cause) == ("Bob", rb.SOURCE_LOG, 1, 12, 19,
                                                                                 31 * 20, 3)
-    assert s.revive_units() == 360                          # died at 31: back at 18
+    assert s.revive_units() == 400                          # died at 31: back at 20
     assert s.marks()["cause of death"] == "exact" and s.marks()["voice"] == "unknown"
 
 

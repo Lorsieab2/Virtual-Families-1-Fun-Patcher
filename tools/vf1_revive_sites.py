@@ -86,7 +86,8 @@ GS_VTABLE_SAVE = 0x4B5E6C
 LDW_PATH_VSLOT = L.LDW_PATH_VSLOT
 SAVE_BACKUP_OFFSET = 20
 UNITS_PER_YEAR = L.UNITS_PER_YEAR
-REVIVE_ADULT_YEARS = 18            # the owner, 2026-11-26: died at 18 or older -> back at exactly 18
+REVIVE_ADULT_YEARS = 20            # the owner, 2026-11-26: died at 20 or older (or unknown) -> back at exactly 20
+TREE_EXTRA_ROOM = 0x400            # the Family Tree person dialog's object (at most 0xB0 bytes in its caller's frame)
 
 # name, VA, length, note
 PINS = [
@@ -97,7 +98,9 @@ PINS = [
     ("vm_find_empty", 0x489C70, 0x4B, "CVillagerManager::FindEmptySlot: not present, not a reserved baby"),
     ("ldw_make_path", 0x4035F0, 0x59, "ldwGameState::MakeGameStatePath(slot): \"%s%d.ldw\""),
     ("v_save_state", 0x485640, 0xD1, "CVillager::SaveState: the bio, state, skills, likes and dislikes it saves"),
-    ("ft_add_offspring", 0x481AA0, 0x90, "CFamilyTree::AddOffspring: a child entry (vf1kids.dll may hook its entry)"),
+    ("tree_spouse_block", 0x439D3F, 0x148, "the Family Tree screen's row: the spouse (parent 2) frame, name, portrait"),
+    ("tree_click", 0x4393E0, 0x18A, "the Family Tree screen's click on a row: parent 1, then parent 2 -> the person dialog"),
+    ("tree_click_call", 0x439B5A, 0xF, "the screen's mouse handler calls the row click (x, y, generation, mouse x, y)"),
     ("leave_home_at_19", 0x489E96, 0x4E, "the ageing pass: at 19 (380 units) with no career, the child leaves home"),
     ("v_has_career", 0x48F080, 0x2B, "CVillagerSkills::HasCareer: 0 for career -1, else its kind"),
     ("plan_conception", 0x48EB33, 0xB8, "the try-for-a-baby step: GetMatriarch (the mother), GetPatriarch (the father)"),
@@ -109,7 +112,10 @@ PINS = [
 PIN = {p[0]: p for p in PINS}
 
 FUNCTIONS = {
-    "FT_REPORT_DEATH": 0x481CF0, "VM_SPAWN_FULL": 0x48B2E0, "FT_ADD_OFFSPRING": 0x481AA0, "V_HAS_CAREER": 0x48F080, "VM_FIND_EMPTY": 0x489C70,
+    "FT_REPORT_DEATH": 0x481CF0, "VM_SPAWN_FULL": 0x48B2E0, "V_HAS_CAREER": 0x48F080,
+    "TREE_BLOCK_BODY": 0x439D4C, "TREE_BLOCK_END": 0x439E7D, "TREE_BLOCK_NEXT": 0x439E83, "TREE_CLICK": 0x4393E0,
+    "IMG_MANAGER": 0x44F7C0, "IMG_GET": 0x44F860, "IMG_WIDTH": 0x40ACE0, "IMG_HEIGHT": 0x40ACF0, "IMG_HIT": 0x40ADD0,
+    "DLG_PERSON_CTOR": 0x416CF0, "DLG_DO_MODAL": 0x401B10, "DLG_PERSON_DTOR": 0x4172E0, "VM_FIND_EMPTY": 0x489C70,
     "GS_LOAD": 0x424A50, "GS_SAVE": 0x423790,
 }
 
@@ -121,15 +127,26 @@ CALL_HOOKS = (
     ("plan_conception", 0x48EB4C, 0x4899C0),
     ("pairing_careers", 0x44123D, 0x48F080),
     ("pairing_careers", 0x441250, 0x48F080),
+    ("tree_click_call", 0x439B64, 0x4393E0),
 )
 CALL_HOOK_NAMES = ("DEATH_END", "BODY_REMOVAL", "AT_19_CAREER", "BABY_MOTHER", "BABY_FATHER", "PAIR_CAREER_A",
-                   "PAIR_CAREER_B")
+                   "PAIR_CAREER_B", "TREE_CLICK")
 
 CALLS = (
     ("vm_spawn_full", 0x48B2E4, 0x489C70),     # FindEmptySlot
     ("vm_spawn_full", 0x48B33A, 0x484EE0),     # CVillager::Init
     ("leave_home_at_19", 0x489EBE, 0x48C5A0),  # ForgetPlans: the leaving, only after HasCareer said none
     ("leave_home_at_19", 0x489EC5, 0x4857F0),  # SetLeftHome
+    ("tree_spouse_block", 0x439D90, 0x44F960),  # the spouse's frame (image 0xC1)
+    ("tree_spouse_block", 0x439DB3, 0x409CC0),  # the spouse's name (DrawString)
+    ("tree_spouse_block", 0x439E01, 0x439790),  # the spouse's portrait
+    ("tree_click", 0x43943B, 0x44F860),         # the parent frame's image (its size and its pixels)
+    ("tree_click", 0x439444, 0x40ACF0),
+    ("tree_click", 0x43944D, 0x40ACE0),
+    ("tree_click", 0x4394A6, 0x40ADD0),
+    ("tree_click", 0x4394BF, 0x416CF0),         # the person dialog, for parent 1's record
+    ("tree_click", 0x4394D6, 0x401B10),         # DoModal(scene, 0)
+    ("tree_click", 0x4394EA, 0x4172E0),         # its destructor
 )
 
 NEG = L.NEG
@@ -149,7 +166,9 @@ CROSS = {
                          VILLAGER_STRIDE, HOUSEHOLD_SLOTS, VILLAGER_ARRAY_OFFSET},
     "pairing_careers": {VILLAGER_SKILLS},
     "leave_home_at_19": {0x17C, NEG(VILLAGER_LEFT_HOME - VILLAGER_SKILLS), NEG(VILLAGER_LEFT_HOME)},
-    "ft_add_offspring": {6, FAMILY_RECORD_SIZE, PEEP_RECORD_SIZE, RECORD_CHILDREN, VILLAGER_NAME, VILLAGER_SLOT},
+    "tree_spouse_block": {0xC1, 0x3C, RECORD_PARENT2, RECORD_PARENT2 + PEEP_SLOT, RECORD_PARENT2 + PEEP_GENDER,
+                          RECORD_PARENT2 + PEEP_HEAD, RECORD_PARENT2 + PEEP_BODY, 0x80},
+    "tree_click": {0xC1, 0x68, 0x6C, 0x74, RECORD_PARENT1, RECORD_PARENT2, RECORD_PARENT2 + PEEP_VALID},
     "gs_save_current": {GAME_STATE_SLOT, 0x38, SAVE_BACKUP_OFFSET},
     "v_save_state": {VILLAGER_BIO, VILLAGER_STATE, VILLAGER_SKILLS, VILLAGER_LIKES, VILLAGER_LIKES + 0x14,
                      VILLAGER_PRESENT, VILLAGER_LEFT_HOME},
@@ -186,6 +205,17 @@ def validate(data: bytes) -> dict:
             raise SiteError(f"{pin}: call {at:#x} outside the pin")
         if L.call_target(exe, at) != func:
             raise SiteError(f"{pin}+{at - va:#x}: calls {L.call_target(exe, at):#x}, not {func:#x}")
+    # The spouse block of the tree row: entered past its "parent 2 used" test (0x439D3F cmp / 0x439D46 je), it ends at
+    # 0x439E7D with a 6-byte `mov eax, [esi+80h]` the DLL replaces by a jmp (no branch lands inside those bytes), and
+    # it reads the spouse's y at [esp+3Ch] and the record at edi only (the frame, name, portrait and "dead" shade).
+    if exe.read(0x439D3F, 13) != bytes((0x80, 0xBF, 0xF6, 0, 0, 0, 0, 0x0F, 0x84, 0x31, 0x01, 0, 0)) \
+            or exe.read(0x439E7D, 6) != bytes((0x8B, 0x86, 0x80, 0, 0, 0)) or exe.read(0x439D71, 4) != bytes((0x8B, 0x6C, 0x24, 0x3C)):
+        raise SiteError("the tree row's spouse block")
+    row = exe.read(0x439BA0, 0x43A080 - 0x439BA0)
+    for i in L._md().disasm(row, 0x439BA0):
+        if (i.mnemonic.startswith("j") or i.mnemonic == "call") and i.operands and i.operands[0].type == L.X86_OP_IMM \
+                and 0x439E7D < i.operands[0].imm < 0x439E83:
+            raise SiteError("a branch into the replaced bytes")
     # The at-19 test: HasCareer's answer decides alone whether the child leaves (test eax / jne past the leaving).
     if exe.read(0x489EB1, 4) != bytes((0x85, 0xC0, 0x75, 0x2F)) or 0x489EB3 + 2 + 0x2F != 0x489EE4:
         raise SiteError("the at-19 career test")

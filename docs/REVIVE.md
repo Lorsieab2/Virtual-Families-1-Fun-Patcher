@@ -13,12 +13,15 @@ owner's decisions of 2026-11-26 (one per line below). Not yet tested in a runnin
   and Guaranteed Cheats is on, as every paid item.
 - **Only the dead**: a snapshot is taken only at a death (both calls of CFamilyTree::ReportDeath, health 0). Divorce
   Spouse, The Talent Scout and Evict Family never call it, so they are never offered.
-- **Age**: died at 18 or older -> back at exactly the game's 18-year mark (360 age units); died at 17 or younger ->
-  back at the age they died at, in the game's own units. Backfilled people follow the same rule; one whose age at
-  death the backfill could not find is marked "unknown -> 18" and comes back at 18 (the owner, 2026-11-26).
-- **A grown-up at 19**: a revived parent or spouse with no career is not sent to college at 19 (the owner): the
-  ageing pass's one HasCareer call that decides the leaving (0x489EAC) answers "has a career" for them only. **They
-  can have babies** (the owner): a drop on the spouse's two career tests (0x44123D, 0x441250) answer the same, and the
+- **Age** (the owner, 2026-11-26, final): died younger than 20 -> back at the age they died at, in the game's own
+  units (18 and 19 included); died at 20 or older -> back at exactly the game's 20-year mark (400 units), with their
+  career, level and salary at death. Backfilled people follow the same rule; one whose age at death the backfill could
+  not find is marked "unknown -> 20" and comes back at 20.
+- **A grown-up with no career**: someone brought back at 20 (they died at 20 or older, or the age is unknown) who had
+  no career is a grown-up all the same (the owner): never sent to college (at 20 they are past the at-19 exit, and the
+  ageing pass's one HasCareer call that decides the leaving, 0x489EAC, answers "has a career" for them). A revived 18-
+  or 19-year-old follows the game's own rules, the college exit included. **They can have babies** (the owner): a drop
+  on the spouse's two career tests (0x44123D, 0x441250) answer the same, and the
   try-for-a-baby step's choice of mother and father (0x48EB40 GetMatriarch, 0x48EB4C GetPatriarch) runs the game's
   own rule with "has a career" true for them. Their career stays none; GetMatriarch / GetPatriarch's other callers
   (events, the dating scene) are the game's own. The Family History log's Conception record names such a father
@@ -34,9 +37,15 @@ owner's decisions of 2026-11-26 (one per line below). Not yet tested in a runnin
   as surviving again); a child 7..28 (Up to 28 Children) gets their vf1kids entry back (`VF1Kids_Revived`, no second
   place used); a parent gets their own entry back while it still waits (slot -1), or the empty spouse place when
   their partner of then is still parent 1; **a spouse whose partner has remarried comes back as a family member, not
-  a spouse, in a child entry of the generation** (the game's own AddOffspring, as the Virtual Families 2 patcher; with
-  Up to 28 Children a 7th to 28th place). Only when the generation has no child place left are they in the house
-  outside the Family Tree.
+  a spouse** (the owner, 2026-11-26): living in the house, in NO Family Tree entry (no child place, no effect on the
+  child count, the heirs, Next Generation or Up to 28 Children), and **drawn on the game's Family Tree screen under the
+  current spouse**: the screen's own spouse block (0x439D4C..0x439E7D: the frame image 0xC1, the name in the screen's
+  font and colour, the portrait) is run once more at its end, for the current generation only, with a record of the
+  DLL's own whose parent 2 is them and the y one parent step lower; the row's registers and frame are put back exactly.
+  **Clicking them** opens the game's own person window, as clicking a tree person does: the row's click (0x4393E0, its
+  only call 0x439B64) is the game's own first; when it hits nobody and the click is on their frame (the game's own
+  test one step lower: the frame's rectangle, then its pixels), the same dialog (0x416CF0, DoModal, 0x4172E0) is shown
+  with their record (their tree entry at death, with their name, looks and slot now).
 - **Family History**: a `Revived <n>` record (docs/FAMILY_HISTORY.md); the Death record is never rewritten.
 
 ## The snapshot file
@@ -61,8 +70,8 @@ game's own blocks as at the death: CVillagerBio (0xA0), CVillagerState (0x98), t
 (0x18), their Family Tree entry and the generation's two parent entries (0xD8 each), and the whole name.
 
 A revival writes back only the fields marked known; an unknown one keeps the new villager's own value. A snapshot
-whose age at death is unknown comes back at 18. The entry also keeps how they came back (+44), so the at-19 rule
-still knows them after a save and a load.
+whose age at death is unknown comes back at 20. The entry also keeps how they came back (+44), so the grown-up rule
+and the Family Tree screen still know them after a save and a load.
 
 ## Backfill (Tools tab, Revive Backfill)
 
@@ -89,8 +98,9 @@ next save).
 |---|---|---|
 | a death | 0x48E200 (death behaviour's end), 0x489D8F (body removal): the only calls of ReportDeath 0x481CF0 | call retarget, chained to what is there (vf1logs.dll's wrapper or the stock function); the snapshot is taken first |
 | after a load / around a save | theGameState vtable Load 0x4B5E68, Save 0x4B5E6C (SaveCurrentGame 0x4238E0 saves 0, slot, slot + 20 through it) | vtable slot, chained (vf1fun.dll hooks them first) |
-| bringing someone back | CVillagerManager::SpawnPeepFull 0x48B2E0; CFamilyTree::AddOffspring 0x481AA0 (a child entry) | called, as vf1fun's Spawn Child does (AddOffspring through vf1kids.dll's hook when it is installed) |
-| the at-19 college exit | 0x489EAC, the ageing pass's HasCareer (0x48F080) call before the leaving (test eax / jne 0x489EE4) | call retarget: "has a career" for a revived parent or spouse, the game's answer for everyone else |
+| bringing someone back | CVillagerManager::SpawnPeepFull 0x48B2E0 | called, as vf1fun's Spawn Child does |
+| the at-19 college exit | 0x489EAC, the ageing pass's HasCareer (0x48F080) call before the leaving (test eax / jne 0x489EE4) | call retarget: "has a career" for a revived grown-up (back at 20), the game's answer for everyone else |
+| the Family Tree screen | 0x439E7D, the end of the tree row's spouse block (a 6-byte `mov eax, [esi+80h]`); 0x439B64, the screen's call of the row click 0x4393E0 | a jmp to the DLL (it runs that mov itself); a call retarget: the game's click first |
 | who may have a baby | 0x44123D / 0x441250 (a drop on the spouse: HasCareer for both), 0x48EB40 / 0x48EB4C (the try-for-a-baby step: GetMatriarch, GetPatriarch) | call retarget: the same answer; the parents chosen by the game's rule with a revived grown-up counted as having a career (the game's own function when there is none) |
 
 ## UNPROVEN, and live checks
@@ -100,8 +110,10 @@ Nothing here has run in the game yet. Not proved safe until a live check:
 - Writing the persistent fields over a freshly made villager (no sprite or behaviour state is re-derived from head,
   body or voice after CVillager::Init: Change Appearance relies on the same).
 - A child brought back in their old tree entry: Next Generation and the heir list with them in it.
-- A revived child with no career grows up as any child (at 19 with no career they leave home). A revived parent or
-  spouse with no career stays at home at 19 and after; one with a career is an adult at once.
-- A spouse brought back as the spouse at 18: the record's "a parent died" flag stays as the death set it.
-- A remarried partner's late spouse in a child entry: Next Generation may offer them as heir like any child.
-- A family member outside the Family Tree (only when no child place is left): the game has no other such villager.
+- A revived child, or a revived 18- or 19-year-old, with no career follows the game's own rules (at 19 with no career
+  they leave home). Someone back at 20 with no career stays at home and can have babies.
+- A spouse brought back as the spouse: the record's "a parent died" flag stays as the death set it.
+- How a remarried partner's late spouse looks under the current spouse on the Family Tree screen: the frame one parent
+  step below the spouse's, inside the screen and its scrolling (the last generation's row is the lowest; whether the
+  scroll range reaches below it is not proved), and their person window when clicked.
+- A family member outside the Family Tree: the game has no other such villager.

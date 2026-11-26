@@ -980,13 +980,13 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
         Write(slot, "Roll the Dice", Body);
     } else if (kind == EV_REVIVED && p.slot >= 0) {
         // vf1fun's Revive a Family Member (vf1revive.dll): `a` the age at death in age units, `b` how they came back
-        // (1 child, 2 child 7..28, 3 parent, 4 spouse, 5 family member outside the tree, 6 family member in a child
-        // entry: a spouse whose partner remarried).
+        // (1 child, 2 child 7..28, 3 parent, 4 spouse, 5 family member outside the tree, 7 a spouse whose partner
+        // remarried: a family member, drawn under the current spouse on the Family Tree screen).
         Self(t, p, "Age");
         t.S("  Age at death: ").U(Years(a)).NL();
         Field(t, "  ", "How", "Revive a Family Member");
         Field(t, "  ", "Returned as", b == 1 || b == 2 ? "Child" : b == 3 ? "Parent" : b == 4 ? "Spouse"
-                                     : b == 6 ? "Family member (in the Family Tree as a child)"
+                                     : b == 7 ? "Family member (shown under the current spouse in the Family Tree)"
                                      : "Family member (not in the Family Tree)");
         Field(t, "  ", "Family role", RoleText(TreeRole(p)));
         Generation(t, Generations());
