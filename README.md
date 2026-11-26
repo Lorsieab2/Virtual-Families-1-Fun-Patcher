@@ -283,7 +283,11 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     **VERIFIED-E** (the game's own routine emulated with the game's inputs, odds counted exactly),
     **VERIFIED-C** (the game's own code on a traced call path) or **UNCONFIRMED**. The facts are VF1's own, from
     `docs/game-mechanics/spec.md` and re-checks in the exe; the module's docstring records which of the owner's
-    proposed lines held and which were left out. It opens no save, game file or install and writes nothing.
+    proposed lines held and which were left out. Its **Family members** group lists every person of the family
+    chosen at the top of the window, as the save holds them: age, health, sickness and infections, the Details
+    screen's bars and the hidden needs, food groups, career, level, progress and salary, likes and dislikes,
+    "Wants kids?" and fertility, spouse, parents, children, a pregnancy and the whole name from the patcher's Names
+    file (`patcher/vf1_game_mechanics_family.py`, tests `tests/test_game_mechanics_family.py`). It writes nothing.
     Module `patcher/vf1_game_mechanics.py` (`python patcher/vf1_game_mechanics.py` prints the page), tests
     `tests/test_game_mechanics.py`.
   - **Game Text...:** type anything in any of the game's fonts and see it exactly as the game draws text (every
