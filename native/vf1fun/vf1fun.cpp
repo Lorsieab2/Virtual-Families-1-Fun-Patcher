@@ -183,7 +183,7 @@ public:
     int Dropped() const { return dropped; }
 };
 
-enum { BUTTON = 0x80, EDIT = 0x81, STATIC = 0x82, LISTBOX = 0x83 };
+enum { BUTTON = 0x80, EDIT = 0x81, STATIC = 0x82, LISTBOX = 0x83, COMBOBOX = 0x85 };
 
 // Names can be in any script. With the dialogs' Segoe UI, its font links and Windows' own fallback, EDIT, LISTBOX
 // and STATIC controls show Cuneiform (U+12000-U+1254F) as empty boxes. Segoe UI Historic (in Windows since 10) has
@@ -471,8 +471,26 @@ enum { STAT_HEALTH = 0x0C, STAT_ENERGY = 0x34, STAT_HAPPINESS = 0x38, STAT_HUNGE
 static int Fed(int i) { return 100 - *Stat(i, STAT_HUNGER); }
 enum { ID_VC_LIST = 400, ID_VC_HEALTH, ID_VC_CURE, ID_VC_HAPPY, ID_VC_ENERGY, ID_VC_FED, ID_VC_ALL,
        ID_VC_HEAD, ID_VC_BODY, ID_VC_LOOKS, ID_VC_RANDOM_LOOKS, ID_VC_PROMOTE, ID_VC_CAREER,
-       ID_VC_BOARD, ID_VC_DESENS, ID_VC_LEARN, ID_VC_PSYCHO, ID_VC_RUNNING, ID_VC_AGE18 };
+       ID_VC_BOARD, ID_VC_DESENS, ID_VC_LEARN, ID_VC_PSYCHO, ID_VC_RUNNING, ID_VC_AGE18, ID_VC_SKIN, ID_VC_SKIN_SET };
 static const wchar_t *ApplyVillagerUpgrade(int id, int slot);  // villager_upgrades.inc
+
+// Skin Tones (vf1skin.dll, loaded below while the SkinTones setting is on): Change Appearance's skin tone row. The
+// DLL keeps each person's tone in its own file beside the save and writes the "Appearance changed" record.
+typedef int (__cdecl *SkinGetFn)(int slot, int *tone, int *birth);
+typedef int (__cdecl *SkinSetFn)(int slot, int tone);
+typedef int (__cdecl *SkinResetFn)(int slot);
+static SkinGetFn SkinGet;
+static SkinSetFn SkinSet;
+static SkinResetFn SkinReset;
+enum { SKIN_DEFAULT = 15, SKIN_RESET = -1 };
+// The choices, in the combo box's order: Default (the game's own skin), the ten tones light to dark, the birth tone.
+static const struct { int tone; const wchar_t *label; } kSkinChoices[] = {
+    { SKIN_DEFAULT, TR_N(L"Default (the game's own skin)") },
+    { 1, TR_N(L"S1 Porcelain") }, { 2, TR_N(L"S2 Fair") }, { 3, TR_N(L"S3 Light golden") },
+    { 4, TR_N(L"S4 Light olive") }, { 5, TR_N(L"S5 Copper") }, { 6, TR_N(L"S6 Warm brown") },
+    { 7, TR_N(L"S7 Medium brown") }, { 8, TR_N(L"S8 Deep brown") }, { 9, TR_N(L"S9 Dark") },
+    { 10, TR_N(L"S10 Ebony") }, { SKIN_RESET, TR_N(L"Reset to birth tone") },
+};
 
 // Cure: the seven symptoms and their end times, and both infections. The
 // infections are two flags, mild at +0x80 and serious at +0x81 (villager
@@ -554,6 +572,7 @@ static const wchar_t *VillagerCheatAction(int id) {
     case ID_VC_AGE18: return TR(L"Set Age to 18");
     case ID_VC_LOOKS: return TR(L"Change Appearance");
     case ID_VC_RANDOM_LOOKS: return TR(L"Give a random look");
+    case ID_VC_SKIN_SET: return TR(L"Change skin tone");
     }
     return 0;
 }
@@ -569,6 +588,15 @@ static bool ConfirmVillagerCheat(HWND dlg, int id) {
     return Confirm(dlg, text);
 }
 
+static void FillSkinChoices(HWND dlg) {
+    HWND skin = GetDlgItem(dlg, ID_VC_SKIN);
+    for (int k = 0; k < (int)(sizeof kSkinChoices / sizeof kSkinChoices[0]); ++k) {
+        int row = (int)SendMessageW(skin, CB_ADDSTRING, 0, (LPARAM)Tr(kSkinChoices[k].label));
+        SendMessageW(skin, CB_SETITEMDATA, row, kSkinChoices[k].tone);
+    }
+    SendMessageW(skin, CB_SETCURSEL, 0, 0);
+}
+
 static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM) {
     switch (msg) {
     case WM_INITDIALOG: {
@@ -576,6 +604,12 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
         int stop = 90;
         SendMessageW(GetDlgItem(dlg, ID_VC_LIST), LB_SETTABSTOPS, 1, (LPARAM)&stop);
         FillVillagerList(dlg);
+        HWND skin = GetDlgItem(dlg, ID_VC_SKIN);
+        FillSkinChoices(dlg);
+        if (!SkinSet) {                      // Skin Tones is off (or could not be installed): the row cannot be used
+            EnableWindow(skin, FALSE);
+            EnableWindow(GetDlgItem(dlg, ID_VC_SKIN_SET), FALSE);
+        }
         return TRUE;
     }
     case WM_COMMAND: {
@@ -588,7 +622,28 @@ static INT_PTR CALLBACK VillagerCheatsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM
             if (who >= 0 && who < VillagerSlots) {
                 SetDlgItemInt(dlg, ID_VC_HEAD, *Head(who), FALSE);
                 SetDlgItemInt(dlg, ID_VC_BODY, *Body(who), FALSE);
+                int tone = 0, birth = 0;
+                if (SkinGet && SkinGet(who, &tone, &birth)) {
+                    HWND skin = GetDlgItem(dlg, ID_VC_SKIN);
+                    for (int k = 0; k < (int)(sizeof kSkinChoices / sizeof kSkinChoices[0]); ++k)
+                        if (kSkinChoices[k].tone == tone) SendMessageW(skin, CB_SETCURSEL, k, 0);
+                }
             }
+        } else if (id == ID_VC_SKIN_SET) {
+            // Change Appearance's skin tone: the picked villager, or everyone; each change is logged by the DLL
+            HWND list = GetDlgItem(dlg, ID_VC_LIST), skin = GetDlgItem(dlg, ID_VC_SKIN);
+            int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
+            int who = sel < 0 ? -1 : (int)SendMessageW(list, LB_GETITEMDATA, sel, 0);
+            int pick = (int)SendMessageW(skin, CB_GETCURSEL, 0, 0);
+            int tone = pick < 0 ? SKIN_DEFAULT : (int)SendMessageW(skin, CB_GETITEMDATA, pick, 0);
+            int done = 0;
+            for (int i = 0; SkinSet && i < VillagerSlots; ++i) {
+                if (!VillagerPresent(i) || (who >= 0 && who != i))
+                    continue;
+                done += tone == SKIN_RESET ? SkinReset(i) : SkinSet(i, tone);
+            }
+            if (!done && tone == SKIN_RESET)
+                Message(dlg, TR_N(L"No birth tone is kept for them yet."));
         } else if (id == ID_VC_LOOKS || id == ID_VC_RANDOM_LOOKS) {
             HWND list = GetDlgItem(dlg, ID_VC_LIST);
             int sel = (int)SendMessageW(list, LB_GETCURSEL, 0, 0);
@@ -653,7 +708,7 @@ static Template &VillagerCheatsTemplate() {
     static Template t;
     // Instant job promotion, Career Change, Boarding School, Systematic Desensitization, Higher Learning and
     // Psychotherapy are VF2's paid services now, on the Services page (SpecialUpgrades), not cheats.
-    t.Begin(TR_N(L"Villager Cheats"), 340, 274);
+    t.Begin(TR_N(L"Villager Cheats"), 340, 296);
     t.Item(LISTBOX, LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_BORDER | WS_TABSTOP, 10, 10, 320, 110, ID_VC_LIST, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 128, 90, 18, ID_VC_HEALTH, TR_N(L"Max health"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 105, 128, 90, 18, ID_VC_CURE, TR_N(L"Cure illnesses"));
@@ -663,15 +718,20 @@ static Template &VillagerCheatsTemplate() {
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 200, 152, 90, 18, ID_VC_ALL, TR_N(L"All of these"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 10, 176, 104, 18, ID_VC_RUNNING, TR_N(L"Add Running Like"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 118, 176, 104, 18, ID_VC_AGE18, TR_N(L"Set Age to 18"));
-    t.Item(BUTTON, BS_GROUPBOX, 6, 200, 328, 40, -1, TR_N(L"Change Appearance (hairstyle and face, clothes)"));
+    t.Item(BUTTON, BS_GROUPBOX, 6, 200, 328, 62, -1,
+           TR_N(L"Change Appearance (hairstyle and face, clothes, skin tone)"));
     t.Item(STATIC, SS_LEFT, 14, 218, 30, 12, -1, TR_N(L"Head:"));
     t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 44, 216, 26, 14, ID_VC_HEAD, L"");
     t.Item(STATIC, SS_LEFT, 78, 218, 30, 12, -1, TR_N(L"Body:"));
     t.Item(EDIT, ES_LEFT | ES_NUMBER | WS_BORDER | WS_TABSTOP, 108, 216, 26, 14, ID_VC_BODY, L"");
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 142, 215, 84, 16, ID_VC_LOOKS, TR_N(L"Change (0-49)"));
     t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 215, 94, 16, ID_VC_RANDOM_LOOKS, TR_N(L"Random look"));
-    t.Item(STATIC, SS_LEFT, 10, 252, 220, 12, -1, TR_N(L"Pick Everyone to change everybody at once."));
-    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 248, 75, 16, IDOK, TR_N(L"Close"));
+    t.Item(STATIC, SS_LEFT, 14, 240, 50, 12, -1, TR_N(L"Skin tone:"));
+    // a drop-down list: comctl32 6 sizes the open list itself, so the control is one row high here
+    t.Item(COMBOBOX, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, 66, 238, 160, 14, ID_VC_SKIN, L"");
+    t.Item(BUTTON, BS_PUSHBUTTON | WS_TABSTOP, 232, 237, 94, 16, ID_VC_SKIN_SET, TR_N(L"Set skin tone"));
+    t.Item(STATIC, SS_LEFT, 10, 274, 220, 12, -1, TR_N(L"Pick Everyone to change everybody at once."));
+    t.Item(BUTTON, BS_DEFPUSHBUTTON | WS_TABSTOP, 255, 270, 75, 16, IDOK, TR_N(L"Close"));
     return t;
 }
 static void ShowVillagerCheats(HWND owner) {
@@ -1169,6 +1229,29 @@ static void LoadReviveCompanion() {
     if (!ReviveCount || !ReviveInfo || !ReviveName || !ReviveDo) ReviveCount = 0;
 }
 
+// ---------------------------------------------------------------- Skin Tones
+// The feature is its own DLL, vf1skin.dll, installed beside this one only while the SkinTones setting is on
+// (patcher/manifest.json). It is loaded after vf1revive.dll (it chains the same theGameState Load and Save slots and
+// the conception call vf1logs.dll chains). It draws everybody in their tone and keeps the tones; this DLL only offers
+// Change Appearance's skin tone row (Villager Cheats, above).
+static void LoadSkinCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1skin.dll");
+    HMODULE skin = LoadLibraryW(path);
+    if (!skin) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(skin, "VF1Skin_Startup");
+    if (!startup || !startup()) return;   // not installed: nobody is toned and the row stays disabled
+    SkinGet = (SkinGetFn)GetProcAddress(skin, "VF1Skin_Get");
+    SkinSet = (SkinSetFn)GetProcAddress(skin, "VF1Skin_Set");
+    SkinReset = (SkinResetFn)GetProcAddress(skin, "VF1Skin_Reset");
+    if (!SkinGet || !SkinSet || !SkinReset) SkinSet = 0;
+}
+
 // ---------------------------------------------------------------- Render Unicode with In-Game Fonts / Use Unicode Font
 // Each is its own DLL, installed beside this one only while its setting is on (patcher/manifest.json): vf1text.dll
 // (RenderUnicodeInGameFonts) or vf1font.dll (UseUnicodeFont, the same source built to draw every letter with the
@@ -1343,6 +1426,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadLogsCompanion();
     if (SettingOn(L"Revive", false))          // after vf1logs.dll: it chains the same two calls
         LoadReviveCompanion();
+    if (SettingOn(L"SkinTones", false))       // after vf1revive.dll: it chains the same vtable slots
+        LoadSkinCompanion();
     if (SettingOn(L"RenderUnicodeInGameFonts", false))
         LoadTextCompanion(L"vf1text.dll");
     else if (SettingOn(L"UseUnicodeFont", false))

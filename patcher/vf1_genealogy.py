@@ -39,6 +39,7 @@ GAME_TITLE = "Virtual Families 1"
 PATCHER_FOLDER = "Virtual Families 1 Patcher"                 # the patcher's folder for each save: ...\Save <N>
 CHILDREN_FOLDER = vf1_save.PATCHER_DATA + "\\Children"        # vf1kids.cpp SidecarPath
 REVIVE_FOLDER = vf1_save.PATCHER_DATA + "\\Revive"            # vf1revive.cpp SidecarPath (the same header)
+SKIN_FOLDER = vf1_save.PATCHER_DATA + "\\Skin Tones"         # vf1skin.cpp SidecarPath (the same header)
 
 SEX_WORDS = {0: "Male", 1: "Female"}      # bio+4: 0 male, 1 female (VERIFIED)
 
@@ -247,20 +248,26 @@ def read_children_sidecar(data: bytes) -> ChildrenSidecar | None:
 REVIVE_MAGIC = b"VF1REVV\x00"                # vf1revive.cpp ReadSidecar
 REVIVE_ENTRY = 2256                     # vf1revive.cpp kEntry (vf1_revive_backfill.ENTRY)
 REVIVE_MAX = 64
+SKIN_MAGIC = b"VF1SKIN\x00"                # vf1skin.cpp ReadSidecar (vf1_skin_tones.MAGIC)
+SKIN_ENTRY = 64                         # vf1skin.cpp kEntry
+SKIN_MAX = 400
+_SAME_HEADER = {REVIVE_MAGIC: (REVIVE_ENTRY, REVIVE_MAX), SKIN_MAGIC: (SKIN_ENTRY, SKIN_MAX)}
 
 
 def sidecar_key(data: bytes) -> tuple[int, int] | None:
-    """(save hash, save size) of a Children or Revive file that its DLL would accept (both have the same header:
-    tags, version 1, size, the save's FNV-1a 64 hash and size, the entry count at +48, the checksum at the end)."""
+    """(save hash, save size) of a Children, Revive or Skin Tones file that its DLL would accept (all three have the
+    same header: tags, version 1, size, the save's FNV-1a 64 hash and size, the entry count at +48, the checksum at
+    the end)."""
     import struct
     if data[:8] == KIDS_MAGIC:
         return (s.save_hash, s.save_size) if (s := read_children_sidecar(data)) else None
-    if len(data) < KIDS_HEADER + 8 or data[:8] != REVIVE_MAGIC or data[12:20] != KIDS_TAG:
+    if len(data) < KIDS_HEADER + 8 or data[:8] not in _SAME_HEADER or data[12:20] != KIDS_TAG:
         return None
+    entry, most = _SAME_HEADER[data[:8]]
     if struct.unpack_from("<I", data, 8)[0] != 1 or struct.unpack_from("<I", data, 20)[0] != len(data):
         return None
     count = struct.unpack_from("<I", data, 48)[0]
-    if count > REVIVE_MAX or len(data) != KIDS_HEADER + count * REVIVE_ENTRY + 8:
+    if count > most or len(data) != KIDS_HEADER + count * entry + 8:
         return None
     if struct.unpack_from("<Q", data, len(data) - 8)[0] != fnv1a64(data[:-8]):
         return None
@@ -268,12 +275,13 @@ def sidecar_key(data: bytes) -> tuple[int, int] | None:
 
 
 def rekey_children_sidecar(data: bytes, saves) -> bytes | None:
-    """``data`` (a Children file, or a Revive file: the same header) re-matched to a save a tool rewrote, or None
-    when it is left as it is.
+    """``data`` (a Children file, or a Revive or Skin Tones file: the same header) re-matched to a save a tool
+    rewrote, or None when it is left as it is.
 
     ``saves`` is (bytes before, bytes after) for each save the tool rewrote. vf1kids takes the children from a
     Children file only when it names the FNV-1a 64 hash and size of the loaded save (vf1kids.cpp AfterLoad;
-    otherwise it keeps only the extra children still at home), and vf1revive its snapshots the same way, so a file
+    otherwise it keeps only the extra children still at home), and vf1revive its snapshots and vf1skin its tones the
+    same way, so a file
     that described one of those saves BEFORE the change is given the new bytes' hash and size and its own checksum
     again; nothing else in it changes. A file that is damaged, described none of them, or whose save did not change
     is left alone.
@@ -298,13 +306,13 @@ def rekey_children_sidecar(data: bytes, saves) -> bytes | None:
 
 
 def children_rekeys(folder: Path, slot: int, saves, prefix: str = vf1_save.SAVE_PREFIX) -> list[tuple[Path, bytes, bytes]]:
-    """(path, bytes now, re-matched bytes) for each of ``slot``'s Children and Revive files (save numbers N, N+20,
-    N+40: vf1kids and vf1revive also read the N+20 file for save N) that described one of ``saves`` (see
+    """(path, bytes now, re-matched bytes) for each of ``slot``'s Children, Revive and Skin Tones files (save numbers
+    N, N+20, N+40: vf1kids, vf1revive and vf1skin also read the N+20 file for save N) that described one of ``saves`` (see
     rekey_children_sidecar) before a tool rewrote it. Only this slot's files are looked at; nothing is written
     here. ``prefix`` is the save files' name before their number (each file is named after its save)."""
     saves = list(saves)
     out: list[tuple[Path, bytes, bytes]] = []
-    for sub in (CHILDREN_FOLDER, REVIVE_FOLDER):
+    for sub in (CHILDREN_FOLDER, REVIVE_FOLDER, SKIN_FOLDER):
         for number in (slot, slot + 20, slot + 40):
             path = Path(folder) / sub / f"{prefix}{number}.ldw.dat"
             try:

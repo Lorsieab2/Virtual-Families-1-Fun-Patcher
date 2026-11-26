@@ -96,6 +96,14 @@ after 2000 records the next one opens file `<k+1>`. The slot is theGameState+0x1
   Family role: (not in the Family Tree)
   Generation: 1
 
+[...] Appearance changed 1     (Skin Tones' Change Appearance, with vf1skin.dll: docs/SKIN_TONES.md)
+  Name: Ola
+  Age: 18                        (Sex, Head and Body follow)
+  Old skin tone: Copper          (Porcelain, Fair, Light golden, Light olive, Copper, Warm brown, Medium brown,
+  New skin tone: Default          Deep brown, Dark, Ebony; Default is the game's own skin)
+  How: Change Appearance
+  Generation: 1
+
 [...] Family Renamed 1         (written by Rename Family on the Tools tab)
   Old name: Smith
   New name: Brand New
@@ -144,7 +152,7 @@ from a live caller (tests/history_scenarios.py lists what runs for real and ever
 | Email Event: the dating e-mail, the letter | 0x445023 (the dating scene's switch 0x440E60) and 0x445030 (the only call of the letter 0x415B60) in the main scene's mail branch | call retargets | the branch tells the mail types apart: 2 (0x445002), 3 (0x44502A), else an event (0x44503A). Emulated from 0x445007 and 0x44502F |
 | Start Over | 0x448426, the only call of theGameState::Restart 0x4243C0 | call retarget | emulated: the slot folder is emptied, Backups kept, and the next family's log says so |
 | After a load | theGameState vtable Load slot 0x4B5E68 | vtable (chains vf1fun) | emulated, also over a vf1fun-style handler; the backfill on copies of real saves |
-| Divorce, Evict Family, Arrived (Spawn Child, Adopt Outside Child), Roll the Dice, Boarding School, Revived | vf1fun.dll calls `VF1Logs_Event(kind, who, a, b)` | export | vf1fun's own functions, before they change anything (Divorce before the spouse leaves, Evict before the tree is reset, Boarding School before SetLeftHome); Roll the Dice after the event it fired |
+| Divorce, Evict Family, Arrived (Spawn Child, Adopt Outside Child), Roll the Dice, Boarding School, Revived | vf1fun.dll calls `VF1Logs_Event(kind, who, a, b)` (Appearance changed: vf1skin.dll calls it, kind 8, `a` / `b` the old and new tone) | export | vf1fun's own functions, before they change anything (Divorce before the spouse leaves, Evict before the tree is reset, Boarding School before SetLeftHome); Roll the Dice after the event it fired |
 
 Found while tracing (stock game, not changed): **Landscaping Service (60) and Housekeeping Services (61) are never
 shown.** Each has choices and a CanFire that returns true without choosing a villager (0x417FE0), so GetTarget

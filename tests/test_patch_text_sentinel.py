@@ -63,6 +63,7 @@ extern "C" __declspec(dllexport) void __cdecl T_Private() { gPrivateRomantic = t
 extern "C" __declspec(dllexport) void __cdecl T_Services() { FillServices((HWND)0x77); }
 extern "C" __declspec(dllexport) void __cdecl T_Purchases() { FillPurchases((HWND)0x77); }
 extern "C" __declspec(dllexport) void __cdecl T_Achievements() { AchievementsProc((HWND)0x77, WM_INITDIALOG, 0, 0); }
+extern "C" __declspec(dllexport) void __cdecl T_SkinChoices() { FillSkinChoices((HWND)0x77); }
 extern "C" __declspec(dllexport) void __cdecl T_Upgrades(void *scene) { AddUpgradesButton(scene); }
 extern "C" __declspec(dllexport) void __cdecl T_FleaList() { FleaProc((HWND)0x77, WM_INITDIALOG, 0, 0); }
 extern "C" __declspec(dllexport) void __cdecl T_FleaBuy() { BuyItem((HWND)0x77, false); }
@@ -422,6 +423,7 @@ def test_every_marked_line_is_translated_where_it_is_shown(emu, sentinels):
         e.cursel = k
         e.call(e.dll_export("T_Purchases"))
     e.call(e.dll_export("T_Achievements"))
+    e.call(e.dll_export("T_SkinChoices"))
     e.call(e.dll_export("T_FreeRefused"))
     for lit in pt.literals("vf1fun"):                   # a line handed to Message / Confirm as it is
         if lit.marker == "TR_N" and lit.call in ("Message", "Confirm") and lit.argument == 1:
