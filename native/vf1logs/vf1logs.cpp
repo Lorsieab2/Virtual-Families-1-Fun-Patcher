@@ -509,7 +509,11 @@ static void Write(int slot, const char *kind, const char *lines, bool backfilled
 
 // ---- remarriage: the spouse a person married before in the same generation and why they left ("died" or
 // "divorced"), from this slot's own Family History (the save forgets a spouse who left or died before any
-// child). Records after the last eviction only.
+// child). Records after the last eviction, and after the last record that began a generation ("Generation",
+// "New Generation"), only: a generation's number alone does not tell generations apart (Adopt New Person at 30
+// generations moves the tree up a place, so two generations both say 30). A Death or Divorce says why the
+// earlier spouse left only when it is in the same generation, and a Death only when it is not a child's: a
+// namesake (a son named after his father) is never the earlier spouse.
 // The names in the log are in UTF-8 (a log an earlier build wrote holds the stored form: read per sequence, it is the
 // same text); kNameBytes holds a whole name's UTF-8 (a stored byte is at most three UTF-8 bytes).
 static const unsigned kNameBytes = 3 * 1200 + 1;
@@ -534,8 +538,9 @@ static bool EarlierSpouse(int slot, int gen, const char *stored, char *earlier, 
     h.Init(EarlierHead, kNameBytes);
     h.Name(stored, 25);                                  // the name as the log writes it
     const char *head = EarlierHead;
-    char kind[16], g[12], *a = EarlierA, *b = EarlierB;
-    kind[0] = a[0] = b[0] = g[0] = 0;
+    char kind[16], g[12], role[32], *a = EarlierA, *b = EarlierB;
+    int married = -1;                                   // the generation of the marriage `earlier` comes from
+    kind[0] = a[0] = b[0] = g[0] = role[0] = 0;
     for (unsigned k = 1; k <= kMaxFiles && HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
         unsigned got = 0;
         if (!ReadWhole(path, &got)) continue;
@@ -547,14 +552,18 @@ static bool EarlierSpouse(int slot, int gen, const char *stored, char *earlier, 
                 if ((SameText(kind, "Marriage", 16)) && gn == gen && (SameText(a, head, kNameBytes) || SameText(b, head, kNameBytes))) {
                     Copy(earlier, SameText(a, head, kNameBytes) ? b : a, kNameBytes);
                     how[0] = 0;
-                } else if (SameText(kind, "Death", 16) && earlier[0] && SameText(a, earlier, kNameBytes)) {
+                    married = gn;
+                } else if (SameText(kind, "Death", 16) && earlier[0] && gn == married && !SameText(role, "Child", 32) &&
+                           SameText(a, earlier, kNameBytes)) {
                     Copy(how, "died", 5);
-                } else if (SameText(kind, "Divorce", 16) && earlier[0] && SameText(b, earlier, kNameBytes)) {
+                } else if (SameText(kind, "Divorce", 16) && earlier[0] && gn == married && SameText(b, earlier, kNameBytes)) {
                     Copy(how, "divorced", 9);
-                } else if (SameText(kind, "Evict Family", 16)) {
+                } else if (SameText(kind, "Evict Family", 16) || SameText(kind, "Generation", 16) ||
+                           SameText(kind, "New Generation", 16)) {
                     earlier[0] = how[0] = 0;
+                    married = -1;
                 }
-                kind[0] = a[0] = b[0] = g[0] = 0;
+                kind[0] = a[0] = b[0] = g[0] = role[0] = 0;
             }
             if (!*p) break;
             if (*p == '[') {
@@ -567,7 +576,7 @@ static bool EarlierSpouse(int slot, int gen, const char *stored, char *earlier, 
             } else {
                 Value(p, "  Family member: ", a, kNameBytes) || Value(p, "  Name: ", a, kNameBytes) ||
                     Value(p, "  Married: ", b, kNameBytes) || Value(p, "  Divorced: ", b, kNameBytes) ||
-                    Value(p, "  Generation: ", g, sizeof(g));
+                    Value(p, "  Generation: ", g, sizeof(g)) || Value(p, "  Family role: ", role, sizeof(role));
             }
             while (*p && *p != '\n') ++p;
             if (*p) ++p;
