@@ -108,7 +108,10 @@ PINS = [
     ("carried", 0x48A100, 0x11D, "the carried-items draw: carrying.png cell 3 once per baby while pregnant"),
     ("portrait", 0x486B60, 0x0D, "CVillager's portrait (Details, Adoption, the marriage proposal): sub esp,28h"),
     ("event_portrait", 0x486D20, 0x0D, "CVillager's event pop-up portrait: sub esp,38h / mov al,[esp+4Ch]"),
-    ("tree_scene", 0x439BC5, 0x3E0, "the Family Tree scene's draw: GetRecord(gen) in edi, DrawParent x2, DrawChild"),
+    ("tree_scene", 0x439BC5, 0x2B8, "the Family Tree scene's draw: GetRecord(gen) in edi, DrawParent x2"),
+    # 0x439E7D..0x439E82 (the spouse block's last instruction) is vf1revive.dll's: it puts a jmp there to draw a
+    # remarried partner's late spouse with the same block (docs/REVIVE.md); it is left out of the pins.
+    ("tree_children", 0x439E83, 0x122, "the tree scene's children: record + k * 0xD8 in ebp, DrawChild"),
     ("conception_call", 0x48EBA5, 0x12, "the try-for-a-baby step's Impregnate call"),
     ("change_name_1", 0x44BCED, 0x10, "the Details screen's rename: CFamilyTree::ChangeName(villager, name)"),
     ("change_name_2", 0x44BDEA, 0x10, "the second rename: CFamilyTree::ChangeName(villager, name)"),
@@ -136,7 +139,7 @@ CALL_HOOKS = (
     ("dv_carried_2", 0x48B9F9, 0x48A100),
     ("tree_scene", 0x439CC6, 0x439790),
     ("tree_scene", 0x439E01, 0x439790),
-    ("tree_scene", 0x439FA0, 0x439930),
+    ("tree_children", 0x439FA0, 0x439930),
     ("conception_call", 0x48EBB2, 0x4864D0),
     ("change_name_1", 0x44BCF8, 0x481C20),
     ("change_name_2", 0x44BDF5, 0x481C20),
@@ -159,9 +162,10 @@ CROSS = {
     "image_grid": {IMAGE_ENTRY_GRID},
     "ldw_make_path": {0x14},
     "gs_save_current": {0x38, SAVE_BACKUP_OFFSET},
-    "tree_scene": {FAMILY_TREE, RECORD_PARENT2, RECORD_CHILDREN, PEEP_RECORD_SIZE,
-                   RECORD_CHILDREN + PEEP_GENDER, RECORD_CHILDREN + PEEP_HEAD, RECORD_CHILDREN + PEEP_BODY,
-                   RECORD_PARENT2 + PEEP_GENDER, RECORD_PARENT2 + PEEP_HEAD, RECORD_PARENT2 + PEEP_BODY},
+    "tree_scene": {FAMILY_TREE, RECORD_PARENT2, RECORD_PARENT2 + PEEP_GENDER, RECORD_PARENT2 + PEEP_HEAD,
+                   RECORD_PARENT2 + PEEP_BODY},
+    "tree_children": {RECORD_CHILDREN, PEEP_RECORD_SIZE, RECORD_CHILDREN + PEEP_GENDER, RECORD_CHILDREN + PEEP_HEAD,
+                      RECORD_CHILDREN + PEEP_BODY},
 }
 
 # The registers the tree hooks read: (from, to, register, what it must be). No instruction in [from, to) writes it.

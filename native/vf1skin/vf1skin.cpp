@@ -493,7 +493,14 @@ static unsigned __cdecl ToneForVillager(const unsigned char *v) { return ToneFor
 
 static unsigned __cdecl ToneForPeep(const unsigned char *peep) {
     int gen = 0, place = 0;
-    if (Suspended || !peep[SKIN_PEEP_VALID] || !PlaceOf(peep, &gen, &place)) return 0;
+    if (Suspended || !peep[SKIN_PEEP_VALID]) return 0;
+    if (!PlaceOf(peep, &gen, &place)) {
+        // not one of the tree's own entries: a record another companion draws with the tree's own code (vf1revive's
+        // remarried partner's late spouse, under the spouse): the person in the house it names
+        int slot = I32(peep, SKIN_PEEP_SLOT);
+        Entry *e = slot >= 0 && Exists(slot) ? Person(slot) : 0;
+        return e && IsPeep(*e, peep) ? Drawn(e) : 0;
+    }
     Entry *e = TreePerson(peep, gen, place);
     if (!e) return 0;
     AddPlace(*e, gen, place);

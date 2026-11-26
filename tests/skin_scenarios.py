@@ -135,7 +135,7 @@ class SkinWorld(ReviveWorld):
         assert code[:2] == b"\x83\x3D" and code[6] == 0, code.hex()
         return struct.unpack("<I", code[2:6])[0]
 
-    def draw_tree_person(self, which, g=None):
+    def draw_tree_person(self, which, g=None, record=None):
         """The tree scene's own call of DrawParent (parent 1 at 0x439CC6, parent 2 at 0x439E01) or DrawChild (child k
         at 0x439FA0), with the record where the scene keeps it; the stand-in draw notes the tone the DLL set."""
         from unicorn.x86_const import UC_X86_REG_EBP, UC_X86_REG_ECX, UC_X86_REG_EDI, UC_X86_REG_ESP
@@ -148,7 +148,7 @@ class SkinWorld(ReviveWorld):
             e.seam_live(0x439790, drawn)
             e.seam_live(0x439930, drawn)
             self._tree_seams = True
-        rec = self.record(g)
+        rec = record if record is not None else self.record(g)
         site = {0: 0x439CC6, 1: 0x439E01}.get(which, 0x439FA0)
         esp = e.sp_top - 0x1C
         for k in range(7):

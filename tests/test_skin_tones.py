@@ -234,6 +234,31 @@ def test_the_family_tree_draws_each_person_in_their_tone_the_dead_too(built):
     assert w.draw_tree_person(2) == 7
 
 
+def test_revives_late_spouse_drawn_under_the_spouse_has_their_tone(built):
+    """vf1revive.dll draws a remarried partner's late spouse with the tree's own spouse block, edi a record of its own
+    (parent 2 the revived person, slot their villager slot): the same call 0x439E01, their own tone."""
+    w = family(built)
+    w.load()
+    w.set_villager(6, "Liz", 1, years=20, head=30, body=31)
+    w.set_tone(6, 2)
+    extra = w.e.alloc(0x6C8)
+    w.e.write(extra + 0xDC, b"Liz\0")
+    w.e.write(extra + 0xDC + 0x1A, b"\1")
+    for off, v in ((0x1C, 1), (0x20, 30), (0x24, 31), (0x28, 6)):
+        w.e.w32(extra + 0xDC + off, v)
+    assert w.draw_tree_person(1, record=extra) == 2
+    w.e.write(extra + 0xDC, b"Ann\0")               # a record naming someone else than the slot holds: no tone
+    assert w.draw_tree_person(1, record=extra) == 0
+
+
+def test_installs_beside_revives_tree_detour(built):
+    """vf1revive.dll (loaded first) puts a jmp at the spouse block's end, 0x439E7D: Skin Tones still installs."""
+    def before(w):
+        w.e.write(0x439E7D, b"\xE9" + (0x10000000).to_bytes(4, "little") + b"\x00")
+    w = world(built, before_install=before)
+    assert w.installed == 1
+
+
 def test_an_earlier_generation_is_toned_on_the_first_load(built):
     w = family(built)
     w.next_generation(2, 2)                           # Cal inherits: generation 2
