@@ -1045,11 +1045,31 @@ static void OnLoaded(int slot) {
 }
 
 // ================================================================ the hooks
+// The father the step chose, when the game's own GetPatriarch is not him: Revive a Family Member (vf1revive.dll) lets
+// a revived spouse or parent with no career father a baby (it chooses the step's father with a career counted for
+// them), and GetPatriarch, which needs a career, does not name him. He is then the current generation's parent in the
+// Family Tree whose villager is at home, alive, a man, with the head and body the step passes -- as the Birth record
+// names the father from the tree.
+static unsigned char *TreeFather(const void *mother, int head, int body) {
+    unsigned char *rec = Record(Generations());
+    if (!rec) return 0;
+    for (int k = 0; k < 2; ++k) {
+        unsigned char *peep = Peep(rec, k);
+        unsigned char *v = peep[LOGS_PEEP_VALID] ? Villager(I32(peep, LOGS_PEEP_SLOT)) : 0;
+        if (!v || v == mother || !v[LOGS_VILLAGER_PRESENT] || v[LOGS_VILLAGER_LEFT_HOME]) continue;
+        if (I32(v, LOGS_VILLAGER_HEALTH) <= 0 || I32(v, LOGS_VILLAGER_GENDER) != 0) continue;
+        if (!SameText((const char *)peep, (const char *)(v + LOGS_VILLAGER_NAME), 25)) continue;
+        if (I32(v, LOGS_VILLAGER_HEAD) == head && I32(v, LOGS_VILLAGER_BODY) == body) return v;
+    }
+    return 0;
+}
+
 static bool __fastcall ConceptionHook(void *mother, void *, int one, const char *father, int head, int body, int flag) {
     // The step passes the patriarch's head and body (0x48EB99..0x48EBB2): he is the father.
     unsigned char *patriarch = (unsigned char *)((ThisPtrFn)LOGS_VM_GET_PATRIARCH)(Manager());
     if (patriarch && (I32(patriarch, LOGS_VILLAGER_HEAD) != head || I32(patriarch, LOGS_VILLAGER_BODY) != body))
         patriarch = 0;
+    if (!patriarch) patriarch = TreeFather(mother, head, body);   // a revived father with no career
     bool ok = NextImpregnate(mother, one, father, head, body, flag);
     if (ok && !gInLoad) OnConception((const unsigned char *)mother, patriarch);
     return ok;

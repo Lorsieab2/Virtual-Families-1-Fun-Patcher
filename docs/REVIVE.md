@@ -21,7 +21,9 @@ owner's decisions of 2026-11-26 (one per line below). Not yet tested in a runnin
   can have babies** (the owner): a drop on the spouse's two career tests (0x44123D, 0x441250) answer the same, and the
   try-for-a-baby step's choice of mother and father (0x48EB40 GetMatriarch, 0x48EB4C GetPatriarch) runs the game's
   own rule with "has a career" true for them. Their career stays none; GetMatriarch / GetPatriarch's other callers
-  (events, the dating scene) are the game's own.
+  (events, the dating scene) are the game's own. The Family History log's Conception record names such a father
+  from the Family Tree (vf1logs.dll: the generation's parent at home, alive, a man, with the head and body the step
+  passes) when the game's own GetPatriarch does not name him.
 - **The same person**: name (a long name's whole name: the Names file gives back its short form), sex, head and body,
   the parents' names and looks, likes and dislikes, career (career, level and salary as at death: the game keeps no
   career history), fertility and "Wants kids?". **Moods and needs start fresh** (the game's own new villager), and

@@ -421,6 +421,36 @@ def test_twins_and_triplets(built, rolls, names, born_as):
         assert f"  Child: {name}\n" in r and f"  Born as: {born_as}\n" in r and "  Father: Bob\n" in r
 
 
+def test_a_revived_father_with_no_career_is_named_at_the_conception(built):
+    # Revive a Family Member lets a revived spouse with no career father a baby; the game's own GetPatriarch (a career
+    # needed) does not name him, so the log names the father from the Family Tree, as the Birth record does.
+    w = family(built)
+    w.e.write(w.villager(1) + 0x2B6C, struct.pack("<4i", -1, 0, 10, 0))  # Bob, revived, has no career
+    w.father = None                                           # GetPatriarch: no man with a career
+    w.rolls = [99, 99]
+    w.baby_names = ["Cid"]
+    w.spawned = []
+    w.e.w32(w.villager(0) + 0x2B20, 0)
+    w.run(0x48EB99, 0x48EBB7, ebx=w.villager(1), edi=w.villager(0))      # the step's own Impregnate call
+    assert find(w, "Conception 1") == body(
+        STAMP + "Conception 1", "  Mother: Ann", "    Age at conception: 26", "    Sex: Female", "    Head: 3",
+        "    Body: 4", "  Father: Bob", "    Age at conception: 27", "    Sex: Male", "    Head: 7", "    Body: 8",
+        "  Babies Nursing: 1", "  Generation: 1")
+    w.physiology()
+    assert "  Father: Bob\n" in find(w, "Birth 1")
+
+
+def test_a_conception_with_no_father_in_the_tree_stays_unknown(built):
+    w = family(built)
+    w.father = None
+    w.rolls = [99, 99]
+    w.baby_names = ["Cid"]
+    w.spawned = []
+    w.e.w32(w.villager(0) + 0x2B20, 0)
+    w.run(0x48EB99, 0x48EBB7, ebx=w.villager(5), edi=w.villager(0))      # a father who is nobody of the family
+    assert "  Father: (unknown)\n" in find(w, "Conception 1")
+
+
 def test_a_father_the_game_no_longer_holds_is_unknown(built):
     w = family(built)
     w.conceive(rolls=[99, 99], names=["Cid"])
