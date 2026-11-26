@@ -2793,14 +2793,17 @@ class VF1PatcherGUI:
     # ------------------------------------------------------------------ Game Mechanics
 
     def game_mechanics(self) -> tk.Toplevel:
-        """Show how the game works underneath (patcher/vf1_game_mechanics.py). It only reads: no save, game file or
-        install is opened or written. One window at a time; asking again brings it to the front."""
+        """Show how the game works underneath (patcher/vf1_game_mechanics.py), with the members of a family the save
+        folders hold (vf1_game_mechanics_family). It only reads: nothing is written. One window at a time; asking
+        again brings it to the front."""
         window = getattr(self, "_game_mechanics_window", None)
         if window is not None and window.winfo_exists():
             window.deiconify()
             window.lift()
             return window
-        window = game_mechanics.open_window(self.root)
+        import vf1_game_mechanics_family
+        _documents, folders = self._save_folders()
+        window = game_mechanics.open_window(self.root, vf1_game_mechanics_family.find_families(folders))
         window.transient(self.root)
         self._game_mechanics_window = window
         return window

@@ -2,7 +2,8 @@
 
 The model is the Virtual Villagers Fun Patcher's Game Mechanics window: the rules are grouped (GROUPS), every
 line is a bullet with its evidence label right beside it, and every time names its clock (CLOCKS below).  It is
-for the curious and it only reads: it opens no save, game file or install, and writes nothing.
+for the curious and it only reads: it writes nothing, and the only file it opens is the save of the family chosen for
+the Family members group (patcher/vf1_game_mechanics_family.py).
 
 CLOCKS.  Every duration, rate and timer says "real time" or "game time" (or counts in age units), read from the
 routine that times it (docs/game-mechanics/timer_sites.tsv lists every clock call):
@@ -81,8 +82,9 @@ VERIFIED_E, VERIFIED_C, UNCONFIRMED = "VERIFIED-E", "VERIFIED-C", "UNCONFIRMED"
 LABELS = (VERIFIED_E, VERIFIED_C, UNCONFIRMED)
 
 INTRO = ("For the curious: how Virtual Families works underneath, worked out from the game's own code. Every time "
-         "says which clock it runs on, real time or game time (see Clocks). It only reads: no save or game file is "
-         "opened or changed, so the game may be running.")
+         "says which clock it runs on, real time or game time (see Clocks). Family members lists every person of the "
+         "family you choose, as its save holds them. It only reads: no save or game file is changed, so the game may "
+         "be running.")
 CLOCK_NOTE = ("Clocks. Real time is the wall clock (your PC's clock): it runs the same at every game speed, while the "
               "game is paused and while it is closed. Game time is the game's own clock: it runs with the game speed "
               "(1 game second is 1 real second on Normal, 2 on Slow, 0.5 on Fast, 0.2 at 5x and 0.1 at 10x), stops "
@@ -186,7 +188,11 @@ ACTIONS = "Actions"
 PATCHER_SPECIAL = "Patcher: Special Upgrades"
 PATCHER_MENU = "Patcher: Upgrades menu"
 INDEX = "Chance and timer index"
-GROUPS = (KEYS, TIME, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, WEATHER,
+# Every person of the family chosen at the top of the window, one by one (patcher/vf1_game_mechanics_family.py; the
+# owner approved the port of the Virtual Villagers patcher's per-villager group, 2026-11-26). Not in facts(): the
+# page's own lines are the same for every family.
+FAMILY = "Family members"
+GROUPS = (KEYS, TIME, FAMILY, NEEDS, HEALTH, SICKNESS, OLD_AGE, BABIES, CAREERS, MONEY, LEAVING, MARRIAGE, EVENTS, WEATHER,
           MESSES, COLLECTIBLES, MALFUNCTIONS, STORE, STORE_FOOD, STORE_MEDS, STORE_SPECIALS, STORE_OTHER, HOME,
           CAREER_ROOMS, DROPS, PETS, CLOTHING, TROPHIES, ACTIONS, PATCHER_SPECIAL, PATCHER_MENU, INDEX)
 # Where Virtual Families 2 has a mechanic this game does not, the page says so in one line ending with these words.
@@ -2851,9 +2857,17 @@ def _actions() -> list[Fact]:
     ]
 
 
+def _family() -> list[Fact]:
+    return [Fact(FAMILY, "The family chosen at the top of the window, one person at a time, as its save holds them: "
+                         "age, health and sickness, the Details screen's bars and the hidden needs, food groups, "
+                         "career and salary, likes and dislikes, \"Wants kids?\" and fertility, spouse, parents, "
+                         "children and a pregnancy. Each value is read from the save; the rules it follows are in "
+                         "the other groups.", VERIFIED_C)]
+
+
 def facts() -> list[Fact]:
     """Every line of the page, in GROUPS order."""
-    out = (_keys() + _time() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
+    out = (_keys() + _time() + _family() + _needs() + _health() + _sickness() + _old_age() + _babies() + _careers() + _money()
            + _leaving() + _marriage() + _events() + _weather() + _messes() + _collectibles() + _malfunctions()
            + _store() + _store_food() + _store_meds() + _store_specials() + _store_other() + _home()
            + _career_rooms() + _drops() + _pets() + _clothing() + _trophies() + _actions() + _patcher_special()
@@ -2895,14 +2909,28 @@ LINK_STYLE = "Mechanics.TButton"
 LINK_PADDING = (4, 1)
 
 
-def open_window(parent):
+NO_FAMILY = "No family save was found in the save folders, so there is nobody to list."
+
+
+def family_page(family) -> list[Fact]:
+    """The Family members group for `family` (a vf1_game_mechanics_family.Family, or None for none found)."""
+    import vf1_game_mechanics_family as people
+    if family is None:
+        return [Fact(FAMILY, NO_FAMILY, VERIFIED_C)]
+    return people.facts(family.path)
+
+
+def open_window(parent, families=()):
     """The Game Mechanics window, laid out as the Virtual Villagers Fun Patcher's: the intro, the line that explains
-    the labels in red, a button for each group, then the page in a read-only text box with its own scroll bar that
-    takes the rest of the resizable window, and Close at the bottom right.  Returns the Toplevel."""
+    the labels in red, the family whose members the Family members group lists (`families`, from
+    vf1_game_mechanics_family.find_families), a button for each group, then the page in a read-only text box with
+    its own scroll bar that takes the rest of the resizable window, and Close at the bottom right.  Returns the
+    Toplevel."""
     import tkinter as tk
     from tkinter import ttk
 
     from vf1_tree_editor_tools import TOOL_HEADING_SPACING, tool_fonts, tool_text
+    families = list(families)
 
     window = tk.Toplevel(parent)
     window.title(TITLE)
@@ -2922,6 +2950,12 @@ def open_window(parent):
     label_note.pack(anchor="w", pady=(4, 8))
     top.bind("<Configure>", lambda event: (intro.configure(wraplength=max(200, event.width - 8)),
                                            label_note.configure(wraplength=max(200, event.width - 8))))
+    chooser = ttk.Frame(outer)
+    chooser.pack(fill="x", pady=(0, 6))
+    ttk.Label(chooser, text="Family:").pack(side="left")
+    family_box = ttk.Combobox(chooser, state="readonly", values=[f.label for f in families] or [NO_FAMILY])
+    family_box.pack(side="left", fill="x", expand=True, padx=(6, 0))
+    family_box.current(0)
     links = ttk.Frame(outer)
     links.pack(fill="x", pady=(0, 6))
     buttons = ttk.Frame(outer)
@@ -2942,22 +2976,36 @@ def open_window(parent):
         text.tag_configure(label, foreground=colour, font=fonts["label"])
     ttk.Style(window).configure(LINK_STYLE, padding=LINK_PADDING)
 
-    for note in (CLOCK_NOTE, PATCHER_NOTE, SPEED_NOTE):
-        text.insert("end", note + "\n", "note")
-    page = facts()
-    for group in GROUPS:
-        text.insert("end", "\n")
-        text.mark_set(f"group:{group}", "end-1c")
-        text.mark_gravity(f"group:{group}", "left")
-        text.insert("end", group + "\n", "heading")
-        for fact in page:
-            if fact.group != group:
-                continue
-            style = "sub" if fact.sub else "bullet"
-            text.insert("end", SUB_BULLET if fact.sub else BULLET, style)
-            text.insert("end", fact.label, (fact.label, style))      # the label first, as on the VF2 page
-            text.insert("end", "  " + fact.text + "\n", style)
-    text.configure(state="disabled")             # read-only: the page can be selected and copied, not edited
+    rules = facts()
+
+    def fill() -> None:
+        """Write the page: the rules, and the chosen family's members in their group."""
+        index = family_box.current()
+        family = families[index] if 0 <= index < len(families) else None
+        page = rules + family_page(family)
+        top_line = text.index("@0,0")
+        text.configure(state="normal")
+        text.delete("1.0", "end")
+        for note in (CLOCK_NOTE, PATCHER_NOTE, SPEED_NOTE):
+            text.insert("end", note + "\n", "note")
+        for group in GROUPS:
+            text.insert("end", "\n")
+            text.mark_set(f"group:{group}", "end-1c")
+            text.mark_gravity(f"group:{group}", "left")
+            text.insert("end", group + "\n", "heading")
+            for fact in page:
+                if fact.group != group:
+                    continue
+                style = "sub" if fact.sub else "bullet"
+                text.insert("end", SUB_BULLET if fact.sub else BULLET, style)
+                text.insert("end", fact.label, (fact.label, style))      # the label first, as on the VF2 page
+                text.insert("end", "  " + fact.text + "\n", style)
+        text.configure(state="disabled")         # read-only: the page can be selected and copied, not edited
+        text.yview(top_line)
+        window.family_page = page                # for the tests
+
+    fill()
+    family_box.bind("<<ComboboxSelected>>", lambda _event: fill())
 
     def jump(group: str) -> None:
         text.see("end")
@@ -2974,14 +3022,20 @@ def open_window(parent):
     window.bind("<Escape>", lambda _event: window.destroy())
     window.text = text                         # for the tests
     window.mechanics_links = links
+    window.family_box = family_box
     return window
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    """Print the page; with a save file's path, its Family members group too."""
     sys.stdout.reconfigure(encoding="utf-8")
-    sys.stdout.write(render())
+    page = facts()
+    if argv:
+        import vf1_game_mechanics_family as people
+        page = page + people.facts(argv[0])
+    sys.stdout.write(render(page))
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
