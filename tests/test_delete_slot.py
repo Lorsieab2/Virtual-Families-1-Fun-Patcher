@@ -4,6 +4,7 @@ Every test works on a save folder built in tmp_path (Copy Player Slot's own fixt
 the Recycle Bin is always a stand-in that removes only the temporary files it is handed: nothing is ever sent to the
 real Recycle Bin, and no real save, game or process is touched.
 """
+import os
 from pathlib import Path
 
 import pytest
@@ -17,20 +18,26 @@ ROOT1 = "Virtual Families 1 Patcher/Save 1"
 
 
 class Bin:
-    """The Recycle Bin stand-in: every path it is handed must be a file under the test's folder; it removes them."""
+    """The Recycle Bin stand-in: every path it is handed (a file, or a folder sent whole) must be under the test's
+    save folder; it moves each into a "bin" folder of the test's own, as the Recycle Bin would."""
 
     def __init__(self, folder: Path, fail_on: int | None = None):
         self.folder = folder
+        self.place = folder.parents[2] / "bin"
+        self.place.mkdir(exist_ok=True)
         self.fail_on = fail_on
-        self.calls: list[list[Path]] = []
+        self.calls: list[list[Path]] = []        # what each call was handed: files, or whole folders
+        self.files: list[Path] = []              # every file those held
 
     def __call__(self, paths):
         self.calls.append(list(paths))
         if self.fail_on is not None and len(self.calls) >= self.fail_on:
             raise OSError("Windows could not move the files to the Recycle Bin (error 0x78).")
         for path in paths:
-            assert Path(path).resolve().is_relative_to(self.folder.resolve()) and Path(path).is_file()
-            Path(path).unlink()
+            path = Path(path)
+            assert path.resolve().is_relative_to(self.folder.resolve()) and path.exists()
+            self.files += sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
+            os.rename(path, self.place / f"{len(list(self.place.iterdir()))}-{path.name}")
 
 
 def everything(folder: Path) -> dict[str, bytes]:
@@ -161,3 +168,73 @@ def test_the_real_recycle_bin_is_never_reached_without_a_stand_in(save, monkeypa
     monkeypatch.setattr(ds, "_shell", lambda paths: handed.append(list(paths)) or [Path(p).unlink() for p in paths])
     ds.delete_slot(save, 2, processes=Processes(), now=NOW)
     assert handed and all(Path(p).resolve().is_relative_to(save.resolve()) for batch in handed for p in batch)
+
+
+# ------------------------------------------------------------------ fast (the Virtual Villagers patcher's PR #876)
+
+
+def test_one_call_for_each_part_and_slot_folders_go_whole(full):
+    save, _backup = full
+    days = save / ROOT1 / "Logs" / "Family History"
+    for n in range(3, 303):                                     # a long-lived family: hundreds of log files
+        (days / f"Family History {n}.txt").write_bytes(b"Family: Smith (Save 1)\r\n")
+    plan = ds.plan_delete(save, 1)
+    bin_ = Bin(save)
+    result = ds.delete_slot(save, 1, processes=Processes(), now=NOW, recycle=bin_)
+    assert result.problem is None and result.not_recycled == []
+    assert len(bin_.calls) == len([g for g in plan.groups if g.files])          # one call for each part
+    assert save / ROOT1 / "Logs" in bin_.calls[0] and len(bin_.calls[0]) < 40   # 300+ files, one item
+    # Exactly the planned files went: no more, no fewer (the picture beside them stayed).
+    assert sorted(str(p).casefold() for p in bin_.files) == sorted(str(p).casefold() for p in plan.files)
+    assert sorted(map(str, result.recycled)) == sorted(map(str, plan.files))
+    assert all(p.is_file() for p in plan.pictures)
+
+
+def test_a_folder_with_a_picture_or_another_file_is_never_sent_whole(full):
+    save, _backup = full
+    tree = save / ROOT1 / "Family Tree"
+    for n in range(ds.WHOLE_FOLDER_FROM):
+        (tree / f"Virtual Families 1 Family Tree - Save 1 - Note {n}.txt").write_bytes(b"x")
+    plan = ds.plan_delete(save, 1)
+    main = next(g for g in plan.groups if g.where == "")
+    items = [place for place, _held in ds._recycle_items(main.root, main.files)]
+    assert tree not in items and save / ROOT1 not in items          # it holds the pictures
+    small = [p for p in main.files if (save / DATA / "Children") in p.parents]
+    assert small and set(small) <= set(items)                        # a folder of a few files: the files themselves
+    # A file the plan does not list keeps its folder from going whole.
+    listed = [p for p in main.files if tree in p.parents]
+    assert len(listed) >= ds.WHOLE_FOLDER_FROM
+    (tree / "Virtual Families 1 Family Tree - Save 1.png").unlink()
+    (tree / "Virtual Families 1 Family Tree - Save 1 - Page 2.png").unlink()
+    assert tree in [place for place, _ in ds._recycle_items(main.root, listed)]
+    items = [place for place, _ in ds._recycle_items(main.root, listed[1:])]
+    assert tree not in items and listed[0] not in items
+    assert set(listed[1:]) <= {p for _, held in ds._recycle_items(main.root, listed[1:]) for p in held}
+
+
+def test_files_left_behind_by_a_call_that_said_yes_are_reported_exactly(full):
+    save, _backup = full
+    bin_ = Bin(save)
+    stuck = save / "Virtual Families1.ldw"
+
+    def leaves_the_save(paths):                  # Windows says yes, but one file is still there
+        bin_([p for p in paths if p != stuck])
+
+    plan = ds.plan_delete(save, 1)
+    result = ds.delete_slot(save, 1, processes=Processes(), now=NOW, recycle=leaves_the_save)
+    assert "could not send every file" in result.problem
+    later = {str(p) for g in plan.groups if g.where for p in g.files}           # the backups', never sent
+    assert sorted(map(str, result.not_recycled)) == sorted(later | {str(stuck)})
+    assert sorted(map(str, result.recycled + result.not_recycled)) == sorted(map(str, plan.files))
+    assert all(not p.exists() for p in result.recycled)
+    assert len(bin_.calls) == 1 and stuck.is_file()
+    assert cs.slot_used((save / "Virtual Families0.ldw").read_bytes(), 1) is True    # its save is still there
+
+
+def test_a_running_game_sends_nothing(full):
+    save, _backup = full
+    before = everything(save)
+    bin_ = Bin(save)
+    with pytest.raises(ds.GameRunning):
+        ds.delete_slot(save, 1, processes=Processes([77]), now=NOW, recycle=bin_)
+    assert bin_.calls == [] and everything(save) == before

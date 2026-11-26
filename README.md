@@ -269,7 +269,11 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     folder, inside every whole-folder backup, and the slot's own `Replaced by copy/move ... - Save <N> - ...` folders
     -- to the Recycle Bin (`SHFileOperationW` with `FOF_ALLOWUNDO`), keeping pictures, after the list and a second
     Yes / No; it makes no backup and clears only the slot's in-use flag, last (`patcher/vf1_delete_slot.py`,
-    `tests/test_delete_slot.py`).
+    `tests/test_delete_slot.py`). It is fast (the Virtual Villagers patcher's PR #876): one Recycle Bin call for each
+    part (the save folder, each backup, each set-aside folder); a folder holding nothing but 30 or more of the slot's
+    files goes whole as one item; and `SHQueryRecycleBinW` (a drive with no Recycle Bin is refused, never a permanent
+    delete) is asked once per drive, a fixed drive once per run, in the background while the player reads the list.
+    Every file is checked afterwards, so a partial delete is reported exactly.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for

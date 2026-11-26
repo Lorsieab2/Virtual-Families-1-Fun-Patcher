@@ -26,6 +26,11 @@ Order and safety
       refuses.
     * The save folder's own files go first, then each backup's, then the set-aside folders. If Windows refuses a
       batch, everything stops and the result says what went and what did not (every file checked).
+    * Fast (the Virtual Villagers patcher's PR #876, the owner 2026-11-25: "almost instant"): one Recycle Bin call
+      for each of those parts; a folder that holds nothing but the slot's files (no picture, no other file, no
+      link), 30 or more, sent whole as one item; and the drive's "is there a Recycle Bin?" question asked once,
+      while the player reads the list (vf1_translations.check_recycle_bins: a drive with none is refused, never a
+      permanent delete).
     * The slot menu "Virtual Families0.ldw" is written LAST -- and also after a failure once the slot's save is
       gone -- with only the slot's in-use flag cleared, exactly what the game's own Delete Family does
       (docs/vf1-save-format.md 1.2), so the slot is never listed with no save behind it.
@@ -47,7 +52,11 @@ import vf1_save_backup as save_backup
 
 TITLE = "Delete Player Slot"
 PICTURES = (".png", ".jpg", ".jpeg", ".bmp", ".gif")
-BATCH = 1000                     # files per Recycle Bin call
+BATCH = 1000                     # files or whole folders per Recycle Bin call
+# A folder costs Windows about as much to recycle as 30 loose files (the Virtual Villagers patcher's PR #876,
+# measured 2026-11-25: ~0.2 s a folder whatever it holds, ~5 ms a file), so only a folder of at least that many of
+# the slot's files goes whole (the owner approved one Recycle Bin entry per such folder).
+WHOLE_FOLDER_FROM = 30
 # vf1_copy_slot.set_aside_folder's names: "Replaced by copy|move <YYYY-MM-DD HH-MM-SS> - Save <N> - <old name>".
 _ASIDE = re.compile(r"^Replaced by (?:copy|move) \d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2} - Save ([1-5]) - ", re.IGNORECASE)
 
@@ -68,6 +77,7 @@ def is_picture(path: Path) -> bool:
 class Group:
     """Files recycled together: the save folder's own, one backup's, or one set-aside folder's."""
     where: str                                   # "" the save folder; else "Backups\\<folder>"
+    root: Path | None = None                     # the folder it was found in (never itself recycled)
     files: list[Path] = field(default_factory=list)
     pictures: list[Path] = field(default_factory=list)
     folders: list[Path] = field(default_factory=list)   # the slot's folders to remove once empty
@@ -117,7 +127,7 @@ class Plan:
 
 def _discover(root: Path, slot: int, where: str) -> Group:
     """Slot ``slot``'s files in the save folder (or the backup) ``root``."""
-    group = Group(where)
+    group = Group(where, root)
     for relative in ms.slot_everything(root, slot):
         path = root / relative
         (group.pictures if is_picture(path) else group.files).append(path)
@@ -135,7 +145,7 @@ def _set_aside_groups(folder: Path, slot: int) -> list[Group]:
         match = _ASIDE.match(entry.name)
         if not match or int(match.group(1)) != slot or not entry.is_dir() or save_backup._is_link(entry):
             continue
-        group = Group(f"{save_backup.BACKUPS_FOLDER}\\{entry.name}", aside=entry)
+        group = Group(f"{save_backup.BACKUPS_FOLDER}\\{entry.name}", backups, aside=entry)
         for path in ms.walk(entry):
             (group.pictures if is_picture(path) else group.files).append(path)
         out.append(group)
@@ -269,6 +279,90 @@ def _shell(paths: list[Path]) -> None:
     vf1_translations.recycle(paths)
 
 
+def warm_recycle_bin(folder: Path) -> None:
+    """Have Windows' "is there a Recycle Bin on this drive?" answered while the player reads the list (it adds up
+    the whole Recycle Bin, which can take a second or more), so the delete itself does not wait for it."""
+    import vf1_translations
+    vf1_translations.prepare_recycle_bin(folder)
+
+
+def _linked(entry: os.DirEntry) -> bool:
+    return entry.is_symlink() or getattr(entry.stat(follow_symlinks=False), "st_reparse_tag", 0) == 0xA0000003
+
+
+def _holds_no_file(folder: Path) -> bool:
+    """An empty folder (or only empty folders in it), no link anywhere."""
+    with os.scandir(folder) as scan:
+        for entry in scan:
+            if _linked(entry) or not entry.is_dir(follow_symlinks=False) or not _holds_no_file(folder / entry.name):
+                return False
+    return True
+
+
+def _recycle_items(root: Path | None, files: list[Path]) -> list[tuple[Path, list[Path]]]:
+    """What to hand Windows for ``files`` (all under ``root``), each with the files it holds: a folder below
+    ``root`` that holds nothing but those files -- at any depth: no other file, no picture, no link -- and at least
+    WHOLE_FOLDER_FROM of them goes whole, as ONE item; every other file goes by itself. The same files either way,
+    and the result is still checked file by file. ``root`` itself (the save folder, a backup, the Backups folder)
+    is never sent (the Virtual Villagers patcher's _recycle_items, PR #876)."""
+    if root is None:
+        return [(p, [p]) for p in files]
+    prefix = str(root).rstrip("\\/") + os.sep
+    folded_prefix = prefix.casefold()
+    listed = {str(p).casefold() for p in files}
+    parts_of: list[list[str] | None] = []
+    ancestors: dict[str, int] = {}                # each folder holding listed files: how many, at any depth
+    for path in files:
+        text = str(path)
+        if not text.casefold().startswith(folded_prefix):
+            parts_of.append(None)
+            continue
+        parts = text[len(prefix):].split(os.sep)
+        parts_of.append(parts)
+        for depth in range(1, len(parts)):
+            key = (prefix + os.sep.join(parts[:depth])).casefold()
+            ancestors[key] = ancestors.get(key, 0) + 1
+    whole: dict[str, bool] = {}
+
+    def is_whole(folder: str) -> bool:
+        key = folder.casefold()
+        if key in whole:
+            return whole[key]
+        ok = True
+        try:
+            with os.scandir(folder) as scan:
+                entries = list(scan)
+        except OSError:
+            entries, ok = [], False
+        for entry in entries:                    # every entry, so each folder inside is judged too
+            here = folder + os.sep + entry.name
+            try:
+                if _linked(entry):
+                    ok = False
+                elif entry.is_dir(follow_symlinks=False):
+                    if here.casefold() in ancestors:
+                        ok = is_whole(here) and ok
+                    elif not _holds_no_file(Path(here)):
+                        ok = False
+                elif here.casefold() not in listed:
+                    ok = False
+            except OSError:
+                ok = False
+        whole[key] = ok
+        return ok
+
+    items: dict[str, tuple[Path, list[Path]]] = {}
+    for path, parts in zip(files, parts_of):
+        place = path
+        for depth in range(1, len(parts or ())):
+            folder = prefix + os.sep.join(parts[:depth])
+            if ancestors[folder.casefold()] >= WHOLE_FOLDER_FROM and is_whole(folder):
+                place = Path(folder)
+                break
+        items.setdefault(str(place).casefold(), (place, []))[1].append(path)
+    return list(items.values())
+
+
 def delete_slot(folder: Path, slot: int, processes=None, now: datetime | None = None, expected: tuple | None = None,
                 recycle=None) -> DeleteResult:
     """Send slot ``slot``'s files to the Recycle Bin (see the module's notes). ``recycle`` replaces the Windows call
@@ -284,13 +378,15 @@ def delete_slot(folder: Path, slot: int, processes=None, now: datetime | None = 
     result = DeleteResult(folder, slot, plan.name, pictures=plan.pictures)
     for group in plan.groups:
         try:
-            for start in range(0, len(group.files), BATCH):
-                batch = group.files[start:start + BATCH]
-                send(list(batch))
-                left = [p for p in batch if os.path.lexists(p)]
+            items = _recycle_items(group.root, group.files)          # one call per part, whole folders
+            for start in range(0, len(items), BATCH):
+                batch = items[start:start + BATCH]
+                send([place for place, _held in batch])
+                held = [p for _place, files in batch for p in files]
+                left = [p for p in held if os.path.lexists(p)]           # every file checked afterwards
                 if left:
                     raise OSError(f"{len(left)} file(s) were still there afterwards")
-                result.recycled += batch
+                result.recycled += held
             if group.aside is not None:
                 _remove_empty([group.aside])
                 result.asides.append(group.aside)

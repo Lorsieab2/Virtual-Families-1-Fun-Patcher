@@ -2677,6 +2677,7 @@ class VF1PatcherGUI:
                 messagebox.showerror(title, str(exc), parent=dialog)
                 load_slots()
                 return
+            delete_slot.warm_recycle_bin(where)      # the drive's Recycle Bin question, answered while the list is read
             if not self._ask_preview(dialog, title, delete_prompt_text(where, plan), plan.preview(), "Delete it?") \
                     or not self._ask_slot(dialog, title, delete_final_text(plan)):
                 self.status_var.set("Delete Player Slot: nothing was deleted.")

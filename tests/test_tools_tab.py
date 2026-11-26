@@ -573,6 +573,8 @@ def test_delete_shows_every_file_then_asks_again_and_recycles_only_after_both_ye
             path.unlink()
 
     monkeypatch.setattr(ds, "_shell", fake_bin)
+    warmed = []
+    monkeypatch.setattr(ds, "warm_recycle_bin", warmed.append)      # the drive question, asked during the list
     monkeypatch.setattr(cs.save_backup, "WindowsProcesses", NoProcesses)
     asked, previews = [], []
     answers = {"slot": False, "preview": False}
@@ -594,6 +596,7 @@ def test_delete_shows_every_file_then_asks_again_and_recycles_only_after_both_ye
     assert "Recycled:  Virtual Families2.ldw" in lines
     assert any(line.startswith("Kept (pictures):  ") for line in lines)
     assert asked == [] and snapshot(save) == before and not recycled
+    assert warmed == [save]
     answers["preview"] = True
     dialog._vf1_start()                                               # Yes to the list, No to the second question
     assert asked[-1] == ("Delete Player Slot", "Delete Jones from Save 2? Its 2 file(s), in this save folder and in "
