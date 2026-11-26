@@ -322,6 +322,23 @@ def test_names_are_logged_in_utf8(built):
     assert "�" not in text and text.count(zoe) == 6
 
 
+def test_a_widowed_spouses_divorce_names_no_dead_family_member(built):
+    """Ann (parent 1) dies with a child: the REAL ReportDeath keeps her in the record with slot -1, and Bob
+    (parent 2) still lives, so vf1fun's Divorce Spouse (it takes parent 2 whenever that villager lives) can
+    divorce him. Nobody living is left behind: the record never names Ann as the one he divorced."""
+    w = family(built)
+    w.conceive(rolls=[99, 99], names=["Cid"])
+    w.physiology()
+    w.die(0, cause=3)
+    assert struct.unpack("<i", w.e.read(record() + L.RECORD_PARENT1 + L.PEEP_SLOT, 4))[0] == -1, \
+        "the game kept the dead head"
+    assert w.e.read(record() + L.RECORD_PARENT2 + L.PEEP_VALID, 1) == b"\x01"
+    w.event(1, 1)
+    assert find(w, "Divorce 1") == body(
+        STAMP + "Divorce 1", "  Family member: (none)", "  Divorced: Bob", BOB, "  How: Divorce Spouse",
+        "  Generation: 1")
+
+
 def test_divorce_then_remarriage(built):
     w = family(built)
     w.event(1, 1)                                             # vf1fun's Divorce Spouse, before the spouse leaves
@@ -528,6 +545,27 @@ def test_start_over_wipes_the_slot_but_keeps_backups_and_says_so(built):
     w.reset_tree()
     w.start_family(0, "Nia", 1, 30)
     assert w.headings() == [STAMP + "Start Over 1", STAMP + "Generation 1"]
+
+
+@pytest.mark.parametrize("leave", ["evict", "start over"])
+def test_a_pending_eviction_or_start_over_never_reaches_another_slot(built, leave):
+    """Evict Family (or Start Over) in Save 1, then, in the same session, the game loads Save 2 (its real Load
+    slot) and a new family begins there before Save 1 adopted one. Save 2's log is a new family's: its folder
+    is wiped and started, with no "after the eviction" and no Start Over record; Save 1's log gets nothing."""
+    w = family(built)
+    w.fs.write(w.root(2) + "\\Logs\\Family History\\Family History 1.txt", b"Family: Old (Save 2)\r\n\r\n")
+    if leave == "evict":
+        w.event(2)
+    else:
+        w.start_over()
+    one = w.history(1)
+    w.reset_tree()
+    w.set_slot(2)
+    assert w.load(2) == 1
+    w.start_family(0, "Fay", 1, 30)
+    assert w.headings(2) == [STAMP + "Generation 1"], w.headings(2)
+    assert "  How: Founder (adopted and started the family)\n" in find(w, "Generation 1", slot=2)
+    assert w.history(1) == one, "nothing more in Save 1's log"
 
 
 def test_records_roll_into_the_next_file_after_2000(built):

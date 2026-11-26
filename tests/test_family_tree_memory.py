@@ -194,6 +194,17 @@ def divorced_family(tmp_path):
         [family_record(p_ann(), peep("Dan", head=3, body=3, slot=3), kids)]))
 
 
+def test_a_widowed_spouses_divorce_is_divorced_from_nobody(tmp_path):
+    """vf1logs.dll writes "Family member: (none)" when the spouse divorced was already widowed: the tree never
+    says "Divorced from (none)"."""
+    history_folder(tmp_path, HISTORY.replace("  Family member: Ann\r\n    Sex: Female\r\n    Head: 1\r\n    Body: 1\r\n",
+                                             "  Family member: (none)\r\n", 1))
+    divorced_family(tmp_path)
+    bob = by_name(gen.load_village(tmp_path, gen.GAME, 1), "Bob")
+    assert bob.divorced and "Divorced (the patcher's Divorce Spouse): left the family at 23" in bob.unknowns
+    assert not any("(none)" in u for u in bob.unknowns)
+
+
 def labels(v, name):
     import vf1_family_tree as ft
     lay = ft.layout(v, ft.Edits())

@@ -626,6 +626,7 @@ static void WipeSlot(int slot) {
 
 // ================================================================ the events
 static int gInLoad;
+// Each of the two holds the save slot it belongs to (0: none), so it never reaches another slot's log.
 static int gPendingEviction;      // vf1fun's Evict Family: the next new family is the same slot's next family
 static int gStartedOver;          // the menu's Start Over: the next new family's log says so
 static int gBoardingSchool;       // vf1fun's Boarding School is sending this slot's villager away (+1)
@@ -802,16 +803,16 @@ static void OnGeneration(const unsigned char *v, int peep, int before) {
     Capture(v, p);
     const char *how;
     if (before == 0) {
-        if (gPendingEviction) {
-            gPendingEviction = 0;
+        if (gPendingEviction == slot) {
             how = "Founder (after the eviction)";
         } else {
             // A brand-new family in this slot (a new game, or after Start Over): the folder is the new family's.
             WipeSlot(slot);
             CreateLog(slot);
-            if (gStartedOver) Write(slot, "Start Over", "  The earlier family's history was cleared.\r\n");
+            if (gStartedOver == slot) Write(slot, "Start Over", "  The earlier family's history was cleared.\r\n");
             how = "Founder (adopted and started the family)";
         }
+        gPendingEviction = 0;
         gStartedOver = 0;
     } else {
         how = peep < 0 ? "Adopt New Person" : "Heir (inherited the house)";
@@ -933,19 +934,25 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
     Text t;
     t.Init(Body, sizeof(Body));
     if (kind == EV_DIVORCE && p.slot >= 0) {
-        // Before the spouse leaves: the record still holds the generation's other parent.
+        // Before the spouse leaves: the record still holds the generation's other parent. Divorce Spouse takes
+        // parent 2 whenever that villager lives, so a widowed parent 2 (parent 1 died with children: the
+        // game keeps parent 1 with slot -1) can be divorced too; then nobody living is left behind.
         unsigned char *rec = Record(Generations());
         unsigned char *head = rec ? Peep(rec, 0) : 0;
-        if (head && head[LOGS_PEEP_VALID]) {
+        bool known = head && head[LOGS_PEEP_VALID];
+        const unsigned char *hv = known ? Villager(I32(head, LOGS_PEEP_SLOT)) : 0;
+        bool living = hv && hv[LOGS_VILLAGER_PRESENT] && I32(hv, LOGS_VILLAGER_HEALTH) > 0 &&
+                      SameText((const char *)head, (const char *)(hv + LOGS_VILLAGER_NAME), 25);
+        if (living) {
             t.S("  Family member: ").Name((const char *)head, 25).NL();
             t.S("    Sex: ").S(SexWord(I32(head, LOGS_PEEP_GENDER))).NL();
             t.S("    Head: ").I(I32(head, LOGS_PEEP_HEAD)).NL().S("    Body: ").I(I32(head, LOGS_PEEP_BODY)).NL();
         } else {
-            Field(t, "  ", "Family member", "(unknown)");
+            Field(t, "  ", "Family member", known ? "(none)" : "(unknown)");
         }
         Member(t, "  ", "Divorced", p, "Age");
         Field(t, "  ", "How", "Divorce Spouse");
-        if (head && head[LOGS_PEEP_VALID]) t.S("  Current spouse of ").Name((const char *)head, 25).S(": (none)").NL();
+        if (living) t.S("  Current spouse of ").Name((const char *)head, 25).S(": (none)").NL();
         Generation(t, Generations());
         Write(slot, "Divorce", Body);
     } else if (kind == EV_EVICT) {
@@ -961,7 +968,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
         t.NL();
         Generation(t, Generations());
         Write(slot, "Evict Family", Body);
-        gPendingEviction = 1;
+        gPendingEviction = slot;
     } else if (kind == EV_SPAWN_CHILD && p.slot >= 0) {
         Arrived(slot, p, "Spawn Child", &pa, &pb);
     } else if (kind == EV_ADOPT_CHILD && p.slot >= 0) {
@@ -1060,7 +1067,7 @@ static void __fastcall RestartHook(void *state, void *) {
     int slot = CurrentSlot();
     if (slot) WipeSlot(slot);
     gPendingEviction = 0;
-    gStartedOver = 1;
+    gStartedOver = slot;
     NextRestart(state);
 }
 

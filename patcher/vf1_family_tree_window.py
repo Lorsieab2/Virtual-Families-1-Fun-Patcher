@@ -931,9 +931,9 @@ class TreeEditor(CanvasTools, tk.Toplevel):
         # height boxes alike (the owner, 2026-10-09: "especially for the arrows that change portrait
         # height and width, but for everything else too"); remembered with the window.
         self.lock_shape = tk.BooleanVar(value=self.window.get("keep_aspect", True) is not False)
-        # "Hide villagers not in the current save" (the owner, v1.35.73; on by default): the villagers of a
-        # tribe started over with the same name, proven gone by src/vv_history_revision.py, are left out of
-        # the tree -- the tree only; the logs keep them until Repair Saves & Logs removes them.
+        # "Hide villagers not in the current save" (the Virtual Villagers patcher, v1.35.73; on by default):
+        # kept for the shared layout. Virtual Families has nothing for it to hide: _shown_village returns the
+        # family as it is, and the Family History log is never trimmed.
         self.full_village = village
         self.hide_gone = tk.BooleanVar(value=self.window.get("hide_not_in_save", True) is not False)
         self.village = self._shown_village(village)
