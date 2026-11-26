@@ -919,7 +919,8 @@ static void EventRecord(int slot, const char *kind, const char *title, int choic
 }
 
 // ---- vf1fun's own family changes (VF1Logs_Event)
-enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4, EV_ROLL_DICE = 5, EV_BOARDING_SCHOOL = 6 };
+enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4, EV_ROLL_DICE = 5, EV_BOARDING_SCHOOL = 6,
+       EV_REVIVED = 7 };
 
 extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, int a, int b) {
     if (!VF1Logs_Status.installed) return;
@@ -970,6 +971,17 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
         t.S("  ").S(gEventKind).S(": ").Name(gEventTitle[0] ? gEventTitle : "(none)", 200).NL();
         Generation(t, Generations());
         Write(slot, "Roll the Dice", Body);
+    } else if (kind == EV_REVIVED && p.slot >= 0) {
+        // vf1fun's Revive a Family Member (vf1revive.dll): `a` the age at death in age units, `b` how they came back
+        // (1 child, 2 child 7..28, 3 parent, 4 spouse, 5 family member).
+        Self(t, p, "Age");
+        t.S("  Age at death: ").U(Years(a)).NL();
+        Field(t, "  ", "How", "Revive a Family Member");
+        Field(t, "  ", "Returned as", b == 1 || b == 2 ? "Child" : b == 3 ? "Parent" : b == 4 ? "Spouse"
+                                     : "Family member (not in the Family Tree)");
+        Field(t, "  ", "Family role", RoleText(TreeRole(p)));
+        Generation(t, Generations());
+        Write(slot, "Revived", Body);
     } else if (kind == EV_BOARDING_SCHOOL) {
         gBoardingSchool = who + 1;                   // SetLeftHome follows at once (villager_upgrades.inc)
     }

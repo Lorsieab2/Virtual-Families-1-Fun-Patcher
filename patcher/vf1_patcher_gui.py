@@ -1750,6 +1750,8 @@ class VF1PatcherGUI:
         self._help_button(links, "copy_player_slot").pack(side="left", padx=(3, 0))
         self._link(links, "Game Speed...", self.game_speed).pack(side="left", padx=(18, 0))
         self._help_button(links, "game_speed").pack(side="left", padx=(3, 0))
+        self._link(links, "Revive Backfill...", self.revive_backfill).pack(side="left", padx=(18, 0))
+        self._help_button(links, "revive_backfill").pack(side="left", padx=(3, 0))
         family = ttk.Frame(box)
         family.grid(row=2, column=0, sticky="w", pady=(6, 0))
         self._link(family, "Family Tree Maker...", self.open_family_tree).pack(side="left")
@@ -2850,6 +2852,39 @@ class VF1PatcherGUI:
             show_help=lambda: self._show_how_to_use("unicode_font"))
         window.window.transient(self.root)
         return window
+
+    # ------------------------------------------------------------------ Revive Backfill
+
+    def revive_backfill(self, ask=messagebox.askokcancel, tell=messagebox.showinfo) -> list[str] | None:
+        """Revive a Family Member's snapshots for people who died before the patch (vf1_revive_backfill), in every
+        save folder found and the backups in it. The live saves wait while the game runs; backups never do."""
+        import vf1_revive_backfill as backfill
+        documents, folders = self._save_folders()
+        if documents is None:
+            messagebox.showerror("Revive Backfill", "Windows did not report where your Documents folder is, so the "
+                                 "save folders cannot be found.")
+            return None
+        if not folders:
+            tell("Revive Backfill", f"No modded save folders were found in {documents / 'LDW'}.")
+            return None
+        if not ask("Revive Backfill",
+                   "Make Revive a Family Member's records for every family member who died before that patch was on, "
+                   "in these save folders and their backups?\n\n" + "\n".join(str(f) for f in folders) +
+                   "\n\nYour saves and logs are only read. A folder's saves wait while the game is running."):
+            return None
+        lines = []
+        for folder in folders:
+            running = save_backup.running_game_count(folder) > 0
+            try:
+                lines.append(backfill.report(backfill.backfill(folder, running)))
+            except (backfill.BackfillError, OSError) as exc:
+                lines.append(str(exc))
+        text = "\n\n".join(lines)
+        shown = text.splitlines()
+        if len(shown) > 40:
+            text = "\n".join(shown[:40] + [f"... and {len(shown) - 40} more lines."])
+        tell("Revive Backfill", text)
+        return lines
 
     # ------------------------------------------------------------------ Game Speed
 

@@ -401,12 +401,12 @@ def plan_children_changes(folder: Path, slot: int, changes: list[FileChange]) ->
 
 
 def children_match(path: Path, save: bytes) -> bool:
-    """True when the Children file at ``path`` validates and names ``save``'s hash and size (what vf1kids checks)."""
+    """True when the Children (or Revive) file at ``path`` validates and names ``save``'s hash and size (what vf1kids
+    and vf1revive check)."""
     try:
-        sidecar = gen.read_children_sidecar(path.read_bytes())
+        return gen.sidecar_key(path.read_bytes()) == (gen.fnv1a64(save), len(save))
     except OSError:
         return False
-    return sidecar is not None and sidecar.save_size == len(save) and sidecar.save_hash == gen.fnv1a64(save)
 
 
 def history_folder(folder: Path, slot: int) -> Path:

@@ -88,6 +88,7 @@ class FileSystem:
         self.finds = {}
         self.next = 0x100
         self.last_error = 0
+        self.locked = set()                 # paths another program holds open (sharing violation)
 
     @staticmethod
     def key(path):
@@ -123,6 +124,9 @@ class FileSystem:
             path = e.cstr(e.arg(0))
             access, disposition = e.arg(1), e.arg(4)
             k = fs.key(path)
+            if k in fs.locked:
+                fs.last_error = 32                  # ERROR_SHARING_VIOLATION
+                return INVALID, 28
             if fs.parent(path) not in fs.dirs:
                 fs.last_error = ERROR_PATH_NOT_FOUND
                 return INVALID, 28
@@ -131,6 +135,8 @@ class FileSystem:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return INVALID, 28
             if disposition == 4 and not exists:
+                fs.files[k] = b""
+            elif disposition == 2:                  # CREATE_ALWAYS
                 fs.files[k] = b""
             elif disposition not in (3, 4):
                 raise EmuError(f"CreateFileA disposition {disposition}")
@@ -184,7 +190,27 @@ class FileSystem:
             fs.dirs.discard(k)
             return 1, 4
 
+        def move(e):
+            src, dst, flags = fs.key(e.cstr(e.arg(0))), fs.key(e.cstr(e.arg(1))), e.arg(2)
+            if src in fs.locked or dst in fs.locked:
+                fs.last_error = 32
+                return 0, 12
+            if src not in fs.files:
+                fs.last_error = ERROR_FILE_NOT_FOUND
+                return 0, 12
+            if dst in fs.files and not flags & 1:   # MOVEFILE_REPLACE_EXISTING
+                fs.last_error = ERROR_ALREADY_EXISTS
+                return 0, 12
+            if fs.parent(dst) not in fs.dirs:
+                fs.last_error = ERROR_PATH_NOT_FOUND
+                return 0, 12
+            fs.files[dst] = fs.files.pop(src)
+            return 1, 12
+
         def delete(e):
+            if fs.key(e.cstr(e.arg(0))) in fs.locked:
+                fs.last_error = 32
+                return 0, 4
             if fs.files.pop(fs.key(e.cstr(e.arg(0))), None) is None:
                 fs.last_error = ERROR_FILE_NOT_FOUND
                 return 0, 4
@@ -243,7 +269,8 @@ class FileSystem:
             "GetFileAttributesA": attributes, "SetFileAttributesA": lambda e: (1, 8),
             "FindFirstFileA": find_first, "FindNextFileA": find_next,
             "FindClose": lambda e: (fs.finds.pop(e.arg(0), None), 1)[1:] + (4,),
-            "GetLastError": lambda e: (fs.last_error, 0), "GetLocalTime": local_time,
+            "GetLastError": lambda e: (fs.last_error, 0), "GetLocalTime": local_time, "MoveFileExA": move,
+            "FlushFileBuffers": lambda e: (1, 4), "Sleep": lambda e: (0, 4),
             "lstrcmpiA": lambda e: (0 if e.cstr(e.arg(0)).lower() == e.cstr(e.arg(1)).lower() else 1, 8),
         })
 

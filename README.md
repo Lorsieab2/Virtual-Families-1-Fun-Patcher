@@ -488,6 +488,7 @@ copies as arguments.
 - **DLLs:** `native\build.bat` builds `build\vf1fun.dll`,
   `native\build_kids.bat` builds `build\vf1kids.dll` (Up to 28 Children) and
   `native\build_logs.bat` builds `build\vf1logs.dll` (the Family History Log) and
+  `native\build_revive.bat` builds `build\vf1revive.dll` (Revive a Family Member) and
   `native\build_text.bat` builds `build\vf1text.dll` (Render Unicode with In-Game Fonts) and
   `build\vf1font.dll` (Use Unicode Font).
   They need Visual Studio's 32-bit C++ tools.

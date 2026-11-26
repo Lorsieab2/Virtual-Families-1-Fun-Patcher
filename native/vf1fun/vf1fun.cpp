@@ -1116,7 +1116,7 @@ static void LoadKidsCompanion() {
 typedef void (__cdecl *LogsEventFn)(int kind, int who, int parentA, int parentB);
 static LogsEventFn LogsEvent;
 enum { LOGS_DIVORCE = 1, LOGS_EVICT = 2, LOGS_SPAWN_CHILD = 3, LOGS_ADOPT_CHILD = 4, LOGS_ROLL_DICE = 5,
-       LOGS_BOARDING_SCHOOL = 6 };
+       LOGS_BOARDING_SCHOOL = 6, LOGS_REVIVED = 7 };
 
 static void LogFamilyEvent(int kind, int who, int parentA = -1, int parentB = -1) {
     if (LogsEvent) LogsEvent(kind, who, parentA, parentB);
@@ -1135,6 +1135,38 @@ static void LoadLogsCompanion() {
     StartupFn startup = (StartupFn)GetProcAddress(logs, "VF1Logs_Startup");
     if (!startup || !startup()) return;   // not installed: no log, the game is unchanged
     LogsEvent = (LogsEventFn)GetProcAddress(logs, "VF1Logs_Event");
+}
+
+// ---------------------------------------------------------------- Revive a Family Member
+// The feature is its own DLL, vf1revive.dll, installed beside this one only while the Revive setting is on
+// (patcher/manifest.json). It is loaded after vf1logs.dll (it chains the same two ReportDeath calls). It takes the
+// snapshots and brings a person back; this DLL shows the Family page's list, charges the price and logs the revival.
+typedef int (__cdecl *ReviveCountFn)();
+typedef int (__cdecl *ReviveInfoFn)(int i, int *out);
+typedef const char *(__cdecl *ReviveNameFn)(int i);
+typedef int (__cdecl *ReviveDoFn)(int i, int *how);
+static ReviveCountFn ReviveCount;
+static ReviveInfoFn ReviveInfo;
+static ReviveNameFn ReviveName;
+static ReviveDoFn ReviveDo;
+
+static void LoadReviveCompanion() {
+    wchar_t path[MAX_PATH];
+    InitSettingsPath();
+    wcscpy_s(path, MAX_PATH, SettingsPath);
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash) return;
+    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"vf1revive.dll");
+    HMODULE revive = LoadLibraryW(path);
+    if (!revive) return;
+    typedef int (__cdecl *StartupFn)();
+    StartupFn startup = (StartupFn)GetProcAddress(revive, "VF1Revive_Startup");
+    if (!startup || !startup()) return;   // not installed: no snapshots, no Revive button
+    ReviveCount = (ReviveCountFn)GetProcAddress(revive, "VF1Revive_Count");
+    ReviveInfo = (ReviveInfoFn)GetProcAddress(revive, "VF1Revive_Info");
+    ReviveName = (ReviveNameFn)GetProcAddress(revive, "VF1Revive_Name");
+    ReviveDo = (ReviveDoFn)GetProcAddress(revive, "VF1Revive_Revive");
+    if (!ReviveCount || !ReviveInfo || !ReviveName || !ReviveDo) ReviveCount = 0;
 }
 
 // ---------------------------------------------------------------- Render Unicode with In-Game Fonts / Use Unicode Font
@@ -1309,6 +1341,8 @@ extern "C" __declspec(dllexport) void __cdecl VF1Fun_Startup() {
         LoadKidsCompanion();
     if (SettingOn(L"FamilyHistory", false))   // after vf1kids.dll: it chains that DLL's hooks
         LoadLogsCompanion();
+    if (SettingOn(L"Revive", false))          // after vf1logs.dll: it chains the same two calls
+        LoadReviveCompanion();
     if (SettingOn(L"RenderUnicodeInGameFonts", false))
         LoadTextCompanion(L"vf1text.dll");
     else if (SettingOn(L"UseUnicodeFont", false))

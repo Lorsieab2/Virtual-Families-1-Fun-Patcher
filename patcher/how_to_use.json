@@ -161,6 +161,18 @@
       ]
     },
     {
+      "ids": ["Revive"],
+      "guide": [
+        "Brings back a family member who died: Upgrades, Family page, Revive a Family Member. It costs $10,000, free with Free and Guaranteed Cheats.",
+        "Only the dead come back, never someone who divorced, left with The Talent Scout or was evicted. Only the current generation, for now.",
+        "They are the same person: name, looks, parents, likes and dislikes, career, fertility and Wants kids. Moods and needs start fresh.",
+        "Died at 18 or older: back at exactly 18. Died younger: back at the age they died at.",
+        "A child gets their place in the Family Tree back. A spouse whose partner has remarried comes back as a family member, not a spouse.",
+        "For people who died before this patch, run Revive Backfill on the Tools tab once.",
+        "On by default. Not yet tested in a running game; your save file itself is never changed."
+      ]
+    },
+    {
       "ids": ["RenderUnicodeInGameFonts"],
       "guide": [
         "Lets the game take and show any letter: accents, Turkish, Polish, Vietnamese, Greek, Cyrillic, Japanese, Chinese, Korean, emoji and more.",
@@ -383,6 +395,16 @@
         "Your saves are backed up first, as \"Backup <date> (before speed change)\". Like every backup, its families are Paused, so restoring it brings a family back Paused.",
         "Time Controls' Slow, Fast, 5x and 10x are not offered: the game never keeps them in a save and loads every family at Normal or Paused.",
         "A save at any other speed is shown but not changed here; change it in the game instead."
+      ]
+    },
+    "revive_backfill": {
+      "title": "Revive Backfill",
+      "guide": [
+        "Lets Revive a Family Member bring back people who died before that patch was on.",
+        "Click Revive Backfill and pick the save folders. It reads the saves, their older copies and backups, the Family Tree, the Family History log and long names.",
+        "Each detail is marked exact, inferred or unknown. Unknown details start fresh; someone whose age at death is not known cannot come back.",
+        "Your saves and logs are only read. Backups are filled in even while the game runs; your own saves wait until the game is closed.",
+        "Running it again changes nothing. Anyone who already has a record keeps it."
       ]
     },
     "game_mechanics": {

@@ -20,7 +20,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:234",
-    "native/vf1fun/family_page.inc:130"
+    "native/vf1fun/family_page.inc:247"
    ]
   },
   {
@@ -32,7 +32,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:235",
-    "native/vf1fun/family_page.inc:129"
+    "native/vf1fun/family_page.inc:246"
    ]
   },
   {
@@ -113,7 +113,8 @@
    "format": false,
    "where": [
     "native/vf1fun/appearance_page.inc:239",
-    "native/vf1fun/family_page.inc:154",
+    "native/vf1fun/family_page.inc:141",
+    "native/vf1fun/family_page.inc:274",
     "native/vf1fun/pages.inc:99",
     "native/vf1fun/pages.inc:171",
     "native/vf1fun/pages.inc:291",
@@ -185,6 +186,7 @@
    "where": [
     "native/vf1fun/family.inc:290",
     "native/vf1fun/family.inc:316",
+    "native/vf1fun/family.inc:346",
     "native/vf1fun/family_page.inc:15",
     "native/vf1fun/services.inc:61"
    ]
@@ -218,7 +220,82 @@
    "format": false,
    "where": [
     "native/vf1fun/family.inc:301",
-    "native/vf1fun/family.inc:320"
+    "native/vf1fun/family.inc:320",
+    "native/vf1fun/family.inc:344"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_not_dead_they_were_brought_back_already",
+   "english": "They are not dead (they were brought back already).",
+   "room": 153,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:341"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_of_an_earlier_generation_only_the_current_generatio",
+   "english": "They are of an earlier generation: only the current generation can be revived for now.",
+   "room": 258,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:342"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_alive_in_the_house",
+   "english": "They are alive in the house.",
+   "room": 84,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:343"
+   ]
+  },
+  {
+   "id": "vf1fun.their_age_at_death_is_not_known_so_they_cannot_be_brought_ba",
+   "english": "Their age at death is not known, so they cannot be brought back.",
+   "room": 192,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:345"
+   ]
+  },
+  {
+   "id": "vf1fun.they_could_not_be_brought_back_nothing_was_changed",
+   "english": "They could not be brought back. Nothing was changed.",
+   "room": 156,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:348"
+   ]
+  },
+  {
+   "id": "vf1fun.there_is_no_such_family_member",
+   "english": "There is no such family member.",
+   "room": 93,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:354"
+   ]
+  },
+  {
+   "id": "vf1fun.you_don_t_have_enough_money_for_that",
+   "english": "You don't have enough money for that.",
+   "room": 111,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family.inc:357",
+    "native/vf1fun/pages.inc:251",
+    "native/vf1fun/services.inc:143",
+    "native/vf1fun/services.inc:209",
+    "native/vf1fun/vf1fun.cpp:705"
    ]
   },
   {
@@ -272,13 +349,154 @@
    ]
   },
   {
+   "id": "vf1fun.40ls_died_at_ls_ls_back_at_ls_ls",
+   "english": "%.40ls\tdied at %ls, %ls\tback at %ls%ls",
+   "room": 114,
+   "drawn_by_game": false,
+   "format": true,
+   "where": [
+    "native/vf1fun/family_page.inc:47"
+   ]
+  },
+  {
+   "id": "vf1fun.cannot_now",
+   "english": "  (cannot now)",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:49"
+   ]
+  },
+  {
+   "id": "vf1fun.some_details_not_known",
+   "english": "  (some details not known)",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:49"
+   ]
+  },
+  {
+   "id": "vf1fun.money_0f_price_d_s",
+   "english": "Money: $%.0f     Price: $%d%s",
+   "room": 87,
+   "drawn_by_game": false,
+   "format": true,
+   "where": [
+    "native/vf1fun/family_page.inc:55"
+   ]
+  },
+  {
+   "id": "vf1fun.free_and_guaranteed_cheats_free",
+   "english": "  (Free and Guaranteed Cheats: free)",
+   "room": 108,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:56"
+   ]
+  },
+  {
+   "id": "vf1fun.nobody_of_this_family_has_died_since_revive_was_turned_on_an",
+   "english": "Nobody of this family has died since Revive was turned on, and the Tools tab's backfill found nobody before that.",
+   "room": 339,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:72"
+   ]
+  },
+  {
+   "id": "vf1fun.every_detail_of_them_is_known_they_come_back_exactly_as_they",
+   "english": "Every detail of them is known: they come back exactly as they were.",
+   "room": 201,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:84"
+   ]
+  },
+  {
+   "id": "vf1fun.some_details_of_them_are_not_known_they_died_before_revive_w",
+   "english": "Some details of them are not known (they died before Revive was on): those start fresh.",
+   "room": 261,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:85"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_back_in_the_house_in_their_own_place_in_the_family",
+   "english": "They are back in the house, in their own place in the Family Tree.",
+   "room": 198,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:92",
+    "native/vf1fun/family_page.inc:93"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_back_in_the_house_as_the_spouse_again",
+   "english": "They are back in the house, as the spouse again.",
+   "room": 144,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:94"
+   ]
+  },
+  {
+   "id": "vf1fun.they_are_back_in_the_house_as_a_family_member_not_in_the_fam",
+   "english": "They are back in the house as a family member, not in the Family Tree (their place there is taken).",
+   "room": 297,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:96"
+   ]
+  },
+  {
+   "id": "vf1fun.bring_40ls_back_for_d",
+   "english": "Bring %.40ls back for $%d?",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": true,
+   "where": [
+    "native/vf1fun/family_page.inc:118"
+   ]
+  },
+  {
+   "id": "vf1fun.revive_a_family_member",
+   "english": "Revive a Family Member",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:136"
+   ]
+  },
+  {
+   "id": "vf1fun.bring_them_back",
+   "english": "Bring them back",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:140"
+   ]
+  },
+  {
    "id": "vf1fun.warning_this_permanently_removes_the_spouse_from_the_family",
    "english": "WARNING: this permanently removes the spouse from the Family Tree and the house. It cannot be undone.\n\nDivorce now?",
    "room": 345,
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:73"
+    "native/vf1fun/family_page.inc:186"
    ]
   },
   {
@@ -288,7 +506,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:74"
+    "native/vf1fun/family_page.inc:187"
    ]
   },
   {
@@ -298,7 +516,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:96"
+    "native/vf1fun/family_page.inc:209"
    ]
   },
   {
@@ -308,7 +526,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:99"
+    "native/vf1fun/family_page.inc:212"
    ]
   },
   {
@@ -318,7 +536,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:118"
+    "native/vf1fun/family_page.inc:235"
    ]
   },
   {
@@ -328,7 +546,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:120"
+    "native/vf1fun/family_page.inc:237"
    ]
   },
   {
@@ -338,7 +556,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:121"
+    "native/vf1fun/family_page.inc:238"
    ]
   },
   {
@@ -348,7 +566,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:122"
+    "native/vf1fun/family_page.inc:239"
    ]
   },
   {
@@ -358,7 +576,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:123"
+    "native/vf1fun/family_page.inc:240"
    ]
   },
   {
@@ -368,7 +586,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:124"
+    "native/vf1fun/family_page.inc:241"
    ]
   },
   {
@@ -378,7 +596,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:125"
+    "native/vf1fun/family_page.inc:242"
    ]
   },
   {
@@ -388,7 +606,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:126"
+    "native/vf1fun/family_page.inc:243"
    ]
   },
   {
@@ -398,7 +616,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:127"
+    "native/vf1fun/family_page.inc:244"
    ]
   },
   {
@@ -408,7 +626,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:128"
+    "native/vf1fun/family_page.inc:245"
    ]
   },
   {
@@ -418,7 +636,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:131"
+    "native/vf1fun/family_page.inc:248"
    ]
   },
   {
@@ -428,7 +646,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:132"
+    "native/vf1fun/family_page.inc:249"
    ]
   },
   {
@@ -438,7 +656,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:133"
+    "native/vf1fun/family_page.inc:250"
    ]
   },
   {
@@ -448,7 +666,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:134"
+    "native/vf1fun/family_page.inc:251"
    ]
   },
   {
@@ -458,7 +676,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:135"
+    "native/vf1fun/family_page.inc:252"
    ]
   },
   {
@@ -468,7 +686,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:136"
+    "native/vf1fun/family_page.inc:253"
    ]
   },
   {
@@ -478,7 +696,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:142"
+    "native/vf1fun/family_page.inc:259"
    ]
   },
   {
@@ -488,7 +706,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:143"
+    "native/vf1fun/family_page.inc:260"
    ]
   },
   {
@@ -498,7 +716,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:145"
+    "native/vf1fun/family_page.inc:262"
    ]
   },
   {
@@ -508,7 +726,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:147"
+    "native/vf1fun/family_page.inc:264"
    ]
   },
   {
@@ -518,7 +736,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:148"
+    "native/vf1fun/family_page.inc:265"
    ]
   },
   {
@@ -528,7 +746,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:149"
+    "native/vf1fun/family_page.inc:266"
    ]
   },
   {
@@ -538,7 +756,27 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:150"
+    "native/vf1fun/family_page.inc:267"
+   ]
+  },
+  {
+   "id": "vf1fun.bring_back_the_dead",
+   "english": "Bring back the dead",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:269"
+   ]
+  },
+  {
+   "id": "vf1fun.revive_a_family_member_someone_who_died_comes_back",
+   "english": "Revive a Family Member (someone who died comes back)...",
+   "room": 165,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/family_page.inc:270"
    ]
   },
   {
@@ -548,7 +786,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:151"
+    "native/vf1fun/family_page.inc:271"
    ]
   },
   {
@@ -558,7 +796,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:152"
+    "native/vf1fun/family_page.inc:272"
    ]
   },
   {
@@ -568,7 +806,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:153"
+    "native/vf1fun/family_page.inc:273"
    ]
   },
   {
@@ -3698,19 +3936,6 @@
    ]
   },
   {
-   "id": "vf1fun.you_don_t_have_enough_money_for_that",
-   "english": "You don't have enough money for that.",
-   "room": 111,
-   "drawn_by_game": false,
-   "format": false,
-   "where": [
-    "native/vf1fun/pages.inc:251",
-    "native/vf1fun/services.inc:143",
-    "native/vf1fun/services.inc:209",
-    "native/vf1fun/vf1fun.cpp:705"
-   ]
-  },
-  {
    "id": "vf1fun.buy_s_for_d",
    "english": "Buy %s for $%d?",
    "room": 80,
@@ -5243,7 +5468,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1185"
+    "native/vf1fun/vf1fun.cpp:1217"
    ]
   },
   {
@@ -5253,7 +5478,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1186"
+    "native/vf1fun/vf1fun.cpp:1218"
    ]
   },
   {
@@ -5263,7 +5488,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1220"
+    "native/vf1fun/vf1fun.cpp:1252"
    ]
   },
   {
@@ -5273,7 +5498,7 @@
    "drawn_by_game": true,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1256"
+    "native/vf1fun/vf1fun.cpp:1288"
    ]
   },
   {

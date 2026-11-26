@@ -39,6 +39,7 @@ static const Page kPages[] = {
     { "Special Upgrades", PurchasesTemplate }, { "Time Controls", TimeTemplate },
     { "Family", FamilyTemplate }, { "Clothing and Hairstyles", AppearanceTemplate },
     { "Services", ServicesTemplate }, { "Patcher Achievements", AchievementsTemplate },
+    { "Revive a Family Member", ReviveTemplate },
 };
 
 struct Ctl { short x, y, cx, cy; WORD id, cls; };
@@ -300,7 +301,7 @@ def run_case(exe, mode):
 @SKIP_WITHOUT_TOOLCHAIN
 def test_every_page_shows_every_control_inside_it_at_100_125_and_150_percent(harness_exe):
     out = run_case(harness_exe, "layout")
-    assert "Family: 31 controls" in out
+    assert "Family: 33 controls" in out and "Revive a Family Member: 5 controls" in out
 
 
 def _has_segoe_ui_historic():

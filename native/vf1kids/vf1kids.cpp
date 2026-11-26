@@ -276,6 +276,34 @@ extern "C" __declspec(dllexport) int __cdecl VF1Kids_Children() {
 // The limit (vf1fun's Family page shows "Children: N of 28").
 extern "C" __declspec(dllexport) int __cdecl VF1Kids_Limit() { return (int)KIDS_MAX_CHILDREN; }
 
+// For vf1revive.dll (Revive a Family Member), at a death before the tree hears of it: 1 when the villager in `slot` is
+// a living child 7..28 of this generation.
+extern "C" __declspec(dllexport) int __cdecl VF1Kids_IsExtraChild(int slot, int gender, const char *name) {
+    if (!name) return 0;
+    for (unsigned i = 0; i < ExtraCount; ++i) {
+        const Extra &e = Extras[i];
+        if (e.state == STATE_ALIVE && e.slot == slot && e.gender == gender && NameEquals(e.name, name)) return 1;
+    }
+    return 0;
+}
+
+// For vf1revive.dll: a child 7..28 who died (state dead, their slot and name then) came back in `newSlot`, so the
+// entry is theirs again, alive. 1 when it was found; nothing changes otherwise. No new entry is made: the child keeps
+// the one place they had.
+extern "C" __declspec(dllexport) int __cdecl VF1Kids_Revived(int oldSlot, int gender, const char *name, int newSlot) {
+    if (!name || !Villager(newSlot)) return 0;
+    for (unsigned i = 0; i < ExtraCount; ++i) {
+        Extra &e = Extras[i];
+        if (e.state != STATE_DEAD || e.slot != oldSlot || e.gender != gender || !NameEquals(e.name, name)) continue;
+        e.slot = newSlot;
+        e.state = STATE_ALIVE;
+        CopyName(e.name, (const char *)(Villager(newSlot) + KIDS_VILLAGER_NAME));
+        e.previous[0] = 0;
+        return 1;
+    }
+    return 0;
+}
+
 // ================================================================ hooks: the Family Tree
 static int __fastcall EmptyOffspringSlots(void *, void *) {
     Sweep();

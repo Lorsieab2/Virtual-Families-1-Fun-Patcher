@@ -42,6 +42,7 @@ DLLS = {
     "vf1fun": True,      # the Upgrades menu and its pages, messages, the behaviour captions, ...
     "vf1kids": False,    # Up to 28 Children: a sidecar file and its own log only
     "vf1logs": False,    # Family History: the log file (kept in English: the Family Tree Maker reads it)
+    "vf1revive": False,  # Revive a Family Member: a sidecar file and its own log only (vf1fun shows its page)
     "vf1text": False,    # the in-game Unicode fonts: draws the game's text, adds none
     "vf1tr": False,      # Translations itself: its log only
 }
@@ -77,7 +78,7 @@ UNSEEN_CALLS = (
 NOT_SHOWN = {
     "Segoe UI", "Segoe UI Historic",                      # font names
     "SDL2.dll", "SDL_GetKeyboardFocus", "SDL_GL_GetCurrentWindow", "SDL_GetWindowFlags", "SDL_SetWindowFullscreen",
-    "vf1tr.dll", "vf1kids.dll", "vf1logs.dll", "vf1text.dll", "vf1font.dll", "vf1fun.dll", "kernel32.dll",
+    "vf1tr.dll", "vf1kids.dll", "vf1logs.dll", "vf1revive.dll", "vf1text.dll", "vf1font.dll", "vf1fun.dll", "kernel32.dll",
     "user32.dll", "gdiplus.dll", "shell32.dll",
     "VF1Tr_TextW", "VF1Tr_TextA", "VF1Tr_English",       # vf1tr.dll's functions (translate.inc)
     # file and folder names
