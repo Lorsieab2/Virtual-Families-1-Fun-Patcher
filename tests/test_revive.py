@@ -117,8 +117,12 @@ def test_on_installs_the_two_calls_and_the_two_vtable_slots(built):
     w = world(built)
     assert w.installed == 1, w.status()
     changed = w.changed_code()
-    calls = (0x48E200, 0x489D8F, 0x489EAC, 0x48EB40, 0x48EB4C, 0x44123D, 0x441250)
-    assert changed == {site + 1 + k for site in calls for k in range(4)}
+    calls = (0x48E200, 0x489D8F, 0x489EAC, 0x48EB40, 0x48EB4C, 0x44123D, 0x441250, 0x439B64)
+    detour = set(range(0x439E7D, 0x439E82))        # the tree row's spouse block end: a jmp to the DLL
+    # Only these bytes change (a new displacement may share a byte with the old one), and each site is retargeted.
+    assert changed <= {site + 1 + k for site in calls for k in range(4)} | detour and detour <= changed
+    assert all(any(site + 1 + k in changed for k in range(4)) for site in calls)
+    assert w.e.read(0x439E7D, 1) == b"\xE9" and w.e.read(0x439E82, 1) == b"\x00"   # the mov's last byte, never reached
     dll = w.e.dll.OPTIONAL_HEADER.ImageBase
     for slot in (R.GS_VTABLE_LOAD, R.GS_VTABLE_SAVE):
         assert w.e.r32(slot) not in (R.FUNCTIONS["GS_LOAD"], R.FUNCTIONS["GS_SAVE"])
@@ -272,19 +276,21 @@ def test_a_child_comes_back_as_who_they_were_at_the_age_they_died(built):
     assert w.info(0)["state"] == 2 and w.status()["revived"] == 1
 
 
-def test_died_at_18_or_older_comes_back_at_exactly_18(built):
+def test_died_at_20_or_older_comes_back_at_exactly_20_with_their_career(built):
     w = family(built)
     personalise(w, 0, career=(12, 3, 10, 2500))
     w.e.w32(w.villager(0) + L.VILLAGER_AGE, 71 * 20 + 7)                # 71 years and 7 units
     w.die(0)
-    assert w.info(0)["back_units"] == 360
+    assert w.info(0)["back_units"] == 400
     slot, how = w.revive(0)
-    assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 360
-    # The career comes back with them (the game keeps no career history, only the career at death).
+    assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 400
+    # The career comes back with them: career, level, +8 and salary as at death (the game keeps no history).
     assert struct.unpack("<4i", w.e.read(w.villager(slot) + 0x2B6C, 16)) == (12, 3, 10, 2500)
 
 
-@pytest.mark.parametrize("units, back", [(17 * 20 + 19, 17 * 20 + 19), (18 * 20, 360), (18 * 20 + 1, 360), (3, 3)])
+# The owner, 2026-11-26, final: younger than 20 -> the age at death (18 and 19 included); 20 or older -> 20.
+@pytest.mark.parametrize("units, back", [(17 * 20 + 19, 17 * 20 + 19), (18 * 20, 360), (19 * 20 + 19, 399),
+                                         (20 * 20, 400), (20 * 20 + 1, 400), (3, 3)])
 def test_the_age_rule_in_the_games_own_units(built, units, back):
     w = family(built)
     w.e.w32(w.villager(3) + L.VILLAGER_AGE, units)
@@ -314,28 +320,71 @@ def remarried(built):
     return w
 
 
-def test_a_spouse_whose_partner_remarried_comes_back_as_a_family_member_in_a_child_entry(built):
-    # The owner, 2026-11-26: a family member, placed in the Family Tree as a CHILD ENTRY (as Virtual Families 2).
+def test_a_spouse_whose_partner_remarried_takes_no_place_in_the_tree(built):
+    # The owner, 2026-11-26: a family member living in the house, with NO child place: the tree's data, its child
+    # count, the surviving children (heirs, Next Generation) and the vf1kids extras are all untouched.
     w = remarried(built)
+    w.load_kids()
+    tree_before = w.e.read(L.FAMILY_TREE, 4 + 30 * L.FAMILY_RECORD_SIZE)
+    surviving = w.surviving()
     slot, how = w.revive(0)
-    assert slot >= 0 and how == 6
-    rec = w.record()
-    assert s32(w.e.r32(rec + L.RECORD_CHILD_COUNT)) == 1                  # the game's own AddOffspring made it
-    child = w.peep(2)
-    assert w.e.cstr(child) == "Bob" and s32(w.e.r32(child + 0x28)) == slot
-    assert (s32(w.e.r32(child + 0x1C)), s32(w.e.r32(child + 0x20)), s32(w.e.r32(child + 0x24))) == (0, 7, 8)
-    assert w.e.cstr(w.peep(1)) == "Eli" and s32(w.e.r32(w.peep(1) + 0x28)) == 4   # Eli stays the spouse
-    assert w.surviving() == 1
+    assert slot >= 0 and how == 7
+    assert w.e.read(L.FAMILY_TREE, 4 + 30 * L.FAMILY_RECORD_SIZE) == tree_before
+    assert s32(w.e.r32(w.record() + L.RECORD_CHILD_COUNT)) == 0 and w.surviving() == surviving
+    assert w.kids_revived == []
+    assert w.e.read(w.villager(slot) + L.VILLAGER_PRESENT, 1) == b"\x01"   # in the house
 
 
-def test_with_no_child_place_left_the_family_member_is_outside_the_tree(built):
+def test_the_tree_screen_draws_them_under_the_current_spouse(built):
+    # The game's own row draw (0x439BA0) for the current generation: Ann, then Eli, then -- by the same spouse block,
+    # one parent step lower -- Bob, with the game's own frame (image 0xC1), name and portrait. No child is drawn.
     w = remarried(built)
-    for k in range(6):                                                    # the generation's six child places
-        w.add_child(10 + k, f"K{k}", k % 2, years=3)
-    tree_before = w.e.read(w.record(), L.FAMILY_RECORD_SIZE)
-    slot, how = w.revive(0)
-    assert slot >= 0 and how == 5
-    assert w.e.read(w.record(), L.FAMILY_RECORD_SIZE) == tree_before
+    slot, _how = w.revive(0)
+    d = w.draw_tree_row()
+    frames = [f for f in d["images"] if f["id"] == 0xC1]
+    names = [t["text"] for t in d["texts"]]
+    assert names == [b"Ann", b"Eli", b"Bob"] and len(frames) == 3
+    step = w.scene_step()
+    assert frames[2]["x"] == frames[1]["x"] and frames[2]["y"] == frames[1]["y"] + step
+    eli, bob = d["texts"][1], d["texts"][2]
+    assert (bob["x"], bob["y"]) == (eli["x"], eli["y"] + step) and bob["colour"] == eli["colour"] and bob["font"] == eli["font"]
+    portraits = d["portraits"]
+    assert [(p["sex"], p["head"], p["body"]) for p in portraits] == [(1, 3, 4), (0, 9, 10), (0, 7, 8)]
+    assert portraits[2]["y"] == portraits[1]["y"] + step
+    assert d["shades"] == []                       # alive: not shaded as the dead are
+    assert [i for i in d["images"] if i["id"] == 0xC2] == []                # no child frame
+    # The row's own state is put back: the record and the frame the rest of the row reads.
+    assert d["edi_after"] == w.record()
+
+
+def test_the_tree_screen_is_unchanged_without_them(built):
+    w = remarried(built)
+    d = w.draw_tree_row()
+    assert [t["text"] for t in d["texts"]] == [b"Ann", b"Eli"] and len([f for f in d["images"] if f["id"] == 0xC1]) == 2
+
+
+def test_an_earlier_generation_row_is_unchanged(built):
+    w = remarried(built)
+    w.revive(0)
+    w.set_villager(6, "Ivy", 1, years=20, head=5, body=6)
+    w.e.write(w.villager(0) + L.VILLAGER_PRESENT, b"\0")
+    assert w.adopt_new_person(6) == 1              # a new generation: Bob's row is history now
+    d = w.draw_tree_row(gen=0)
+    assert b"Bob" not in [t["text"] for t in d["texts"]]
+
+
+def test_clicking_them_opens_the_games_own_person_window(built):
+    w = remarried(built)
+    slot, _how = w.revive(0)
+    w.draw_tree_row()
+    step = w.scene_step()
+    # On Bob's frame (one parent step under Eli): the game's own person dialog, with Bob's record.
+    shown = w.tree_click(w.scene_field(0x68) + 30, w.scene_field(0x6C) + 2 * step + 30)
+    assert shown == [(b"Bob", 0, 7, 8, slot)]
+    # On Eli's frame: the game's own click, as before.
+    assert w.tree_click(w.scene_field(0x68) + 30, w.scene_field(0x6C) + step + 30) == [(b"Eli", 0, 9, 10, 4)]
+    # Beside the frames: nothing.
+    assert w.tree_click(w.scene_field(0x68) + 30, w.scene_field(0x6C) + 3 * step + 60) == []
 
 
 def test_a_spouse_whose_place_is_still_free_comes_back_as_the_spouse(built):
@@ -408,8 +457,8 @@ def test_a_failed_read_back_takes_the_new_villager_away_and_changes_nothing(buil
     assert w.info(0)["state"] == 1                 # still dead, still revivable
 
 
-@pytest.mark.parametrize("mark", [0, 3])          # unknown (an older file), "unknown -> 18" (the backfill now)
-def test_an_unknown_age_at_death_comes_back_at_18(built, mark):
+@pytest.mark.parametrize("mark", [0, 3])          # unknown (an older file), "unknown -> 20" (the backfill now)
+def test_an_unknown_age_at_death_comes_back_at_20(built, mark):
     w = family(built)
     w.die(2)
     w.save_game()
@@ -422,9 +471,9 @@ def test_an_unknown_age_at_death_comes_back_at_18(built, mark):
     w.fs.write(path, rb.render_sidecar(w.save_bytes(), side.generations, side.parent_slot, side.parent_sex, [bytes(raw)]))
     w.forget()
     i = w.info(0)
-    assert (i["why"], i["back_units"], i["age_known"]) == (0, 360, 0)   # Cal died at 8, but that is not known
+    assert (i["why"], i["back_units"], i["age_known"]) == (0, 400, 0)   # Cal died at 8, but that is not known
     slot, _how = w.revive(0)
-    assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 360
+    assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 400
 
 
 # ---------------------------------------------------------------- a revived spouse is a grown-up at 19
@@ -445,6 +494,19 @@ def test_a_revived_spouse_with_no_career_is_not_sent_to_college_at_19(built):
     assert w.at_19(slot) == "stays"
     assert w.e.read(w.villager(slot) + L.VILLAGER_LEFT_HOME, 1) == b"\0"
     assert w.e.r32(w.villager(slot) + 0x2B6C) == INVALID                  # still no career: nothing else changes
+    assert s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) >= 380
+
+
+def test_a_revived_18_year_old_with_no_career_follows_the_games_own_rules(built):
+    # The owner, final: died at 18 -> back at 18, and the game's own at-19 college exit applies to them, spouse or not.
+    w = family(built)
+    w.e.write(w.villager(1) + 0x2B6C, struct.pack("<4i", -1, 0, 10, 0))
+    w.e.w32(w.villager(1) + L.VILLAGER_AGE, 18 * 20 + 5)
+    w.die(1)
+    slot, how = w.revive(0)
+    assert how == 4 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 18 * 20 + 5
+    assert w.at_19(slot) == "leaves"
+    assert w.try_for_a_baby(0) is None             # no career, not 20: no father by the game's own rule
 
 
 def test_a_child_with_no_career_still_goes_to_college_at_19(built):

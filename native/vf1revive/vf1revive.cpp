@@ -718,29 +718,36 @@ static bool __fastcall GameStateSave(void *state, void *, int slot) {
 enum { REVIVE_OK = 0, REVIVE_NOT_DEAD = 1, REVIVE_EARLIER_GENERATION = 2, REVIVE_ALIVE = 3, REVIVE_HOUSE_FULL = 4,
        REVIVE_AGE_UNKNOWN = 5, REVIVE_NO_SUCH = 6, REVIVE_FAILED = 7, REVIVE_NO_FAMILY = 8 };
 // How they came back.
-// BACK_FAMILY_MEMBER: in the house, in no Family Tree entry (the generation's child entries are all taken);
-// BACK_CHILD_ENTRY: a family member (a spouse whose partner remarried) given a child entry of the generation, as the
-// Virtual Families 2 patcher does (the owner, 2026-11-26).
+// BACK_FAMILY_MEMBER: in the house, in no Family Tree entry (a child whose entry is gone, a parent of then whose
+// partner is no longer parent 1).
+// BACK_UNDER_SPOUSE: a spouse whose partner has remarried (the owner, 2026-11-26): a family member in the house,
+// in no Family Tree entry and no child place, DRAWN on the game's Family Tree screen under the current spouse
+// (TreeRowDetour below) and opened with a click as a tree person is.
 enum { BACK_CHILD = 1, BACK_EXTRA_CHILD = 2, BACK_PARENT = 3, BACK_SPOUSE = 4, BACK_FAMILY_MEMBER = 5,
-       BACK_CHILD_ENTRY = 6 };
+       BACK_UNDER_SPOUSE = 7 };
 
-// The age they come back at, in the game's own age units: died at 18 or older -> exactly 18 (360 units); younger ->
-// the age they died at; an age at death the backfill could not find ("unknown -> 18", the owner) -> 18.
-static int ReviveAge(const unsigned char *e) {
-    int age = I32(e, E_BIO + BIO_AGE);
-    int adult = (int)(REV_REVIVE_ADULT_YEARS * REV_UNITS_PER_YEAR);
+// The age they come back at, in the game's own age units (the owner, 2026-11-26, final): died younger than 20 ->
+// the age they died at (18 and 19 included); died at 20 or older -> exactly 20 (400 units), with their career; an
+// age at death the backfill could not find ("unknown -> 20") -> 20.
+static const int kAdultUnits = (int)(REV_REVIVE_ADULT_YEARS * REV_UNITS_PER_YEAR);
+
+static bool DiedGrownUp(const unsigned char *e) {
     unsigned mark = Mark(e, FIELD_AGE);
-    if (mark == MARK_UNKNOWN || mark == MARK_UNKNOWN_ADULT) return adult;
-    if (age < 0) age = 0;
-    return age >= adult ? adult : age;
+    return mark == MARK_UNKNOWN || mark == MARK_UNKNOWN_ADULT || I32(e, E_BIO + BIO_AGE) >= kAdultUnits;
 }
 
-// ---- the at-19 rule: a revived spouse or parent with no career is a grown-up who stays at home
-// The ageing pass sends a 19-year-old (380 units) with no career away to college: at 0x489EAC it asks
-// CVillagerSkills::HasCareer and leaves only on 0 (0x489EB1 test eax / jne past the leaving). This call, and only
-// this one, answers "has a career" for someone this DLL brought back as a parent or spouse of the family (the owner,
-// 2026-11-26): they are not sent to college. Every other HasCareer call (the matriarch and patriarch, jobs, salary)
-// is the game's own, so nothing else about them changes.
+static int ReviveAge(const unsigned char *e) {
+    if (DiedGrownUp(e)) return kAdultUnits;
+    int age = I32(e, E_BIO + BIO_AGE);
+    return age < 0 ? 0 : age;
+}
+
+// ---- a revived grown-up with no career
+// Someone brought back at 20 (they died at 20 or older) who had no career is a grown-up all the same (the owner): the
+// at-19 college exit is not theirs (at 0x489EAC the ageing pass asks CVillagerSkills::HasCareer and leaves only on
+// 0; at 20 they are past it, and this call answers "has a career" for them), and they can be the mother or father of
+// a baby (below). A revived 18- or 19-year-old follows the game's own rules, the college exit included. Every other
+// HasCareer call (jobs, salary, the events) is the game's own.
 typedef int (__thiscall *HasCareerFn)(void *skills);
 static HasCareerFn NextHasCareerAt19;
 
@@ -748,8 +755,7 @@ static bool RevivedGrownUp(const unsigned char *v, int slot) {
     if (!v || !v[REV_VILLAGER_PRESENT]) return false;
     for (unsigned i = 0; i < EntryCount; ++i) {
         const unsigned char *e = Entries[i];
-        int role = I32(e, E_ROLE);
-        if (I32(e, E_STATE) == STATE_REVIVED && I32(e, E_REVIVED_SLOT) == slot && (role == 0 || role == 1)
+        if (I32(e, E_STATE) == STATE_REVIVED && I32(e, E_REVIVED_SLOT) == slot && DiedGrownUp(e)
             && NameEquals((const char *)(v + REV_VILLAGER_NAME), (const char *)(e + E_BIO + BIO_NAME))
             && I32(v, REV_VILLAGER_GENDER) == I32(e, E_BIO + BIO_SEX))
             return true;
@@ -920,20 +926,124 @@ static int OwnPlace(const unsigned char *e, int slot, const char *stored) {
             W32(p2, REV_PEEP_SLOT, slot);
             return BACK_SPOUSE;
         }
+        // Someone else is the spouse now: their partner remarried. A family member, in no tree entry and no child
+        // place (the owner), drawn under the current spouse on the Family Tree screen.
+        if (p2[REV_PEEP_VALID] && !PeepIs(p2, name, sex)) return BACK_UNDER_SPOUSE;
     }
     return BACK_FAMILY_MEMBER;
 }
 
-// A family member with no place of their own waiting (a spouse whose partner remarried) gets a child entry of the
-// generation, made by the game's own CFamilyTree::AddOffspring (through Up to 28 Children's hook when it is installed,
-// so a 7th to 28th place is used the same way); only when the generation has no child place left are they in the house
-// outside the Family Tree.
-typedef bool (__thiscall *AddOffspringFn)(void *tree, void *villager);
+static int ReplaceInTree(const unsigned char *e, int slot, const char *stored) { return OwnPlace(e, slot, stored); }
 
-static int ReplaceInTree(const unsigned char *e, int slot, const char *stored) {
-    int how = OwnPlace(e, slot, stored);
-    if (how != BACK_FAMILY_MEMBER || !CurrentFamily()) return how;
-    return ((AddOffspringFn)REV_FT_ADD_OFFSPRING)(Tree(), Villager(slot)) ? BACK_CHILD_ENTRY : BACK_FAMILY_MEMBER;
+// ---- the Family Tree screen: a remarried partner's late spouse, drawn under the current spouse
+// The screen draws each generation's row with 0x439BA0; its spouse block (0x439D4C..0x439E7D, entered when parent
+// 2 is used) draws parent 2's frame (image 0xC1) at the y in [esp+3Ch], the name (DrawString, the screen's font and
+// colour) and the portrait (0x439790: sex, head, body) from the record in edi, and shades the portrait when the slot
+// is -1. At the block's end (0x439E7D) the DLL runs that same block once more, for the current generation only, with
+// edi a record of its own whose parent 2 is the revived person and the y one parent step lower (the step from parent
+// 1 to parent 2 on this screen, [esi+74h] - [esi+6Ch] + 2), then puts the row's frame and edi back exactly and lets the
+// row go on. So they are drawn with the game's own art, font and layout; no tree entry, count or heir is touched.
+static unsigned char ExtraRecord[REV_FAMILY_RECORD_SIZE];
+static unsigned char SavedRowFrame[0x54];
+static unsigned SavedRowEdi;
+static int gExtraDrawing;
+extern "C" int gGoBlock = 0;
+extern "C" unsigned gBlockBody = REV_TREE_BLOCK_BODY, gBlockNext = REV_TREE_BLOCK_NEXT;
+
+// The revived person drawn under the spouse, as an SPeepRecord (their own tree entry at death, with the name and
+// slot they have now), or 0.
+static const unsigned char *UnderSpouse(unsigned char *peep) {
+    for (unsigned i = 0; i < EntryCount; ++i) {
+        const unsigned char *e = Entries[i];
+        int slot = I32(e, E_REVIVED_SLOT);
+        const unsigned char *v = Villager(slot);
+        if (I32(e, E_STATE) != STATE_REVIVED || I32(e, E_HOW) != BACK_UNDER_SPOUSE || !v) continue;
+        if (!v[REV_VILLAGER_PRESENT] || v[REV_VILLAGER_LEFT_HOME] || I32(v, REV_VILLAGER_HEALTH) <= 0) continue;
+        if (I32(v, REV_VILLAGER_GENDER) != I32(e, E_BIO + BIO_SEX) || !CurrentGeneration(e)) continue;
+        Zero(peep, REV_PEEP_RECORD_SIZE);
+        Copy(peep, e + E_PEEP, REV_PEEP_RECORD_SIZE);
+        Copy(peep, v + REV_VILLAGER_NAME, REV_VILLAGER_NAME_LEN);
+        peep[REV_PEEP_VALID] = 1;
+        W32(peep, REV_PEEP_GENDER, I32(v, REV_VILLAGER_GENDER));
+        W32(peep, REV_PEEP_HEAD, I32(v, REV_VILLAGER_HEAD));
+        W32(peep, REV_PEEP_BODY, I32(v, REV_VILLAGER_BODY));
+        W32(peep, REV_PEEP_SLOT, slot);
+        return peep;
+    }
+    return 0;
+}
+
+static int SpouseStep(const unsigned char *scene) { return I32(scene, 0x74) - I32(scene, 0x6C) + 2; }
+
+// regs: the row's registers as pushad left them (edi, esi, ebp, esp, ebx, edx, ecx, eax).
+extern "C" void __cdecl TreeRowExtra(unsigned *regs) {
+    unsigned char *frame = (unsigned char *)regs[3];
+    gGoBlock = 0;
+    if (gExtraDrawing) {                       // the extra person is drawn: the row as it was
+        Copy(frame, SavedRowFrame, sizeof(SavedRowFrame));
+        regs[0] = SavedRowEdi;
+        gExtraDrawing = 0;
+        return;
+    }
+    unsigned char *rec = CurrentFamily();
+    if (!rec || (unsigned char *)regs[0] != rec || !rec[REV_RECORD_PARENT2 + REV_PEEP_VALID]) return;
+    if (!UnderSpouse(ExtraRecord + REV_RECORD_PARENT2)) return;
+    Copy(SavedRowFrame, frame, sizeof(SavedRowFrame));
+    SavedRowEdi = regs[0];
+    regs[0] = (unsigned)ExtraRecord;
+    *(int *)(frame + 0x3C) += SpouseStep((const unsigned char *)regs[1]);
+    gExtraDrawing = 1;
+    gGoBlock = 1;
+}
+
+__declspec(naked) static void TreeRowDetour() {
+    __asm {
+        pushad
+        push esp
+        call TreeRowExtra
+        add esp, 4
+        popad
+        cmp dword ptr [gGoBlock], 0
+        jne block
+        mov eax, dword ptr [esi + 0x80]        // the instruction the jmp replaced
+        jmp dword ptr [gBlockNext]
+    block:
+        jmp dword ptr [gBlockBody]
+    }
+}
+
+// A click on the row (0x4393E0, x, y, generation, mouse x, mouse y): the game's own first (parent 1, parent 2, the
+// children); when none is hit and the click is on the extra person's frame (the game's own hit test one parent step
+// lower: the frame image's rectangle, then its pixels), the game's own person dialog for them, as a click on a tree
+// person opens it (0x4394B3..0x4394EA: the dialog's constructor with the record, DoModal(scene, 0), its destructor).
+typedef bool (__thiscall *TreeClickFn)(void *scene, int x, int y, int gen, int mx, int my);
+static TreeClickFn NextTreeClick;
+typedef void *(__thiscall *ImageGetFn)(void *manager, int id);
+typedef int (__thiscall *ImageSizeFn)(void *image);
+typedef bool (__thiscall *ImageHitFn)(void *image, int x, int y);
+typedef void (__thiscall *DialogCtorFn)(void *dialog, void *peep);
+typedef void (__thiscall *DialogModalFn)(void *dialog, void *parent, int updateParent);
+typedef void (__thiscall *DialogDtorFn)(void *dialog);
+typedef void *(__cdecl *ImageManagerFn)();
+static __declspec(align(16)) unsigned char PersonDialog[REV_TREE_EXTRA_ROOM];
+static unsigned char ClickPeep[REV_PEEP_RECORD_SIZE];
+
+static bool __fastcall TreeClick(void *scene, void *, int x, int y, int gen, int mx, int my) {
+    if (NextTreeClick(scene, x, y, gen, mx, my)) return true;
+    unsigned char *rec = CurrentFamily();
+    if (!rec || gen != Generations() - 1 || !rec[REV_RECORD_PARENT2 + REV_PEEP_VALID]) return false;   // gen: 0-based
+    if (!UnderSpouse(ClickPeep)) return false;
+    const unsigned char *s = (const unsigned char *)scene;
+    void *image = ((ImageGetFn)REV_IMG_GET)(((ImageManagerFn)REV_IMG_MANAGER)(), 0xC1);
+    if (!image) return false;
+    int w = ((ImageSizeFn)REV_IMG_WIDTH)(image), h = ((ImageSizeFn)REV_IMG_HEIGHT)(image);
+    int left = I32(s, 0x68) + x, top = I32(s, 0x6C) + y + 2 * SpouseStep(s);
+    if (mx < left || mx > left + w || my < top || my > top + h) return false;
+    if (!((ImageHitFn)REV_IMG_HIT)(image, mx - left, my - top)) return false;
+    ((DialogCtorFn)REV_DLG_PERSON_CTOR)(PersonDialog, ClickPeep);
+    ((DialogModalFn)REV_DLG_DO_MODAL)(PersonDialog, scene, 0);
+    ((DialogDtorFn)REV_DLG_PERSON_DTOR)(PersonDialog);
+    return true;
 }
 
 static int Revive(unsigned i, int *how) {
@@ -1031,9 +1141,7 @@ static bool PinsMatch() {
         const RevivePin &p = REV_PINS[i];
         if (p.va < 0x401000u || p.va + p.len > end) return false;
         const unsigned char *live = (const unsigned char *)p.va;
-        // AddOffspring's entry may hold Up to 28 Children's 5-byte jmp out of the executable (vf1kids.dll hooks it).
-        unsigned from = p.va == REV_FT_ADD_OFFSPRING && live[0] == 0xE9 && !InExe(JumpTarget(p.va)) ? 5u : 0u;
-        for (unsigned k = from; k < p.len; ++k)
+        for (unsigned k = 0; k < p.len; ++k)
             if (!p.mask[k] && live[k] != p.bytes[k]) return false;
     }
     return true;
@@ -1041,7 +1149,7 @@ static bool PinsMatch() {
 
 struct Write5 { unsigned va; unsigned char bytes[5]; unsigned char original[5]; };
 struct Plan {
-    Write5 writes[7];
+    Write5 writes[10];
     unsigned count;
     unsigned load, save;       // theGameState's Load and Save slots: the values they hold now
 };
@@ -1055,6 +1163,7 @@ static void *CallHandler(unsigned i) {
     case REV_CALL_BABY_FATHER: return (void *)&BabyFather;
     case REV_CALL_PAIR_CAREER_A: return (void *)&HasCareerPairA;
     case REV_CALL_PAIR_CAREER_B: return (void *)&HasCareerPairB;
+    case REV_CALL_TREE_CLICK: return (void *)&TreeClick;
     }
     return 0;
 }
@@ -1068,6 +1177,7 @@ static void SetCallNext(unsigned i, unsigned target) {
     case REV_CALL_BABY_FATHER: NextFather = (PickFn)target; break;
     case REV_CALL_PAIR_CAREER_A: NextPairA = (HasCareerFn)target; break;
     case REV_CALL_PAIR_CAREER_B: NextPairB = (HasCareerFn)target; break;
+    case REV_CALL_TREE_CLICK: NextTreeClick = (TreeClickFn)target; break;
     }
 }
 
@@ -1084,6 +1194,13 @@ static bool PlanHooks(Plan &plan) {
         w.bytes[0] = 0xE8;
         *(int *)(w.bytes + 1) = (int)((unsigned)CallHandler(i) - (h.site + 5));
     }
+    // The tree row's spouse block ends with a jmp to TreeRowDetour (the pin proved the 6-byte mov it replaces; its
+    // last byte is never reached: the detour runs that mov itself and goes on at the next instruction).
+    if (*(const unsigned char *)REV_TREE_BLOCK_END != 0x8B) return false;
+    Write5 &d = plan.writes[plan.count++];
+    d.va = REV_TREE_BLOCK_END;
+    d.bytes[0] = 0xE9;
+    *(int *)(d.bytes + 1) = (int)((unsigned)&TreeRowDetour - (REV_TREE_BLOCK_END + 5));
     unsigned load = *(const unsigned *)REV_GS_VTABLE_LOAD, save = *(const unsigned *)REV_GS_VTABLE_SAVE;
     if ((load != REV_GS_LOAD && InExe(load)) || (save != REV_GS_SAVE && InExe(save))) return false;
     plan.load = load;
