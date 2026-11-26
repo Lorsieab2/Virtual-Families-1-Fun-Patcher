@@ -13,6 +13,8 @@ What a slot is (source S, target T; every file is copied with S's numbers change
         (vf1kids, Up to 28 Children),
       * "Revive\\Virtual Families<n>.ldw.dat" and any "...ldw.unreadable-<k>.dat" (vf1revive, Revive a Family
         Member: the snapshots of the family's dead; the same header as a Children file, re-matched the same way),
+      * "Skin Tones\\Virtual Families<n>.ldw.dat" and any "...ldw.unreadable-<k>.dat" (vf1skin, Skin Tones: each
+        family member's tone; the same header as a Children file, re-matched the same way),
       * "Outfits\\Virtual Families<n>.ldw.dat" and any "...ldw.unreadable-<k>.dat" (vf1fun, each outfit's
         picture);
     and the slot's own folder "Virtual Families 1 Patcher\\Save <S>":
@@ -228,7 +230,7 @@ def slot_files(folder: Path, slot: int) -> list[Path]:
     ini = Path(DATA) / f"Slot {slot}.ini"
     if (folder / ini).is_file():
         out.append(ini)
-    for sub in ("Children", "Revive", "Outfits", vf1_names.FOLDER):
+    for sub in ("Children", "Revive", "Skin Tones", "Outfits", vf1_names.FOLDER):
         where = folder / DATA / sub
         try:
             entries = sorted(where.iterdir(), key=lambda p: p.name.casefold())
@@ -433,7 +435,7 @@ def plan_copy(folder: Path, source: int, target: int, new_name: str, when: datet
             number = int(re.search(r"(\d+)\.ldw$", relative.name).group(1))
             body = targets.get(number, raw)
             what = "renamed" if body != raw else "copied"
-        elif parts[0].casefold() == DATA.casefold() and len(parts) == 3 and parts[1].casefold() in ("children", "revive"):
+        elif parts[0].casefold() == DATA.casefold() and len(parts) == 3 and parts[1].casefold() in ("children", "revive", "skin tones"):
             body, rebound = _rebind_children(raw, sources, targets)
             what = "matched to the copy" if rebound else "copied"
         elif parts[0].casefold() == DATA.casefold() and len(parts) == 3 and parts[1] == vf1_names.FOLDER:

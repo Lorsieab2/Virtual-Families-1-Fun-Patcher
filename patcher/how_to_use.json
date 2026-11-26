@@ -174,6 +174,18 @@
       ]
     },
     {
+      "ids": ["SkinTones"],
+      "guide": [
+        "Gives everyone in the family a skin tone, drawn in the game: one of ten, S1 Porcelain to S10 Ebony, or Default, the game's own skin.",
+        "All bare skin is toned: in the house, in portraits, in Random Event pictures and in the Family Tree. A carried baby shows the baby's own tone. Hair, eyes and clothes never change.",
+        "Founders, newcomers and everyone already in your family when you turn it on get a random tone.",
+        "A baby gets its tone at the conception, usually close to the average of its parents' tones. Twins and triplets share one.",
+        "To change someone's tone: Upgrades, Villager Cheats, Change Appearance, Skin tone (needs Cheat Upgrades). Reset to birth tone puts back the tone they were born with.",
+        "Each change is written to the Family History log as Appearance changed, when that log is on.",
+        "On by default. Not yet tested in a running game; your save file itself is never changed."
+      ]
+    },
+    {
       "ids": ["RenderUnicodeInGameFonts"],
       "guide": [
         "Lets the game take and show any letter: accents, Turkish, Polish, Vietnamese, Greek, Cyrillic, Japanese, Chinese, Korean, emoji and more.",

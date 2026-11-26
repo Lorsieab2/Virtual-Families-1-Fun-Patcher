@@ -509,6 +509,18 @@ def test_a_revived_spouse_whose_partner_remarried_is_logged_as_shown_under_the_s
     assert "  Returned as: Family member (shown under the current spouse in the Family Tree)\n" in find(w, "Revived 1")
 
 
+def test_a_skin_tone_change_is_an_appearance_changed_record(built):
+    # vf1skin.dll's Change Appearance (Skin Tones): the old and the new tone, the Virtual Villagers patcher's words.
+    w = family(built)
+    w.set_villager(5, "Ola", 1, years=18, head=21, body=22, career=-1)
+    w.event(8, 5, 5, 10)
+    w.event(8, 5, 10, 15)
+    assert find(w, "Appearance changed 1") == body(
+        STAMP + "Appearance changed 1", "  Name: Ola", "  Age: 18", "  Sex: Female", "  Head: 21", "  Body: 22",
+        "  Old skin tone: Copper", "  New skin tone: Ebony", "  How: Change Appearance", "  Generation: 1")
+    assert "  Old skin tone: Ebony\n  New skin tone: Default\n" in find(w, "Appearance changed 2")
+
+
 def test_leaving_home_at_19_uses_the_games_caption(built):
     w = family(built)
     w.set_villager(4, "Eve", 1, years=19, career=0)

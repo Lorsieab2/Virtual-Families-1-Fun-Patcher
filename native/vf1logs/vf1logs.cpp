@@ -921,7 +921,14 @@ static void EventRecord(int slot, const char *kind, const char *title, int choic
 
 // ---- vf1fun's own family changes (VF1Logs_Event)
 enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4, EV_ROLL_DICE = 5, EV_BOARDING_SCHOOL = 6,
-       EV_REVIVED = 7 };
+       EV_REVIVED = 7, EV_APPEARANCE = 8 };
+
+// A skin tone as the log writes it (vf1skin.dll's names; 15, or none, is the game's own skin).
+static const char *SkinToneName(int tone) {
+    static const char *const names[10] = { "Porcelain", "Fair", "Light golden", "Light olive", "Copper", "Warm brown",
+                                           "Medium brown", "Deep brown", "Dark", "Ebony" };
+    return tone >= 1 && tone <= 10 ? names[tone - 1] : "Default";
+}
 
 extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, int a, int b) {
     if (!VF1Logs_Status.installed) return;
@@ -993,6 +1000,15 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
         Write(slot, "Revived", Body);
     } else if (kind == EV_BOARDING_SCHOOL) {
         gBoardingSchool = who + 1;                   // SetLeftHome follows at once (villager_upgrades.inc)
+    } else if (kind == EV_APPEARANCE && p.slot >= 0) {
+        // vf1skin.dll's Change Appearance (Skin Tones): `a` the skin tone before, `b` after (1..10, 15 Default). The
+        // Virtual Villagers patcher's "Appearance changed" record, its "Old skin tone" / "New skin tone" lines.
+        Self(t, p, "Age");
+        Field(t, "  ", "Old skin tone", SkinToneName(a));
+        Field(t, "  ", "New skin tone", SkinToneName(b));
+        Field(t, "  ", "How", "Change Appearance");
+        Generation(t, Generations());
+        Write(slot, "Appearance changed", Body);
     }
 }
 

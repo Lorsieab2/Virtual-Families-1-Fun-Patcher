@@ -122,9 +122,9 @@
     "native/vf1fun/patcher_achievements.inc:128",
     "native/vf1fun/services.inc:242",
     "native/vf1fun/vf1fun.cpp:444",
-    "native/vf1fun/vf1fun.cpp:674",
-    "native/vf1fun/vf1fun.cpp:769",
-    "native/vf1fun/vf1fun.cpp:881"
+    "native/vf1fun/vf1fun.cpp:734",
+    "native/vf1fun/vf1fun.cpp:829",
+    "native/vf1fun/vf1fun.cpp:941"
    ]
   },
   {
@@ -295,7 +295,7 @@
     "native/vf1fun/pages.inc:251",
     "native/vf1fun/services.inc:143",
     "native/vf1fun/services.inc:209",
-    "native/vf1fun/vf1fun.cpp:705"
+    "native/vf1fun/vf1fun.cpp:765"
    ]
   },
   {
@@ -4016,7 +4016,7 @@
    "where": [
     "native/vf1fun/pages.inc:290",
     "native/vf1fun/services.inc:241",
-    "native/vf1fun/vf1fun.cpp:767"
+    "native/vf1fun/vf1fun.cpp:827"
    ]
   },
   {
@@ -4946,13 +4946,133 @@
    ]
   },
   {
+   "id": "vf1fun.default_the_game_s_own_skin",
+   "english": "Default (the game's own skin)",
+   "room": 87,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:488"
+   ]
+  },
+  {
+   "id": "vf1fun.s1_porcelain",
+   "english": "S1 Porcelain",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:489"
+   ]
+  },
+  {
+   "id": "vf1fun.s2_fair",
+   "english": "S2 Fair",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:489"
+   ]
+  },
+  {
+   "id": "vf1fun.s3_light_golden",
+   "english": "S3 Light golden",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:489"
+   ]
+  },
+  {
+   "id": "vf1fun.s4_light_olive",
+   "english": "S4 Light olive",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:490"
+   ]
+  },
+  {
+   "id": "vf1fun.s5_copper",
+   "english": "S5 Copper",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:490"
+   ]
+  },
+  {
+   "id": "vf1fun.s6_warm_brown",
+   "english": "S6 Warm brown",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:490"
+   ]
+  },
+  {
+   "id": "vf1fun.s7_medium_brown",
+   "english": "S7 Medium brown",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:491"
+   ]
+  },
+  {
+   "id": "vf1fun.s8_deep_brown",
+   "english": "S8 Deep brown",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:491"
+   ]
+  },
+  {
+   "id": "vf1fun.s9_dark",
+   "english": "S9 Dark",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:491"
+   ]
+  },
+  {
+   "id": "vf1fun.s10_ebony",
+   "english": "S10 Ebony",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:492"
+   ]
+  },
+  {
+   "id": "vf1fun.reset_to_birth_tone",
+   "english": "Reset to birth tone",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:492"
+   ]
+  },
+  {
    "id": "vf1fun.everyone",
    "english": "Everyone",
    "room": 80,
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:529"
+    "native/vf1fun/vf1fun.cpp:547"
    ]
   },
   {
@@ -4962,7 +5082,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:535"
+    "native/vf1fun/vf1fun.cpp:553"
    ]
   },
   {
@@ -4972,8 +5092,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:547",
-    "native/vf1fun/vf1fun.cpp:658"
+    "native/vf1fun/vf1fun.cpp:565",
+    "native/vf1fun/vf1fun.cpp:713"
    ]
   },
   {
@@ -4983,7 +5103,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:548"
+    "native/vf1fun/vf1fun.cpp:566"
    ]
   },
   {
@@ -4993,8 +5113,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:549",
-    "native/vf1fun/vf1fun.cpp:660"
+    "native/vf1fun/vf1fun.cpp:567",
+    "native/vf1fun/vf1fun.cpp:715"
    ]
   },
   {
@@ -5004,8 +5124,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:550",
-    "native/vf1fun/vf1fun.cpp:661"
+    "native/vf1fun/vf1fun.cpp:568",
+    "native/vf1fun/vf1fun.cpp:716"
    ]
   },
   {
@@ -5015,8 +5135,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:551",
-    "native/vf1fun/vf1fun.cpp:662"
+    "native/vf1fun/vf1fun.cpp:569",
+    "native/vf1fun/vf1fun.cpp:717"
    ]
   },
   {
@@ -5026,7 +5146,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:552"
+    "native/vf1fun/vf1fun.cpp:570"
    ]
   },
   {
@@ -5036,8 +5156,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:553",
-    "native/vf1fun/vf1fun.cpp:664"
+    "native/vf1fun/vf1fun.cpp:571",
+    "native/vf1fun/vf1fun.cpp:719"
    ]
   },
   {
@@ -5047,8 +5167,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:554",
-    "native/vf1fun/vf1fun.cpp:665"
+    "native/vf1fun/vf1fun.cpp:572",
+    "native/vf1fun/vf1fun.cpp:720"
    ]
   },
   {
@@ -5058,7 +5178,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:555"
+    "native/vf1fun/vf1fun.cpp:573"
    ]
   },
   {
@@ -5068,7 +5188,17 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:556"
+    "native/vf1fun/vf1fun.cpp:574"
+   ]
+  },
+  {
+   "id": "vf1fun.change_skin_tone",
+   "english": "Change skin tone",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:575"
    ]
   },
   {
@@ -5078,7 +5208,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:567"
+    "native/vf1fun/vf1fun.cpp:586"
    ]
   },
   {
@@ -5088,7 +5218,17 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:568"
+    "native/vf1fun/vf1fun.cpp:587"
+   ]
+  },
+  {
+   "id": "vf1fun.no_birth_tone_is_kept_for_them_yet",
+   "english": "No birth tone is kept for them yet.",
+   "room": 105,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:646"
    ]
   },
   {
@@ -5098,7 +5238,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:600"
+    "native/vf1fun/vf1fun.cpp:655"
    ]
   },
   {
@@ -5108,7 +5248,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:617"
+    "native/vf1fun/vf1fun.cpp:672"
    ]
   },
   {
@@ -5118,7 +5258,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:656"
+    "native/vf1fun/vf1fun.cpp:711"
    ]
   },
   {
@@ -5128,7 +5268,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:659"
+    "native/vf1fun/vf1fun.cpp:714"
    ]
   },
   {
@@ -5138,17 +5278,17 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:663"
+    "native/vf1fun/vf1fun.cpp:718"
    ]
   },
   {
-   "id": "vf1fun.change_appearance_hairstyle_and_face_clothes",
-   "english": "Change Appearance (hairstyle and face, clothes)",
-   "room": 141,
+   "id": "vf1fun.change_appearance_hairstyle_and_face_clothes_skin_tone",
+   "english": "Change Appearance (hairstyle and face, clothes, skin tone)",
+   "room": 174,
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:666"
+    "native/vf1fun/vf1fun.cpp:722"
    ]
   },
   {
@@ -5158,7 +5298,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:667"
+    "native/vf1fun/vf1fun.cpp:723"
    ]
   },
   {
@@ -5168,7 +5308,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:669"
+    "native/vf1fun/vf1fun.cpp:725"
    ]
   },
   {
@@ -5178,7 +5318,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:671"
+    "native/vf1fun/vf1fun.cpp:727"
    ]
   },
   {
@@ -5188,7 +5328,27 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:672"
+    "native/vf1fun/vf1fun.cpp:728"
+   ]
+  },
+  {
+   "id": "vf1fun.skin_tone",
+   "english": "Skin tone:",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:729"
+   ]
+  },
+  {
+   "id": "vf1fun.set_skin_tone",
+   "english": "Set skin tone",
+   "room": 80,
+   "drawn_by_game": false,
+   "format": false,
+   "where": [
+    "native/vf1fun/vf1fun.cpp:732"
    ]
   },
   {
@@ -5198,7 +5358,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:673"
+    "native/vf1fun/vf1fun.cpp:733"
    ]
   },
   {
@@ -5208,7 +5368,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:694"
+    "native/vf1fun/vf1fun.cpp:754"
    ]
   },
   {
@@ -5218,7 +5378,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:702"
+    "native/vf1fun/vf1fun.cpp:762"
    ]
   },
   {
@@ -5228,7 +5388,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:709"
+    "native/vf1fun/vf1fun.cpp:769"
    ]
   },
   {
@@ -5238,7 +5398,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:709"
+    "native/vf1fun/vf1fun.cpp:769"
    ]
   },
   {
@@ -5248,7 +5408,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:715"
+    "native/vf1fun/vf1fun.cpp:775"
    ]
   },
   {
@@ -5258,7 +5418,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:720"
+    "native/vf1fun/vf1fun.cpp:780"
    ]
   },
   {
@@ -5268,7 +5428,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:720"
+    "native/vf1fun/vf1fun.cpp:780"
    ]
   },
   {
@@ -5278,7 +5438,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:764"
+    "native/vf1fun/vf1fun.cpp:824"
    ]
   },
   {
@@ -5288,7 +5448,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:768"
+    "native/vf1fun/vf1fun.cpp:828"
    ]
   },
   {
@@ -5298,7 +5458,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:810"
+    "native/vf1fun/vf1fun.cpp:870"
    ]
   },
   {
@@ -5308,7 +5468,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:816"
+    "native/vf1fun/vf1fun.cpp:876"
    ]
   },
   {
@@ -5318,7 +5478,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:841"
+    "native/vf1fun/vf1fun.cpp:901"
    ]
   },
   {
@@ -5328,7 +5488,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:845"
+    "native/vf1fun/vf1fun.cpp:905"
    ]
   },
   {
@@ -5338,7 +5498,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:848"
+    "native/vf1fun/vf1fun.cpp:908"
    ]
   },
   {
@@ -5348,7 +5508,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:867"
+    "native/vf1fun/vf1fun.cpp:927"
    ]
   },
   {
@@ -5358,7 +5518,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:869"
+    "native/vf1fun/vf1fun.cpp:929"
    ]
   },
   {
@@ -5368,7 +5528,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:870"
+    "native/vf1fun/vf1fun.cpp:930"
    ]
   },
   {
@@ -5378,7 +5538,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:871"
+    "native/vf1fun/vf1fun.cpp:931"
    ]
   },
   {
@@ -5388,7 +5548,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:872"
+    "native/vf1fun/vf1fun.cpp:932"
    ]
   },
   {
@@ -5398,7 +5558,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:873"
+    "native/vf1fun/vf1fun.cpp:933"
    ]
   },
   {
@@ -5408,7 +5568,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:874"
+    "native/vf1fun/vf1fun.cpp:934"
    ]
   },
   {
@@ -5418,7 +5578,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:875"
+    "native/vf1fun/vf1fun.cpp:935"
    ]
   },
   {
@@ -5428,7 +5588,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:876"
+    "native/vf1fun/vf1fun.cpp:936"
    ]
   },
   {
@@ -5438,7 +5598,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:877"
+    "native/vf1fun/vf1fun.cpp:937"
    ]
   },
   {
@@ -5448,7 +5608,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:878"
+    "native/vf1fun/vf1fun.cpp:938"
    ]
   },
   {
@@ -5458,7 +5618,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:879"
+    "native/vf1fun/vf1fun.cpp:939"
    ]
   },
   {
@@ -5468,7 +5628,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:880"
+    "native/vf1fun/vf1fun.cpp:940"
    ]
   },
   {
@@ -5478,7 +5638,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1217"
+    "native/vf1fun/vf1fun.cpp:1300"
    ]
   },
   {
@@ -5488,7 +5648,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1218"
+    "native/vf1fun/vf1fun.cpp:1301"
    ]
   },
   {
@@ -5498,7 +5658,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1252"
+    "native/vf1fun/vf1fun.cpp:1335"
    ]
   },
   {
@@ -5508,7 +5668,7 @@
    "drawn_by_game": true,
    "format": false,
    "where": [
-    "native/vf1fun/vf1fun.cpp:1288"
+    "native/vf1fun/vf1fun.cpp:1371"
    ]
   },
   {

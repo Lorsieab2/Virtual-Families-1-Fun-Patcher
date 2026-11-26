@@ -10,7 +10,8 @@ Each record is the Virtual Villagers patcher's layout: a heading "[YYYY-MM-DD HH
 "  Label: value" lines, a family member's own lines one step further in ("    Sex: Female"), then a blank line.
 The kinds: Conception, Birth, Death, Marriage, Divorce, Arrived, Left Home, Generation, New Generation, Random
 Event (an "Email Event" or a "Popup Event"), Roll the Dice, Evict Family, Start Over, Family Renamed, Family Copied, Family Tree,
-Revived (Revive a Family Member: a Death record is never rewritten; the person is alive again in the save).
+Revived (Revive a Family Member: a Death record is never rewritten; the person is alive again in the save), Appearance
+changed (Skin Tones' Change Appearance: "Old skin tone" / "New skin tone").
 Only the records after the last Evict Family belong to the family in the save.
 """
 from __future__ import annotations
