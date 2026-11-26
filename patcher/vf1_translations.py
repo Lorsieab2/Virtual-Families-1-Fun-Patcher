@@ -20,8 +20,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import shutil
+import threading
 import urllib.parse
 
 import translation_format as tfmt
@@ -255,19 +257,102 @@ def _shfileopstruct():
     return SHFILEOPSTRUCTW
 
 
-def recycle(paths: list[Path], operation=None) -> None:
-    """Send files to the Windows Recycle Bin (SHFileOperationW, FO_DELETE with FOF_ALLOWUNDO): the player can
-    restore them from there. Raises OSError, before anything is touched, when a file is missing, and when
-    Windows reports a failure or the operation was cancelled. `operation` is SHFileOperationW (tests pass a
-    stand-in)."""
+class RecycleBinUnavailable(OSError):
+    """The files cannot go to the Recycle Bin (none on that drive): nothing is touched."""
+
+
+# Drives already seen to have a Recycle Bin in this run (fixed drives only: a removable or network drive can be
+# swapped under the same letter, so it is asked again every time). SHQueryRecycleBinW adds up the whole Recycle Bin,
+# so it takes a noticeable time (the Virtual Villagers patcher's PR #876: asked once PER FILE, Delete Player Slot
+# took minutes for a slot of a thousand files). Asked once per drive per call, and a fixed drive once per run.
+_recycle_bin_roots: set[str] = set()
+_recycle_bin_lock = threading.Lock()          # one question at a time: a check already asking is waited for
+DRIVE_FIXED = 3
+
+
+def _drive_is_fixed(root: str) -> bool:
+    import ctypes
+    try:
+        return ctypes.windll.kernel32.GetDriveTypeW(ctypes.c_wchar_p(root)) == DRIVE_FIXED
+    except (AttributeError, OSError):
+        return False
+
+
+def _drive_root(path) -> str:
+    return (os.path.splitdrive(str(path))[0] + "\\").casefold()
+
+
+def _shell_query():
+    """SHQueryRecycleBinW as query(root) -> its result (0: the drive has a Recycle Bin)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class SHQUERYRBINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("i64Size", ctypes.c_longlong), ("i64NumItems", ctypes.c_longlong)]
+
+    function = ctypes.WinDLL("shell32").SHQueryRecycleBinW
+    function.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(SHQUERYRBINFO)]
+    function.restype = ctypes.c_long
+
+    def query(root: str) -> int:
+        info = SHQUERYRBINFO()
+        info.cbSize = ctypes.sizeof(SHQUERYRBINFO)
+        return int(function(root, ctypes.byref(info)))
+    return query
+
+
+def check_recycle_bins(paths, query=None) -> None:
+    """Raises RecycleBinUnavailable when the drive of any of ``paths`` has no Recycle Bin (Windows would otherwise
+    delete the files for good): each drive asked once, a fixed drive once per run. ``query`` replaces
+    SHQueryRecycleBinW in tests."""
+    with _recycle_bin_lock:
+        for root in dict.fromkeys(_drive_root(path) for path in paths):
+            if root in _recycle_bin_roots:
+                continue
+            if query is None:
+                query = _shell_query()
+            result = query(root)
+            if result != 0:
+                raise RecycleBinUnavailable(f"The drive {root.upper()} has no Recycle Bin (Windows error "
+                                            f"0x{result & 0xFFFFFFFF:08X}), so nothing was deleted.")
+            if _drive_is_fixed(root):
+                _recycle_bin_roots.add(root)
+
+
+def prepare_recycle_bin(path, query=None) -> threading.Thread | None:
+    """Ask, off the main thread, whether the drive of ``path`` has a Recycle Bin, so the question is already
+    answered when the files are sent (Delete Player Slot asks it while the player reads the list). Only reads; a
+    drive with no Recycle Bin is still refused when the files are sent."""
+    if os.name != "nt" or _drive_root(path) in _recycle_bin_roots:
+        return None
+
+    def ask() -> None:
+        try:
+            check_recycle_bins([path], query)
+        except OSError:
+            pass                                  # said again, and refused, when the files are sent
+
+    thread = threading.Thread(target=ask, name="Recycle Bin check", daemon=True)
+    thread.start()
+    return thread
+
+
+def recycle(paths: list[Path], operation=None, query=None) -> None:
+    """Send files (or whole folders) to the Windows Recycle Bin (SHFileOperationW, FO_DELETE with FOF_ALLOWUNDO),
+    every path in ONE call: the player can restore them from there. Raises OSError, before anything is touched,
+    when a path is missing or its drive has no Recycle Bin (asked once per drive, check_recycle_bins), and when
+    Windows reports a failure or the operation was cancelled. `operation` is SHFileOperationW and `query`
+    SHQueryRecycleBinW (tests pass stand-ins; with a stand-in operation and no query the drive is not asked)."""
     import ctypes
 
     paths = [Path(p).resolve() for p in paths]
     if not paths:
         return
-    missing = [p.name for p in paths if not p.is_file()]
+    missing = [p.name for p in paths if not (p.is_file() or p.is_dir())]
     if missing:
         raise OSError("Not found: " + ", ".join(missing))
+    if operation is None or query is not None:
+        check_recycle_bins(paths, query)
     if operation is None:
         shell32 = ctypes.WinDLL("shell32")
         operation = shell32.SHFileOperationW

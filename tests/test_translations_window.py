@@ -602,3 +602,62 @@ def test_recycle_a_missing_file_touches_nothing(tmp_path):
         tr.recycle([here, tmp_path / "gone.txt"], operation)
     operation.assert_not_called()
     assert here.exists()
+
+
+@pytest.fixture
+def fresh_drives(monkeypatch):
+    """Every test asks Windows afresh (the drives seen this run forgotten), every drive taken as fixed."""
+    monkeypatch.setattr(tr, "_recycle_bin_roots", set())
+    monkeypatch.setattr(tr, "_drive_is_fixed", lambda root: True)
+
+
+def test_many_files_one_drive_question_and_one_call(tmp_path, fresh_drives):
+    """The Virtual Villagers patcher's PR #876: "is there a Recycle Bin?" was asked once per file (a third of a second
+    each). Now: one question for the drive, a fixed drive never again this run, and one SHFileOperationW per call."""
+    files = [tmp_path / f"f{n}.txt" for n in range(50)]
+    for f in files:
+        f.write_bytes(b"x")
+    roots, calls = [], []
+    query = lambda root: roots.append(root) or 0                    # noqa: E731
+
+    def operation(pointer):
+        calls.append(pointer._obj.fFlags)
+        return 0
+
+    with mock.patch.object(Path, "exists", return_value=False):     # the stand-in moves nothing
+        tr.recycle(files, operation, query)
+        tr.recycle(files[:3], operation, query)
+    assert len(roots) == 1 and len(calls) == 2 and all(flags & tr.FOF_ALLOWUNDO for flags in calls)
+
+
+def test_a_drive_with_no_recycle_bin_is_refused_and_nothing_is_touched(tmp_path, fresh_drives):
+    path = tmp_path / "t.txt"
+    path.write_bytes(b"x")
+    operation = mock.Mock(return_value=0)
+    with pytest.raises(tr.RecycleBinUnavailable, match="has no Recycle Bin"):
+        tr.recycle([path], operation, lambda root: -2147024893)
+    operation.assert_not_called()
+    assert path.exists() and not tr._recycle_bin_roots
+
+
+def test_a_drive_that_is_not_fixed_is_asked_every_time(tmp_path, monkeypatch):
+    monkeypatch.setattr(tr, "_recycle_bin_roots", set())
+    monkeypatch.setattr(tr, "_drive_is_fixed", lambda root: False)
+    roots = []
+    tr.check_recycle_bins([tmp_path / "a.txt", tmp_path / "b.txt"], lambda root: roots.append(root) or 0)
+    tr.check_recycle_bins([tmp_path / "a.txt"], lambda root: roots.append(root) or 0)
+    assert len(roots) == 2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows only")
+def test_the_drive_question_asked_early_is_not_asked_again(tmp_path, fresh_drives):
+    roots = []
+    query = lambda root: roots.append(root) or 0                    # noqa: E731
+    tr.prepare_recycle_bin(tmp_path, query).join(10)
+    assert tr.prepare_recycle_bin(tmp_path, query) is None          # answered: nothing more to ask
+    tr.check_recycle_bins([tmp_path / "a.txt"], query)
+    assert len(roots) == 1
+    tr._recycle_bin_roots.clear()
+    tr.prepare_recycle_bin(tmp_path, lambda root: 5).join(10)       # no error escapes the early question
+    with pytest.raises(tr.RecycleBinUnavailable):
+        tr.check_recycle_bins([tmp_path / "a.txt"], lambda root: 5)

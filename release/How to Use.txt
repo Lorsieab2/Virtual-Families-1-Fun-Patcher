@@ -311,6 +311,18 @@ Next to the Patches tab is a Tools tab for your family saves.
                     The old family's files, or anything a deleted family
                     left, are moved into Backups ("Replaced by copy
                     <date> - Save <N> - <old name>"), never deleted.
+                    Choose Move to move the family itself, keeping its
+                    name, with every file tied to its slot (its save, the
+                    game's older copies of it, its Family History log,
+                    Family Tree files, extra children, outfit pictures and
+                    names); its old slot is left empty. It lists every
+                    file before you say Yes, backs your saves up first (as
+                    "Backup <date> (before move)") and keeps a replaced
+                    family's files in Backups ("Replaced by move ...").
+                    Choose Delete to send every file of a slot, its files
+                    in every backup too, to the Recycle Bin, where you can
+                    put them back. Pictures stay. It lists every file and
+                    asks twice; no backup is made.
   Game Speed        Quit the game first. Pick a save (each shows its speed
                     now) and choose Paused or Normal. Paused works as if you
                     paused just before the game last saved; Normal as if you

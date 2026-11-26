@@ -363,14 +363,14 @@
     "copy_player_slot": {
       "title": "Copy Player Slot",
       "guide": [
-        "Copies a family into another save slot under a new name. The family you copy is not changed.",
-        "Quit the game first, from its own menu. Click Copy Player Slot..., pick the family, pick a slot, type the new name (1 to 300 characters), then Copy and answer Yes.",
-        "Everything the patcher keeps for the family goes with it: its Family History log, Family Tree, extra children and outfit pictures.",
-        "Your saves are backed up first, as \"Backup <date> (before copy)\", so it can be undone with Restore Saves.",
-        "A slot with no save file is empty, even if the game's menu still showed a name for it.",
-        "Picking a slot that holds a family replaces that family. You are asked first; Return and Escape answer No.",
-        "The old family's files, or anything a deleted family left, are moved into Backups as \"Replaced by copy <date>\". Nothing is deleted.",
-        "The copy's Family History log gets a record saying where it was copied from. Old log files keep their old name."
+        "Copies a family into another slot under a new name; the family you copy is not changed. Quit the game first, from its own menu.",
+        "Pick the family, a slot and a new name (1 to 300 characters), then Copy and answer Yes. Return and Escape answer No.",
+        "Its Family History log (with a record of the copy), Family Tree, extra children and outfit pictures go along; old log files keep their old name.",
+        "Saves are backed up first (\"before copy\" or \"before move\"), so Restore Saves can undo it.",
+        "A slot with no save file is empty, even if the menu still showed a name. A family in the slot is replaced only after Yes; its files go to Backups, never deleted.",
+        "Choose Move to move the family itself, keeping its name, with all its files; its old slot is left empty. You see every file before saying Yes.",
+        "Choose Delete to send every file of a slot, in every backup too, to the Recycle Bin. Pictures stay. It lists every file and asks twice.",
+        "Delete makes no backup: put anything back from the Recycle Bin. No changes nothing."
       ]
     },
     "game_speed": {

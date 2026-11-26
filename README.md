@@ -256,6 +256,24 @@ The window has two tabs, as in the Virtual Villagers Fun Patcher:
     (never deleted; Restore Saves never lists that folder), writes every file through a temporary file, the slot
     menu last, reads everything back, and moves everything back if anything fails. Module
     `patcher/vf1_copy_slot.py`, tests `tests/test_copy_slot.py`.
+    The window's **Do:** choice also offers the Virtual Villagers patcher's **Move** and **Delete** (its PR #847).
+    **Move** takes the family itself, keeping its name, with every file of its slot (Copy's list, plus the slot's
+    `Backups` and the generated tree page and pictures) to the target slot, renaming each file for the target and
+    leaving the source empty; inside a file only the slot number changes (a Family History file's first line
+    `Family: <name> (Save <N>)`, a tree file's `"slot"`). The slot menu gets the family's name and in-use flag for
+    the target and the source's flag cleared (what the game's own Delete Family does). It backs up first as
+    `Backup <date> (before move)`, lists every file (No is the default), sets a target's files aside in
+    `Backups\Replaced by move <date> - Save <N> - <old name>\`, renames every file (never over another), refuses if
+    anything changed after the player confirmed, verifies, and puts everything back on any failure
+    (`patcher/vf1_move_slot.py`, `tests/test_move_slot.py`). **Delete** sends every file of one slot -- in the save
+    folder, inside every whole-folder backup, and the slot's own `Replaced by copy/move ... - Save <N> - ...` folders
+    -- to the Recycle Bin (`SHFileOperationW` with `FOF_ALLOWUNDO`), keeping pictures, after the list and a second
+    Yes / No; it makes no backup and clears only the slot's in-use flag, last (`patcher/vf1_delete_slot.py`,
+    `tests/test_delete_slot.py`). It is fast (the Virtual Villagers patcher's PR #876): one Recycle Bin call for each
+    part (the save folder, each backup, each set-aside folder); a folder holding nothing but 30 or more of the slot's
+    files goes whole as one item; and `SHQueryRecycleBinW` (a drive with no Recycle Bin is refused, never a permanent
+    delete) is asked once per drive, a fixed drive once per run, in the background while the player reads the list.
+    Every file is checked afterwards, so a partial delete is reported exactly.
   - **Game Speed...:** shows each save's speed (Paused, Normal, an old Time Controls speed in words, or any other
     value raw) and sets a family to **Paused** or **Normal** in a closed game's save, writing what the game's own Pause / Unpause write (traced in
     the stock exe: Options 0x41E1CC / 0x41E21B, Space 0x440CB2, CGameTime::SetSpeed 0x422450, which stores 0 for

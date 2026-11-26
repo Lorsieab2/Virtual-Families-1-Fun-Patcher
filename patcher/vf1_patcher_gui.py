@@ -32,6 +32,8 @@ import vf1_how_to_use as how_to_use  # noqa: E402
 import vf1_patcher as patcher  # noqa: E402
 import vf1_rename_family as rename_family  # noqa: E402
 import vf1_copy_slot as copy_slot  # noqa: E402
+import vf1_delete_slot as delete_slot  # noqa: E402
+import vf1_move_slot as move_slot  # noqa: E402
 import vf1_game_mechanics as game_mechanics  # noqa: E402
 import vf1_game_speed as game_speed  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
@@ -646,6 +648,58 @@ def copy_prompt_text(source_name: str | None, source: int, target: int, new_name
                 f"{old_text}'s files are kept in Backups\\Replaced by copy <date>. Replace it?")
     return (f"Save {target} is empty. It will get a copy of {source_text} (Save {source}), named {new_name}. The "
             f"whole save folder ({folder}) is backed up first. Copy it?")
+
+
+# Move and Delete (the Virtual Villagers patcher's Copy Player Slot window, src/vv_copy_slot_window.py, in the words
+# every patcher shares; "family" where it says "village").
+SLOT_FILES_WORDS = ("its save, the game's older copies of it, its Family History log, Family Tree files, Children, "
+                    "Outfits, Names and Slot files")
+
+
+def move_replace_text(folder: Path, source_name: str, source: int, target: int, old_name: str) -> str:
+    """The question for a move into a slot that holds a family."""
+    return (f"Save {target} holds the {old_name} family. It will be replaced by {source_name}, moved from Save "
+            f"{source} with all its files. The whole save folder ({folder}) is backed up first, and {old_name}'s "
+            f"files are kept in Backups\\{move_slot.REPLACED} <date>. Replace it?")
+
+
+def move_prompt_text(folder: Path, plan: move_slot.Plan) -> str:
+    """The move's own question, above the list of every file."""
+    text = (f"{plan.name} will move from Save {plan.source} to Save {plan.target}, keeping its name, with "
+            f"{SLOT_FILES_WORDS}. Save {plan.source} will be empty. The whole save folder ({folder}) is backed up "
+            "first.")
+    if plan.removals:
+        whose = "Leftover files from an earlier family" if plan.overwritten is None else "The files"
+        text += f" {whose} in Save {plan.target} are kept in Backups\\{move_slot.REPLACED} <date>."
+    return text + f"\n\nEverything that will change ({len(plan.moves)} file(s) moved):"
+
+
+def move_preview_lines(plan: move_slot.Plan) -> list[str]:
+    """The list under the move's question: each file moved (old -> new), then each file set aside."""
+    return plan.preview() + [f"Kept in Backups\\{move_slot.REPLACED} <date>:  {path}" for path in plan.removals]
+
+
+def delete_prompt_text(folder: Path, plan: delete_slot.Plan) -> str:
+    """The delete's question above the list of every file."""
+    if plan.name is not None:
+        family = plan.name or "(no name)"
+    elif rename_family.save_path(Path(folder), plan.slot).is_file():
+        family = "an unreadable save"
+    else:
+        family = "no family, leftover files"
+    text = (f"Every file of Save {plan.slot} ({family}) goes to the Recycle Bin: {SLOT_FILES_WORDS}, and its files "
+            f"in {plan.backups} backup(s)")
+    text += f" and {plan.asides} folder(s) of files it replaced." if plan.asides else "."
+    text += (" Pictures stay where they are. Other slots are not touched. No new backup is made: anything can be put "
+             f"back from the Recycle Bin. ({folder})")
+    return text + f"\n\n{len(plan.files)} file(s) to the Recycle Bin, {len(plan.pictures)} picture(s) kept:"
+
+
+def delete_final_text(plan: delete_slot.Plan) -> str:
+    """The second, explicit question, naming the family."""
+    family = plan.name or "the files"
+    return (f"Delete {family} from Save {plan.slot}? Its {len(plan.files)} file(s), in this save folder and in its "
+            "backups, go to the Recycle Bin. Delete it?")
 
 
 class VF1PatcherGUI:
@@ -2317,12 +2371,12 @@ class VF1PatcherGUI:
             return None
         return self._show_copy_dialog(folders)
 
-    def _copy_prompt(self, parent: tk.Misc, text: str) -> tk.Toplevel:
+    def _copy_prompt(self, parent: tk.Misc, text: str, title: str = "Copy Player Slot") -> tk.Toplevel:
         """The Yes / No question before a copy, held the Windows way. No is the default: it has the focus, and
         Return and Escape answer No (as the Virtual Villagers patcher's Move Files question); only a click on Yes
         (or Space on it) copies. The answer is in prompt._vf1_answer["yes"]."""
         prompt = tk.Toplevel(parent)
-        prompt.title("Copy Player Slot")
+        prompt.title(title)
         prompt.transient(parent)
         prompt.resizable(False, False)
         answer = {"yes": False}
@@ -2356,6 +2410,65 @@ class VF1PatcherGUI:
         prompt.wait_window()
         return bool(prompt._vf1_answer["yes"])  # type: ignore[attr-defined]
 
+    def _ask_slot(self, parent: tk.Misc, title: str, text: str) -> bool:
+        """Move's and Delete's Yes / No (the copy's prompt under their own title); True only after a click on Yes."""
+        prompt = self._copy_prompt(parent, text, title)
+        prompt.wait_window()
+        return bool(prompt._vf1_answer["yes"])  # type: ignore[attr-defined]
+
+    def _preview_prompt(self, parent: tk.Misc, title: str, message: str, lines: list[str],
+                        question: str) -> tk.Toplevel:
+        """Yes / No under a scrolled list of every file (the Virtual Villagers patcher's Move / Delete preview); No is
+        the default: it has the focus, and Return, Escape and closing the window answer No."""
+        prompt = tk.Toplevel(parent)
+        prompt.title(title)
+        prompt.transient(parent)
+        answer = {"yes": False}
+        frame = ttk.Frame(prompt, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=message, wraplength=640, justify="left").pack(anchor="w")
+        box = ttk.Frame(frame)
+        box.pack(fill="both", expand=True, pady=(8, 0))
+        listing = tk.Text(box, width=96, height=16, wrap="none", font="TkDefaultFont")
+        down = ttk.Scrollbar(box, orient="vertical", command=listing.yview)
+        across = ttk.Scrollbar(box, orient="horizontal", command=listing.xview)
+        listing.configure(yscrollcommand=down.set, xscrollcommand=across.set)
+        listing.grid(row=0, column=0, sticky="nsew")
+        down.grid(row=0, column=1, sticky="ns")
+        across.grid(row=1, column=0, sticky="we")
+        box.rowconfigure(0, weight=1)
+        box.columnconfigure(0, weight=1)
+        listing.insert("1.0", "\n".join(lines))
+        listing.configure(state="disabled")
+        ttk.Label(frame, text=question).pack(anchor="w", pady=(8, 0))
+        buttons = ttk.Frame(frame)
+        buttons.pack(anchor="e", pady=(12, 0))
+
+        def finish(yes: bool) -> None:
+            answer["yes"] = yes
+            prompt.destroy()
+
+        yes_button = ttk.Button(buttons, text="Yes", command=lambda: finish(True))
+        yes_button.pack(side="left")
+        no_button = ttk.Button(buttons, text="No", default="active", command=lambda: finish(False))
+        no_button.pack(side="left", padx=(8, 0))
+        for key in ("<Return>", "<KP_Enter>", "<Escape>"):
+            prompt.bind(key, lambda _event: finish(False))
+        prompt.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        prompt._vf1_answer = answer  # type: ignore[attr-defined]
+        prompt._vf1_text = message  # type: ignore[attr-defined]
+        prompt._vf1_lines = list(lines)  # type: ignore[attr-defined]
+        prompt._vf1_yes = yes_button  # type: ignore[attr-defined]
+        prompt._vf1_no = no_button  # type: ignore[attr-defined]
+        self._hold(prompt, focus=no_button)
+        return prompt
+
+    def _ask_preview(self, parent: tk.Misc, title: str, message: str, lines: list[str], question: str) -> bool:
+        """Ask under the list of every file (see _preview_prompt); True only when the player clicked Yes."""
+        prompt = self._preview_prompt(parent, title, message, lines, question)
+        prompt.wait_window()
+        return bool(prompt._vf1_answer["yes"])  # type: ignore[attr-defined]
+
     def _show_copy_dialog(self, folders: list[Path]) -> tk.Toplevel:
         dialog, frame = self._scrolling_dialog("Copy Player Slot")
         ttk.Label(
@@ -2366,34 +2479,51 @@ class VF1PatcherGUI:
                   "quit it, which would write over the new slot. The save folder is backed up first, into <save "
                   "folder>\\Backups\\Backup <date and time> (before copy). A slot with no save file is empty, as the "
                   "game sees it. Copying into a slot that holds a family replaces that family (you are asked first); "
-                  "its files are kept in Backups\\Replaced by copy <date>."),
+                  "its files are kept in Backups\\Replaced by copy <date>.\n\n"
+                  "Move instead takes the family itself, keeping its name, to the other slot with everything tied to "
+                  "its slot -- its save and the game's older copies of it, its Family History log, Family Tree files, "
+                  "Children, Outfits, Names and Slot files -- and leaves its slot empty. You see every file before "
+                  "saying Yes; the folder is backed up first (\"before move\").\n\n"
+                  "Delete sends every file of a slot -- its save, logs, data, family tree files and its files inside "
+                  "every backup -- to the Recycle Bin, where it can be put back. Pictures stay. You see every file and "
+                  "are asked twice."),
             wraplength=560, justify="left",
         ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
         folder_var = tk.StringVar()
         name_var = tk.StringVar()
         counter_var = tk.StringVar()
         problem_var = tk.StringVar()
-        state: dict = {"slots": [], "families": [], "targets": []}
+        mode_var = tk.StringVar(value="copy")
+        state: dict = {"slots": [], "families": [], "targets": [], "deletable": []}
 
         ttk.Label(frame, text="Save folder:").grid(row=1, column=0, sticky="w")
         folder_box = ttk.Combobox(frame, textvariable=folder_var, values=[folder.name for folder in folders],
                                   state="readonly", width=48)
         folder_box.grid(row=1, column=1, columnspan=2, sticky="we", pady=2)
-        ttk.Label(frame, text="Copy family:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
+        ttk.Label(frame, text="Do:").grid(row=2, column=0, sticky="nw", pady=(4, 0))
+        modes = ttk.Frame(frame)
+        modes.grid(row=2, column=1, columnspan=2, sticky="w", pady=(4, 2))
+        for value, words in (("copy", "Copy (a second family, under a new name)"),
+                             ("move", "Move (the same family and all its files; its slot is left empty)"),
+                             ("delete", "Delete (every file of the slot to the Recycle Bin; pictures stay)")):
+            ttk.Radiobutton(modes, text=words, value=value, variable=mode_var).pack(anchor="w")
+        from_label = ttk.Label(frame, text="Copy family:")
+        from_label.grid(row=3, column=0, sticky="nw", pady=(4, 0))
         source_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
-        source_list.grid(row=2, column=1, columnspan=2, sticky="we", pady=(4, 2))
-        ttk.Label(frame, text="Into slot:").grid(row=3, column=0, sticky="nw", pady=(4, 0))
+        source_list.grid(row=3, column=1, columnspan=2, sticky="we", pady=(4, 2))
+        to_label = ttk.Label(frame, text="Into slot:")
+        to_label.grid(row=4, column=0, sticky="nw", pady=(4, 0))
         target_list = tk.Listbox(frame, height=5, width=60, exportselection=False)
-        target_list.grid(row=3, column=1, columnspan=2, sticky="we", pady=(4, 2))
-        ttk.Label(frame, text="New name:").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        target_list.grid(row=4, column=1, columnspan=2, sticky="we", pady=(4, 2))
+        ttk.Label(frame, text="New name:").grid(row=5, column=0, sticky="w", pady=(8, 0))
         name_entry = ttk.Entry(frame, textvariable=name_var, width=36)
-        name_entry.grid(row=4, column=1, sticky="w", pady=(8, 0))
+        name_entry.grid(row=5, column=1, sticky="w", pady=(8, 0))
         counter = ttk.Label(frame, textvariable=counter_var)
-        counter.grid(row=4, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
+        counter.grid(row=5, column=2, sticky="w", padx=(8, 0), pady=(8, 0))
         ttk.Label(frame, textvariable=problem_var, foreground="#a01010", wraplength=560, justify="left").grid(
-            row=5, column=0, columnspan=3, sticky="w", pady=(4, 0))
+            row=6, column=0, columnspan=3, sticky="w", pady=(4, 0))
         buttons = ttk.Frame(frame)
-        buttons.grid(row=6, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        buttons.grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 0))
         copy_button = ttk.Button(buttons, text="Copy")
         copy_button.pack(side="left")
         ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="left", padx=(8, 0))
@@ -2406,8 +2536,40 @@ class VF1PatcherGUI:
             picked = listbox.curselection()
             return state[key][picked[0]] if picked and picked[0] < len(state[key]) else None
 
+        def mode() -> str:
+            return mode_var.get()
+
         def refresh_check(*_args) -> None:
             name = name_var.get()
+            how = mode()
+            from_label.configure(text={"copy": "Copy family:", "move": "Move family:", "delete": "Delete slot:"}[how])
+            to_label.configure(text="" if how == "delete" else "Into slot:")
+            target_list.configure(state="disabled" if how == "delete" else "normal")
+            name_entry.configure(state="normal" if how == "copy" else "disabled")
+            copy_button.configure(text=how.capitalize())
+            if how != "copy":
+                counter_var.set("(the family keeps its name)" if how == "move" else "")
+                counter.configure(foreground="")
+                problem = None
+                if folder() is None:
+                    problem = "No save folder was found for this game."
+                elif how == "delete":
+                    if chosen(source_list, "deletable") is None:
+                        problem = ("No slot of this save folder has any file to delete." if not state["deletable"]
+                                   else "Choose a slot to delete.")
+                else:
+                    source, target = chosen(source_list, "families"), chosen(target_list, "targets")
+                    if source is None:
+                        problem = "Choose a family to move."
+                    elif source.problem:
+                        problem = source.problem
+                    elif target is None:
+                        problem = "Choose a slot to move to."
+                    elif target.slot == source.slot:
+                        problem = "Choose another slot to move to: a family cannot be moved onto itself."
+                problem_var.set(problem or "")
+                copy_button.configure(state="normal" if problem is None else "disabled")
+                return
             counter_var.set(rename_family.room_text(name))
             counter.configure(foreground="#a01010" if rename_family.room_used(name) > rename_family.MAX_LENGTH else "")
             source, target = chosen(source_list, "families"), chosen(target_list, "targets")
@@ -2428,29 +2590,138 @@ class VF1PatcherGUI:
             copy_button.configure(state="normal" if problem is None and bool(name) else "disabled")
 
         def load_slots(*_args) -> None:
+            target_list.configure(state="normal")          # a disabled list cannot be filled
             source_list.delete(0, "end")
             target_list.delete(0, "end")
-            state["slots"], state["families"], state["targets"] = [], [], []
+            state["slots"], state["families"], state["targets"], state["deletable"] = [], [], [], []
             where = folder()
             if where is not None:
                 state["slots"] = copy_slot.read_slots(where)
                 state["families"] = [info for info in state["slots"] if info.name is not None]
                 state["targets"] = list(state["slots"])          # any slot but the source; a used one is replaced
-                for info in state["families"]:
-                    source_list.insert("end", info.label)
+                if mode() == "delete":
+                    # Delete's own list: every slot with any file Delete finds (vf1_delete_slot.deletable_slots).
+                    state["deletable"] = delete_slot.deletable_slots(where)
+                    for _slot, label in state["deletable"]:
+                        source_list.insert("end", label)
+                    if state["deletable"]:
+                        source_list.selection_set(0)
+                else:
+                    for info in state["families"]:
+                        source_list.insert("end", info.label)
+                    first = next((n for n, info in enumerate(state["families"]) if not info.problem), None)
+                    if first is not None:
+                        source_list.selection_set(first)
                 for info in state["targets"]:
                     target_list.insert("end", info.label)
-                first = next((n for n, info in enumerate(state["families"]) if not info.problem), None)
-                if first is not None:
-                    source_list.selection_set(first)
                 empty = next((n for n, info in enumerate(state["targets"]) if info.empty), None)
                 if empty is not None:
                     target_list.selection_set(empty)
             refresh_check()
 
+        def start_move(source, target, where: Path) -> None:
+            """Move (the Virtual Villagers patcher's confirm_and_move): refused at once while the game runs; a target
+            that holds a family gets the replace question first; then the move's question over the list of every
+            file. Only Yes to both backs up and moves exactly what was listed."""
+            title = move_slot.TITLE
+            try:
+                move_slot._refuse_if_running(where, save_backup.WindowsProcesses())
+                plan = move_slot.plan_move(where, source.slot, target.slot)
+            except (copy_slot.CopyError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Move Player Slot: nothing was moved.")
+                messagebox.showerror(title, str(exc), parent=dialog)
+                load_slots()
+                return
+            if plan.overwritten is not None and not self._ask_slot(
+                    dialog, title, move_replace_text(where, plan.name, source.slot, target.slot,
+                                                     plan.overwritten or "(unreadable)")):
+                self.status_var.set("Move Player Slot: nothing was moved.")
+                return
+            if not self._ask_preview(dialog, title, move_prompt_text(where, plan), move_preview_lines(plan),
+                                     "Move it?"):
+                self.status_var.set("Move Player Slot: nothing was moved.")
+                return
+            shown = plan.signature()
+            try:
+                result = self._run_with_wait(
+                    "Moving the slot…\n\nThe save folder is backed up first.",
+                    lambda: move_slot.move_slot(where, source.slot, target.slot, expected=shown))
+            except (copy_slot.CopyError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Move Player Slot: nothing was moved.")
+                messagebox.showerror(title, str(exc), parent=dialog)
+                load_slots()
+                return
+            self.status_var.set(f"Move Player Slot: {result.name} moved from Save {result.source} to Save "
+                                f"{result.target}.")
+            aside = (f"\n\nWhat Save {result.target} held before is kept in {result.set_aside}."
+                     if result.set_aside else "")
+            messagebox.showinfo(
+                title,
+                f"\"{result.name}\" was moved from Save {result.source} to Save {result.target} ({where.name}), with "
+                f"{len(result.moved)} file(s); {len(result.updated)} of them now name Save {result.target} inside. "
+                f"Save {result.source} is empty. Every file was read back.{aside}\n\nBackup: "
+                f"{result.backup.backup_folder}",
+                parent=dialog)
+            load_slots()
+
+        def start_delete(slot: int, where: Path) -> None:
+            """Delete (the Virtual Villagers patcher's confirm_and_delete): refused at once while the game runs; every
+            file is listed first, then a second question names the family. Only Yes to both sends exactly what was
+            listed to the Recycle Bin."""
+            title = delete_slot.TITLE
+            try:
+                delete_slot._refuse_if_running(where, save_backup.WindowsProcesses())
+                plan = delete_slot.plan_delete(where, slot)
+            except (copy_slot.CopyError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Delete Player Slot: nothing was deleted.")
+                messagebox.showerror(title, str(exc), parent=dialog)
+                load_slots()
+                return
+            delete_slot.warm_recycle_bin(where)      # the drive's Recycle Bin question, answered while the list is read
+            if not self._ask_preview(dialog, title, delete_prompt_text(where, plan), plan.preview(), "Delete it?") \
+                    or not self._ask_slot(dialog, title, delete_final_text(plan)):
+                self.status_var.set("Delete Player Slot: nothing was deleted.")
+                return
+            shown = plan.signature()
+            try:
+                result = self._run_with_wait(
+                    "Sending the slot's files to the Recycle Bin…",
+                    lambda: delete_slot.delete_slot(where, slot, expected=shown))
+            except (copy_slot.CopyError, save_backup.BackupError, OSError) as exc:
+                self.status_var.set("Delete Player Slot: nothing was deleted.")
+                messagebox.showerror(title, str(exc), parent=dialog)
+                load_slots()
+                return
+            notes = ("\n\n" + "\n".join(result.notes)) if result.notes else ""
+            kept = f" {len(result.pictures)} picture(s) were kept." if result.pictures else ""
+            if result.problem is None:
+                self.status_var.set(f"Delete Player Slot: Save {result.slot} sent to the Recycle Bin.")
+                messagebox.showinfo(
+                    title,
+                    f"Save {result.slot} ({result.name or 'no family'}) was deleted: {len(result.recycled)} file(s), "
+                    f"from this save folder and {result.backups_touched} backup(s), are in the Recycle Bin, where "
+                    f"they can be put back.{kept}{notes}", parent=dialog)
+            else:
+                self.status_var.set(f"Delete Player Slot: Save {result.slot} was only partly deleted.")
+                left = "\n".join(f"  {p.relative_to(where)}" for p in result.not_recycled[:25])
+                more = f"\n  ...and {len(result.not_recycled) - 25} more" if len(result.not_recycled) > 25 else ""
+                messagebox.showerror(
+                    title,
+                    f"{result.problem} {len(result.recycled)} file(s) are in the Recycle Bin; "
+                    f"{len(result.not_recycled)} are still here:\n\n{left}{more}{notes}", parent=dialog)
+            load_slots()
+
         def start() -> None:
+            if mode() == "delete":
+                picked, where = chosen(source_list, "deletable"), folder()
+                if picked is not None and where is not None:
+                    start_delete(picked[0], where)
+                return
             source, target, where = chosen(source_list, "families"), chosen(target_list, "targets"), folder()
             if source is None or target is None or where is None or target.slot == source.slot:
+                return
+            if mode() == "move":
+                start_move(source, target, where)
                 return
             new_name = name_var.get()
             problem = rename_family.name_problem(new_name)
@@ -2500,6 +2771,7 @@ class VF1PatcherGUI:
         source_list.bind("<<ListboxSelect>>", refresh_check)
         target_list.bind("<<ListboxSelect>>", refresh_check)
         name_var.trace_add("write", refresh_check)
+        mode_var.trace_add("write", load_slots)        # Copy/Move list the families; Delete every slot with files
         frame.columnconfigure(1, weight=1)
         folder_box.current(0)
         load_slots()
@@ -2511,6 +2783,7 @@ class VF1PatcherGUI:
         dialog._vf1_counter_var = counter_var  # type: ignore[attr-defined]
         dialog._vf1_problem_var = problem_var  # type: ignore[attr-defined]
         dialog._vf1_copy_button = copy_button  # type: ignore[attr-defined]
+        dialog._vf1_mode_var = mode_var  # type: ignore[attr-defined]
         dialog._vf1_start = start  # type: ignore[attr-defined]
         dialog._vf1_choose = choose  # type: ignore[attr-defined]
         dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
