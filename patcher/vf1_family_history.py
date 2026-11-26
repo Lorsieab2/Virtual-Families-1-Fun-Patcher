@@ -315,8 +315,10 @@ def apply(village: gen.Village, h: History) -> None:
             p.age = years * gen.UNITS_PER_YEAR
         _drop(p, "Not in the house now", "No longer in the save")
         p.unknowns = [u for u in p.unknowns if "Divorce" not in u]
-        p.unknowns.append(f"Divorced from {partner} (the patcher's Divorce Spouse): left the family at {years}"
-                          if years is not None else f"Divorced from {partner} (the patcher's Divorce Spouse).")
+        # "(none)": the other parent had died (a widowed spouse divorced); "(unknown)": no record of them.
+        whom = f"Divorced from {partner}" if partner not in ("", "(none)", "(unknown)") else "Divorced"
+        p.unknowns.append(f"{whom} (the patcher's Divorce Spouse): left the family at {years}"
+                          if years is not None else f"{whom} (the patcher's Divorce Spouse).")
         p.sources.append(SOURCE)
 
     # Deaths, with the game's own cause.

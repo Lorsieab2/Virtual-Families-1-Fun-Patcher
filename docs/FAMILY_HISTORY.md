@@ -112,6 +112,11 @@ e-mail)` and `Email Event: A letter from a child who left home`.
   **Start Over** (the menu's confirmed call of theGameState::Restart) delete everything in `Save <N>\` except a
   `Backups` folder in it; the new family's log opens with `Start Over 1` (after a Start Over) and `Generation 1`.
 - **Evict Family** keeps the log: everything before the `Evict Family` record belongs to the family that left.
+  A pending Evict Family or Start Over belongs to its own save slot: a new family begun in another slot in the same
+  session is that slot's new family (its folder wiped, no `Start Over` record, not "after the eviction").
+- **Divorce of a widowed spouse**: Divorce Spouse takes parent 2 whenever that villager lives, also after parent 1
+  died with children (the game keeps parent 1 in the record with slot -1). Then nobody living is left behind, and
+  the record says `Family member: (none)` with no `Current spouse` line; it never names the dead parent.
 
 ## Hooks (each traced in the vanilla disassembly, proved by tools/vf1_logs_sites.py, emulated in tests/test_family_history.py)
 
