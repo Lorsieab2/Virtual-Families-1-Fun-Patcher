@@ -71,7 +71,7 @@ def table(game: str) -> str:
            f"{d(SHADOW_CHROMA)};", "",
            "// lightness, chroma, cos(hue), sin(hue), scale below the middle, scale above it",
            "struct SkinTone { const char *name; double L, chroma, cosHue, sinHue, down, up; };",
-           "static const SkinTone SkinTones[SKIN_TONE_COUNT + 1] = {", '    { "Default", 0, 0, 0, 0, 0, 0 },']
+           "static const SkinTone SkinTones[SKIN_TONE_COUNT + 1] = {", '    { "Game\'s own", 0, 0, 0, 0, 0, 0 },']
     for name, text in TONES:
         L, c, h = oklch(text)
         s_down, s_up = tone_scales(L, down, up)

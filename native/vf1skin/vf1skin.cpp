@@ -2,7 +2,7 @@
 // docs/SKIN_TONES.md is the whole design; tools/vf1_skin_sites.py proves every address used here.
 //
 // WHAT IT DOES (the owner's decisions, 2026-11-26). Every family member has a skin tone: one of ten, light to dark
-// (Porcelain ... Ebony), or Default (the game's own skin). All bare skin is drawn in it -- the house (walking,
+// (Porcelain ... Ebony), or Game's own (the game's own skin). All bare skin is drawn in it -- the house (walking,
 // actions, sitting), the portraits (Details, Adoption, the marriage proposal: the big heads and big bodies), the event
 // pop-up's portrait, the Family Tree -- and the baby a mother carries is drawn in the baby's own tone.
 //
@@ -20,7 +20,7 @@
 //
 //   <save folder>\Virtual Families 1 Patcher Data\Skin Tones\<save file>.dat
 //
-// One entry per person, the Virtual Villagers patcher's two bytes (value: 0 none, 1..10 the tone, 15 Default chosen;
+// One entry per person, the Virtual Villagers patcher's two bytes (value: 0 none, 1..10 the tone, 15 Game's own chosen;
 // birth: the tone they were born with or first given), keyed by the villager slot + sex + name (a rename follows the
 // game's CFamilyTree::ChangeName), with up to two Family Tree places (generation, place), so the tree keeps drawing the
 // dead and those who left in their tone. A file that does not validate is set aside (".unreadable-<k>.dat"), never
@@ -251,7 +251,7 @@ struct Entry {
     int slot;              // the villager slot while they are in the house, else -1
     int gender;            // 0 male, 1 female
     char name[26];         // the stored name (25 bytes) and a NUL
-    unsigned char tone;    // 0 none, 1..10, 15 Default chosen
+    unsigned char tone;    // 0 none, 1..10, 15 Game's own chosen
     unsigned char birth;   // the tone they were born with or first given (0 none)
     int head, body;        // as last seen
     int gen[2], place[2];  // their Family Tree places (generation 0: none)
@@ -1547,7 +1547,7 @@ static void SetTone(Entry *e, unsigned char tone, int slot, bool logged) {
     if (event) event(LOGS_APPEARANCE, slot, ShownTone(before), ShownTone(tone));
 }
 
-// A family member's tone: *tone 1..10 or 15 (Default), *birth 0..10. 0 when the feature is not installed or the slot
+// A family member's tone: *tone 1..10 or 15 (Game's own), *birth 0..10. 0 when the feature is not installed or the slot
 // holds nobody.
 extern "C" __declspec(dllexport) int __cdecl VF1Skin_Get(int slot, int *tone, int *birth) {
     if (!VF1Skin_Status.installed || Suspended) return 0;
@@ -1558,7 +1558,7 @@ extern "C" __declspec(dllexport) int __cdecl VF1Skin_Get(int slot, int *tone, in
     return 1;
 }
 
-// Change Appearance: `tone` 1..10, or 15 for Default (the game's own skin). An "Appearance changed" record is written
+// Change Appearance: `tone` 1..10, or 15 for Game's own (the game's own skin). An "Appearance changed" record is written
 // to the Family History log (vf1logs.dll, when it is there) when the tone shown changes.
 extern "C" __declspec(dllexport) int __cdecl VF1Skin_Set(int slot, int tone) {
     if (!VF1Skin_Status.installed || Suspended || !((tone >= 1 && tone <= SKIN_TONE_COUNT) || tone == TONE_DEFAULT)) return 0;
@@ -1577,13 +1577,13 @@ extern "C" __declspec(dllexport) int __cdecl VF1Skin_Reset(int slot) {
     return 1;
 }
 
-// A tone's name as the menus and the log write it: "Copper", "Default" (15 or 0).
+// A tone's name as the menus and the log write it: "Copper", "Game's own" (15 or 0).
 extern "C" __declspec(dllexport) const char *__cdecl VF1Skin_ToneName(int tone) {
     return tone >= 1 && tone <= SKIN_TONE_COUNT ? SkinTones[tone].name : SkinTones[0].name;
 }
 
 // For Revive a Family Member (vf1revive.dll): the two bytes to keep in its snapshot at a death. Returns the tone (0
-// none, 1..10, 15 Default) and puts the birth tone in *birth; 0 and 0 when skin tones are off.
+// none, 1..10, 15 Game's own) and puts the birth tone in *birth; 0 and 0 when skin tones are off.
 extern "C" __declspec(dllexport) int __cdecl VF1Skin_ToneOf(int slot, int *birth) {
     if (birth) *birth = 0;
     if (!VF1Skin_Status.installed || Suspended) return 0;

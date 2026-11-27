@@ -483,9 +483,9 @@ static SkinGetFn SkinGet;
 static SkinSetFn SkinSet;
 static SkinResetFn SkinReset;
 enum { SKIN_DEFAULT = 15, SKIN_RESET = -1 };
-// The choices, in the combo box's order: Default (the game's own skin), the ten tones light to dark, the birth tone.
+// The choices, in the combo box's order: Game's own (the game's own skin), the ten tones light to dark, the birth tone.
 static const struct { int tone; const wchar_t *label; } kSkinChoices[] = {
-    { SKIN_DEFAULT, TR_N(L"Default (the game's own skin)") },
+    { SKIN_DEFAULT, TR_N(L"Game's own (the game's own skin)") },
     { 1, TR_N(L"S1 Porcelain") }, { 2, TR_N(L"S2 Fair") }, { 3, TR_N(L"S3 Light golden") },
     { 4, TR_N(L"S4 Light olive") }, { 5, TR_N(L"S5 Copper") }, { 6, TR_N(L"S6 Warm brown") },
     { 7, TR_N(L"S7 Medium brown") }, { 8, TR_N(L"S8 Deep brown") }, { 9, TR_N(L"S9 Dark") },

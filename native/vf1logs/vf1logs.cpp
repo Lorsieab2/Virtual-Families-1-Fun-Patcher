@@ -927,7 +927,7 @@ enum { EV_DIVORCE = 1, EV_EVICT = 2, EV_SPAWN_CHILD = 3, EV_ADOPT_CHILD = 4, EV_
 static const char *SkinToneName(int tone) {
     static const char *const names[10] = { "Porcelain", "Fair", "Light golden", "Light olive", "Copper", "Warm brown",
                                            "Medium brown", "Deep brown", "Dark", "Ebony" };
-    return tone >= 1 && tone <= 10 ? names[tone - 1] : "Default";
+    return tone >= 1 && tone <= 10 ? names[tone - 1] : "Game's own";
 }
 
 extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, int a, int b) {
@@ -1001,7 +1001,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
     } else if (kind == EV_BOARDING_SCHOOL) {
         gBoardingSchool = who + 1;                   // SetLeftHome follows at once (villager_upgrades.inc)
     } else if (kind == EV_APPEARANCE && p.slot >= 0) {
-        // vf1skin.dll's Change Appearance (Skin Tones): `a` the skin tone before, `b` after (1..10, 15 Default). The
+        // vf1skin.dll's Change Appearance (Skin Tones): `a` the skin tone before, `b` after (1..10, 15 Game's own). The
         // Virtual Villagers patcher's "Appearance changed" record, its "Old skin tone" / "New skin tone" lines.
         Self(t, p, "Age");
         Field(t, "  ", "Old skin tone", SkinToneName(a));

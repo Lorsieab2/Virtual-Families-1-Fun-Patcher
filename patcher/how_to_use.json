@@ -176,7 +176,7 @@
     {
       "ids": ["SkinTones"],
       "guide": [
-        "Gives everyone in the family a skin tone, drawn in the game: one of ten, S1 Porcelain to S10 Ebony, or Default, the game's own skin.",
+        "Gives everyone in the family a skin tone, drawn in the game: one of ten, S1 Porcelain to S10 Ebony, or Game's own, the game's own skin.",
         "All bare skin is toned: in the house, in portraits, in Random Event pictures and in the Family Tree. A carried baby shows the baby's own tone. Hair, eyes and clothes never change.",
         "Founders, newcomers and everyone already in your family when you turn it on get a random tone.",
         "A baby gets its tone at the conception, usually close to the average of its parents' tones. Twins and triplets share one.",

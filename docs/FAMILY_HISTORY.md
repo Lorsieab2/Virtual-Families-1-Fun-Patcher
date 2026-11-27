@@ -100,7 +100,7 @@ after 2000 records the next one opens file `<k+1>`. The slot is theGameState+0x1
   Name: Ola
   Age: 18                        (Sex, Head and Body follow)
   Old skin tone: Copper          (Porcelain, Fair, Light golden, Light olive, Copper, Warm brown, Medium brown,
-  New skin tone: Default          Deep brown, Dark, Ebony; Default is the game's own skin)
+  New skin tone: Game's own       Deep brown, Dark, Ebony; Game's own is the game's own skin)
   How: Change Appearance
   Generation: 1
 

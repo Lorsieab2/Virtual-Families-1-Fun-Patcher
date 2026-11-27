@@ -4946,9 +4946,9 @@
    ]
   },
   {
-   "id": "vf1fun.default_the_game_s_own_skin",
-   "english": "Default (the game's own skin)",
-   "room": 87,
+   "id": "vf1fun.game_s_own_the_game_s_own_skin",
+   "english": "Game's own (the game's own skin)",
+   "room": 96,
    "drawn_by_game": false,
    "format": false,
    "where": [
