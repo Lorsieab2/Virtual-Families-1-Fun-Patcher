@@ -1159,7 +1159,7 @@ def _careers() -> list[Fact]:
 
 def _hourly(salary: int) -> str:
     """A salary as pay per hour of game time: salary / 8 every 30 game minutes, so salary / 4 an hour."""
-    return f"{salary / 4:g}"
+    return f"{salary / 4:,.2f}"
 
 
 def _money() -> list[Fact]:

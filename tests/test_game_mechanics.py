@@ -181,11 +181,14 @@ def test_the_careers_match_the_spec_table():
     assert {c.room for c in gm.CAREER_LIST[:30]} == {1} and {c.room for c in gm.CAREER_LIST[30:79]} == {2}
     assert {c.room for c in gm.CAREER_LIST[79:]} == {3}
     listed = [f for f in FACTS if f.group == gm.CAREERS and f.sub and "per hour of game time as a Beginner" in f.text]
-    assert len(listed) == 108 and listed[0].text == ("Pastry Designer (room 1): $7.5 per hour of game time as a "
-                                                     "Beginner, $25 as a Master (levels: 7.5, 8.75, 10.75, 12, 14, "
-                                                     "16.25, 19.5, 25).")
+    assert len(listed) == 108 and listed[0].text == ("Pastry Designer (room 1): $7.50 per hour of game time as a "
+                                                     "Beginner, $25.00 as a Master (levels: 7.50, 8.75, 10.75, "
+                                                     "12.00, 14.00, 16.25, 19.50, 25.00).")
     for career, fact in zip(gm.CAREER_LIST, listed):       # a quarter of the salary per hour of game time
-        assert f"(levels: {', '.join(f'{s / 4:g}' for s in career.salaries)})" in fact.text
+        assert f"(levels: {', '.join(f'{s / 4:,.2f}' for s in career.salaries)})" in fact.text
+    # Pay is always shown with two decimals ($17.50, never $17.5): the end-to-end check, 2026-11-27.
+    import re
+    assert not [f.text for f in FACTS if re.search(r"\$\d[\d,]*\.\d(?!\d)", f.text)]
 
 
 def test_every_event_is_listed_once():
