@@ -133,7 +133,8 @@ class Villager:
     wants_children: int           # state +0x50 ("Wants kids?" 1..99)
     career: int                   # skills +0: -1 = none
     career_level: int             # skills +4
-    skills_8: int                 # skills +8 (UNCONFIRMED meaning)
+    skills_8: int                 # skills +8: the career progress the Details screen's Progress bar shows
+                                  # (0x44B90B reads villager +0x2B74 for it below Master; 3,000 at Master)
     salary: int                   # skills +0xC
     likes: tuple[int, int, int]
     dislikes: tuple[int, int, int]

@@ -247,7 +247,7 @@ record k <- villager k) and real saves (tree slot ids point at the matching reco
 | 0xA8 other | | | the rest of CVillagerState | UNCONFIRMED | kept in `Villager.raw` |
 | 0x140 | +0x2B6C | int | **career** id, -1 = none (children) | VERIFIED | SetNoCareer 0x48EFD0; reset 0x48EFF0 = rand(0x6C); real: -1 for every child |
 | 0x144 | sk+4 | int | career level | VERIFIED as used | UpdateSalary 0x48F030 = table[career*8+level] |
-| 0x148 | sk+8 | int | 10 at reset; UNCONFIRMED meaning | | 0x48F003 |
+| 0x148 | sk+8 | int | **career progress**: 10 at reset; the Details screen's Progress bar | VERIFIED | 0x48F003; theVillagerScene 0x44B8F4..0x44B90B draws villager +0x2B74 as Progress (3,000 when the level is 7, 0 with no career), clamped to 3,000 (patcher/vf1_art_meters.py) |
 | 0x14C | sk+0xC | int | salary (from the table above) | VERIFIED as written | 0x48F016, 0x48F03F |
 | 0x150 / 0x15C | +0x13620 / +0x1362C | int[3] each | likes / dislikes list | VERIFIED as saved; item meaning UNCONFIRMED | 0x485693..0x4856D5 |
 | 0x168 | +0x2BA4 | 0x153 dwords | AI (SaveAI 0x485610, stride 0xC8 in memory) | UNCONFIRMED content | |

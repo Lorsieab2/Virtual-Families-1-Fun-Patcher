@@ -120,9 +120,11 @@ def when(save: vf1_save.VF1Save, stamp: int) -> str:
     return f"{moment:%d %B %Y}, {moment:%H:%M}".lstrip("0")
 
 
-def ages(units: int) -> str:
-    """'41 years (827 age units; 13 more to the next birthday)'."""
+def ages(units: int, alive: bool = True) -> str:
+    """'41 years (827 age units; 13 more to the next birthday)'; for someone who died, no next birthday."""
     years = units // vf1_save.AGE_UNITS_PER_YEAR
+    if not alive:
+        return f"{_plural(years, 'year')} ({units:,} age units)"
     left = vf1_save.AGE_UNITS_PER_YEAR - units % vf1_save.AGE_UNITS_PER_YEAR
     return f"{_plural(years, 'year')} ({units:,} age units; {left} more to the next birthday)"
 
@@ -203,7 +205,7 @@ def _tree_seat(save: vf1_save.VF1Save, v: vf1_save.Villager):
     return "", None
 
 
-def _parents_line(save, v, tree) -> str:
+def _parents_line(save, v, tree, married_in: bool = False) -> str:
     own = (v.parent1_name, v.parent2_name)
     if tree is not None:
         text = f"Parents: {tree[0]} and {tree[1]} (the save's Family Tree)."
@@ -213,11 +215,26 @@ def _parents_line(save, v, tree) -> str:
                 "for a baby works." if own[0] == FATHER_STAND_IN else "."))
         return text
     if not any(own):
+        if married_in:
+            return "Parents: none: married into the family; the save keeps no parents for them."
         return "Parents: none in the save (a founder, an adopted child, or one the game made without parents)."
     text = f"Parents: their own record keeps \"{own[0]}\" and \"{own[1]}\"; the save's Family Tree does not list them."
     if own[0] == FATHER_STAND_IN:
         text += f" \"{FATHER_STAND_IN}\" is the name the game writes for the father when a try for a baby works."
     return text
+
+
+def _other_parent(save, v):
+    """The current generation's other parent when ``v`` is one of the two and that one died, else None."""
+    rec = save.current_family
+    if rec is None:
+        return None
+    for mine, theirs in ((rec.parent1, rec.parent2), (rec.parent2, rec.parent1)):
+        if save.villager_for(mine) is v and theirs.used:
+            them = save.villager_for(theirs)
+            if theirs.slot == -1 or (them is not None and them.dead):
+                return theirs
+    return None
 
 
 def _children_line(save, v) -> str | None:
@@ -250,9 +267,11 @@ def _career_line(v) -> str:
     career = gm.CAREER_LIST[v.career]
     level = gm.LEVELS[v.career_level]
     table = career.salaries[v.career_level]
+    top = v.career_level == len(gm.LEVELS) - 1
     text = (f"Career: {career.name} (career room {career.room}, {ROOMS.get(career.room, '')}), {level} (level "
-            f"{v.career_level + 1} of 8); progress {v.skills_8:,} of {PROMOTION:,} toward the next promotion")
-    text += f"; salary ${v.salary:,}: ${gm._hourly(v.salary)} per hour of game time (1 hour real time on Normal)"
+            f"{v.career_level + 1} of 8); progress {v.skills_8:,} of {PROMOTION:,} "
+            + ("(top level, no further promotion)" if top else "(the Details screen's Progress bar)"))
+    text += f"; salary ${v.salary:,}: ${v.salary / 4:,.2f} per hour of game time (1 hour real time on Normal)"
     if v.salary != table:
         text += (f". The game's own table pays a {level} {career.name} ${table:,}: the save holds ${v.salary:,}, "
                  "and the save's value is the one paid")
@@ -272,7 +291,8 @@ def _pregnancy_line(save, v) -> str | None:
     name = (f" (the save keeps the father's name as \"{v.pending_father_name}\", the name the game writes for the father when a "
             "try for a baby works)" if v.pending_father_name == FATHER_STAND_IN else
             f" (the save keeps the father's name as \"{v.pending_father_name}\")")
-    return (f"Pregnant with {babies}, conceived at age unit {v.pregnant_since:,}: born on age unit {due:,}, "
+    return (f"Pregnant with {babies}, conceived at the mother's age unit {v.pregnant_since:,}: born at her age "
+            f"unit {due:,}, "
             f"{_plural(left, 'age unit')} to go ({gm.units_text(left)}); {father}{name}.")
 
 
@@ -285,10 +305,17 @@ def _person(save, short: vf1_save.Villager, v: vf1_save.Villager) -> list[gm.Fac
     raw = v.raw
     sex = {0: "Male", 1: "Female"}.get(v.sex, f"sex value {v.sex}")
     if v.dead:
+        add(f"{v.name}: {sex}, died at {ages(v.age_units, alive=False)}; health {v.health}. The body is still in the "
+            "house (it is removed 240 age units after their last update; see Old age and death).", C, False)
+        # The cause is stored as the caller gives it (SetHealth 0x48F820); only 2 is proved (the old-age roll passes
+        # it, 0x48C068). The other words follow the order of the strings 0x507..0x50C: the save reader marks that
+        # map UNCONFIRMED (vf1_save.DEATH_CAUSES_UNCONFIRMED), and so is this line.
         cause = vf1_save.DEATH_CAUSES_UNCONFIRMED.get(v.death_cause, f"cause {v.death_cause}")
-        add(f"{v.name}: {sex}, died at {ages(v.age_units)}; health {v.health}; the cause the save keeps: {cause}. "
-            "The body is still in the house (it is removed 240 age units after their last update; see Old age and "
-            "death).", C, False)
+        if v.death_cause == 2:
+            add(f"The cause the save keeps: {v.death_cause}, {cause} (the old-age roll's own cause).", C)
+        else:
+            add(f"The cause the save keeps: {v.death_cause}, probably {cause} (the order of the game's cause words; "
+                "the code that turns a cause into its word was not found).", U)
         return out
     head = f"{v.name}: {sex}, {ages(v.age_units)}; health {v.health} of 100"
     sick = sick_words(save, v)
@@ -313,10 +340,16 @@ def _person(save, short: vf1_save.Villager, v: vf1_save.Villager) -> list[gm.Fac
         "to 49).")
     groups, counted = food_groups(save, v)
     live = sum(1 for g in groups if not g.endswith("(already over)"))
-    add("Food groups when the family was saved (each lasts 24 hours of real time; your PC's clock): "
-        + (", ".join(groups) or "none") + f". The game counts {counted}"
-        + (": one more than the groups, the extra one every family member without a career gets once they have had "
-           "Grains (see Needs and upkeep)" if counted > live else "") + ".")
+    extra = counted - live
+    text = ("Food groups when the family was saved (each lasts 24 hours of real time; your PC's clock): "
+            + (", ".join(groups) or "none") + f". The game's count is {counted}")
+    if extra > 0 and live:
+        text += (f": {live} for the groups above and 1 more, the extra one every family member without a career "
+                 "gets once they have had Grains (see Needs and upkeep)")
+    elif extra > 0:
+        text += (" because every family member without a career gets one extra once they have had Grains (see Needs "
+                 "and upkeep), even with no group now")
+    add(text + ".")
     n = v.name_index
     if n % 6 == 0:
         add(f"Name number {n}, a multiple of 6: with no food at all in the house the 1-health loss each age unit is "
@@ -330,9 +363,14 @@ def _person(save, short: vf1_save.Villager, v: vf1_save.Villager) -> list[gm.Fac
         f"fertility {v.fertility} of 100" + (f" ({v.fertility - 85} over 85, added to the twins and triplets "
                                             "chances)" if v.fertility > 85 else "") + ".")
     spouse = save.spouse_of(v.slot)
-    if spouse is not None:
+    other = _other_parent(save, v)
+    if spouse is not None and not spouse.dead:
         add(f"Spouse: {spouse.name} (the save's Family Tree, generation {save.generation}).")
-    add(_parents_line(save, v, tree))
+    elif other is not None:
+        # A widowed spouse: the tree keeps the one who died (ReportDeath sets their slot to -1; a body still in the
+        # house is a record with health 0).
+        add(f"Spouse: {other.name} (died; the save's Family Tree, generation {save.generation}).")
+    add(_parents_line(save, v, tree, married_in=seat.startswith("married into the family")))
     kids = _children_line(save, v)
     if kids:
         add(kids)

@@ -61,6 +61,20 @@ def full(save):
     return save, backup
 
 
+def test_the_question_names_the_backups_copies_and_a_moves_undo_copy(full):
+    # The end-to-end check (2026-11-27): deleting also sends the slot's copies inside earlier backups (even an older
+    # family's) and a move's undo copy to the Recycle Bin; the question says so plainly.
+    import vf1_patcher_gui as gui
+    save, _backup = full
+    plan = ds.plan_delete(save, 1)
+    text = gui.delete_prompt_text(save, plan)
+    assert text.startswith("Every file of Save 1 (Smith) goes to the Recycle Bin: its save, ")
+    assert ("The same goes for this slot's copies inside 1 earlier backup(s) of the save folder, even a backup made "
+            "when the slot held an older family, and a move's \"(before move)\" backup and 1 folder(s) of files a "
+            "copy or a move set aside from this slot (Backups\Replaced by ...), a move's undo copy.") in text
+    assert gui.backups_words(0, 0) == ""
+
+
 def test_every_file_of_the_slot_goes_but_pictures(full):
     save, backup = full
     before = everything(save)

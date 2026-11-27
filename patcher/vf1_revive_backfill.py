@@ -426,12 +426,23 @@ def _read_save(path: Path, source: int) -> SaveFile | None:
         return None
 
 
+def _who(d: Dead, villagers) -> vf1_save.Villager | None:
+    """The one of ``villagers`` that is ``d``: the same name, sex and head (what never changes in a life). The body
+    is only a tiebreak, then the age at death the log gives: the Family Tree keeps the body it had when the person
+    was entered, and a body (or an outfit's) changes as they grow (the end-to-end check, 2026-11-27: an heir dead in
+    the house was missed from her own record)."""
+    found = [v for v in villagers if v.name and v.name == d.name and v.sex == d.sex
+             and (d.head is None or v.head == d.head)]
+    if len(found) > 1 and d.body is not None and any(v.body == d.body for v in found):
+        found = [v for v in found if v.body == d.body]
+    if len(found) > 1 and d.age_years is not None and any(v.age_units // UNITS_PER_YEAR == d.age_years for v in found):
+        found = [v for v in found if v.age_units // UNITS_PER_YEAR == d.age_years]
+    return found[0] if found else None
+
+
 def _stale(save: vf1_save.VF1Save, d: Dead) -> vf1_save.Villager | None:
-    """The dead person's own record, still in the save: not alive, health 0, matching who they were."""
-    for v in save.villagers:
-        if v.name and v.health <= 0 and _same(d, v.name, v.sex, v.head, v.body):
-            return v
-    return None
+    """The dead person's own record, still in the save: health 0, matching who they were (_who)."""
+    return _who(d, [v for v in save.villagers if v.health <= 0])
 
 
 def best_source(d: Dead, here: SaveFile, others: list[SaveFile]) -> tuple[vf1_save.Villager | None, int, bool]:
@@ -446,9 +457,9 @@ def best_source(d: Dead, here: SaveFile, others: list[SaveFile]) -> tuple[vf1_sa
         if v is not None:
             return v, o.source, True
     for o in older:
-        for v in o.save.villagers:
-            if v.present and v.health > 0 and _same(d, v.name, v.sex, v.head, v.body):
-                return v, o.source, False
+        v = _who(d, [v for v in o.save.villagers if v.present and v.health > 0])
+        if v is not None:
+            return v, o.source, False
     return None, SOURCE_TREE if d.peep is not None else SOURCE_LOG, False
 
 

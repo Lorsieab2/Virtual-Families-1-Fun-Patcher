@@ -679,6 +679,22 @@ def move_preview_lines(plan: move_slot.Plan) -> list[str]:
     return plan.preview() + [f"Kept in Backups\\{move_slot.REPLACED} <date>:  {path}" for path in plan.removals]
 
 
+def backups_words(backups: int, asides: int) -> str:
+    """What else of the slot a delete sends to the Recycle Bin, said plainly so nothing surprises the player (the
+    end-to-end check, 2026-11-27): the slot's copies inside earlier backups -- whatever family the slot held when each
+    was made -- and the files a copy or move set aside, a move's undo copy among them."""
+    parts = []
+    if backups:
+        parts.append(f"this slot's copies inside {backups} earlier backup(s) of the save folder, even a backup made "
+                     "when the slot held an older family, and a move's \"(before move)\" backup")
+    if asides:
+        parts.append(f"{asides} folder(s) of files a copy or a move set aside from this slot (Backups\\Replaced by "
+                     "...), a move's undo copy")
+    if not parts:
+        return ""
+    return " The same goes for " + " and ".join(parts) + "."
+
+
 def delete_prompt_text(folder: Path, plan: delete_slot.Plan) -> str:
     """The delete's question above the list of every file."""
     if plan.name is not None:
@@ -687,9 +703,8 @@ def delete_prompt_text(folder: Path, plan: delete_slot.Plan) -> str:
         family = "an unreadable save"
     else:
         family = "no family, leftover files"
-    text = (f"Every file of Save {plan.slot} ({family}) goes to the Recycle Bin: {SLOT_FILES_WORDS}, and its files "
-            f"in {plan.backups} backup(s)")
-    text += f" and {plan.asides} folder(s) of files it replaced." if plan.asides else "."
+    text = (f"Every file of Save {plan.slot} ({family}) goes to the Recycle Bin: {SLOT_FILES_WORDS}."
+            + backups_words(plan.backups, plan.asides))
     text += (" Pictures stay where they are. Other slots are not touched. No new backup is made: anything can be put "
              f"back from the Recycle Bin. ({folder})")
     return text + f"\n\n{len(plan.files)} file(s) to the Recycle Bin, {len(plan.pictures)} picture(s) kept:"

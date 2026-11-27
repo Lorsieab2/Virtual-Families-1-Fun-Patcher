@@ -286,8 +286,20 @@ static void Capture(const unsigned char *v, Person &p) {
 
 static unsigned Years(int units) { return units < 0 ? 0u : (unsigned)units / LOGS_UNITS_PER_YEAR; }
 
-// Where the villager stands in the current generation's Family Tree record: 0 parent 1, 1 parent 2,
-// 2.. a child, -1 not in it. The record's slot is checked with the name, as the game's own records go stale.
+// Up to 28 Children (vf1kids.dll) keeps children 7..28 out of the record; its VF1Kids_IsExtraChild answers whether
+// the villager in a slot is a living one of them (as vf1revive.dll asks it). False when that DLL is not loaded.
+typedef int (__cdecl *KidsExtraFn)(int slot, int gender, const char *name);
+static bool ExtraChild(const Person &p) {
+    HMODULE kids = GetModuleHandleW(L"vf1kids.dll");
+    KidsExtraFn extra = kids ? (KidsExtraFn)GetProcAddress(kids, "VF1Kids_IsExtraChild") : 0;
+    return extra && extra(p.slot, p.sex, p.name) != 0;
+}
+
+enum { ROLE_GRANDPARENT = -2 };
+
+// Where the villager stands in the Family Tree: 0 parent 1, 1 parent 2, 2.. a child (children 7..28 from Up to 28
+// Children), ROLE_GRANDPARENT a parent of the generation before, -1 none of these (as the Virtual Families 2
+// patcher's Family History, its #531). A record's slot is checked with the name, as the game's own records go stale.
 static int TreeRole(const Person &p) {
     unsigned char *rec = Record(Generations());
     if (!rec || p.slot < 0) return -1;
@@ -297,11 +309,20 @@ static int TreeRole(const Person &p) {
         if (peep[LOGS_PEEP_VALID] && I32(peep, LOGS_PEEP_SLOT) == p.slot && SameText((const char *)peep, p.name, 25))
             return k;
     }
+    if (ExtraChild(p)) return 2 + (int)LOGS_TREE_CHILDREN;
+    if (unsigned char *before = Record(Generations() - 1)) {
+        for (int k = 0; k < 2; ++k) {
+            unsigned char *peep = Peep(before, k);
+            if (peep[LOGS_PEEP_VALID] && I32(peep, LOGS_PEEP_SLOT) == p.slot && SameText((const char *)peep, p.name, 25))
+                return ROLE_GRANDPARENT;
+        }
+    }
     return -1;
 }
 
 static const char *RoleText(int role) {
-    return role == 0 ? "Parent" : role == 1 ? "Parent (married in)" : role >= 2 ? "Child" : "(not in the Family Tree)";
+    return role == 0 ? "Parent" : role == 1 ? "Parent (married in)" : role >= 2 ? "Child" :
+           role == ROLE_GRANDPARENT ? "Grandparent" : "(not in the Family Tree)";
 }
 
 // ---- the Virtual Villagers patcher's record lines ("  Label: value"), a family member as it writes a villager:
@@ -585,6 +606,46 @@ static bool EarlierSpouse(int slot, int gen, const char *stored, char *earlier, 
     return earlier[0] != 0;
 }
 
+// ---- what the slot's log says happened last to its family: Evict Family (the next family is the same slot's
+// next family, its records following the evicted family's) or Start Over (the next family's log opens with it).
+// Read from the log itself, so it belongs to that slot alone and outlives the game being closed: the last record
+// that ends or begins a family ("Evict Family", "Start Over", "Generation", "New Generation") decides; anything
+// after it does not. For Start Over the whole record (with its own date) is kept, to open the new log.
+enum { TURN_NONE = 0, TURN_EVICTED = 1, TURN_STARTED_OVER = 2 };
+static char Kept[0x1000];
+static unsigned KeptLength;
+
+static int LastTurn(int slot) {
+    char path[MAX_PATH + 64];
+    int turn = TURN_NONE;
+    KeptLength = 0;
+    for (unsigned k = 1; k <= kMaxFiles && HistoryFile(slot, k, path, sizeof(path)) && Exists(path); ++k) {
+        unsigned got = 0;
+        if (!ReadWhole(path, &got)) continue;
+        for (unsigned i = 0; i < got; ++i) {
+            if ((i && ReadBuffer[i - 1] != '\n') || ReadBuffer[i] != '[') continue;
+            unsigned j = i;
+            while (j < got && ReadBuffer[j] != ']' && ReadBuffer[j] != '\n') ++j;
+            j += 2;
+            if (j >= got) continue;
+            const char *kind = ReadBuffer + j;
+            bool evict = StartsWith(kind, "Evict Family "), over = StartsWith(kind, "Start Over ");
+            if (!evict && !over && !StartsWith(kind, "Generation ") && !StartsWith(kind, "New Generation ")) continue;
+            turn = evict ? TURN_EVICTED : over ? TURN_STARTED_OVER : TURN_NONE;
+            KeptLength = 0;
+            if (over) {                                   // the record: its heading up to the next heading
+                unsigned end = i + 1;
+                while (end < got && !(ReadBuffer[end - 1] == '\n' && ReadBuffer[end] == '[')) ++end;
+                if (end - i < sizeof(Kept)) {
+                    Copy(Kept, ReadBuffer + i, end - i);
+                    KeptLength = end - i;
+                }
+            }
+        }
+    }
+    return turn;
+}
+
 // ================================================================ wiping a slot (Start Over, a new family)
 // Deletes everything in <save folder>\Virtual Families 1 Patcher\Save <slot>\ except a Backups folder in it.
 static void DeleteTree(char *path, unsigned len, unsigned cap, bool top) {
@@ -626,9 +687,8 @@ static void WipeSlot(int slot) {
 
 // ================================================================ the events
 static int gInLoad;
-// Each of the two holds the save slot it belongs to (0: none), so it never reaches another slot's log.
-static int gPendingEviction;      // vf1fun's Evict Family: the next new family is the same slot's next family
-static int gStartedOver;          // the menu's Start Over: the next new family's log says so
+// A pending Evict Family or Start Over is not kept in memory: the slot's own log says it (LastTurn), so it never
+// reaches another slot and outlives the game being closed before the slot's next family is adopted.
 static int gBoardingSchool;       // vf1fun's Boarding School is sending this slot's villager away (+1)
 static int gInEvent;              // a Random Event's dialog is open
 static char gEventTitle[256];     // the newest Random Event's title, as the player saw it
@@ -802,18 +862,23 @@ static void OnGeneration(const unsigned char *v, int peep, int before) {
     Person p;
     Capture(v, p);
     const char *how;
+    bool evicted = false;
     if (before == 0) {
-        if (gPendingEviction == slot) {
-            how = "Founder (after the eviction)";
+        int turn = LastTurn(slot);
+        if (turn == TURN_EVICTED) {
+            how = "Founder (after the eviction)";    // the evicted family's records stay; this family's follow
+            evicted = true;
         } else {
             // A brand-new family in this slot (a new game, or after Start Over): the folder is the new family's.
+            // After Start Over its own record (written then, with its date) opens the new log.
             WipeSlot(slot);
             CreateLog(slot);
-            if (gStartedOver == slot) Write(slot, "Start Over", "  The earlier family's history was cleared.\r\n");
+            char path[MAX_PATH + 64];
+            if (turn == TURN_STARTED_OVER && KeptLength && HistoryFile(slot, 1, path, sizeof(path)) &&
+                Append(path, Kept, KeptLength))
+                ++VF1Logs_Status.records;
             how = "Founder (adopted and started the family)";
         }
-        gPendingEviction = 0;
-        gStartedOver = 0;
     } else {
         how = peep < 0 ? "Adopt New Person" : "Heir (inherited the house)";
     }
@@ -822,6 +887,9 @@ static void OnGeneration(const unsigned char *v, int peep, int before) {
     Self(t, p, "Age");
     Field(t, "  ", "How", how);
     Generation(t, Generations());
+    if (evicted)            // the heading counts every Generation record in the log, the evicted family's too
+        t.S("  Note: Generation 1 of the family after the eviction (the records before Evict Family are the family "
+            "that left)").NL();
     Write(slot, before && peep >= 0 ? Word(LOGS_STR_NEW_GENERATION) : "Generation", Body);
 }
 
@@ -974,8 +1042,7 @@ extern "C" __declspec(dllexport) void __cdecl VF1Logs_Event(int kind, int who, i
         if (!any) t.S(" (none)");
         t.NL();
         Generation(t, Generations());
-        Write(slot, "Evict Family", Body);
-        gPendingEviction = slot;
+        Write(slot, "Evict Family", Body);       // the slot's next family reads it there (LastTurn)
     } else if (kind == EV_SPAWN_CHILD && p.slot >= 0) {
         Arrived(slot, p, "Spawn Child", &pa, &pb);
     } else if (kind == EV_ADOPT_CHILD && p.slot >= 0) {
@@ -1101,11 +1168,16 @@ static void __fastcall PhysiologyHook(void *manager, void *) {
 static void __fastcall DeathEndHook(void *tree, void *, void *villager) { ReportDeathHook(NextReportDeathEnd, tree, villager); }
 static void __fastcall BodyRemovalHook(void *tree, void *, void *villager) { ReportDeathHook(NextReportDeathBody, tree, villager); }
 
+// Start Over: the slot's folder is wiped (Backups kept) and its log holds only the Start Over record, dated now,
+// until the slot's next family opens a new log with it (OnGeneration). theGameState::Restart saves the emptied
+// family at once (Init 0x424110, then 0x4238E0: Save(0), Save(slot), Save(slot + 20)), so the record is never left
+// over a family that is still played.
 static void __fastcall RestartHook(void *state, void *) {
     int slot = CurrentSlot();
-    if (slot) WipeSlot(slot);
-    gPendingEviction = 0;
-    gStartedOver = slot;
+    if (slot) {
+        WipeSlot(slot);
+        Write(slot, "Start Over", "  The earlier family's history was cleared.\r\n");
+    }
     NextRestart(state);
 }
 

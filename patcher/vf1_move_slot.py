@@ -35,6 +35,8 @@ Safety
     * Files are moved with a rename on the same disk, never over another file; a file whose slot number changes is
       then rewritten through a temporary file, keeping its times. The slot menu is written last.
     * What the player was shown is fingerprinted; a file changed since refuses the move.
+    * A file the move must rewrite (a log header, a tree file, the slot menu) that is read-only refuses the move
+      before anything is moved.
     * Afterwards the moved save is read back, the source is checked empty and every moved file is read back. Any
       failure moves every file back, puts every changed byte back and returns the set-aside files.
 
@@ -203,6 +205,27 @@ def _fingerprint(path: Path, data: bytes | None = None) -> tuple:
     return (str(path).casefold(), info.st_size, info.st_mtime_ns, digest)
 
 
+def _read_only(path: Path) -> bool:
+    """``path`` is marked read-only (Windows' Read-only box), so it can be renamed but not rewritten."""
+    try:
+        return not os.access(path, os.W_OK)
+    except OSError:
+        return False
+
+
+def _refuse_read_only(plan: Plan, options_file: Path) -> None:
+    """Every file the move must rewrite (a log header, a tree file, the slot menu) can be written, checked before
+    anything moves: a read-only one would stop the move half way (the end-to-end check, 2026-11-26)."""
+    rewrite = [m.source for m in plan.moves if m.data is not None] + [options_file]
+    locked = [p for p in rewrite if _read_only(p)]
+    if locked:
+        shown = "; ".join(str(p.relative_to(plan.folder)) for p in locked[:8])
+        more = f" and {len(locked) - 8} more" if len(locked) > 8 else ""
+        raise MoveError(f"These files are read-only, and the move must write the slot number inside them: "
+                        f"{shown}{more}. Clear Read-only in each file's Properties (right-click it in File "
+                        f"Explorer) and try again. Nothing was moved.")
+
+
 def _refuse_if_running(folder: Path, processes) -> None:
     try:
         cs._refuse_if_running(folder, processes)
@@ -290,6 +313,7 @@ def plan_move(folder: Path, source: int, target: int) -> Plan:
     places = [str(m.target).casefold() for m in plan.moves]
     if len(places) != len(set(places)):
         raise MoveError("Two of the slot's files would go to the same place, so nothing was moved.")
+    _refuse_read_only(plan, options_file)
     removed_files = []
     for relative in plan.removals:
         place = folder / relative
@@ -382,18 +406,26 @@ def _roll_back(plan: Plan, done: _Done) -> list[str]:
         except OSError as exc:
             problems.append(f"{folder}: {exc}")
     for move, rewritten in reversed(done.moved):
+        # A file whose rewrite failed (read-only) still holds its original bytes: it is only renamed back. A rewrite
+        # that cannot be undone never stops the rename, so the file is always back in its own place.
         try:
-            if rewritten:
+            if rewritten and move.target.read_bytes() != move.original:
                 info = move.target.stat()
                 _rewrite(move.target, move.original, (info.st_atime_ns, info.st_mtime_ns))
+        except (OSError, cs.CopyError) as exc:
+            problems.append(f"{move.source.name} (now {move.target}): {exc}")
+        try:
             move.source.parent.mkdir(parents=True, exist_ok=True)
             os.rename(move.target, move.source)
-        except (OSError, cs.CopyError) as exc:
+        except OSError as exc:
             problems.append(f"{move.source.name} (now {move.target}): {exc}")
     cs._remove_folders(done.made)                  # a new "Save <T>" first, so the old one can move back
     for relative, aside in reversed(done.aside):
+        place = plan.folder / relative
         try:
-            os.rename(aside, plan.folder / relative)
+            if place.is_dir() and not save_backup._is_link(place) and not any(place.iterdir()):
+                place.rmdir()                      # an empty folder left in its way never blocks it (WinError 183)
+            os.rename(aside, place)
         except OSError as exc:
             problems.append(f"{relative} (it is in {aside}): {exc}")
     cs._remove_folders(done.aside_made)
