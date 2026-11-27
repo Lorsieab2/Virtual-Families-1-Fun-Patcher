@@ -186,6 +186,55 @@ def test_a_failure_writing_the_slot_menu_or_verifying_puts_everything_back(save,
     assert tree_of(save) == before
 
 
+def _all_paths(folder: Path) -> tuple[dict[str, bytes], set[str]]:
+    """Every file (its bytes) and every folder, the "(before move)" backup left out."""
+    def keep(p: Path) -> bool:
+        return not any(part.endswith("(before move)") for part in p.relative_to(folder).parts)
+    files = {p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file() and keep(p)}
+    dirs = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_dir() and keep(p)}
+    return files, dirs - {"Backups"}
+
+
+def _read_only_case(save: Path, which: str) -> Path:
+    return {"history": save / ROOT1 / "Logs" / "Family History" / "Family History 2.txt",
+            "tree": save / ROOT1 / "Data" / "Family Tree" / "Virtual Families 1 Family Tree - Save 1.tree",
+            "menu": save / "Virtual Families0.ldw"}[which]
+
+
+@pytest.mark.parametrize("which", ["history", "tree", "menu"])
+def test_a_read_only_file_the_move_must_rewrite_refuses_before_anything_moves(save, which):
+    # The end-to-end check (2026-11-26): a read-only log or .tree was renamed into Save 2, its rewrite failed, and
+    # the rollback never renamed it back, so Save 2's own folder could not return (WinError 183).
+    path = _read_only_case(save, which)
+    os.chmod(path, 0o444)
+    try:
+        before = _all_paths(save)
+        with pytest.raises(ms.MoveError, match="read-only.*Nothing was moved") as caught:
+            ms.move_slot(save, 1, 2, processes=Processes(), now=NOW)
+        assert path.name in str(caught.value)
+        assert _all_paths(save) == before and not (save / "Backups").exists()
+    finally:
+        os.chmod(path, 0o666)
+
+
+@pytest.mark.parametrize("which", ["history", "tree", "menu"])
+def test_a_read_only_rewrite_failing_mid_move_still_rolls_everything_back(save, which, monkeypatch):
+    # Past the check (a file made read-only after it): the file whose rewrite failed still has its own bytes, so
+    # the rollback only renames it back, and the target's set-aside folder returns.
+    path = _read_only_case(save, which)
+    monkeypatch.setattr(ms, "_refuse_read_only", lambda plan, options: None, raising=False)
+    os.chmod(path, 0o444)
+    try:
+        before = _all_paths(save)
+        with pytest.raises(ms.MoveError, match="every file was put back") as caught:
+            ms.move_slot(save, 1, 2, processes=Processes(), now=NOW)
+        assert "could not be put back" not in str(caught.value)
+        assert _all_paths(save) == before
+        assert not os.access(path, os.W_OK)                          # still read-only, as it was
+    finally:
+        os.chmod(path, 0o666)
+
+
 def test_a_running_game_refuses_and_nothing_changes(save):
     before = everything(save)
     with pytest.raises(ms.GameRunning, match="Close the game first"):

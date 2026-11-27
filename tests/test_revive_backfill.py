@@ -137,6 +137,38 @@ def test_an_older_save_gives_who_they_were_and_infers_the_rest(folder):
     assert struct.unpack_from("<i", s.raw, rb.E_BIO + 0xC)[0] == 17
 
 
+def test_a_dead_heir_whose_body_changed_since_her_tree_entry_is_found_from_her_own_record(folder):
+    # The end-to-end check (2026-11-27, Vesta): an heir died in the house (health 0, her record kept), and the Family
+    # Tree entry still holds the body she had when she was entered. The backfill matched on the body and missed her
+    # own record, so she came back "unknown -> 20". Name, sex and head decide; the body is only a tiebreak.
+    villagers = {0: villager_record(name="Ann", sex=1, age=1260, head=43, body=27, health=0, cause=2),
+                 1: villager_record(name="Bob", sex=0, age=620, head=12, body=19),
+                 3: villager_record(name="Dee", sex=1, age=240, head=13, body=14)}
+    ann = peep("Ann", sex=1, head=43, body=3, slot=-1, index=-1)
+    bob = peep("Bob", sex=0, head=12, body=19, slot=1)
+    (folder / "Virtual Families1.ldw").write_bytes(build_save(villagers, [family_record(ann, bob, [])]))
+    rb.backfill(folder, game_running=False, now=NOW)
+    s = {x.name: x for x in snapshots(folder)}["Ann"]
+    assert s.source == rb.SOURCE_STALE
+    assert (s.age_units, s.cause, s.head, s.body, s.role) == (1260, 2, 43, 27, 0)
+    assert s.marks()["age at death"] == "exact" and s.marks()["cause of death"] == "exact"
+
+
+def test_two_dead_namesakes_are_told_apart_by_the_body_then_the_age(folder):
+    # A father and his namesake son, both dead, both records kept, the same head: the tree entry's body picks the
+    # son's own record; with neither body matching, the log's age at death does.
+    villagers = {0: villager_record(name="Ann", sex=1, age=600, head=43, body=3),
+                 1: villager_record(name="Bob", sex=0, age=1300, head=12, body=40, health=0, cause=2),
+                 2: villager_record(name="Bob", sex=0, age=163, head=12, body=12, health=0, cause=0)}
+    ann = peep("Ann", sex=1, head=43, body=3, slot=0, index=-1)
+    kids = [peep("Bob", sex=0, head=12, body=12, slot=-1)]
+    d = rb.Dead("Bob", 0, 12, 12, 1, 2, None, bytes(rb.PEEP_SIZE), bytes(rb.PEEP_SIZE))
+    save = vs.parse_save(build_save(villagers, [family_record(ann, peep(used=0), kids)]))
+    assert rb._stale(save, d).age_units == 163
+    d = rb.Dead("Bob", 0, 12, 99, 1, 1, None, bytes(rb.PEEP_SIZE), bytes(rb.PEEP_SIZE), age_years=65)
+    assert rb._stale(save, d).age_units == 1300
+
+
 def test_the_family_tree_alone_marks_the_rest_unknown(folder):
     # No record anywhere (slot reused, no older save), no log: who they were, from the tree, and nothing else.
     villagers = {0: villager_record(name="Ann", sex=1, age=600, head=43, body=3),

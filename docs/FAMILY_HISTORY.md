@@ -81,6 +81,7 @@ after 2000 records the next one opens file `<k+1>`. The slot is theGameState+0x1
   How: Founder (adopted and started the family) | Founder (after the eviction) | Heir (inherited the house)
      | Adopt New Person
   Generation: 1
+  Note: Generation 1 of the family after the eviction (...)    (after an eviction only)
 
 [...] Roll the Dice 1          [...] Evict Family 1                  [...] Start Over 1
   Cost: $500                     Family members: Ann, Bob              The earlier family's history was cleared.
@@ -127,10 +128,21 @@ e-mail)` and `Email Event: A letter from a child who left home`.
 
 - **New family** (StartNextGeneration with no generation before it, outside a load, not after Evict Family) and
   **Start Over** (the menu's confirmed call of theGameState::Restart) delete everything in `Save <N>\` except a
-  `Backups` folder in it; the new family's log opens with `Start Over 1` (after a Start Over) and `Generation 1`.
-- **Evict Family** keeps the log: everything before the `Evict Family` record belongs to the family that left.
-  A pending Evict Family or Start Over belongs to its own save slot: a new family begun in another slot in the same
-  session is that slot's new family (its folder wiped, no `Start Over` record, not "after the eviction").
+  `Backups` folder in it. Start Over then writes its `Start Over 1` record (dated then) as the slot's only record;
+  the next family's log opens with that record and `Generation 1`. (Restart saves the emptied family at once, so
+  the record never sits over a family that is still played.)
+- **Evict Family** keeps the log: everything before the `Evict Family` record belongs to the family that left; the
+  next family's records follow them, its first `Generation <k>` record (numbered on from the evicted family's)
+  saying `Founder (after the eviction)`, `Generation: 1` and `Note: Generation 1 of the family after the eviction
+  (the records before Evict Family are the family that left)`.
+- Whether a new family follows an eviction or a Start Over is read from **that slot's own log** (its last
+  `Evict Family`, `Start Over`, `Generation` or `New Generation` record), never kept in memory: it belongs to its own
+  slot (a new family begun in another slot in the same session is that slot's new family: its folder wiped, no
+  `Start Over` record, not "after the eviction"), and it survives the game being closed before the next adoption.
+- **Family role** (Death, Revived): `Parent`, `Parent (married in)` or `Child` from the current generation's
+  record; children 7 to 28 (Up to 28 Children, not in the record) are `Child` too, as vf1kids.dll's
+  `VF1Kids_IsExtraChild` answers; a parent of the generation before is `Grandparent`; anyone else is
+  `(not in the Family Tree)`.
 - **Divorce of a widowed spouse**: Divorce Spouse takes parent 2 whenever that villager lives, also after parent 1
   died with children (the game keeps parent 1 in the record with slot -1). Then nobody living is left behind, and
   the record says `Family member: (none)` with no `Current spouse` line; it never names the dead parent.

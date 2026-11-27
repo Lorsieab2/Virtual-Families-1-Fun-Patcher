@@ -111,7 +111,8 @@ def test_every_member_is_listed_with_the_saves_own_values(tmp_path, name):
             job = gm.CAREER_LIST[career]
             assert f"Career: {job.name} (career room {job.room}, " in body
             assert f"{gm.LEVELS[level]} (level {level + 1} of 8); progress {progress:,} of 3,000" in body
-            assert f"salary ${salary:,}: ${gm._hourly(salary)} per hour of game time" in body
+            assert f"salary ${salary:,}: ${salary / 4:,.2f} per hour of game time" in body
+            assert ("(top level, no further promotion)" in body) == (level == 7)
         likes = [fam.LIKE_WORDS[i] for i in struct.unpack_from("<3i", data, r + 0x150) if i != -1]
         dislikes = [fam.LIKE_WORDS[i] for i in struct.unpack_from("<3i", data, r + 0x15C) if i != -1]
         assert f"Likes: {', '.join(likes) or 'none'}. Dislikes: {', '.join(dislikes) or 'none'}." in body
@@ -120,8 +121,8 @@ def test_every_member_is_listed_with_the_saves_own_values(tmp_path, name):
         conceived = i32(data, r + 0xCC)
         if conceived:
             babies = {1: "1 baby", 2: "twins", 3: "triplets"}[i32(data, r + 0xD0)]
-            assert f"Pregnant with {babies}, conceived at age unit {conceived:,}: born on age unit {conceived + 21:,}" \
-                in body
+            assert (f"Pregnant with {babies}, conceived at the mother's age unit {conceived:,}: born at her age unit "
+                    f"{conceived + 21:,}") in body
 
 
 def test_every_family_tree_likes_are_the_same_words():
@@ -189,15 +190,15 @@ def test_sickness_infection_food_groups_and_a_whole_name(tmp_path):
     assert "Not sick by the game's test (no symptom), but carries a serious infection (Vancomycin cures it)" in body
     assert f"Whole name: Kikino Wholename-Smith; the save keeps the short form \"{short}\"" in body
     assert (f"Grains until {fam.when(s, saved + 3600)}, Meats until {fam.when(s, saved + 50)}. "
-            "The game counts 2.") in body
+            "The game's count is 2.") in body
     assert "Spouse: Kikino Wholename-Smith" in rose
 
 
 def test_pregnancy_father_and_the_unborn_child(tmp_path):
     facts = fam.facts(put(tmp_path / "save", fixture("pregnant_unborn_baby")))
     rose = "\n".join(lines_of(facts, "Rosella"))
-    assert ("Pregnant with 1 baby, conceived at age unit 541: born on age unit 562, 20 age units to go (3 hours 20 "
-            "minutes of game time: 3 hours 20 minutes real time on Normal") in rose
+    assert ("Pregnant with 1 baby, conceived at the mother's age unit 541: born at her age unit 562, 20 age units "
+            "to go (3 hours 20 minutes of game time: 3 hours 20 minutes real time on Normal") in rose
     assert "the father's looks are Kikino's (the save keeps the father's name as \"Joey\"" in rose
     assert "Children in the save's Family Tree: Bohi (on the way, not born yet)." in rose
     assert facts[-1].text.startswith("Babies on the way: 1,")
@@ -217,6 +218,57 @@ def test_spouse_heir_parents_and_children(tmp_path):
     assert "Left home: they stay in the save but never age or update again" in dico
     assert "Parents: Vesta and Bengor (the save's Family Tree)." in dico
     assert "married into the family, generation 6" in "\n".join(lines_of(facts, "Bengor"))
+
+
+def _tree_peep_at(data: bytes, generation: int, name: str) -> int:
+    """The file offset of `name`'s entry in the save's Family Tree record of `generation`."""
+    rec = header_size(data) + vf1_save.GS_FAMILY_TREE - vf1_save.GS_BASE + (generation - 1) * 0x6C8
+    for at in [rec + 4, rec + 0xDC] + [rec + 0x1B8 + k * 0xD8 for k in range(6)]:
+        if data[at:at + len(name) + 1] == name.encode() + b"\0":
+            return at
+    raise KeyError(name)
+
+
+def test_the_end_to_end_checks_wording(tmp_path):
+    """The end-to-end check (2026-11-27): the dead have no next birthday, a widowed spouse names the one who died,
+    a Master's progress is the top level, a spouse who married in has no founder guess list, pay has two decimals,
+    a food-group count with no group says why, and the cause of a death says how sure it is."""
+    data = bytearray(fixture("generation6_left_home"))
+    s = vf1_save.parse_save(bytes(data))
+    by = {v.name: v for v in s.household()}
+    r = record_at(bytes(data), by["Vesta"].slot)
+    struct.pack_into("<ii", data, r + 0xB4, 0, 2)                       # Vesta dies of old age, her body at home
+    struct.pack_into("<i", data, _tree_peep_at(bytes(data), 6, "Vesta") + 0x28, -1)    # ReportDeath
+    t = record_at(bytes(data), by["Tilde"].slot)
+    struct.pack_into("<ii", data, t + 0xB4, 0, 0)                       # Tilde dies of cause 0
+    facts = fam.facts(put(tmp_path / "save", bytes(data)))
+    vesta = lines_of(facts, "Vesta")
+    assert vesta[0] == ("Vesta: Female, died at 41 years (827 age units); health 0. The body is still in the house "
+                        "(it is removed 240 age units after their last update; see Old age and death).")
+    cause = next(f for f in facts if f.text.startswith("The cause the save keeps: 2"))
+    assert cause.text == "The cause the save keeps: 2, Old age (the old-age roll's own cause)." and cause.label == fam.C
+    tilde = next(f for f in facts if f.text.startswith("The cause the save keeps: 0"))
+    assert tilde.label == fam.U and "probably Disease" in tilde.text
+    assert not any("more to the next birthday" in line for f in facts for line in [f.text]
+                   if f.text.startswith(("Vesta:", "Tilde:")))
+    bengor = "\n".join(lines_of(facts, "Bengor"))
+    assert "Spouse: Vesta (died; the save's Family Tree, generation 6)." in bengor
+    assert "Parents: none: married into the family; the save keeps no parents for them." in bengor
+    assert "a founder, an adopted child" not in bengor
+    assert "Master (level 8 of 8); progress 3,000 of 3,000 (top level, no further promotion)" in bengor
+    assert "salary $95: $23.75 per hour of game time" in bengor
+    # A grown-up with no career and no food group now, whose count is still 1 (the fifth slot: no career, and the
+    # low byte of the Grains end still set): the count says why.
+    p = record_at(bytes(data), by["Pennella"].slot)
+    data[p + 0x12C:p + 0x130] = b"\0\0\0\0"
+    struct.pack_into("<I", data, p + 0x130, 0x101)
+    data[p + 0x130 + 16:p + 0x130 + 20] = struct.pack("<i", -1)
+    facts = fam.facts(put(tmp_path / "save2", bytes(data)))
+    line = next(f.text for f in facts if f.text.startswith("Food groups") and f in facts[
+        facts.index(next(x for x in facts if x.text.startswith("Pennella:"))):])
+    assert line.endswith("none. The game's count is 1 because every family member without a career gets one extra "
+                         "once they have had Grains (see Needs and upkeep), even with no group now.")
+    assert "The game counts" not in "\n".join(f.text for f in facts)
 
 
 def test_every_time_names_its_clock_and_nothing_names_a_sex_rule(tmp_path):

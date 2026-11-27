@@ -590,10 +590,17 @@ def test_start_over_wipes_the_slot_but_keeps_backups_and_says_so(built):
     w.fs.write(w.root() + "\\Backups\\b.txt", b"b")
     w.start_over()
     assert w.restarts == [w.state]
-    assert w.fs.under(w.root()) == [w.fs.key(w.root() + "\\Backups\\b.txt")]
+    # The slot's folder is wiped, Backups kept; its log holds only the Start Over record until the next family.
+    log = w.root() + "\\Logs\\Family History\\Family History 1.txt"
+    assert w.fs.under(w.root()) == sorted([w.fs.key(w.root() + "\\Backups\\b.txt"), w.fs.key(log)])
+    assert w.history() == ("Family: Hopkins (Save 1)\r\n" + STAMP + "Start Over 1\r\n"
+                           "  The earlier family's history was cleared.\r\n\r\n")
     w.reset_tree()
+    w.set_family_name("Newman")
     w.start_family(0, "Nia", 1, 30)
     assert w.headings() == [STAMP + "Start Over 1", STAMP + "Generation 1"]
+    assert w.history().startswith("Family: Newman (Save 1)\r\n" + STAMP + "Start Over 1\r\n")
+    assert w.fs.read(w.root() + "\\Backups\\b.txt") == b"b"
 
 
 @pytest.mark.parametrize("leave", ["evict", "start over"])
@@ -615,6 +622,124 @@ def test_a_pending_eviction_or_start_over_never_reaches_another_slot(built, leav
     assert w.headings(2) == [STAMP + "Generation 1"], w.headings(2)
     assert "  How: Founder (adopted and started the family)\n" in find(w, "Generation 1", slot=2)
     assert w.history(1) == one, "nothing more in Save 1's log"
+
+
+def _evict(w):
+    w.event(2)
+    w.reset_tree()                                          # vf1fun's Evict Family resets the tree after the log call
+
+
+def _new_family_in(w, slot, name, family="Newman"):
+    w.reset_tree()
+    w.set_slot(slot)
+    assert w.load(slot) == 1
+    w.set_family_name(family)
+    w.start_family(3, name, 1, 30)
+
+
+def test_an_eviction_then_a_new_family_in_another_slot_keeps_the_evicted_log(built):
+    """The end-to-end check (2026-11-26): Evict Family in Save 1, a new family in Save 2 in the same session, then
+    the next adoption in Save 1 wiped the evicted family's whole log (the pending eviction was one flag for every
+    slot). The eviction is Save 1's own: its records stay and the new family's follow."""
+    w = family(built)
+    _evict(w)
+    one = w.history(1)
+    _new_family_in(w, 2, "Fay")
+    assert w.headings(2) == [STAMP + "Generation 1"]
+    assert "  How: Founder (adopted and started the family)\n" in find(w, "Generation 1", slot=2)
+    assert w.history(1) == one
+    _new_family_in(w, 1, "Nia", family="Hopkins")
+    text = w.history(1)
+    assert text.startswith(one), "the evicted family's records stay, untouched"
+    assert w.headings(1) == [STAMP + "Generation 1", STAMP + "Marriage 1", STAMP + "Evict Family 1",
+                             STAMP + "Generation 2"]
+    assert find(w, "Generation 2", slot=1) == body(
+        STAMP + "Generation 2", "  Name: Nia", "  Age: 30", "  Sex: Female", "  Head: 3", "  Body: 4",
+        "  How: Founder (after the eviction)", "  Generation: 1",
+        "  Note: Generation 1 of the family after the eviction (the records before Evict Family are the family "
+        "that left)")
+    assert w.status()["wipes"] == 2, "Save 1's first family and Save 2's: never the evicted log"
+
+
+def _restarted(built, w):
+    """The game closed and started again: a new process, the DLL's memory fresh, the same files."""
+    from history_scenarios import HistoryWorld
+    w2 = HistoryWorld(built["exe"], built["dll"])
+    w2.fs.files.update(w.fs.files)
+    w2.fs.dirs |= w.fs.dirs
+    return w2
+
+
+def test_an_eviction_survives_the_game_being_closed_before_the_next_family(built):
+    w = family(built)
+    _evict(w)
+    one = w.history(1)
+    w2 = _restarted(built, w)
+    _new_family_in(w2, 1, "Nia", family="Hopkins")          # an evicted save holds no family: no backfill
+    assert w2.history(1).startswith(one)
+    assert "  How: Founder (after the eviction)\n" in find(w2, "Generation 2", slot=1)
+    assert w2.status()["wipes"] == 0
+
+
+@pytest.mark.parametrize("restart", [False, True])
+def test_a_start_over_is_its_own_slots_after_another_slots_family_or_a_restart(built, restart):
+    """Start Over in Save 1, then a new family in Save 2 (or the game closed), then Save 1's new family: Save 1's
+    new log opens with its Start Over record, dated when it happened; Save 2's has none."""
+    w = family(built)
+    w.start_over()
+    stamp_record = w.history(1).split("\r\n", 1)[1]
+    if restart:
+        w = _restarted(built, w)
+    else:
+        _new_family_in(w, 2, "Fay")
+        assert w.headings(2) == [STAMP + "Generation 1"]
+    _new_family_in(w, 1, "Nia")
+    assert w.headings(1) == [STAMP + "Start Over 1", STAMP + "Generation 1"]
+    assert w.history(1).split("\r\n", 1)[1].startswith(stamp_record)
+    assert "  How: Founder (adopted and started the family)\n" in find(w, "Generation 1", slot=1)
+
+
+def test_a_new_family_after_a_full_family_still_starts_a_new_log(built):
+    """Only a log whose last family record is Evict Family is continued: a slot whose family began (Generation) and
+    then got a brand-new founder (the game's own Delete Family, then a new game) is wiped as before."""
+    w = family(built)
+    w.reset_tree()
+    w.start_family(3, "Nia", 1, 30)
+    assert w.headings() == [STAMP + "Generation 1"]
+    assert "  Name: Nia\n" in find(w, "Generation 1")
+
+
+def test_a_grandparents_death_has_the_grandparent_role(built):
+    # The end-to-end check: a grandparent's death read "Family role: (not in the Family Tree)".
+    w = family(built)
+    w.set_villager(2, "Kid", 1, years=20, career=5)
+    w.e.call(ADD_OFFSPRING, (w.villager(2),), ecx=L.FAMILY_TREE)
+    w.next_generation(2, 0)
+    assert w.generations() == 2
+    w.die(0, cause=2)
+    assert "  Family role: Grandparent\n" in find(w, "Death 1")
+
+
+def test_a_child_seven_to_twenty_eight_has_the_child_role(built):
+    """Up to 28 Children keeps children 7..28 out of the record; vf1kids.dll's VF1Kids_IsExtraChild names them."""
+    asked = []
+
+    def kids(w):
+        w.e.modules["vf1kids.dll"] = 0x6F000000
+
+        def is_extra(emu):
+            name = emu.read(emu.arg(2), 26).split(b"\0", 1)[0]
+            asked.append((emu.arg(0), emu.arg(1), name))
+            return (1 if (emu.arg(0), name) == (9, b"Sev") else 0), 0
+        w.e.dyn_procs["VF1Kids_IsExtraChild"] = is_extra
+    w = family(built, before_install=kids)
+    w.set_villager(9, "Sev", 0, years=8, career=-1)
+    w.die(9, cause=0)
+    assert "  Family role: Child\n" in find(w, "Death 1")
+    assert (9, 0, b"Sev") in asked
+    w.set_villager(10, "Out", 1, years=40, career=-1)
+    w.die(10, cause=2)
+    assert "  Family role: (not in the Family Tree)\n" in find(w, "Death 2")
 
 
 def test_records_roll_into_the_next_file_after_2000(built):
