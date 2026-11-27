@@ -20,7 +20,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:234",
-    "native/vf1fun/family_page.inc:249"
+    "native/vf1fun/family_page.inc:257"
    ]
   },
   {
@@ -32,7 +32,7 @@
    "where": [
     "native/vf1fun/appearance_page.inc:78",
     "native/vf1fun/appearance_page.inc:235",
-    "native/vf1fun/family_page.inc:248"
+    "native/vf1fun/family_page.inc:256"
    ]
   },
   {
@@ -113,8 +113,8 @@
    "format": false,
    "where": [
     "native/vf1fun/appearance_page.inc:239",
-    "native/vf1fun/family_page.inc:143",
-    "native/vf1fun/family_page.inc:276",
+    "native/vf1fun/family_page.inc:151",
+    "native/vf1fun/family_page.inc:284",
     "native/vf1fun/pages.inc:99",
     "native/vf1fun/pages.inc:171",
     "native/vf1fun/pages.inc:291",
@@ -355,7 +355,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/family_page.inc:47"
+    "native/vf1fun/family_page.inc:55"
    ]
   },
   {
@@ -365,7 +365,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:49"
+    "native/vf1fun/family_page.inc:57"
    ]
   },
   {
@@ -375,7 +375,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:49"
+    "native/vf1fun/family_page.inc:57"
    ]
   },
   {
@@ -385,7 +385,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/family_page.inc:55"
+    "native/vf1fun/family_page.inc:63"
    ]
   },
   {
@@ -395,7 +395,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:56"
+    "native/vf1fun/family_page.inc:64"
    ]
   },
   {
@@ -405,7 +405,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:72"
+    "native/vf1fun/family_page.inc:80"
    ]
   },
   {
@@ -415,7 +415,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:84"
+    "native/vf1fun/family_page.inc:92"
    ]
   },
   {
@@ -425,7 +425,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:85"
+    "native/vf1fun/family_page.inc:93"
    ]
   },
   {
@@ -435,8 +435,8 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:92",
-    "native/vf1fun/family_page.inc:93"
+    "native/vf1fun/family_page.inc:100",
+    "native/vf1fun/family_page.inc:101"
    ]
   },
   {
@@ -446,7 +446,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:94"
+    "native/vf1fun/family_page.inc:102"
    ]
   },
   {
@@ -456,7 +456,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:95"
+    "native/vf1fun/family_page.inc:103"
    ]
   },
   {
@@ -466,7 +466,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:98"
+    "native/vf1fun/family_page.inc:106"
    ]
   },
   {
@@ -476,7 +476,7 @@
    "drawn_by_game": false,
    "format": true,
    "where": [
-    "native/vf1fun/family_page.inc:120"
+    "native/vf1fun/family_page.inc:128"
    ]
   },
   {
@@ -486,7 +486,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:138"
+    "native/vf1fun/family_page.inc:146"
    ]
   },
   {
@@ -496,7 +496,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:142"
+    "native/vf1fun/family_page.inc:150"
    ]
   },
   {
@@ -506,7 +506,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:188"
+    "native/vf1fun/family_page.inc:196"
    ]
   },
   {
@@ -516,7 +516,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:189"
+    "native/vf1fun/family_page.inc:197"
    ]
   },
   {
@@ -526,7 +526,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:211"
+    "native/vf1fun/family_page.inc:219"
    ]
   },
   {
@@ -536,7 +536,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:214"
+    "native/vf1fun/family_page.inc:222"
    ]
   },
   {
@@ -546,7 +546,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:237"
+    "native/vf1fun/family_page.inc:245"
    ]
   },
   {
@@ -556,7 +556,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:239"
+    "native/vf1fun/family_page.inc:247"
    ]
   },
   {
@@ -566,7 +566,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:240"
+    "native/vf1fun/family_page.inc:248"
    ]
   },
   {
@@ -576,7 +576,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:241"
+    "native/vf1fun/family_page.inc:249"
    ]
   },
   {
@@ -586,7 +586,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:242"
+    "native/vf1fun/family_page.inc:250"
    ]
   },
   {
@@ -596,7 +596,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:243"
+    "native/vf1fun/family_page.inc:251"
    ]
   },
   {
@@ -606,7 +606,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:244"
+    "native/vf1fun/family_page.inc:252"
    ]
   },
   {
@@ -616,7 +616,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:245"
+    "native/vf1fun/family_page.inc:253"
    ]
   },
   {
@@ -626,7 +626,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:246"
+    "native/vf1fun/family_page.inc:254"
    ]
   },
   {
@@ -636,7 +636,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:247"
+    "native/vf1fun/family_page.inc:255"
    ]
   },
   {
@@ -646,7 +646,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:250"
+    "native/vf1fun/family_page.inc:258"
    ]
   },
   {
@@ -656,7 +656,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:251"
+    "native/vf1fun/family_page.inc:259"
    ]
   },
   {
@@ -666,7 +666,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:252"
+    "native/vf1fun/family_page.inc:260"
    ]
   },
   {
@@ -676,7 +676,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:253"
+    "native/vf1fun/family_page.inc:261"
    ]
   },
   {
@@ -686,7 +686,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:254"
+    "native/vf1fun/family_page.inc:262"
    ]
   },
   {
@@ -696,7 +696,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:255"
+    "native/vf1fun/family_page.inc:263"
    ]
   },
   {
@@ -706,7 +706,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:261"
+    "native/vf1fun/family_page.inc:269"
    ]
   },
   {
@@ -716,7 +716,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:262"
+    "native/vf1fun/family_page.inc:270"
    ]
   },
   {
@@ -726,7 +726,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:264"
+    "native/vf1fun/family_page.inc:272"
    ]
   },
   {
@@ -736,7 +736,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:266"
+    "native/vf1fun/family_page.inc:274"
    ]
   },
   {
@@ -746,7 +746,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:267"
+    "native/vf1fun/family_page.inc:275"
    ]
   },
   {
@@ -756,7 +756,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:268"
+    "native/vf1fun/family_page.inc:276"
    ]
   },
   {
@@ -766,7 +766,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:269"
+    "native/vf1fun/family_page.inc:277"
    ]
   },
   {
@@ -776,7 +776,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:271"
+    "native/vf1fun/family_page.inc:279"
    ]
   },
   {
@@ -786,7 +786,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:272"
+    "native/vf1fun/family_page.inc:280"
    ]
   },
   {
@@ -796,7 +796,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:273"
+    "native/vf1fun/family_page.inc:281"
    ]
   },
   {
@@ -806,7 +806,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:274"
+    "native/vf1fun/family_page.inc:282"
    ]
   },
   {
@@ -816,7 +816,7 @@
    "drawn_by_game": false,
    "format": false,
    "where": [
-    "native/vf1fun/family_page.inc:275"
+    "native/vf1fun/family_page.inc:283"
    ]
   },
   {
