@@ -152,7 +152,7 @@ def test_every_trophy_is_listed_and_the_dead_one_is_marked():
 def test_careers_pay_per_hour_of_game_time():
     listed = [f for f in FACTS if f.group == gm.CAREERS and "per hour of game time as a Beginner" in f.text]
     assert len(listed) == 108
-    assert "BBQ Sauce Creator (room 1): $1.25 per hour of game time as a Beginner, $57.5 as a Master" in \
+    assert "BBQ Sauce Creator (room 1): $1.25 per hour of game time as a Beginner, $57.50 as a Master" in \
         listed[2].text
     find(r"one piece for every 400 of the weight of their room's Working on career action", gm.CAREERS)
     find(r"Its weight starts at 500", gm.CAREERS)
