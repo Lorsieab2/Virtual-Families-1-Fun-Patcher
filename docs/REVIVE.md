@@ -29,7 +29,8 @@ owner's decisions of 2026-11-26 (one per line below). Not yet tested in a runnin
   passes) when the game's own GetPatriarch does not name him.
 - **The same person**: name (a long name's whole name: the Names file gives back its short form), sex, head and body,
   the parents' names and looks, likes and dislikes, career (career, level and salary as at death: the game keeps no
-  career history), fertility and "Wants kids?". **Moods and needs start fresh** (the game's own new villager), and
+  career history), fertility, "Wants kids?" and, with Skin Tones on, their skin tone and birth tone (a snapshot
+  without one, from before Skin Tones or a backfill, leaves the random tone any newcomer gets). **Moods and needs start fresh** (the game's own new villager), and
   health, the ageing clocks, pregnancy and the left-home flag are the new villager's.
 - **Current generation only**: the snapshot's generation must be the tree's, and its family (parent 1 then, or the
   spouse who took parent 1's place after a childless founder died) must be the family now.
@@ -67,7 +68,8 @@ History log), a 2-bit mark per field (unknown / inferred / exact: name, sex, hea
 likes, dislikes, career, fertility, wants kids, age at death, cause, family tree, whole name, generation), the slot at
 death, the family role, the generation, the log's death number, the capture time, the slot they came back in, then the
 game's own blocks as at the death: CVillagerBio (0xA0), CVillagerState (0x98), the career (0x10), likes and dislikes
-(0x18), their Family Tree entry and the generation's two parent entries (0xD8 each), and the whole name.
+(0x18), their Family Tree entry and the generation's two parent entries (0xD8 each), the whole name, and in the last
+four bytes (offset 2252) vf1skin.dll's skin tone and birth tone (zeros when Skin Tones was off).
 
 A revival writes back only the fields marked known; an unknown one keeps the new villager's own value. A snapshot
 whose age at death is unknown comes back at 20. The entry also keeps how they came back (+44), so the grown-up rule
