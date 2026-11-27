@@ -276,6 +276,28 @@ def test_a_child_comes_back_as_who_they_were_at_the_age_they_died(built):
     assert w.info(0)["state"] == 2 and w.status()["revived"] == 1
 
 
+def test_they_come_back_in_their_own_skin_tone(built):
+    # vf1skin.dll's two bytes are kept at the death and given back to the new villager.
+    w = family(built)
+    w.load_skin()
+    personalise(w, 2)
+    w.skin_tones[2] = (8, 6)                       # Deep brown, born Warm brown
+    w.die(2)
+    slot, _how = w.revive(0)
+    assert slot >= 0 and w.skin_given == [(slot, 8, 6)]
+
+
+def test_a_snapshot_without_a_tone_leaves_the_newcomers_tone(built):
+    # Skin Tones off at the death (or a backfilled snapshot): nothing is given, so the new villager keeps the random
+    # tone Skin Tones gives any newcomer.
+    w = family(built)
+    personalise(w, 2)
+    w.die(2)
+    w.load_skin()
+    slot, _how = w.revive(0)
+    assert slot >= 0 and w.skin_given == []
+
+
 def test_died_at_20_or_older_comes_back_at_exactly_20_with_their_career(built):
     w = family(built)
     personalise(w, 0, career=(12, 3, 10, 2500))

@@ -134,7 +134,11 @@ class ReviveWorld(HistoryWorld):
         e.dyn_procs.update({
             "VF1Kids_IsExtraChild": self._kids_is_extra,
             "VF1Kids_Revived": self._kids_revived,
+            "VF1Skin_ToneOf": self._skin_tone_of,
+            "VF1Skin_ToneGive": self._skin_tone_give,
         })
+        self.skin_tones = {}          # slot -> (tone, birth), what the stand-in vf1skin.dll answers
+        self.skin_given = []          # (slot, tone, birth) of every ToneGive
 
     def _island_events(self):
         """Not used here: the Family History harness's event dialog stand-in would take every DoModal (0x401B10),
@@ -149,9 +153,23 @@ class ReviveWorld(HistoryWorld):
         self.kids_revived.append((s32(emu.arg(0)), emu.arg(1), emu.cstr(emu.arg(2)), s32(emu.arg(3))))
         return 1, 0
 
+    def _skin_tone_of(self, emu):
+        tone, birth = self.skin_tones.get(s32(emu.arg(0)), (0, 0))
+        if emu.arg(1):
+            emu.w32(emu.arg(1), birth)
+        return tone, 0
+
+    def _skin_tone_give(self, emu):
+        self.skin_given.append((s32(emu.arg(0)), s32(emu.arg(1)), s32(emu.arg(2))))
+        return 1, 0
+
     def load_kids(self):
         """vf1kids.dll is loaded (its two exports answer from extra_children)."""
         self.e.modules["vf1kids.dll"] = 0x6F000000
+
+    def load_skin(self):
+        """vf1skin.dll is loaded (its two exports answer from skin_tones and record skin_given)."""
+        self.e.modules["vf1skin.dll"] = 0x6E000000
 
     # ------------------------------------------------------------------ the game
     def add_child(self, slot, name, sex, years=8, **kw):

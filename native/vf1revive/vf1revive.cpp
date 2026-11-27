@@ -191,6 +191,8 @@ static FARPROC TextFunction(const char *name) {
 
 typedef int (__cdecl *KidsExtraFn)(int slot, int gender, const char *name);
 typedef int (__cdecl *KidsRevivedFn)(int oldSlot, int gender, const char *name, int newSlot);
+typedef int (__cdecl *SkinToneOfFn)(int slot, int *birth);
+typedef int (__cdecl *SkinToneGiveFn)(int slot, int tone, int birth);
 
 // ================================================================ the snapshots
 // One entry, exactly as the sidecar holds it (patcher/vf1_revive_backfill.py ENTRY_LAYOUT is the same table):
@@ -215,6 +217,7 @@ enum {
     E_PARENT2 = 832,       // ... and parent 2
     E_WHOLE = 1048,        // the whole name (the Names file's), stored form, NUL-terminated
     E_WHOLE_SIZE = 1204,
+    E_SKIN = 2252,         // vf1skin.dll's two bytes at death: the tone (0 none, 1..10, 15 game's own) and the birth tone
     kEntry = 2256,
 };
 enum { STATE_DEAD = 1, STATE_REVIVED = 2 };
@@ -335,6 +338,12 @@ static void Capture(const unsigned char *v) {
     unsigned w = Length(whole);
     if (w >= E_WHOLE_SIZE) w = E_WHOLE_SIZE - 1;
     Copy(e + E_WHOLE, whole, w);
+    SkinToneOfFn toneOf = (SkinToneOfFn)Companion(L"vf1skin.dll", "VF1Skin_ToneOf");
+    if (toneOf) {
+        int birth = 0, tone = toneOf(slot, &birth);
+        e[E_SKIN] = (unsigned char)tone;
+        e[E_SKIN + 1] = (unsigned char)birth;
+    }
     ++VF1Revive_Status.captured;
 }
 
@@ -1077,6 +1086,9 @@ static int Revive(unsigned i, int *how) {
         return -REVIVE_FAILED;
     }
     *how = ReplaceInTree(e, slot, stored);
+    // The skin tone they had (a snapshot without one, or Skin Tones off: the newcomer's random tone stands).
+    SkinToneGiveFn toneGive = (SkinToneGiveFn)Companion(L"vf1skin.dll", "VF1Skin_ToneGive");
+    if (toneGive && e[E_SKIN]) toneGive(slot, e[E_SKIN], e[E_SKIN + 1]);
     W32(e, E_STATE, STATE_REVIVED);
     W32(e, E_REVIVED_SLOT, slot);
     W32(e, E_HOW, *how);
