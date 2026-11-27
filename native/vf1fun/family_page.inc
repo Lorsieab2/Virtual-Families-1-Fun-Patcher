@@ -36,16 +36,24 @@ static void RefreshFamily(HWND dlg) {
 // they would come back at, whether every detail is exact, and why one cannot be brought back now.
 enum { ID_RV_MONEY = 740, ID_RV_LIST, ID_RV_INFO, ID_RV_REVIVE };
 
+// The two ages on a line, in years (20 age units each). The age at death is "?" when it is not known; the age they
+// come back at is always vf1revive's own (info[8], the age ReviveAge spawns them at), so an unknown age at death
+// shows "back at 20" (the owner: unknown -> 20), never "back at ?".
+static void ReviveAgeTexts(const int *info, wchar_t *died, wchar_t *back, int cap) {
+    if (info[10]) swprintf(died, cap, L"%d", info[3] / 20);
+    else swprintf(died, cap, L"?");
+    swprintf(back, cap, L"%d", info[8] / 20);
+}
+
 static void ReviveLine(int i, const int *info, wchar_t *line, int cap) {
     const char *cause = GetString(StringsGet(), 0x507 + 1 + (info[4] >= -1 && info[4] <= 4 ? info[4] : -1));
     const wchar_t *why = ReviveRefusal(info[1]);
     wchar_t died[24], back[24];
-    swprintf(died, 24, L"%d", info[3] / 20);       // years: 20 age units each
-    swprintf(back, 24, L"%d", info[8] / 20);
+    ReviveAgeTexts(info, died, back, 24);
     wchar_t causeText[64];
     swprintf(causeText, 64, L"%.60ls", cause ? NameW(cause, 64) : L"");
     swprintf(line, cap, TR(L"%.40ls\tdied at %ls, %ls\tback at %ls%ls"), NameW(ReviveName(i), 0x19),
-             info[10] ? died : L"?", causeText, info[10] ? back : L"?",
+             died, causeText, back,
              why ? TR(L"  (cannot now)") : info[7] ? L"" : TR(L"  (some details not known)"));
 }
 

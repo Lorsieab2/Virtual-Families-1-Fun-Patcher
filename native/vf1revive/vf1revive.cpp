@@ -7,7 +7,7 @@
 // and Guaranteed Cheats is on; the price is vf1fun's kRevivePrice). They come back as the same person: the name (the
 // whole name of the Names file too), sex, head and body, the parents' names and looks, likes and dislikes, career,
 // fertility and "Wants kids?". Their moods and needs start fresh (the game's own new villager). Someone who died at
-// 18 or older comes back at exactly the game's 18-year mark (360 age units); someone who died younger comes back at the
+// 20 or older comes back at exactly the game's 20-year mark (400 age units); someone who died younger comes back at the
 // age they died at, in the game's own units. Only the current generation, for now.
 //
 // How: a snapshot is taken at every death, from the game's memory, BEFORE the Family Tree forgets the person (the two
@@ -225,7 +225,7 @@ enum { SOURCE_CAPTURED = 1 };
 enum { FIELD_NAME, FIELD_SEX, FIELD_HEAD, FIELD_BODY, FIELD_VOICE, FIELD_NAME_INDEX, FIELD_PARENTS, FIELD_LIKES,
        FIELD_DISLIKES, FIELD_CAREER, FIELD_FERTILITY, FIELD_WANTS_KIDS, FIELD_AGE, FIELD_CAUSE, FIELD_TREE,
        FIELD_WHOLE_NAME, FIELD_GENERATION, FIELD_COUNT };
-// MARK_UNKNOWN_ADULT: the age at death only, when the backfill could not find it: "unknown -> 18".
+// MARK_UNKNOWN_ADULT: the age at death only, when the backfill could not find it: "unknown -> 20".
 enum { MARK_UNKNOWN = 0, MARK_INFERRED = 1, MARK_EXACT = 2, MARK_UNKNOWN_ADULT = 3 };
 enum { BIO_AGE = 0, BIO_SEX = 4, BIO_NAME_INDEX = 8, BIO_VOICE = 0xC, BIO_NAME = 0x10, BIO_HEAD = 0x2C, BIO_BODY = 0x30,
        BIO_PARENTS = 0x34, BIO_PARENTS_SIZE = 0x44, ST_CAUSE = 0x10, ST_FERTILITY = 0x4C, ST_WANTS_KIDS = 0x50 };
