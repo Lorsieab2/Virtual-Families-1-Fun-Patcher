@@ -27,7 +27,7 @@ def test_the_tables_agree():
     tables = (ROOT / "native" / "vf1skin" / "skin_tables.h").read_text(encoding="utf-8")
     for name in st.TONE_NAMES:
         assert f'{{ "{name}",' in tables
-    assert '{ "Default",' in tables and st.DEFAULT_NAME == "Default"
+    assert '{ "Game\'s own",' in tables and st.DEFAULT_NAME == "Game's own"
     assert "kEntry = 64, kMaxEntries = 400" in cpp and st.ENTRY == 64 and st.MAX_ENTRIES == 400
     assert '"VF1SKIN\\0"' in cpp and st.MAGIC == b"VF1SKIN\x00"
     assert "Virtual Families 1 Patcher Data\\\\Skin Tones\\\\" in cpp and st.FOLDER == "Skin Tones"
@@ -284,7 +284,7 @@ def test_change_appearance_sets_resets_and_logs(built):
     n = len(w.logged)
     assert w.set_tone(2, born) == 1 and len(w.logged) == n     # no change, no record
     assert w.set_tone(2, 11) == 0 and w.set_tone(2, 0) == 0 and w.set_tone(25, 3) == 0
-    assert [w.tone_name(t) for t in (1, 5, 10, 15, 0)] == ["Porcelain", "Copper", "Ebony", "Default", "Default"]
+    assert [w.tone_name(t) for t in (1, 5, 10, 15, 0)] == ["Porcelain", "Copper", "Ebony", "Game's own", "Game's own"]
 
 
 def test_without_the_log_a_change_still_happens(built):

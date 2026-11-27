@@ -8,7 +8,7 @@ static const double SkinFloor = 0.16, SkinCeil = 0.985, SkinShadowChroma = 0.22;
 // lightness, chroma, cos(hue), sin(hue), scale below the middle, scale above it
 struct SkinTone { const char *name; double L, chroma, cosHue, sinHue, down, up; };
 static const SkinTone SkinTones[SKIN_TONE_COUNT + 1] = {
-    { "Default", 0, 0, 0, 0, 0, 0 },
+    { "Game's own", 0, 0, 0, 0, 0, 0 },
     { "Porcelain", 0.9320840890256129, 0.03103429494138483, 0.6643244898566418, 0.7474442936946623, 1.0354204451280646, 0.8819318495731181 },
     { "Fair", 0.8674680690170884, 0.0608195453166254, 0.41856915202565753, 0.9081849288402236, 1.0, 1.0 },
     { "Light golden", 0.8093796557644442, 0.07579673013580847, 0.3789869987310116, 0.9254019963199022, 1.0, 1.0 },

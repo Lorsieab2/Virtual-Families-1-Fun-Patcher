@@ -1,7 +1,7 @@
 # Skin Tones (vf1skin.dll): design, pins and evidence (emulated, no live test)
 
 The owner's decisions (2026-11-26): ten tones, S1 Porcelain to S10 Ebony (the Virtual Villagers patcher's table and
-look), plus Default (the game's own skin). All bare skin is toned, and of the baby art only the held baby. One file per
+look), plus Game's own (the game's own skin). All bare skin is toned, and of the baby art only the held baby. One file per
 save, never a save field. Random tones for founders, arrivals and everybody already in a family when the setting is
 first on; babies inherit by the Virtual Villagers rule. The picker is a Skin tone row in Villager Cheats > Change
 Appearance; each change is an "Appearance changed" record. The masks ship as shape-only pictures. On by default, in
@@ -13,7 +13,7 @@ Select All and Owner's Defaults.
   marriage proposal portraits (the big heads and big bodies), a Random Event's picture, the Family Tree (the dead and
   those who left too) and the menu's background family. The baby a mother carries (carrying.png cell 3) is drawn in
   the baby's own tone. Hair, eyes, lips and clothes stay the game's own.
-- Villager Cheats (with Cheat Upgrades on) > Change Appearance has a Skin tone row: Default (the game's own skin),
+- Villager Cheats (with Cheat Upgrades on) > Change Appearance has a Skin tone row: Game's own (the game's own skin),
   S1 Porcelain ... S10 Ebony, and Reset to birth tone, for the picked villager or Everyone. Each change writes an
   "Appearance changed" record ("Old skin tone" / "New skin tone") to the Family History log when the log is on.
 
@@ -23,7 +23,7 @@ Select All and Owner's Defaults.
 |---|---|---|
 | A family with no tones file (the patch is new, or the file was lost) | everybody in the house and every Family Tree entry of every generation: a random tone, which is also their birth tone | `AfterLoad` -> `Reconcile(true)` |
 | Founders, adopted children, spouses, visitors, Adoption and proposal candidates (real villager records in the house, so the portrait already shows the tone they arrive with) | random | `Newcomer` |
-| A baby | rolled once, at the conception (CVillager::Impregnate spawns the babies hidden in theGameState +0x1B120/24/28): 95% `(father + mother) / 2 + rand(3) - 1` held to 1..10, 5% any tone; a parent with no tone (or Default) counts as the other parent; twins and triplets copy the first baby | `BabiesMade` (the conception call 0x48EBB2, chained) |
+| A baby | rolled once, at the conception (CVillager::Impregnate spawns the babies hidden in theGameState +0x1B120/24/28): 95% `(father + mother) / 2 + rand(3) - 1` held to 1..10, 5% any tone; a parent with no tone (or Game's own) counts as the other parent; twins and triplets copy the first baby | `BabiesMade` (the conception call 0x48EBB2, chained) |
 | vf1fun's Spawn Child (a child whose two parents are the current couple) | inherited, the same rule | `CoupleTones` |
 | A copy the game makes of someone (the death behaviour's copy, Next Generation's adult heir) | theirs (one person: a change to either changes both) | `Newcomer`, `person` |
 
@@ -65,7 +65,7 @@ checks) and uses a mask only when the game's sheet file is the very file it was 
 
 `<save folder>\Virtual Families 1 Patcher Data\Skin Tones\<save file>.dat`, the Children file's header (tag
 `VF1SKIN`), up to 400 entries of 64 bytes: slot (-1 when not in the house), sex, the stored name, the tone (0 none,
-1..10, 15 Default), the birth tone, head and body as last seen, two Family Tree places and a person number. Written
+1..10, 15 Game's own), the birth tone, head and body as last seen, two Family Tree places and a person number. Written
 after theGameState::Save of every save file (temp file, then replace), rotated with the save; after a load, the file
 naming the loaded save's FNV-1a 64 and size is used, else the backup's (slot + 20), else another save of the same
 family's; an unreadable file is renamed `.unreadable-<k>.dat`, never deleted; a file another program holds is left as

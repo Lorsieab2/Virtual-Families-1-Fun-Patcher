@@ -4,7 +4,7 @@ One place for what the patcher must agree on with native/vf1skin/vf1skin.cpp (te
 together):
 
 THE TONES. 1..10, light to dark: the owner's ten (2026-11-26), the Virtual Villagers patcher's names and colours. 15 is
-Default (the game's own skin, chosen in Change Appearance); 0 is "none yet" (drawn as Default too).
+Game's own (the game's own skin, chosen in Change Appearance); 0 is "none yet" (drawn as the game's own too).
 
 THE FILE. "<save folder>\\Virtual Families 1 Patcher Data\\Skin Tones\\<save file>.dat", one per save FILE, in the Up to
 28 Children file's layout (vf1kids.cpp): the tag "VF1SKIN\\0", version 1, "VF1V101\\0", the file's size, the FNV-1a 64
@@ -13,7 +13,7 @@ and size of the save it was written with, the generations, parent 1's slot and s
 Saves and Game Speed carry it and re-match it to a save they rewrite (vf1_genealogy.sidecar_key / children_rekeys).
 
 One entry: the villager slot (-1 when they are not in the house), sex, the stored name (25 bytes and a NUL), the tone
-(the Virtual Villagers patcher's value byte: 0 none, 1..10, 15 Default), the birth tone ("Reset to birth tone" puts it
+(the Virtual Villagers patcher's value byte: 0 none, 1..10, 15 Game's own), the birth tone ("Reset to birth tone" puts it
 back), head and body as last seen, two Family Tree places (generation 0: none) and a person number (a copy the game
 makes of someone shares it).
 """
@@ -29,7 +29,7 @@ TONE_COLOURS = ("#fbe3d7", "#f0ccaa", "#e2b88c", "#cea878", "#cc8a5a", "#b0784e"
 TONE_COUNT = len(TONE_NAMES)
 TONE_NONE = 0
 TONE_DEFAULT = 15
-DEFAULT_NAME = "Default"
+DEFAULT_NAME = "Game's own"
 LOG_WORD = "skin tone"          # "Old skin tone: ..." / "New skin tone: ..." in an "Appearance changed" record
 
 FOLDER = "Skin Tones"
@@ -41,7 +41,7 @@ MAX_ENTRIES = 400
 
 
 def tone_name(tone: int) -> str:
-    """A tone as the menus and the log write it: "Copper", or "Default" (15, or 0 for none yet)."""
+    """A tone as the menus and the log write it: "Copper", or "Game's own" (15, or 0 for none yet)."""
     return TONE_NAMES[tone - 1] if 1 <= tone <= TONE_COUNT else DEFAULT_NAME
 
 

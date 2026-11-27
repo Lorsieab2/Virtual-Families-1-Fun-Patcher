@@ -518,7 +518,7 @@ def test_a_skin_tone_change_is_an_appearance_changed_record(built):
     assert find(w, "Appearance changed 1") == body(
         STAMP + "Appearance changed 1", "  Name: Ola", "  Age: 18", "  Sex: Female", "  Head: 21", "  Body: 22",
         "  Old skin tone: Copper", "  New skin tone: Ebony", "  How: Change Appearance", "  Generation: 1")
-    assert "  Old skin tone: Ebony\n  New skin tone: Default\n" in find(w, "Appearance changed 2")
+    assert "  Old skin tone: Ebony\n  New skin tone: Game's own\n" in find(w, "Appearance changed 2")
 
 
 def test_leaving_home_at_19_uses_the_games_caption(built):
