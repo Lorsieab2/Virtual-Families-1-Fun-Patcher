@@ -22,7 +22,7 @@ import vf1_logs_sites as L  # noqa: E402
 import vf1_revive_backfill as rb  # noqa: E402
 import vf1_revive_sites as R  # noqa: E402
 import vf1_genealogy as gen  # noqa: E402
-from test_family_history import _env, need_toolchain, vanilla_exe  # noqa: E402
+from test_family_history import VCVARS, _env, need_toolchain, vanilla_exe  # noqa: E402
 
 INVALID = 0xFFFFFFFF
 
@@ -494,8 +494,76 @@ def test_an_unknown_age_at_death_comes_back_at_20(built, mark):
     w.forget()
     i = w.info(0)
     assert (i["why"], i["back_units"], i["age_known"]) == (0, 400, 0)   # Cal died at 8, but that is not known
+    # The Revive page's line (vf1fun family_page.inc): "died at ?", and "back at 20", never "back at ?" (live bug).
+    assert page_ages(page_harness_emu(), i) == ("?", "20")
     slot, _how = w.revive(0)
     assert slot >= 0 and s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == 400
+
+
+# ---------------------------------------------------------------- the Revive page's ages (vf1fun.dll)
+# vf1fun's ReviveAgeTexts, the two ages of a Revive page line, run in a harness DLL that includes vf1fun.cpp, fed the
+# VF1Revive_Info vf1revive.dll gives. Before the fix the page showed "back at ?" whenever the age at death was
+# unknown, though vf1revive brings them back at 20 (the owner's rule: unknown -> 20).
+PAGE_HARNESS = r'''
+#include "@SOURCE@"
+extern "C" __declspec(dllexport) void __cdecl T_ReviveAgeTexts(const int *info, wchar_t *died, wchar_t *back) {
+    ReviveAgeTexts(info, died, back, 24);
+}
+'''
+_page_dll = {}
+
+
+def page_harness_emu():
+    import kids_emu
+    if "dll" not in _page_dll:
+        need_toolchain()
+        out = Path(os.environ.get("TEMP", ".")) / f"vf1_revive_page_{os.getpid()}"
+        out.mkdir(exist_ok=True)
+        src = out / "revive_page_harness.cpp"
+        src.write_text(PAGE_HARNESS.replace("@SOURCE@", (ROOT / "native" / "vf1fun" / "vf1fun.cpp").as_posix()),
+                       encoding="utf-8")
+        dll = out / "revive_page_harness.dll"
+        bat = out / "build.bat"
+        bat.write_text("@echo off\r\n"
+                       f'call "{VCVARS}" >nul || exit /b 1\r\n'
+                       f'cl /nologo /O2 /MT /EHsc /W3 /LD "{src}" /Fo"{out}\\\\" /Fe"{dll}" '
+                       "/link user32.lib kernel32.lib shell32.lib gdiplus.lib gdi32.lib || exit /b 1\r\n",
+                       encoding="ascii")
+        r = subprocess.run(["cmd", "/c", str(bat)], capture_output=True, text=True, env=_env())
+        assert r.returncode == 0, r.stdout + r.stderr
+        _page_dll["dll"] = dll
+    return kids_emu.Emu(vanilla_exe(), _page_dll["dll"])
+
+
+def page_ages(e, info):
+    keys = ("state", "why", "sex", "died_units", "cause", "generation", "role", "exact", "back_units", "source",
+            "age_known")
+    raw = e.alloc(4 * 11)
+    e.write(raw, struct.pack("<11i", *(info[k] for k in keys)))
+    died, back = e.alloc(48), e.alloc(48)
+    e.call(e.dll_export("T_ReviveAgeTexts"), (raw, died, back))
+    return e.wstr(died), e.wstr(back)
+
+
+@pytest.mark.parametrize("years, expected", [(8, ("8", "8")), (19, ("19", "19")), (20, ("20", "20")),
+                                             (31, ("31", "20"))])
+def test_the_revive_page_shows_the_age_they_come_back_at(built, years, expected):
+    w = family(built)
+    w.e.w32(w.villager(2) + L.VILLAGER_AGE, years * 20)
+    w.die(2)
+    i = w.info(0)
+    assert i["age_known"] == 1 and i["died_units"] == years * 20
+    assert page_ages(page_harness_emu(), i) == expected
+    slot, _how = w.revive(0)
+    assert s32(w.e.r32(w.villager(slot) + L.VILLAGER_AGE)) == int(expected[1]) * 20
+
+
+def test_the_revive_page_line_uses_the_age_texts():
+    page = (ROOT / "native" / "vf1fun" / "family_page.inc").read_text(encoding="utf-8").replace("\r\n", "\n")
+    line = page[page.index("static void ReviveLine("):]
+    line = line[:line.index("\n}\n")]
+    assert "ReviveAgeTexts(info, died, back, 24);" in line
+    assert '"?"' not in line and "info[10]" not in line          # "?" for the age at death only, in ReviveAgeTexts
 
 
 # ---------------------------------------------------------------- a revived spouse is a grown-up at 19
