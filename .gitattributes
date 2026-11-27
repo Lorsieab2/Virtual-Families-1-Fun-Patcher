@@ -2,3 +2,6 @@
 patcher/payload/WordLists/** -text
 patcher/payload/UnicodeFonts/** -text
 data/unicode18/** -text
+# The Skin Tones masks are compared byte for byte with a fresh run of tools/vf1_skin_masks.py (LF line ends)
+patcher/payload/SkinMasks/** -text
+native/vf1skin/skin_masks.h -text
