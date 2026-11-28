@@ -30,8 +30,9 @@ LOGS = 0x6D000000
 
 
 class SkinWorld(ReviveWorld):
-    def __init__(self, exe, dll, setting=1, logs=True, **kw):
+    def __init__(self, exe, dll, setting=1, logs=True, preferred=None, **kw):
         self.logged = []
+        self.preferred = preferred
         self.logs = logs
         self.tree_tones = []
         super().__init__(exe, dll, setting=setting, **kw)
@@ -42,8 +43,12 @@ class SkinWorld(ReviveWorld):
         e = self.e
 
         def profile_int(emu):
-            key = emu.wstr(emu.arg(1))
-            return (self.setting if key == "SkinTones" and self.setting is not None else emu.arg(2)), 16
+            section, key = emu.wstr(emu.arg(0)), emu.wstr(emu.arg(1))
+            if section == "Patches" and key == "SkinTones" and self.setting is not None:
+                return self.setting, 16
+            if section == "SkinTones" and key == "PreferredTone" and self.preferred is not None:
+                return self.preferred, 16
+            return emu.arg(2), 16
 
         def module_handle(emu):
             name = emu.arg(0)
@@ -79,7 +84,7 @@ class SkinWorld(ReviveWorld):
     def status(self):
         st = self.e.dll_export("VF1Skin_Status")
         names = ("magic", "version", "requested", "resolved", "installed", "entries", "sheets", "refused", "rows",
-                 "bytes", "swapped", "made", "lastLoad", "lastSave", "babies")
+                 "bytes", "swapped", "made", "lastLoad", "lastSave", "babies", "preferred")
         return {n: self.e.r32(st + 4 * i) for i, n in enumerate(names)}
 
     # ------------------------------------------------------------------ the DLL's exports

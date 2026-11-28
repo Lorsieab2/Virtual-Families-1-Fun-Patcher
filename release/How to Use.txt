@@ -206,6 +206,23 @@ translation files. Every shared file is scanned by VirusTotal (its partners
 can see files sent to it) and checked before the owner adds it to the public
 translations folder. docs/translations.md explains the file format.
 
+Skin Tones (off by default; Select All Patches and Owner's Defaults tick it):
+every family member is drawn in one of ten skin tones, S1 Porcelain to S10
+Ebony, or Game's own (the game's own skin). The tones look exactly like the
+Virtual Villagers Fun Patcher's: only the skin's colour changes, the art's
+shading stays. Founders, newcomers and your family the first time get a random
+tone. While the patch is ticked, "Preferred skin tone" shows right below it:
+No preference keeps the random tones; pick a tone and about 4 in 5 of those
+people get it instead. Babies always take their tone from their parents. Now
+and then (about 1 baby in 20) a baby's skin tone is quite different from both
+parents' -- just as in real life, where a family may carry genes from an
+ancestor long ago. This is only for fun and variety; no real-life offense or
+controversy is intended. The "?" beside Skin Tones (and beside Preferred skin
+tone) shows the ten tones on a woman and a man, drawn from your own game's
+pictures; the patcher ships none. Change anyone's tone in the game with
+Upgrades, Villager Cheats, Change Appearance (needs Cheat Upgrades). Not yet
+tested in a running game.
+
 How to patch
 ------------
 1. Install the official Virtual Families PC version (1.01.00).
@@ -235,8 +252,8 @@ How to patch
    buttons tick a whole set at once:
      Select All Patches    every patch except the Experimental ones.
      Default Patches       the defaults: every patch except Cheat Upgrades,
-                           Flea Market, Free and Guaranteed Cheats and Up to
-                           28 Children.
+                           Flea Market, Free and Guaranteed Cheats, Skin
+                           Tones, Use Unicode Font and Up to 28 Children.
      Owner's Defaults      the patcher owner's own choice: every patch except
                            Up to 28 Children and Use Unicode Font
                            (Render Unicode with In-Game Fonts is on).

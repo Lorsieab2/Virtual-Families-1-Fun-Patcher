@@ -938,6 +938,58 @@ def render_settings_ini(existing: bytes | None, values: dict[str, int]) -> bytes
     return rendered.encode(encoding)
 
 
+# Skin Tones' one setting (the owner, 2026-11-28): "Preferred skin tone", No preference (0) or one of the ten tones.
+# vf1skin.dll reads it from settings.ini [SkinTones] PreferredTone; with a tone, about 4 in 5 randomly made family
+# members get it.
+SKIN_TONES_SECTION = "SkinTones"
+SKIN_TONE_PREFERENCE_KEY = "PreferredTone"
+SKIN_TONE_PREFERENCE_COMMENT = ("; Written by the Virtual Families 1 Fun Patcher: Skin Tones' Preferred skin tone "
+                                "(0 = no preference, 1..10 = S1 Porcelain .. S10 Ebony).")
+
+
+def render_ini_section(existing: bytes | None, section: str, values: dict[str, object], comment: str) -> bytes:
+    """settings.ini with [section] holding exactly `values`, every other section kept as it was."""
+    text, encoding = _decode_ini(existing) if existing else ("", "latin-1")
+    out: list[str] = []
+    skipping = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and "]" in stripped:
+            skipping = stripped[1:stripped.index("]")].strip().casefold() == section.casefold()
+            if skipping:
+                continue
+        if not skipping:
+            out.append(line)
+    while out and not out[-1].strip():
+        out.pop()
+    if out:
+        out.append("")
+    out.append(f"[{section}]")
+    out.append(comment)
+    out.extend(f"{key}={value}" for key, value in values.items())
+    return ("\r\n".join(out) + "\r\n").encode(encoding)
+
+
+def skin_tone_preference(data: bytes | None) -> int:
+    """The Preferred skin tone a settings.ini holds: 0 (no preference) unless it names 1..10."""
+    value = read_ini_section(data, SKIN_TONES_SECTION).get(SKIN_TONE_PREFERENCE_KEY, "0")
+    try:
+        tone = int(value)
+    except ValueError:
+        return 0
+    return tone if 1 <= tone <= 10 else 0
+
+
+def with_skin_tone_preference(data: bytes, preference: int | None) -> bytes:
+    """settings.ini with Skin Tones' Preferred skin tone written (None: kept as it is)."""
+    if preference is None:
+        return data
+    if not 0 <= int(preference) <= 10:
+        raise PatchError("The preferred skin tone must be 0 (no preference) or 1 to 10.")
+    return render_ini_section(data, SKIN_TONES_SECTION, {SKIN_TONE_PREFERENCE_KEY: int(preference)},
+                              SKIN_TONE_PREFERENCE_COMMENT)
+
+
 def read_ini_section(data: bytes | None, section: str) -> dict[str, str]:
     """The keys of one section, as GetPrivateProfileString would see them (first wins)."""
     if not data:
@@ -1245,7 +1297,8 @@ def apply_manifest(args: argparse.Namespace) -> int:
                         removes.append(store)
             ini_path = output_dir / SETTINGS_REL
             old_ini = ini_path.read_bytes() if ini_path.is_file() else None
-            writes[SETTINGS_REL] = render_settings_ini(old_ini, ini_values)
+            writes[SETTINGS_REL] = with_skin_tone_preference(render_settings_ini(old_ini, ini_values),
+                                                             getattr(args, "skin_tone_preference", None))
             for rel, data in list(writes.items()):
                 target = resolve_under(output_dir, rel)
                 if target.is_file() and target.read_bytes() == data:
@@ -1273,7 +1326,8 @@ def apply_manifest(args: argparse.Namespace) -> int:
             old_ini_path = output_dir / SETTINGS_REL
             old_ini = old_ini_path.read_bytes() if old_ini_path.is_file() else None
             # Keep what the DLL remembers between sessions ([Cheats]) across a rebuild.
-            writes[SETTINGS_REL] = render_settings_ini(old_ini, ini_values)
+            writes[SETTINGS_REL] = with_skin_tone_preference(render_settings_ini(old_ini, ini_values),
+                                                             getattr(args, "skin_tone_preference", None))
             writes[exe_name] = patched
             for setting in settings.values():
                 for f in setting.files:
@@ -1679,6 +1733,10 @@ def transparency_log_text(manifest: dict[str, Any]) -> str:
         "- Experimental settings are off by default and Select All Patches (or --enable-all) leaves them off:",
         "  Experimental: not yet tested in a running game. Back up your saves before using it.",
         "- The cheats are off by default: Cheat Upgrades, Flea Market and Free and Guaranteed Cheats.",
+        "- Skin Tones is off by default (everyone has the game's own skin); Select All Patches and Owner's",
+        "  Defaults tick it. Its Preferred skin tone (shown below it while it is ticked) is written to",
+        "  settings.ini [SkinTones] PreferredTone (0 no preference, 1..10). Its \"?\" picture of the ten tones is",
+        "  made from the chosen game folder's own pictures when it is shown; no game picture ships.",
         "- Presets in the patcher window: Select All Patches (every setting except the Experimental ones),",
         "  Default Patches (the defaults below), Owner's Defaults (every setting except Up to 28 Children and",
         "  Use Unicode Font; Render Unicode with In-Game Fonts is on) and Deselect All Patches (none). Patch",
@@ -1723,6 +1781,9 @@ def build_parser() -> argparse.ArgumentParser:
     apply_cmd.add_argument("--disable-all", action="store_true", help="Disable every setting before --enable/--disable.")
     apply_cmd.add_argument("--exe-name", help=f"Name of the modded executable (default from the manifest, \"{DEFAULT_MODDED_EXE}\"). Must not contain \"patch\".")
     apply_cmd.add_argument("--dll", help=f"Use this {DLL_NAME} instead of payload\\{DLL_NAME} (for development builds).")
+    apply_cmd.add_argument("--skin-tone-preference", type=int, choices=range(0, 11), metavar="0-10",
+                           help="Skin Tones' Preferred skin tone: 0 no preference (random tones), 1..10 S1 Porcelain .. "
+                                "S10 Ebony (about 4 in 5 randomly made family members get it). Default: kept as it is.")
     apply_cmd.set_defaults(func=apply_manifest)
 
     settings_cmd = sub.add_parser("settings", help="List the settings the manifest declares.")

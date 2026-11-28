@@ -22,7 +22,7 @@ SPEC = {
     'Revive': ('Revive a Family Member',
         'Brings back a family member who died, in the game: the Upgrades button\'s Family page has a Revive a Family Member button, which lists everyone of the family who died and brings one back for $25,000 (free while Free and Guaranteed Cheats is on). Only the dead can be revived: never someone who divorced, left with The Talent Scout or was evicted. They come back as the same person: their name (a long name\'s whole name too), sex, head and body, their parents\' names and looks, likes and dislikes, career, fertility and "Wants kids?"; their moods and needs start fresh. Someone who died at 20 or older comes back at exactly 20, with their career, level and salary; someone who died younger (18 and 19 included) comes back at the age they died at and follows the game\'s own rules. A child of the family gets their own place in the Family Tree back; a parent or spouse gets theirs back while it is still free, and a spouse whose partner has remarried comes back as a family member, not a spouse, living in the house; they take no place in the Family Tree (no child place, no heir) and are drawn on the game\'s Family Tree screen under the current spouse, in the game\'s own frame, portrait and name, and clicking them opens the game\'s own person window. Someone brought back at 20 who had no career is a grown-up all the same: never sent to college, and able to be the mother or father of a baby. Only the current generation can be revived for now. A snapshot of each person is taken at their death, kept in a small file beside each save that follows the save (the Virtual Families 1 Patcher Data\\Revive folder in the save folder); the save file itself is not changed. For people who died before this patch was on, the Tools tab\'s Revive Backfill makes the snapshots from what the saves, the older saves and backups, the Family Tree, the Family History log and the Names file still hold, marking each detail exact, inferred or unknown (unknown details start fresh; someone whose age at death is not known comes back at 20). A revival is written to the Family History log as a "Revived" record when the Family History Log is on. Not yet tested in a running game. Installs its own small DLL, vf1revive.dll, in the Virtual Families 1 Patcher Files folder; unticking the setting removes it.'),
     'SkinTones': ('Skin Tones',
-        'Gives every family member a skin tone, drawn in the game: one of ten, light to dark (S1 Porcelain, S2 Fair, S3 Light golden, S4 Light olive, S5 Copper, S6 Warm brown, S7 Medium brown, S8 Deep brown, S9 Dark, S10 Ebony), or Game\'s own, the game\'s own skin. All bare skin is toned (face, neck, arms, hands, legs and feet): in the house, walking, sitting and in every action, in the Details, Adoption and marriage proposal portraits, in a Random Event\'s picture and in the Family Tree, and the baby a mother carries is drawn in the baby\'s own tone; hair, eyes, lips and clothes stay the game\'s own. Founders, everyone who joins the family, and everyone already in a family when this setting is first on get a random tone. A baby\'s tone is decided once, at the conception: usually the average of the parents\' tones, the same or one lighter or darker at random (95%); sometimes any tone (5%); twins and triplets share it, and a parent with Default counts as the other parent. A copy the game makes of someone (Next Generation\'s grown-up heir) keeps their tone. Pick a tone for anyone, or Reset to birth tone, in the Upgrades button\'s Villager Cheats, Change Appearance (with Cheat Upgrades on); each change is written to the Family History log as an "Appearance changed" record when the Family History Log is on. The tones are kept in a small file beside each save that follows the save (the Virtual Families 1 Patcher Data\\Skin Tones folder in the save folder); the save file itself is not changed. Which pixels are skin comes from mask pictures the patcher installs (black and white shapes, no game art); a mask is used only with the game\'s own unchanged picture, so changed game art is drawn as it is. Not yet tested in a running game. Installs its own small DLL, vf1skin.dll, and the Skin Masks folder in the Virtual Families 1 Patcher Files folder; unticking the setting removes them.'),
+        'Gives every family member a skin tone, drawn in the game: one of ten, light to dark (S1 Porcelain, S2 Fair, S3 Light golden, S4 Light olive, S5 Copper, S6 Warm brown, S7 Medium brown, S8 Deep brown, S9 Dark, S10 Ebony), or Game\'s own, the game\'s own skin. The tones look exactly like the Virtual Villagers Fun Patcher\'s: only the skin\'s colour changes, and the art\'s own shading stays. All bare skin is toned (face, neck, arms, hands, legs and feet): in the house, walking, sitting and in every action, in the Details, Adoption and marriage proposal portraits, in a Random Event\'s picture and in the Family Tree, and the baby a mother carries is drawn in the baby\'s own tone; hair, eyes, lips and clothes stay the game\'s own. Founders, everyone who joins the family, Adoption and proposal candidates, and everyone already in a family when this setting is first on get a random tone. Preferred skin tone (shown below this patch while it is ticked): No preference gives those random tones; with one of the ten tones chosen, about 4 in 5 of them get that tone and the rest a random one. A baby\'s tone always comes from the parents, whatever the preference. It is decided once, at the conception: usually the average of the parents\' tones, the same or one lighter or darker at random (95%); sometimes any tone (5%); twins and triplets share it, and a parent with Game\'s own counts as the other parent. Now and then (about 1 baby in 20) a baby\'s skin tone is quite different from both parents\' -- just as in real life, where a family may carry genes from an ancestor long ago. This is only for fun and variety; no real-life offense or controversy is intended. A copy the game makes of someone (Next Generation\'s grown-up heir) keeps their tone. Pick a tone for anyone, or Reset to birth tone, in the Upgrades button\'s Villager Cheats, Change Appearance (with Cheat Upgrades on); each change is written to the Family History log as an "Appearance changed" record when the Family History Log is on. The tones are kept in a small file beside each save that follows the save (the Virtual Families 1 Patcher Data\\Skin Tones folder in the save folder); the save file itself is not changed. Which pixels are skin comes from mask pictures the patcher installs (black and white shapes, no game art); a mask is used only with the game\'s own unchanged picture, so changed game art is drawn as it is. Off by default (everyone has the game\'s own skin); Select All Patches and Owner\'s Defaults tick it. Not yet tested in a running game. Installs its own small DLL, vf1skin.dll, and the Skin Masks folder in the Virtual Families 1 Patcher Files folder; unticking the setting removes them.'),
     'RenderUnicodeInGameFonts': ('Render Unicode with In-Game Fonts',
         'Lets the game take and show any letter or symbol in Unicode: accents (French, Turkish, Polish, Vietnamese...), Greek, Cyrillic, Japanese, Chinese, Korean, Cuneiform, emoji and the rest. Typing in the game\'s own name boxes accepts every character the keyboard gives (accent keys, dead keys, Alt codes and an input method\'s text), and backspace deletes a whole character. Every piece of text is drawn with the game\'s own fonts: the game\'s own letter when it has one; otherwise a patcher-made letter in that font\'s style (accented letters are built from the game\'s own letters and accents); otherwise a letter Windows draws on the spot in the font\'s size, weight and colour (Segoe UI, then Segoe UI Historic, Symbol and Emoji, the Japanese, Chinese and Korean fonts, Nirmala UI, Ebrima and others); otherwise a small box. Arabic, Hebrew, the Indic scripts, Thai and the other shaped scripts are drawn as Windows draws them: joined, with their marks in place, and right to left where they read that way. Emoji are drawn as colour pictures (Segoe UI Emoji through DirectWrite: a skin tone, a joined family or a keycap as one picture; any letter from a colour font, such as Noto Color Emoji, in its own colours too; a country flag as its two letters in the text\'s colour, as everywhere in Windows), at the text\'s size and on its baseline, never tinted by the text\'s colour; settings.ini [UnicodeText] ColourEmoji=0, or a Windows without Direct2D, draws them in black and white as before. Text in a script written without spaces (Japanese, Chinese, Korean, Thai, Lao, Khmer, Myanmar and emoji) wraps onto the next line where the Unicode line-breaking rules allow (the ICU that comes with Windows; on Windows before 10 version 1903 the shared ICU word lists for Thai, Lao, Khmer, Burmese, Chinese and Japanese, read only when such text is shown, and a built-in table), never inside a character and never with a closing mark (a Japanese full stop, comma or closing bracket) at the start of a line; a word wider than the whole line (which stops the stock game for good) is cut between characters; text with none of these letters is laid out exactly as before. Every name box (the family name, the slot menu, adoption, a new baby, renaming a family member, and the Upgrades menu\'s Spawn Child and Adopt Outside Child) takes up to 1,200 bytes as stored (up to 1,200 plain letters, fewer when letters need more bytes; there is no separate character cap), the same limit as the owner\'s other patchers (the game\'s own text boxes cannot hold more than 1,200 bytes). The save\'s name fields are not made any bigger: a name that fits is stored as it is, one letter at a time (a Windows-1252 letter as its one byte, any other letter as UTF-8); a longer one is stored as its short form (its start and "...", or "2...", "3..." when two would be alike), and the whole name is kept beside the save in Virtual Families 1 Patcher Data\\Names. The whole name is shown wherever the game shows that name (fitted with an ellipsis where the game leaves only a name\'s room), in the Family History log and in the patcher\'s Family Tree, Rename Family and Copy Player Slot. Old saves read exactly as before. The stock game, or the game with this setting off, still loads, shows and saves such a save without harm, but shows each accented letter as two or more other letters (for example "Zoë" as "ZoÃ«"). Characters no Windows font has are drawn from the open fonts the patcher ships, loaded for the game only and fitted to the game font\'s height, weight and colour: GNU Unifont, Noto Sans Cuneiform, Noto Serif Tangut and Unicode\'s Last Resort (a box naming the character\'s block), so every character of Unicode 18.0 shows. Installs its own small DLL, vf1text.dll, the patcher-made letters (the Unicode Text folder), these fonts with their licences (its Fonts folder) and the word lists with their licence (the Word Lists folder) in the Virtual Families 1 Patcher Files folder; the game\'s own art is not changed, and unticking the setting removes them.'),
     'UseUnicodeFont': ('Use Unicode Font (overrides in-game fonts)',
@@ -82,9 +82,11 @@ CHEATS_DEFAULT_OFF = frozenset({"CheatUpgrades", "FreeAndGuaranteedCheats", "Fle
 # Use Unicode Font (overrides in-game fonts): off by default and off in Owner's Defaults (the owner, 2026-11-01); it cannot
 # be on with Render Unicode with In-Game Fonts, which is on by default.
 OVERRIDES_DEFAULT_OFF = frozenset({"UseUnicodeFont"})
+# Skin Tones: off by default for players, on in Select All Patches and Owner's Defaults (the owner, 2026-11-28).
+LOOKS_DEFAULT_OFF = frozenset({"SkinTones"})
 OWNER_APPROVED_DEFAULT_OFF = frozenset(row["id"] for row in MANIFEST_ROWS
                                        if row.get("category") == "experimental") | CHEATS_DEFAULT_OFF | \
-    OVERRIDES_DEFAULT_OFF
+    OVERRIDES_DEFAULT_OFF | LOOKS_DEFAULT_OFF
 
 
 def test_shipped_manifest_offers_every_setting_all_on():
@@ -96,12 +98,14 @@ def test_shipped_manifest_offers_every_setting_all_on():
         assert (s.label, s.description, s.default) == (label, description, expected), setting_id
     assert {k for k, s in settings.items() if not s.default} == set(OWNER_APPROVED_DEFAULT_OFF)
     assert OWNER_APPROVED_DEFAULT_OFF == {"UpTo28Children", "CheatUpgrades", "FreeAndGuaranteedCheats", "FleaMarket",
-                                          "UseUnicodeFont"}
+                                          "UseUnicodeFont", "SkinTones"}
     assert settings["UseUnicodeFont"].excludes == ("RenderUnicodeInGameFonts",)
     assert settings["RenderUnicodeInGameFonts"].excludes == ("UseUnicodeFont",)
     # Family History Log: a Main Patch, on by default (the owner, 2026-10-26: "don't put it under experimental")
     assert settings["FamilyHistory"].category == "main" and settings["FamilyHistory"].default is True
-    assert all(settings[k].experimental for k in OWNER_APPROVED_DEFAULT_OFF - CHEATS_DEFAULT_OFF - OVERRIDES_DEFAULT_OFF)
+    assert all(settings[k].experimental
+               for k in OWNER_APPROVED_DEFAULT_OFF - CHEATS_DEFAULT_OFF - OVERRIDES_DEFAULT_OFF - LOOKS_DEFAULT_OFF)
+    assert settings["SkinTones"].category == "main"
     assert all(settings[k].category == "optional" for k in CHEATS_DEFAULT_OFF)
 
 
@@ -178,6 +182,34 @@ def test_settings_ini_keeps_everything_else():
     assert b"; top comment" in new and b"; note" in new and b"x=\xe9" in new  # ANSI bytes kept
     assert new.count(b"FleaMarket") == 1  # the duplicate the DLL would never read is gone
     assert vp.render_settings_ini(new, {"FleaMarket": 0, "RollTheDice": 1}) == new  # stable
+
+
+def test_the_preferred_skin_tone_is_its_own_section_and_kept_unless_given():
+    """Skin Tones' Preferred skin tone (the owner, 2026-11-28): [SkinTones] PreferredTone, 0 or 1..10; None keeps it."""
+    old = b"[Cheats]\r\nInterestRate=7\r\n\r\n[Patches]\r\nSkinTones=1\r\n\r\n[SkinTones]\r\nPreferredTone=3\r\n"
+    assert vp.skin_tone_preference(old) == 3 and vp.skin_tone_preference(None) == 0
+    assert vp.with_skin_tone_preference(old, None) == old
+    new = vp.with_skin_tone_preference(old, 9)
+    assert vp.read_ini_section(new, "SkinTones") == {"PreferredTone": "9"} and new.count(b"[SkinTones]") == 1
+    assert vp.read_ini_section(new, "Cheats") == {"InterestRate": "7"}
+    assert vp.read_ini_section(new, "Patches") == {"SkinTones": "1"}
+    assert vp.skin_tone_preference(vp.with_skin_tone_preference(new, 0)) == 0
+    for bad in (b"[SkinTones]\r\nPreferredTone=11\r\n", b"[SkinTones]\r\nPreferredTone=x\r\n"):
+        assert vp.skin_tone_preference(bad) == 0
+    with pytest.raises(vp.PatchError):
+        vp.with_skin_tone_preference(old, 11)
+
+
+def test_apply_writes_the_preferred_skin_tone_and_a_reconfigure_keeps_it(workdir, vanilla_unchanged):
+    out = workdir / "out"
+    apply(workdir, game_dir=vanilla_unchanged, output_dir=out, enable=["SkinTones"], skin_tone_preference=6)
+    assert vp.read_ini_section(ini(out), "SkinTones") == {"PreferredTone": "6"}
+    assert vp.read_ini_section(ini(out), "Patches")["SkinTones"] == "1"
+    apply(workdir, output_dir=out, enable=["FleaMarket"])                     # not given: kept as it is
+    assert vp.read_ini_section(ini(out), "SkinTones") == {"PreferredTone": "6"}
+    assert vp.read_ini_section(ini(out), "Patches")["SkinTones"] == "0"       # default off
+    assert vp.build_parser().parse_args(["apply", "--output-dir", "x", "--skin-tone-preference", "10"]) \
+        .skin_tone_preference == 10
 
 
 def test_settings_ini_unicode_file_stays_unicode():
@@ -275,7 +307,7 @@ def test_build_writes_exactly_the_transparency_log_files(workdir, vanilla_unchan
     assert (out / "Virtual Families - Modded.exe").read_bytes() == vp.patch_executable(
         (vanilla_unchanged / vp.VANILLA_EXE).read_bytes())
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "Revive": "1", "SkinTones": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "Translations": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "Revive": "1", "SkinTones": "0", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "Translations": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "0", "FleaMarket": "0", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "CopyPasteInTextBoxes": "1", "RollTheDice": "0", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     text = vp.transparency_log_text(json.loads(MANIFEST.read_text(encoding="utf-8")))
     for rel in extra - originals:
@@ -303,7 +335,7 @@ def test_reconfigure_only_rewrites_settings_and_restore_puts_it_back(workdir, va
     assert vp.DLL_REL in summary["unchanged_files"]
     assert exe.read_bytes() == exe_before
     assert vp.read_ini_section(ini(out), "Patches") == {
-        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "Revive": "1", "SkinTones": "1", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "Translations": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
+        "FixVanillaGameBugs": "1", "OlderVillagerMortalityCurve": "1", "PrivateRomanticTime": "1", "UpTo28Children": "0", "FamilyHistory": "1", "Revive": "1", "SkinTones": "0", "RenderUnicodeInGameFonts": "1", "UseUnicodeFont": "0", "Translations": "1", "AllowOlderPregnancies": "1", "ClampMoneyAndFood": "1", "SpecialUpgrades": "1",
         "CheatUpgrades": "1", "FleaMarket": "1", "FreeAndGuaranteedCheats": "0", "StoreRefreshKey": "1", "CopyPasteInTextBoxes": "1", "RollTheDice": "1", "CustomMapImages": "1", "VF2Songs": "1", "GlowingCollectables": "1", "BehaviorLabelVariants": "1"}
     assert vp.read_ini_section(ini(out), "Cheats") == {"InterestRate": "9"}
     vp.restore_backup(ns(backup_dir=summary["backup_dir"], force_game_dir=False))

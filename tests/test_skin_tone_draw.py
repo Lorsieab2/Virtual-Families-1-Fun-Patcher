@@ -7,10 +7,14 @@ installed through its own VF1Skin_Startup (tests/skin_emu.py). The masks are the
 
 Needs, or the test skips (nothing of the game or of the workbench is in the repository):
   VF1_VANILLA_DIR      a copy of the vanilla game (only read);
-  VF1_SKIN_WORKBENCH   the Skin Tones workbench's VF1 folder (only read): its vfskin.py is the approved recolour the
-                       DLL's pixels are held to, and its layers\\<sheet>\\Skin mask.png the masks the shipped ones are
-                       made from.
+  VF1_SKIN_WORKBENCH   (only for the masks' freshness) the Skin Tones workbench's VF1 folder (only read): its
+                       layers\\<sheet>\\Skin mask.png are what the shipped masks are made from.
+  VVFP_SKIN_SRC        (optional) the Virtual Villagers Fun Patcher's src folder (only read): its vv_skin_tone_art.py
+                       is the recolour patcher/vf1_skin_art.py copies; the two are compared on real VF1 rows.
   VF1_SKIN_PICTURES    (optional) a folder: a toned family drawn by the game's own blitter is saved there.
+
+The DLL's pixels are held to patcher/vf1_skin_art.py (the Virtual Villagers patcher's recolour, number for number), to
+one colour level.
 """
 from __future__ import annotations
 
@@ -51,13 +55,10 @@ def workbench() -> Path:
 
 
 @pytest.fixture(scope="module")
-def art(vanilla_dir, workbench):
+def art(vanilla_dir):
     np = pytest.importorskip("numpy")
-    pytest.importorskip("scipy")
     image = pytest.importorskip("PIL.Image")
     image.MAX_IMAGE_PIXELS = None
-    sys.path.insert(0, str(workbench))
-    import vfskin
     import vf1_skin_masks as M
 
     sheets, masks = {}, {}
@@ -72,13 +73,26 @@ def art(vanilla_dir, workbench):
             w, h, rows = M.read_mask_bits((ROOT / "patcher" / "payload" / "SkinMasks" / name).read_bytes())
             masks[name] = np.unpackbits(np.frombuffer(b"".join(rows), np.uint8).reshape(h, -1), axis=1)[:, :w] == 1
         return masks[name]
-    return np, vfskin, sheet, mask
+    return np, recolour_rows, sheet, mask
+
+
+def recolour_rows(a, m, top, height, tone):
+    """vf1_skin_art's recolour of rows top..top+height of sheet `a` (an RGBA array) with mask `m`: an RGBA array."""
+    import numpy as np
+    import vf1_skin_art as skin_art
+    band = a[top:top + height].copy()
+    skin = m[top:top + height] & (band[..., 3] > 0)
+    flat = band.reshape(-1, 4)
+    members = np.flatnonzero(skin.reshape(-1)).tolist()
+    for i, rgb in skin_art.recolour_band(flat.tobytes(), members, tone).items():
+        flat[i, :3] = rgb
+    return flat.reshape(band.shape)
 
 
 def _emu(vanilla_dir, built, art, setting=1):
     import skin_emu
 
-    np, _vfskin, sheet, _mask = art
+    np, _recolour, sheet, _mask = art
 
     def pixels(name):
         a = sheet(name)
@@ -92,8 +106,8 @@ def _key(b):
 
 def _check_row(art, was, now, tone=TONE):
     """`now` draws a kept copy of `was`'s row with the skin in `tone`: everything not skin, and all alpha, the game's
-    own; the skin the approved recolour to one colour level."""
-    np, vfskin, sheet, mask = art
+    own; the skin vf1_skin_art's (the Virtual Villagers patcher's) recolour to one colour level."""
+    np, recolour, sheet, mask = art
     name = was["file"]
     a, m = sheet(name), mask(name)
     top, bottom = was["rect"][1], was["rect"][3]
@@ -103,14 +117,20 @@ def _check_row(art, was, now, tone=TONE):
     assert now["rect"] == (was["rect"][0], top - row * cell, was["rect"][2], bottom - row * cell)
     made = np.frombuffer(data, np.uint8).reshape(h, w, 4).astype(int)
     rows = slice(row * cell, (row + 1) * cell)
-    want = vfskin.recolour(a, m, vfskin.TONES[tone - 1], "VF1")[rows].astype(int)
+    want = recolour(a, m, row * cell, cell, tone).astype(int)
     skin = m[rows] & (a[rows][..., 3] > 0)
     assert (made[~skin] == a[rows][~skin]).all()          # every pixel that is not skin: the game's own
     assert (made[..., 3] == a[rows][..., 3]).all()        # alpha never changes
     if skin.any():
         off = np.abs(made[skin][:, :3] - want[skin][:, :3])
-        assert off.max() <= 1, off.max()                  # the approved recolour, to one colour level
+        assert off.max() <= 1, off.max()                  # the Virtual Villagers recolour, to one colour level
+        MATCH["worst"] = max(MATCH["worst"], int(off.max()))
+        MATCH["pixels"] += int(skin.sum())
+    MATCH["rows"] += 1
     return int(skin.sum())
+
+
+MATCH = {"worst": 0, "pixels": 0, "rows": 0}
 
 
 def _compare(emu, art, stock, toned, sheets, tone=TONE):
@@ -232,6 +252,80 @@ def test_the_house_default_is_the_games_own_and_a_tone_recolours_head_and_body(v
     assert emu.get_tone(0) == (TONE, emu.get_tone(0)[1])
 
 
+def test_every_tone_is_the_virtual_villagers_recolour(vanilla_dir, built, art, capsys):
+    """The owner (2026-11-28): VF1's tones look exactly like the Virtual Villagers patcher's. All ten tones, a man in
+    the house walking and a woman standing (heads, bodies, actions) and a portrait (big head, big body): every skin
+    pixel of every recoloured row the DLL makes is vf1_skin_art's colour to one level."""
+    MATCH.update(worst=0, pixels=0, rows=0)
+    for female, pose, draw in ((False, 0, "house"), (True, 46, "house"), (False, 0, "portrait")):
+        emu = _emu(vanilla_dir, built, art)
+        emu.villager(female=female, age=600, head=HEAD, body=BODY, pose=pose)
+        emu.name(0, "Pat")
+        drawn = emu.draw_house if draw == "house" else emu.draw_portrait
+        stock = drawn()
+        assert emu.install() == 1
+        for tone in range(1, 11):
+            assert emu.set_tone(0, tone) == 1
+            assert len(_compare(emu, art, stock, drawn(), SHEETS, tone)) == 2
+    with capsys.disabled():
+        print(f"\nDLL vs vf1_skin_art: {MATCH['rows']} rows, {MATCH['pixels']} skin pixels, worst channel "
+              f"difference {MATCH['worst']}")
+    assert MATCH["rows"] == 60 and MATCH["worst"] <= 1
+
+
+def test_vf1_skin_art_is_the_virtual_villagers_patchers_own_recolour(vanilla_dir, art):
+    """patcher/vf1_skin_art.py against the Virtual Villagers patcher's own vv_skin_tone_art.py (VVFP_SKIN_SRC, only
+    read) on real rows of VF1 sheets and masks: the same numbers, the same pixels."""
+    src = os.environ.get("VVFP_SKIN_SRC")
+    if not src or not (Path(src) / "vv_skin_tone_art.py").is_file():
+        pytest.skip("set VVFP_SKIN_SRC to the Virtual Villagers Fun Patcher's src folder")
+    sys.path.insert(0, src)
+    import vv_skin_tone_art as vv
+    import vv_skin_tones as vvt
+    import vf1_skin_art as mine
+    np, recolour, sheet, mask = art
+    for a, b in zip(mine.TONE_TABLE, vvt.TONE_TABLE):
+        assert a[:2] == b[:2] and all(abs(x - y) < 1e-9 for x, y in zip(a[2:], b[2:]))
+    for name in ("L_FLOOR", "L_CEIL", "GIVE", "SHADING", "CHROMA_FLOOR", "SHADOW_CHROMA"):
+        assert getattr(mine, name) == getattr(vv, name), name
+    worst = 0
+    for name, row in (("male_heads00.png", HEAD), ("female_actions00.png", BODY), ("bigheads10.png", HEAD),
+                      ("highrez_bodies_final2.png", BODY), ("carrying.png", 0)):
+        a, m = sheet(name), mask(name)
+        h, w = a.shape[:2]
+        cell = h // (6 if name == "carrying.png" else 50)
+        band, bm = a[row * cell:(row + 1) * cell], m[row * cell:(row + 1) * cell]
+        px = [tuple(int(v) for v in p) for p in band.reshape(-1, 4)]
+        skin = set(np.flatnonzero((bm & (band[..., 3] > 0)).reshape(-1)).tolist())
+        for tone in range(1, 11):
+            want = vv.recolour((w, cell, px), skin, vvt.TONE_TABLE[tone - 1], cell)
+            got = recolour(a, m, row * cell, cell, tone).reshape(-1, 4)
+            for i in skin:
+                worst = max(worst, max(abs(int(got[i][k]) - want[i][k]) for k in range(3)))
+    assert worst == 0
+
+
+def test_the_preview_shows_ten_tones_on_a_woman_and_a_man_from_the_game_folder(vanilla_dir):
+    """The "?" picture: drawn at run time from the game folder's own pictures with the shipped masks (no game art is
+    in the patcher), the woman above the man, S1..S10 left to right, each column lighter than the next."""
+    import vf1_picture_image as pi
+    import vf1_skin_art
+    picture = vf1_skin_art.preview(vanilla_dir)
+    assert picture.width > picture.height > 100
+    cell = (picture.width + vf1_skin_art.PREVIEW_GAP) // 10
+
+    def skin_light(k, top):
+        piece = picture.sub(k * cell, top, cell - vf1_skin_art.PREVIEW_GAP, picture.height // 2 - 4)
+        values = [vf1_skin_art.lightness(*piece.data[i:i + 3]) for i in range(0, len(piece.data), 4)
+                  if piece.data[i + 3] == 255]
+        return sum(values) / len(values)
+    for top in (0, picture.height // 2):
+        lights = [skin_light(k, top) for k in range(10)]
+        assert lights == sorted(lights, reverse=True), lights
+    with pytest.raises(pi.PictureError):
+        vf1_skin_art.preview(vanilla_dir / "Images")              # not a game folder
+
+
 def test_an_old_villager_uses_the_older_heads(vanilla_dir, built, art):
     emu = _emu(vanilla_dir, built, art)
     emu.villager(female=False, age=1000, head=HEAD, body=BODY, pose=0)
@@ -270,7 +364,7 @@ def test_a_sheet_file_that_is_not_the_vanilla_one_is_drawn_as_the_game_draws_it(
 
 def test_a_child_through_the_games_own_blitter(vanilla_dir, built, art):
     """A child is drawn scaled, by the game's own pixel loop: the tone must come out of it."""
-    np, vfskin, sheet, mask = art
+    np, _recolour, sheet, mask = art
     emu = _emu(vanilla_dir, built, art)
     assert emu.install() == 1
     emu.villager(female=False, age=200, head=HEAD, body=BODY, pose=0)
@@ -294,7 +388,7 @@ def test_a_child_through_the_games_own_blitter(vanilla_dir, built, art):
 def test_the_held_baby_is_drawn_in_the_babys_tone_and_nothing_else_of_carrying_changes(vanilla_dir, built, art):
     import picture_emu as pe
     import skin_emu
-    np, vfskin, sheet, mask = art
+    np, _recolour, sheet, mask = art
     emu = _emu(vanilla_dir, built, art)
     mother = emu.villager(female=True, age=600, head=HEAD, body=BODY, pose=0, babies=2)
     emu.name(0, "Ann")
@@ -406,7 +500,7 @@ def test_a_draw_with_no_person_noted_is_never_touched(vanilla_dir, built, art):
 def test_a_toned_family_picture(vanilla_dir, built, art, tmp_path):
     """A family of five in five tones, each next to the game's own, drawn by the game's own blitter. Saved to
     VF1_SKIN_PICTURES when it is set."""
-    np, vfskin, sheet, mask = art
+    np, _recolour, sheet, mask = art
     image = pytest.importorskip("PIL.Image")
     emu = _emu(vanilla_dir, built, art)
     assert emu.install() == 1

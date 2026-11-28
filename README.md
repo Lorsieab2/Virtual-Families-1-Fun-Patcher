@@ -156,6 +156,14 @@ Six settings change the base game on their own (plus the optional ones below):
   DLL, `vf1logs.dll`; every hook is emulated from a live caller. **Not live tested yet** -- see
   `docs/FAMILY_HISTORY.md`.
 
+- **Skin Tones** (a Main Patch, off by default; Select All Patches and Owner's Defaults tick it): every family member
+  drawn in one of ten skin tones, S1 Porcelain to S10 Ebony, or Game's own, looking exactly like the Virtual Villagers
+  Fun Patcher's tones (its recolour, number for number: `patcher/vf1_skin_art.py`). Random tones for founders,
+  newcomers and the family the first time; **Preferred skin tone** (right below the patch while it is ticked) gives
+  one tone to about 4 in 5 of them instead. Babies inherit from their parents (about 1 in 20 is quite different from
+  both). The "?" shows the ten tones on a woman and a man, drawn from your own game's pictures. Its own DLL,
+  `vf1skin.dll`. **Not live tested yet** -- see `docs/SKIN_TONES.md`.
+
 - **Render Unicode with In-Game Fonts** (a Main Patch, on by default): the game types, keeps and shows any
   Unicode text with its own fonts. Typing in the game's own name boxes takes every character the keyboard gives
   (accent keys, dead keys, Alt codes, an input method's text; the stock game drops any SDL text event longer than

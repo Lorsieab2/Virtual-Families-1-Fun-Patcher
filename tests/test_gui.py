@@ -150,7 +150,7 @@ def test_settings_load_under_their_category_with_descriptions(app):
 # that costs or adds content stays on; Up to 28 Children stays off (Experimental).
 DEFAULTS = {
     "FixVanillaGameBugs": True, "OlderVillagerMortalityCurve": True, "PrivateRomanticTime": True,
-    "UpTo28Children": False, "FamilyHistory": True, "Revive": True, "SkinTones": True, "RenderUnicodeInGameFonts": True, "UseUnicodeFont": False, "Translations": True,
+    "UpTo28Children": False, "FamilyHistory": True, "Revive": True, "SkinTones": False, "RenderUnicodeInGameFonts": True, "UseUnicodeFont": False, "Translations": True,
     "AllowOlderPregnancies": True, "ClampMoneyAndFood": True,
     "SpecialUpgrades": True, "CheatUpgrades": False, "FleaMarket": False, "FreeAndGuaranteedCheats": False,
     "StoreRefreshKey": True, "CopyPasteInTextBoxes": True, "RollTheDice": True, "CustomMapImages": True, "VF2Songs": True,
@@ -351,4 +351,71 @@ def test_labels_that_are_not_laid_out_yet_do_not_freeze_the_window(app):
     assert app.load_manifest_settings()
     app._resize_all_markup_labels()
     assert time.time() - start < 20
+
+
+# ------------------------------------------------------------------ Skin Tones' Preferred skin tone
+def test_the_preferred_skin_tone_shows_only_while_skin_tones_is_ticked(app, tmp_path):
+    """The owner (2026-11-28): one setting, shown and used only while the patch is on. Its first value is the modded
+    folder's own, so reconfiguring other patches never resets it."""
+    out = tmp_path / "Modded"
+    (out / vp.SETTINGS_REL).parent.mkdir(parents=True)
+    (out / vp.SETTINGS_REL).write_bytes(b"[Patches]\r\nSkinTones=1\r\n\r\n[SkinTones]\r\nPreferredTone=7\r\n")
+    app.output_dir_var.set(str(out))
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    assert gui.SKIN_TONE_PREFERENCES[0] == "No preference" and len(gui.SKIN_TONE_PREFERENCES) == 11
+    assert gui.SKIN_TONE_PREFERENCES[7] == "S7 Medium brown" and app.skin_tone_preference() == 7
+    row = app.skin_tone_preference_row
+    assert "skin_tone_preference" in app.help_keys
+    app.root.update_idletasks()
+    assert not app.setting_vars["SkinTones"].get() and not row.winfo_manager()       # off by default: hidden
+    app.setting_vars["SkinTones"].set(True)
+    assert row.winfo_manager() == "grid"
+    app.setting_vars["SkinTones"].set(False)
+    assert not row.winfo_manager()
+    app.select_owners_defaults()
+    assert row.winfo_manager() == "grid"
+    app.skin_tone_preference_var.set("S2 Fair")
+    assert app.skin_tone_preference() == 2
+
+
+def test_the_apply_namespace_carries_the_preferred_skin_tone():
+    settings = vp.manifest_settings(json.loads(MANIFEST.read_text(encoding="utf-8")))
+    args = gui.build_apply_namespace(game_dir="x", manifest=str(MANIFEST), settings=settings,
+                                     selected_settings={"SkinTones"}, skin_tone_preference=4)
+    assert args.skin_tone_preference == 4
+    assert gui.build_apply_namespace(game_dir="x", manifest=str(MANIFEST), settings=settings).skin_tone_preference \
+        is None
+
+
+def test_the_skin_tone_guides_show_the_ten_tones_from_the_game_folder(app, monkeypatch, tmp_path):
+    """The Skin Tones "?" and the Preferred skin tone "?" carry the picture of the ten tones, made in the background
+    from the chosen game folder (vf1_skin_art.preview); without a game folder they say so."""
+    import vf1_picture_image as pi
+    import vf1_skin_art
+    made = []
+    monkeypatch.setattr(vf1_skin_art, "preview", lambda folder: made.append(folder) or pi.Image(20, 10))
+    app.game_dir_var.set("")
+    app.output_dir_var.set("")
+    window = app._show_how_to_use("skin_tone_preference")
+    assert any("Choose your Virtual Families folder" in t for t in labels_on_screen(window))
+    window.destroy()
+    (tmp_path / "Game" / "Images").mkdir(parents=True)
+    app.game_dir_var.set(str(tmp_path / "Game"))
+    window = app._show_how_to_use("patch:SkinTones", "Skin Tones")
+    deadline = time.time() + 10
+
+    def shown():
+        return any(isinstance(getattr(w, "image", None), tk.PhotoImage) for w in _walk(window))
+    while not shown() and time.time() < deadline:      # made in the background, shown through root.after
+        app.root.update()
+        time.sleep(0.02)
+    assert made == [tmp_path / "Game"] and shown()
+    window.destroy()
+
+
+def _walk(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from _walk(child)
 

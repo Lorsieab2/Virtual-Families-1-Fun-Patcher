@@ -7,7 +7,9 @@
 // pop-up's portrait, the Family Tree -- and the baby a mother carries is drawn in the baby's own tone.
 //
 // WHO GETS WHICH TONE. Founders, arrivals and everybody already in a family when the setting is first on get a random
-// tone, from this DLL's own generator (never the game's rand(), so the game's own events never shift). A baby's tone is
+// tone, from this DLL's own generator (never the game's rand(), so the game's own events never shift); with the
+// patcher's Preferred skin tone (settings.ini [SkinTones] PreferredTone 1..10, the owner, 2026-11-28) about 4 in 5 of
+// them get that tone instead. A baby's tone is
 // rolled ONCE, when the game makes the baby's record (at the conception: CVillager::Impregnate spawns the babies at
 // once): 95% the parents' average tone + rand(3) - 1, held to 1..10; 5% any tone (the Virtual Villagers patcher's
 // rule, the game's own head rule on the tone number). A parent with no tone counts as the other parent's; twins and
@@ -29,8 +31,9 @@
 //
 // HOW IT DRAWS. Each sheet of people is ONE picture the game keeps in memory for everybody; every draw of a cell ends in
 // ldwGameWindowImpl::BlitRectWithAlpha 0x404C30. While a toned person is drawn, a blit from a sheet of people is given
-// a kept copy of that ONE ROW of the sheet (one head, one outfit) with the skin recoloured (the approved OKLCh method:
-// the tone's hue and chroma, the art's own shading kept as lightness offsets, never ashy), made the first time it is
+// a kept copy of that ONE ROW of the sheet (one head, one outfit) with the skin recoloured (the Virtual Villagers
+// patcher's method, number for number, patcher/vf1_skin_art.py: the tone's hue and chroma in OKLCh, the art's own
+// shading kept as lightness offsets from the row's middle skin, never ashy), made the first time it is
 // needed; the rectangle moves up to the copy's only row. At most 96 MB of copies are kept (least recently used go
 // first). The game's own surfaces, its files, and every draw of someone with no tone are never touched.
 //
@@ -68,9 +71,10 @@ struct SkinStatus {
                          // (everybody given a tone), 5 moved aside, 6 shut (left as it is), 7 damaged, not moved
     unsigned lastSave;   // 0 none, 1 written, 2 nothing to write, 3 write failed, 4 shut or not movable: nothing
     unsigned babies;     // babies given a tone this session
+    unsigned preferred;  // the Preferred skin tone setting: 0 none, 1..10
 };
-extern "C" __declspec(dllexport) volatile SkinStatus VF1Skin_Status = { 0x4E4B5356u, 2u, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                                                         0, 0, 0, 0 };
+extern "C" __declspec(dllexport) volatile SkinStatus VF1Skin_Status = { 0x4E4B5356u, 3u, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                                         0, 0, 0, 0, 0 };
 
 static HMODULE ThisModule;
 static wchar_t Folder[MAX_PATH];      // this DLL's folder, with the closing backslash
@@ -230,7 +234,17 @@ static unsigned Random(unsigned n) {        // xorshift32, 0..n-1
     return (unsigned)(((unsigned long long)x * n) >> 32);
 }
 
-static int RandomTone() { return (int)Random(SKIN_TONE_COUNT) + 1; }
+// The patcher's "Preferred skin tone" (settings.ini [SkinTones] PreferredTone, the owner, 2026-11-28): 0 no preference,
+// else 1..10. With one, about 4 in 5 randomly made family members get it and the rest a random tone; babies always
+// inherit (Inherit, below), whatever the preference.
+static int PreferredTone;
+enum { PREFERRED_IN = 4, PREFERRED_OF = 5 };
+
+static int RandomTone() {
+    if (PreferredTone >= 1 && PreferredTone <= SKIN_TONE_COUNT && Random(PREFERRED_OF) < PREFERRED_IN)
+        return PreferredTone;
+    return (int)Random(SKIN_TONE_COUNT) + 1;
+}
 
 // The Virtual Villagers patcher's rule (skin_tone_rules.h vvfp_skin_tone_inherit): `father`, `mother` 1..10, anything
 // else for not known.
@@ -816,7 +830,9 @@ static unsigned Shift(unsigned mask) {
     return n;
 }
 
-// ---------------------------------------------------------------- the recolour (vfskin.recolour, one pixel)
+// ---------------------------------------------------------------- the recolour (patcher/vf1_skin_art.py, one row)
+// The Virtual Villagers Fun Patcher's method, number for number (its vv_skin_tone_art.py shade / recolour /
+// tone_scales / oklch_to_rgb; tests/test_skin_tone_draw.py holds these pixels to vf1_skin_art.py's on the real sheets).
 static double CubeRoot(double v) {
     if (v <= 0) return 0;
     double x = v < 0.008 ? 0.2 : (v < 0.125 ? 0.4 : 0.8);
@@ -826,6 +842,14 @@ static double CubeRoot(double v) {
         x = next;
     }
     return x;
+}
+
+static double Lightness(unsigned r, unsigned g, unsigned b) {       // OKLab lightness of an 8-bit colour
+    const double lin[3] = { SkinLinear[r], SkinLinear[g], SkinLinear[b] };
+    double L = 0;
+    for (int i = 0; i < 3; ++i)
+        L += SkinToLab[0][i] * CubeRoot(SkinToLms[i][0] * lin[0] + SkinToLms[i][1] * lin[1] + SkinToLms[i][2] * lin[2]);
+    return L;
 }
 
 static bool Linear(double L, double chroma, const SkinTone &t, double out[3]) {
@@ -852,46 +876,119 @@ static unsigned Stored(double light) {
     return lo;
 }
 
-static unsigned Recolour(unsigned r, unsigned g, unsigned b, const SkinTone &t) {
-    const double lin[3] = { SkinLinear[r], SkinLinear[g], SkinLinear[b] };
-    double L = 0;
-    for (int i = 0; i < 3; ++i)
-        L += SkinToLab[0][i] * CubeRoot(SkinToLms[i][0] * lin[0] + SkinToLms[i][1] * lin[1] + SkinToLms[i][2] * lin[2]);
-    if (L > SkinKnee) L = SkinKnee + (L - SkinKnee) * SkinKeep;
-    const double offset = L - SkinMid;
-    double light = t.L + (offset < 0 ? offset * t.down : offset * t.up);
-    if (light < SkinFloor) light = SkinFloor;
-    if (light > SkinCeil) light = SkinCeil;
-    double depth = -offset / SkinDown;
-    if (depth < 0) depth = 0;
-    if (depth > 1) depth = 1;
-    double chroma = t.chroma * (1 + SkinShadowChroma * depth);
+static double Min(double a, double b) { return a < b ? a : b; }
+static double Max(double a, double b) { return a > b ? a : b; }
+
+// oklch_to_rgb: the hue always kept; chroma gives way first, never below `floor`, then lightness moves toward `toward`.
+static unsigned ToRgb(double L, double c, const SkinTone &t, double floor, double toward) {
     double out[3];
-    if (!Linear(light, chroma, t, out)) {
-        chroma = t.chroma;
-        if (!Linear(light, chroma, t, out)) {
-            double far_ = light, near_ = t.L;
-            for (int i = 0; i < 12; ++i) {
-                double mid = (far_ + near_) / 2;
-                if (Linear(mid, chroma, t, out)) near_ = mid; else far_ = mid;
-            }
-            Linear(near_, chroma, t, out);
+    floor = Min(floor, c);
+    if (!Linear(L, floor, t, out)) {
+        double lo = L, hi = toward;
+        for (int i = 0; i < 14; ++i) {
+            double mid = (lo + hi) / 2;
+            if (Linear(mid, floor, t, out)) hi = mid; else lo = mid;
         }
+        L = hi;
     }
+    if (!Linear(L, c, t, out)) {
+        double lo = floor, hi = c;
+        for (int i = 0; i < 14; ++i) {
+            double mid = (lo + hi) / 2;
+            if (Linear(L, mid, t, out)) lo = mid; else hi = mid;
+        }
+        c = lo;
+    }
+    Linear(L, c, t, out);
     unsigned v[3];
     for (int i = 0; i < 3; ++i) v[i] = Stored(out[i] < 0 ? 0 : (out[i] > 1 ? 1 : out[i]));
     return v[0] | v[1] << 8 | v[2] << 16;
 }
 
-struct Memo { unsigned key, value; };
-enum { MEMO_SIZE = 4096 };
-static Memo Memos[SKIN_TONE_COUNT + 1][MEMO_SIZE];
+// One row of cells: each skin colour once, with how many skin pixels have it (the percentiles count pixels).
+struct Colour { unsigned key; unsigned count; double light; unsigned value; };
+enum { COLOUR_BITS = 17, COLOUR_SLOTS = 1 << COLOUR_BITS, COLOUR_MOST = COLOUR_SLOTS / 4 * 3 };
+static Colour Colours[COLOUR_SLOTS];
+static unsigned ColourOrder[COLOUR_SLOTS];
+static unsigned ColourCount;
 
-static unsigned RecolourKept(unsigned r, unsigned g, unsigned b, unsigned tone) {
-    unsigned key = (r | g << 8 | b << 16) + 1;
-    Memo &m = Memos[tone][(key * 2654435761u) >> 20];
-    if (m.key != key) { m.value = Recolour(r, g, b, SkinTones[tone]); m.key = key; }
-    return m.value;
+static void ClearColours() {
+    for (unsigned k = 0; k < ColourCount; ++k) Colours[ColourOrder[k]].key = 0;
+    ColourCount = 0;
+}
+
+static Colour *FindColour(unsigned rgb, bool add) {
+    const unsigned key = rgb + 1;
+    unsigned at = (key * 2654435761u) >> (32 - COLOUR_BITS);
+    for (;;) {
+        Colour &c = Colours[at];
+        if (c.key == key) return &c;
+        if (!c.key) {
+            if (!add || ColourCount >= COLOUR_MOST) return 0;
+            c.key = key;
+            c.count = 0;
+            c.light = Lightness(rgb & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 16) & 0xFF);
+            ColourOrder[ColourCount++] = at;
+            return &c;
+        }
+        at = (at + 1) & (COLOUR_SLOTS - 1);
+    }
+}
+
+static bool Lighter(unsigned a, unsigned b) { return Colours[a].light > Colours[b].light; }
+
+static void SiftDown(unsigned *o, unsigned root, unsigned end) {
+    while (2 * root + 1 < end) {
+        unsigned child = 2 * root + 1;
+        if (child + 1 < end && Lighter(o[child + 1], o[child])) ++child;
+        if (!Lighter(o[child], o[root])) return;
+        unsigned t = o[root]; o[root] = o[child]; o[child] = t;
+        root = child;
+    }
+}
+
+static void SortColours() {        // ColourOrder by lightness, darkest first (a heap sort: no library)
+    unsigned *o = ColourOrder;
+    const unsigned n = ColourCount;
+    for (unsigned start = n / 2; start-- > 0;) SiftDown(o, start, n);
+    for (unsigned end = n; end-- > 1;) {
+        unsigned t = o[0]; o[0] = o[end]; o[end] = t;
+        SiftDown(o, 0, end);
+    }
+}
+
+static double LightAt(unsigned index) {       // the index-th of the row's skin lightnesses, darkest first
+    unsigned seen = 0;
+    for (unsigned k = 0; k < ColourCount; ++k) {
+        seen += Colours[ColourOrder[k]].count;
+        if (index < seen) return Colours[ColourOrder[k]].light;
+    }
+    return Colours[ColourOrder[ColourCount - 1]].light;
+}
+
+static double Percentile(unsigned pixels, unsigned q) {         // _percentile: between neighbours in a straight line
+    const double at = (double)((pixels - 1) * q) / 100;
+    const unsigned lo = (unsigned)at, hi = lo + 1 < pixels ? lo + 1 : pixels - 1;
+    const double a = LightAt(lo), b = LightAt(hi);
+    return a + (b - a) * (at - lo);
+}
+
+// tone_scales and shade: every colour of the row in tone t, the row's middle skin `mid`, its reach `down` and `up`.
+static void ShadeColours(const SkinTone &t, double mid, double down, double up) {
+    down *= SkinShading;
+    up *= SkinShading;
+    const double sDown0 = Max(Min(1.0, (t.L - SkinFloor) / Max(down, 1e-6)), 0.0);
+    const double sUp0 = Max(Min(1.0, (SkinCeil - t.L) / Max(up, 1e-6)), 0.0);
+    const double moreUp = Min(1 + SkinGive * (1 - sDown0), (SkinCeil - t.L) / Max(up, 1e-6));
+    const double moreDown = Min(1 + SkinGive * (1 - sUp0), (t.L - SkinFloor) / Max(down, 1e-6));
+    const double sDown = sUp0 < 1 ? moreDown : sDown0, sUp = sDown0 < 1 ? moreUp : sUp0;
+    for (unsigned k = 0; k < ColourCount; ++k) {
+        Colour &c = Colours[ColourOrder[k]];
+        const double offset = (c.light - mid) * SkinShading;
+        const double light = Min(Max(t.L + (offset < 0 ? offset * sDown : offset * sUp), SkinFloor), SkinCeil);
+        const double depth = Min(Max(-offset / Max(down, 1e-6), 0.0), 1.0);
+        c.value = ToRgb(light, t.chroma * (1 + SkinShadowChroma * depth), t, SkinChromaFloor * t.chroma, t.L);
+    }
 }
 
 // ---------------------------------------------------------------- the recoloured rows
@@ -928,7 +1025,32 @@ static SdlSurface *MakeRow(int i, const SdlSurface *from, int cellHeight, int ro
     const Sheet &s = Sheets[i];
     const unsigned rs = Shift(f->r), gs = Shift(f->g), bs = Shift(f->b), as = Shift(f->a);
     const unsigned keep = ~(f->r | f->g | f->b);
-    for (int y = 0; y < cellHeight; ++y) {
+    // 1. the row's skin colours, each with how many skin pixels have it
+    unsigned pixels = 0;
+    bool ok = true;
+    for (int y = 0; y < cellHeight && ok; ++y) {
+        const int sy = row * cellHeight + y;
+        const unsigned *in = (const unsigned *)((const unsigned char *)from->pixels + sy * from->pitch);
+        const unsigned char *skin = s.skin + (unsigned)sy * s.stride;
+        for (int x = 0; x < from->w; ++x) {
+            const unsigned p = in[x];
+            if ((skin[x >> 3] >> (7 - (x & 7))) & 1 && (!f->a || (p >> as) & 0xFF)) {
+                Colour *c = FindColour(((p >> rs) & 0xFF) | ((p >> gs) & 0xFF) << 8 | ((p >> bs) & 0xFF) << 16, true);
+                if (!c) { ok = false; break; }
+                ++c->count;
+                ++pixels;
+            }
+        }
+    }
+    // 2. the row's middle skin and its reach (2nd, 50th, 98th percentiles), and each colour in the tone
+    if (ok && pixels) {
+        SortColours();
+        const double lo = Percentile(pixels, SkinPercentiles[0]), mid = Percentile(pixels, SkinPercentiles[1]),
+                     hi = Percentile(pixels, SkinPercentiles[2]);
+        ShadeColours(SkinTones[tone], mid, mid - lo, hi - mid);
+    }
+    // 3. the copy: the skin in the tone, everything else (and all alpha) as it is
+    for (int y = 0; y < cellHeight && ok; ++y) {
         const int sy = row * cellHeight + y;
         const unsigned *in = (const unsigned *)((const unsigned char *)from->pixels + sy * from->pitch);
         unsigned *out = (unsigned *)((unsigned char *)made->pixels + y * made->pitch);
@@ -936,13 +1058,19 @@ static SdlSurface *MakeRow(int i, const SdlSurface *from, int cellHeight, int ro
         for (int x = 0; x < from->w; ++x) {
             unsigned p = in[x];
             if ((skin[x >> 3] >> (7 - (x & 7))) & 1 && (!f->a || (p >> as) & 0xFF)) {
-                unsigned c = RecolourKept((p >> rs) & 0xFF, (p >> gs) & 0xFF, (p >> bs) & 0xFF, tone);
+                const unsigned c = FindColour(((p >> rs) & 0xFF) | ((p >> gs) & 0xFF) << 8 | ((p >> bs) & 0xFF) << 16,
+                                              false)->value;
                 p = (p & keep) | (c & 0xFF) << rs | ((c >> 8) & 0xFF) << gs | ((c >> 16) & 0xFF) << bs;
             }
             out[x] = p;
         }
     }
+    ClearColours();
     __asm { fldcw control }
+    if (!ok) {                     // more colours than the table holds: this row is drawn as the game draws it
+        FreeSurface(made);
+        return 0;
+    }
     ++VF1Skin_Status.made;
     return made;
 }
@@ -1718,6 +1846,13 @@ static bool SettingOn() {
     return GetPrivateProfileIntW(L"Patches", L"SkinTones", 0, path) == 1;
 }
 
+static int PreferredSetting() {
+    wchar_t path[MAX_PATH];
+    Append(path, MAX_PATH, Folder, L"settings.ini");
+    const unsigned tone = GetPrivateProfileIntW(L"SkinTones", L"PreferredTone", 0, path);
+    return tone >= 1 && tone <= SKIN_TONE_COUNT ? (int)tone : 0;
+}
+
 extern "C" __declspec(dllexport) int __cdecl VF1Skin_Startup() {
     static bool started = false;
     if (started) return (int)VF1Skin_Status.installed;
@@ -1739,6 +1874,8 @@ extern "C" __declspec(dllexport) int __cdecl VF1Skin_Startup() {
     bool on = SettingOn();
     VF1Skin_Status.requested = on ? 1u : 0u;
     if (!on) return 0;
+    PreferredTone = PreferredSetting();
+    VF1Skin_Status.preferred = (unsigned)PreferredTone;
     if (!PinsMatch()) { Log("the executable could not be proved: installing nothing"); return 0; }
     HMODULE sdl = GetModuleHandleW(L"SDL2.dll");
     if (sdl) {
