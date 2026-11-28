@@ -45,11 +45,12 @@ PAGE_EXECUTE_READWRITE = 0x40
 
 
 class SkinEmu(pe.Emu):
-    def __init__(self, game: Path, dll: Path, *, pixels, wanted, setting: int = 1) -> None:
+    def __init__(self, game: Path, dll: Path, *, pixels, wanted, setting: int = 1, preferred: int = 0) -> None:
         """`pixels(name) -> (width, height, rgba bytes)`; `wanted`: the sheets whose pixels are needed (the others are
         surfaces with no pixels: nothing may read them)."""
         self.wanted = set(wanted)
         self.setting = setting
+        self.preferred = preferred
         self.opened: list[str] = []
         self.freed: list[int] = []
         self.made: dict[int, tuple[int, int]] = {}
@@ -189,8 +190,10 @@ class SkinEmu(pe.Emu):
         return len(text), 12
 
     def _imp_GetPrivateProfileIntW(self):
-        _section, key, default, _path = self._stack(4)
-        return (self.setting if self._wstr(key) == "SkinTones" else default), 16
+        section, key, default, _path = self._stack(4)
+        name = (self._wstr(section), self._wstr(key))
+        return {("Patches", "SkinTones"): self.setting, ("SkinTones", "PreferredTone"): self.preferred}.get(
+            name, default), 16
 
     def _file(self, path: str) -> bytes | None:
         if path in self.files_override:
@@ -306,7 +309,7 @@ class SkinEmu(pe.Emu):
 
     def status(self) -> dict:
         names = ("magic", "version", "requested", "resolved", "installed", "entries", "sheets", "refused", "rows",
-                 "bytes", "swapped", "made", "lastLoad", "lastSave", "babies")
+                 "bytes", "swapped", "made", "lastLoad", "lastSave", "babies", "preferred")
         return dict(zip(names, struct.unpack(f"<{len(names)}I",
                                              self.u.mem_read(self.exports["VF1Skin_Status"], 4 * len(names)))))
 

@@ -37,6 +37,7 @@ import vf1_move_slot as move_slot  # noqa: E402
 import vf1_game_mechanics as game_mechanics  # noqa: E402
 import vf1_game_speed as game_speed  # noqa: E402
 import vf1_save_backup as save_backup  # noqa: E402
+import vf1_picture_image as pi  # noqa: E402
 from vf1_tree_editor_tools import scrollable_frame  # noqa: E402
 
 APP_DISPLAY_NAME = "Virtual Families 1 Fun Patcher"
@@ -71,6 +72,14 @@ OWNERS_DEFAULT_OFF_SETTING_IDS = frozenset({"UpTo28Children", "UseUnicodeFont"})
 # Render Unicode with In-Game Fonts on, Use Unicode Font off).
 OWNERS_DEFAULT_PREFERRED_IDS = frozenset({"RenderUnicodeInGameFonts"})
 SETTING_CATEGORY_LOOKUP = {key: (label, color) for key, label, color in SETTING_CATEGORIES}
+# Skin Tones' one setting (the owner, 2026-11-28), shown under the patch only while it is ticked. VF1 has no per-patch
+# settings window, so it is a choice right below the patch, with its own "?".
+SKIN_TONES_ID = "SkinTones"
+SKIN_TONE_PREFERENCES = ("No preference",) + tuple(
+    f"S{k} {name}" for k, name in enumerate(("Porcelain", "Fair", "Light golden", "Light olive", "Copper", "Warm brown",
+                                             "Medium brown", "Deep brown", "Dark", "Ebony"), start=1))
+# The "?" guides that show the ten tones on a woman and a man, made from the player's own game pictures.
+SKIN_PREVIEW_HELP_KEYS = frozenset({"patch:SkinTones", "skin_tone_preference"})
 
 
 def clean_path_text(value: str | None) -> str:
@@ -256,6 +265,7 @@ def build_apply_namespace(
     dry_run: bool = False,
     settings: dict[str, patcher.PatchSetting] | None = None,
     selected_settings: set[str] | None = None,
+    skin_tone_preference: int | None = None,
 ) -> Namespace:
     settings = settings or {}
     selected_settings = selected_settings or set()
@@ -282,6 +292,7 @@ def build_apply_namespace(
         exe_name=None,
         dll=None,
         progress_callback=None,
+        skin_tone_preference=skin_tone_preference,
     )
 
 
@@ -739,6 +750,10 @@ class VF1PatcherGUI:
         self.saves_found_var = tk.StringVar(value="")
         self.help_keys: set[str] = set()
         self._help_windows: dict[str, tk.Toplevel] = {}
+        # Skin Tones' Preferred skin tone (written to settings.ini [SkinTones] by Enable/Disable Patches)
+        self.skin_tone_preference_var = tk.StringVar(value=SKIN_TONE_PREFERENCES[0])
+        self.skin_tone_preference_row: ttk.Frame | None = None
+        self._skin_preview: dict[str, object] = {}
 
         self.settings: dict[str, patcher.PatchSetting] = {}
         self.setting_vars: dict[str, tk.BooleanVar] = {}
@@ -1095,6 +1110,8 @@ class VF1PatcherGUI:
                     details = setting_description_text(
                         setting, settings, self.setting_prerequisites.get(setting.id, frozenset()))
                     self._markup_label(item, details).grid(row=1, column=0, sticky="ew", padx=(22, 0))
+                    if setting.id == SKIN_TONES_ID:
+                        self._skin_tone_preference_row(item, var)
                     row += 1
             for setting_id, var in self.setting_vars.items():
                 var.trace_add("write", lambda *_args, setting_id=setting_id: self._on_setting_toggled(setting_id))
@@ -1103,6 +1120,41 @@ class VF1PatcherGUI:
         self._append_log(f"Loaded manifest settings: {manifest_path}\n")
         self._auto_populate_output_dir()
         return True
+
+    def _skin_tone_preference_row(self, item: ttk.Frame, var: tk.BooleanVar) -> None:
+        """Skin Tones' Preferred skin tone, right below the patch, shown only while the patch is ticked. Its first value
+        is the modded folder's own (settings.ini [SkinTones]), so changing other patches never resets it."""
+        output = clean_path_text(self.output_dir_var.get())
+        ini = Path(output) / patcher.SETTINGS_REL if output else None
+        try:
+            current = patcher.skin_tone_preference(ini.read_bytes() if ini is not None and ini.is_file() else None)
+        except OSError:
+            current = 0
+        self.skin_tone_preference_var.set(SKIN_TONE_PREFERENCES[current])
+        line = ttk.Frame(item)
+        ttk.Label(line, text="Preferred skin tone:").pack(side="left")
+        box = ttk.Combobox(line, textvariable=self.skin_tone_preference_var, values=SKIN_TONE_PREFERENCES,
+                           state="readonly", width=18)
+        box.pack(side="left", padx=(6, 0))
+        self.busy_controls.append(box)
+        self._help_button(line, "skin_tone_preference").pack(side="left", padx=(3, 0))
+        self.skin_tone_preference_row = line
+
+        def show(*_args) -> None:
+            try:
+                if var.get():
+                    line.grid(row=2, column=0, sticky="w", padx=(22, 0), pady=(4, 0))
+                else:
+                    line.grid_remove()
+            except tk.TclError:
+                pass
+        var.trace_add("write", show)
+        show()
+
+    def skin_tone_preference(self) -> int:
+        """0 for No preference, else the tone 1..10."""
+        value = self.skin_tone_preference_var.get()
+        return SKIN_TONE_PREFERENCES.index(value) if value in SKIN_TONE_PREFERENCES else 0
 
     def _on_settings_canvas_configure(self, event: tk.Event) -> None:
         self.settings_canvas.itemconfigure(self.settings_window, width=event.width)
@@ -1389,6 +1441,9 @@ class VF1PatcherGUI:
                 dry_run=dry_run,
                 settings=self.settings,
                 selected_settings=self.selected_settings(),
+                # only while Skin Tones is ticked: otherwise what the folder holds is kept as it is
+                skin_tone_preference=(self.skin_tone_preference() if SKIN_TONES_ID in self.selected_settings()
+                                      else None),
             )
         except patcher.PatchError as exc:
             self._set_error(str(exc))
@@ -1712,6 +1767,8 @@ class VF1PatcherGUI:
             anchor="w", pady=(0, 8))
         for line in guide.lines:
             ttk.Label(frame, text=line, wraplength=480, justify="left").pack(anchor="w", pady=(0, 6))
+        if key in SKIN_PREVIEW_HELP_KEYS:
+            self._skin_tone_preview(frame)
         close = ttk.Button(frame, text="Close", command=window.destroy)
         close.pack(anchor="e", pady=(8, 0))
         window.bind("<Escape>", lambda _event: window.destroy())
@@ -1719,6 +1776,74 @@ class VF1PatcherGUI:
         close.focus_set()
         self._help_windows[key] = window
         return window
+
+    def _skin_tone_preview_folder(self) -> Path | None:
+        for value in (self.game_dir_var.get(), self.output_dir_var.get()):
+            text = clean_path_text(value)
+            if text and (Path(text) / "Images").is_dir():
+                return Path(text)
+        return None
+
+    def _skin_tone_preview(self, frame: ttk.Frame) -> ttk.Label:
+        """Skin Tones' preview in a "?" guide: a woman (top) and a man in S1..S10, left to right, standing and facing
+        you, made in the background from the game folder's own pictures (vf1_skin_art.preview); nothing is shipped."""
+        import vf1_skin_art as skin_art
+        label = ttk.Label(frame, text="Making the picture of the ten tones from your game's own pictures...",
+                          wraplength=480, justify="left")
+        label.pack(anchor="w", pady=(4, 6))
+        folder = self._skin_tone_preview_folder()
+        if folder is None:
+            label.configure(text="Choose your Virtual Families folder to see the ten tones here, drawn from your "
+                                 "game's own pictures.")
+            return label
+        key = str(folder.resolve())
+
+        def show(result: object) -> None:
+            try:
+                if not label.winfo_exists():
+                    return
+                if isinstance(result, pi.Image):
+                    photo = result.scaled(2).photo(tk, label)
+                    label.configure(image=photo, text="")
+                    label.image = photo            # type: ignore[attr-defined]  # keep it while the label lives
+                    label.master.update_idletasks()
+                    window = label.winfo_toplevel()
+                    if isinstance(window, tk.Toplevel):
+                        self._center_dialog(window)
+                else:
+                    label.configure(text=str(result))
+            except tk.TclError:
+                pass
+
+        done = self._skin_preview.get(key)
+        if done is not None:
+            show(done)
+            return label
+
+        box: list[object] = []
+
+        def work() -> None:            # the background thread never touches Tk: the window polls for the result
+            try:
+                result: object = skin_art.preview(folder)
+            except (pi.PictureError, OSError, ValueError) as exc:
+                result = f"The picture of the ten tones could not be made: {exc}"
+            if isinstance(result, pi.Image):
+                self._skin_preview[key] = result
+            box.append(result)
+
+        def poll() -> None:
+            try:
+                if not label.winfo_exists():
+                    return
+                if box:
+                    show(box[0])
+                else:
+                    label.after(100, poll)
+            except tk.TclError:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+        label.after(100, poll)
+        return label
 
     def _center_dialog(self, window: tk.Toplevel) -> None:
         window.update_idletasks()

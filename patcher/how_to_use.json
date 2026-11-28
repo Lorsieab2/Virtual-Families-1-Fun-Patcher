@@ -176,13 +176,13 @@
     {
       "ids": ["SkinTones"],
       "guide": [
-        "Gives everyone in the family a skin tone, drawn in the game: one of ten, S1 Porcelain to S10 Ebony, or Game's own, the game's own skin.",
-        "All bare skin is toned: in the house, in portraits, in Random Event pictures and in the Family Tree. A carried baby shows the baby's own tone. Hair, eyes and clothes never change.",
-        "Founders, newcomers and everyone already in your family when you turn it on get a random tone.",
-        "A baby gets its tone at the conception, usually close to the average of its parents' tones. Twins and triplets share one.",
+        "Gives everyone in the family a skin tone, drawn in the game: S1 Porcelain to S10 Ebony, or Game's own. They look exactly like the Virtual Villagers patcher's tones.",
+        "All bare skin is toned, in the house, portraits, Random Event pictures and the Family Tree; a carried baby shows its own tone. Hair, eyes and clothes never change.",
+        "Founders, newcomers and your family the first time get a random tone, or mostly your Preferred skin tone (below the patch while it is ticked).",
+        "A baby's tone comes from its parents at the conception; about 1 baby in 20 is quite different from both, as in real life.",
         "To change someone's tone: Upgrades, Villager Cheats, Change Appearance, Skin tone (needs Cheat Upgrades). Reset to birth tone puts back the tone they were born with.",
-        "Each change is written to the Family History log as Appearance changed, when that log is on.",
-        "On by default. Not yet tested in a running game; your save file itself is never changed."
+        "Off by default; Select All Patches and Owner's Defaults tick it. Not yet tested in a running game; your save file itself is never changed.",
+        "The picture shows the ten tones on a woman and a man, made from your own game's pictures."
       ]
     },
     {
@@ -484,6 +484,16 @@
         "Export... saves each one picked; Delete... asks once (No does nothing) and moves them to the Recycle Bin.",
         "Download from GitHub... adds translations from GitHub.",
         "Share on GitHub... asks first (No does nothing) and needs a GitHub account and a credit name you type. Email addresses are never saved and are rejected from translation files."
+      ]
+    },
+    "skin_tone_preference": {
+      "title": "Preferred skin tone",
+      "guide": [
+        "Shown only while Skin Tones is ticked. No preference: everyone the game makes at random gets a random tone.",
+        "Pick one of the ten tones: 4 in 5 of the people the game makes at random (founders, newcomers, Adoption and proposal candidates, your family the first time) get it; the rest, one of the other nine.",
+        "Babies always take their tone from their parents, whatever you pick here.",
+        "It is saved when you click Enable/Disable Patches, and works from the next time the game starts.",
+        "The picture shows the ten tones on a woman and a man, made from your own game's pictures."
       ]
     }
   }

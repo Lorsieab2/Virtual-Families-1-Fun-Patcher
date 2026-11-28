@@ -207,6 +207,45 @@ def test_an_arrival_is_random_and_a_copy_of_someone_keeps_their_tone(built):
     assert w.tone(2)[0] == 2
 
 
+# ----------------------------------------------------------------- the Preferred skin tone (the owner, 2026-11-28)
+def test_a_preferred_tone_goes_to_about_four_in_five_randomly_made_people_never_to_babies(built):
+    """settings.ini [SkinTones] PreferredTone (the Virtual Villagers patcher's rule): 80 in 100 of the people given a
+    random tone (the family on the first load, every newcomer) get it, the other 20 one of the OTHER nine tones, so
+    exactly 4 in 5 have it; a baby still inherits."""
+    cpp = (ROOT / "native" / "vf1skin" / "vf1skin.cpp").read_text(encoding="utf-8")
+    rule = cpp[cpp.index("static int RandomTone() {"):cpp.index("}", cpp.index("static int RandomTone() {"))]
+    assert "enum { PREFERRED_IN = 80, PREFERRED_OF = 100 };" in cpp
+    assert "Random(PREFERRED_OF) < PREFERRED_IN) return PreferredTone;" in rule
+    assert "Random(SKIN_TONE_COUNT - 1) + 1;" in rule and "tone >= PreferredTone ? tone + 1 : tone" in rule
+    w = family(built, preferred=6)
+    assert w.status()["preferred"] == 6
+    w.load()
+    people = [w.tone(s)[0] for s in range(4)]
+    for slot in range(5, 30):
+        w.set_villager(slot, f"Visitor{slot}", slot % 2, years=30, head=slot, body=slot)
+        t = w.tone(slot)
+        assert t[0] == t[1]                                       # a newcomer's tone is also their birth tone
+        people.append(t[0])
+    assert all(1 <= t <= 10 for t in people)
+    sixes = people.count(6)
+    assert 0.6 * len(people) <= sixes < len(people), people     # about 4 in 5, never everybody by force
+    # babies: the parents' rule only (here both parents Porcelain: Porcelain or Fair, 5% any)
+    w.set_tone(0, 1)
+    w.set_tone(1, 1)
+    got = []
+    for _trial in range(20):
+        fresh_pregnancy(w)
+        assert w.conceive(rolls=[99, 99, 0], names=["Kit"]) == 1
+        got.append(w.tone(w.e.r32(w.state + 0x1B120))[0])
+    assert sum(1 for t in got if t <= 2) >= 17 and got.count(6) <= 2, got
+
+
+@pytest.mark.parametrize("value,kept", [(0, 0), (11, 0), (10, 10)])
+def test_the_preferred_tone_setting_is_read_and_held_to_the_ten(built, value, kept):
+    w = world(built, preferred=value)
+    assert w.installed == 1 and w.status()["preferred"] == kept
+
+
 # ----------------------------------------------------------------- renames and the tree
 def test_a_rename_keeps_the_tone(built):
     w = family(built)

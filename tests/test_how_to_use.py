@@ -27,7 +27,7 @@ CONTROLS = {
     "patch_selection_settings", "dry_run", "enable_disable",
     "restore_backup", "check_for_updates", "back_up_saves", "restore_saves",
     "rename_family", "copy_player_slot", "game_speed", "game_mechanics", "family_tree", "picture_maker",
-    "game_text", "unicode_font", "translations", "revive_backfill",
+    "game_text", "unicode_font", "translations", "revive_backfill", "skin_tone_preference",
 }
 
 # Words a player never sees in the patcher or the game.
@@ -168,7 +168,11 @@ def labels(window):
 
 
 def test_every_control_guide_has_a_question_mark_in_the_window(app):
-    assert app.help_keys == CONTROLS
+    # Skin Tones' Preferred skin tone is a row of the patch list: its "?" comes with the manifest's patches
+    assert app.help_keys == CONTROLS - {"skin_tone_preference"}
+    app.manifest_var.set(str(MANIFEST))
+    assert app.load_manifest_settings()
+    assert app.help_keys - {k for k in app.help_keys if k.startswith("patch:")} == CONTROLS
 
 
 def test_every_patch_row_has_its_own_question_mark(app):
