@@ -13,8 +13,9 @@ The owner's decisions (2026-11-28):
    2nd, 50th and 98th percentiles of the skin's OKLab lightness; SHADING 0.65, L_FLOOR 0.14, L_CEIL 0.985, GIVE 0.3,
    CHROMA_FLOOR 0.78, SHADOW_CHROMA 0.22. `patcher/vf1_skin_art.py` is the Python copy, `MakeRow` in vf1skin.cpp the C.
 2. **Default:** off for players (everyone has the game's own skin); on in Select All Patches and Owner's Defaults.
-3. **Preferred skin tone:** No preference (random tones, as before) or one of the ten; with one, about 4 in 5
-   (`Random(5) < 4`) of the randomly made family members get it and the rest a random tone. Babies always inherit.
+3. **Preferred skin tone:** No preference (random tones, as before) or one of the ten; with one, 80 in 100
+   (`Random(100) < 80`) of the randomly made family members get it and the other 20 one of the OTHER nine tones
+   (never the chosen one), so exactly 4 in 5 have it: the Virtual Villagers patcher's rule. Babies always inherit.
    Shown right below the patch while it is ticked (VF1 has no per-patch settings window); written by Enable/Disable
    Patches to `settings.ini` `[SkinTones] PreferredTone=0..10` (`--skin-tone-preference` on the command line; not
    given: kept as it is).

@@ -209,8 +209,14 @@ def test_an_arrival_is_random_and_a_copy_of_someone_keeps_their_tone(built):
 
 # ----------------------------------------------------------------- the Preferred skin tone (the owner, 2026-11-28)
 def test_a_preferred_tone_goes_to_about_four_in_five_randomly_made_people_never_to_babies(built):
-    """settings.ini [SkinTones] PreferredTone: with one of the ten tones, about 4 in 5 of the people given a random tone
-    (the family on the first load, every newcomer) get it and the rest a random tone; a baby still inherits."""
+    """settings.ini [SkinTones] PreferredTone (the Virtual Villagers patcher's rule): 80 in 100 of the people given a
+    random tone (the family on the first load, every newcomer) get it, the other 20 one of the OTHER nine tones, so
+    exactly 4 in 5 have it; a baby still inherits."""
+    cpp = (ROOT / "native" / "vf1skin" / "vf1skin.cpp").read_text(encoding="utf-8")
+    rule = cpp[cpp.index("static int RandomTone() {"):cpp.index("}", cpp.index("static int RandomTone() {"))]
+    assert "enum { PREFERRED_IN = 80, PREFERRED_OF = 100 };" in cpp
+    assert "Random(PREFERRED_OF) < PREFERRED_IN) return PreferredTone;" in rule
+    assert "Random(SKIN_TONE_COUNT - 1) + 1;" in rule and "tone >= PreferredTone ? tone + 1 : tone" in rule
     w = family(built, preferred=6)
     assert w.status()["preferred"] == 6
     w.load()

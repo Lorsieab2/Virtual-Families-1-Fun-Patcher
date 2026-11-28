@@ -235,15 +235,18 @@ static unsigned Random(unsigned n) {        // xorshift32, 0..n-1
 }
 
 // The patcher's "Preferred skin tone" (settings.ini [SkinTones] PreferredTone, the owner, 2026-11-28): 0 no preference,
-// else 1..10. With one, about 4 in 5 randomly made family members get it and the rest a random tone; babies always
+// else 1..10. With one, 4 in 5 randomly made family members get it and the rest one of the other nine; babies always
 // inherit (Inherit, below), whatever the preference.
 static int PreferredTone;
-enum { PREFERRED_IN = 4, PREFERRED_OF = 5 };
+enum { PREFERRED_IN = 80, PREFERRED_OF = 100 };
 
+// The Virtual Villagers patcher's rule: 80 in 100 get the preferred tone, the other 20 one of the OTHER nine (never the
+// preferred one), so exactly 4 in 5 have it.
 static int RandomTone() {
-    if (PreferredTone >= 1 && PreferredTone <= SKIN_TONE_COUNT && Random(PREFERRED_OF) < PREFERRED_IN)
-        return PreferredTone;
-    return (int)Random(SKIN_TONE_COUNT) + 1;
+    if (PreferredTone < 1 || PreferredTone > SKIN_TONE_COUNT) return (int)Random(SKIN_TONE_COUNT) + 1;
+    if (Random(PREFERRED_OF) < PREFERRED_IN) return PreferredTone;
+    const int tone = (int)Random(SKIN_TONE_COUNT - 1) + 1;
+    return tone >= PreferredTone ? tone + 1 : tone;
 }
 
 // The Virtual Villagers patcher's rule (skin_tone_rules.h vvfp_skin_tone_inherit): `father`, `mother` 1..10, anything
